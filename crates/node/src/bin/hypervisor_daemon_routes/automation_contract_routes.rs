@@ -1335,6 +1335,25 @@ pub(crate) fn automation_runs_for_request(
         .collect())
 }
 
+/// The System a run serves, for the Work projection (R-240 journey WP-B): installation revision ref →
+/// its `scope_ref`, for the installations scoped to a System. A run serves the System its exact
+/// installation revision names (the revision is frozen in the run's resolution receipt); a
+/// principal-scoped installation names none.
+pub(crate) fn installation_system_scopes(
+    data_dir: &str,
+) -> std::collections::HashMap<String, String> {
+    read_record_dir(data_dir, BINDING_DIR)
+        .into_iter()
+        .filter_map(|binding| {
+            let scope = binding.get("scope_ref")?.as_str()?;
+            let revision = binding.get("revision_ref")?.as_str()?;
+            scope
+                .starts_with("system://")
+                .then(|| (revision.to_string(), scope.to_string()))
+        })
+        .collect()
+}
+
 pub(crate) async fn list_automation_runs(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -1427,10 +1446,12 @@ pub(crate) fn legacy_automation_graph(
 
 /// Pure reads: the principal's template for exactly this graph, its spec for this activation kind
 /// (a spec is ONE standing activation), and that spec's enabled HEAD binding (none of its
-/// successors). `None` when any link is missing.
+/// successors) installed onto exactly `scope_ref` — the automation's System, else the principal
+/// (WP-B). `None` when any link is missing.
 pub(crate) fn find_chain(
     data_dir: &str,
     principal_ref: &str,
+    scope_ref: &str,
     graph_ref: &str,
     graph_hash: &str,
     activation_kind: &str,
@@ -1469,6 +1490,7 @@ pub(crate) fn find_chain(
     let binding = bindings.iter().find(|b| {
         owned(b)
             && text(b, "automation_spec_revision_ref") == spec_ref
+            && text(b, "scope_ref") == scope_ref
             && b.get("enabled") == Some(&json!(true))
             && is_head(b)
     })?;
@@ -1501,16 +1523,28 @@ fn bridge_step(label: &str, (status, Json(reply)): Reply) -> Result<Value, (Stri
 /// template, a spec for that activation over it, the INSTALLATION DECISION admitted as an owner-scoped
 /// write (its Agentgres receipt is the binding's admission receipt — a real record of the principal
 /// installing their own automation's activation, never a literal), and an enabled binding carrying it.
+/// The installation's scope is `scope_ref`: the System the automation is tied to (re-checked ACTIVE
+/// here, at install time), else the principal (WP-B).
 fn mint_chain(
     st: &DaemonState,
     identity: &super::substrate_store::RequestIdentity,
     owner_tenant: &str,
+    scope_ref: &str,
     display_name: &str,
     graph_ref: &str,
     graph_hash: &str,
     activation_kind: &str,
 ) -> Result<ManualChain, (String, String)> {
     let principal = identity.principal_ref.as_str();
+    if scope_ref.starts_with("system://") {
+        super::system_activation_routes::load_active_system_graph(&st.data_dir, scope_ref)
+            .map_err(|(code, message)| {
+                (
+                    "automation_bridge_system_not_active".to_string(),
+                    format!("the automation's System {scope_ref} is not active ({code}: {message}); nothing is installed onto it"),
+                )
+            })?;
+    }
     let template = bridge_step(
         "workflow template",
         create_workflow_template_as(
@@ -1557,7 +1591,7 @@ fn mint_chain(
         "automation_installation.self_admit",
         None,
         &json!({
-            "installed_by_principal_ref": principal, "scope_ref": principal,
+            "installed_by_principal_ref": principal, "scope_ref": scope_ref,
             "automation_spec_revision_ref": spec_ref, "automation_spec_content_hash": spec["content_hash"],
             "narrowed_activation_kinds": [activation_kind], "narrowed_authority_requirement_refs": ["scope:process.execute"],
         }),
@@ -1572,7 +1606,7 @@ fn mint_chain(
             st,
             principal,
             &json!({
-                "owner_ref": principal, "scope_ref": principal,
+                "owner_ref": principal, "scope_ref": scope_ref,
                 "automation_spec_revision_ref": spec_ref, "automation_spec_content_hash": spec["content_hash"],
                 "enabled": true, "narrowed_activation_kinds": [activation_kind], "narrowed_authority_requirement_refs": ["scope:process.execute"],
                 "admission_receipt_ref": decision.receipt_ref, "registry_status": "released",
@@ -1707,9 +1741,18 @@ pub(crate) async fn bridge_run_now(
         .unwrap_or_else(|| json!([]));
     let (graph_ref, graph_hash) = legacy_automation_graph(automation_id, &steps)
         .map_err(|m| ("automation_bridge_graph_unhashable".to_string(), m))?;
+    // WP-B: an automation tied to a System (admitted at create) installs onto THAT System; any other
+    // installs onto its principal, as before.
+    let scope_ref = automation
+        .get("system_ref")
+        .and_then(Value::as_str)
+        .filter(|s| s.starts_with("system://"))
+        .unwrap_or(identity.principal_ref.as_str())
+        .to_string();
     let chain = match find_chain(
         &st.data_dir,
         &identity.principal_ref,
+        &scope_ref,
         &graph_ref,
         &graph_hash,
         &activation_kind,
@@ -1724,6 +1767,7 @@ pub(crate) async fn bridge_run_now(
                 st,
                 &identity,
                 &owner_tenant,
+                &scope_ref,
                 name,
                 &graph_ref,
                 &graph_hash,
@@ -1906,7 +1950,7 @@ mod tests {
         put(
             BINDING_DIR,
             "bind_a",
-            json!({ "owner_ref": owner, "automation_spec_revision_ref": "automation://spec_a/revision/sha256:2", "enabled": enabled, "revision_ref": "install://automation/bind_a/revision/sha256:3", "binding_hash": "sha256:b", "predecessor_revision_ref": Value::Null }),
+            json!({ "owner_ref": owner, "scope_ref": owner, "automation_spec_revision_ref": "automation://spec_a/revision/sha256:2", "enabled": enabled, "revision_ref": "install://automation/bind_a/revision/sha256:3", "binding_hash": "sha256:b", "predecessor_revision_ref": Value::Null }),
         );
     }
 
@@ -1916,6 +1960,7 @@ mod tests {
         seed_chain(&dir, "user://alice", "sha256:steps", true);
         let chain = find_chain(
             &dir,
+            "user://alice",
             "user://alice",
             "workflow://graph/automation/auto_1",
             "sha256:steps",
@@ -1931,6 +1976,7 @@ mod tests {
         assert!(find_chain(
             &dir,
             "user://bob",
+            "user://bob",
             "workflow://graph/automation/auto_1",
             "sha256:steps",
             "manual"
@@ -1939,16 +1985,18 @@ mod tests {
         assert!(find_chain(
             &dir,
             "user://alice",
+            "user://alice",
             "workflow://graph/automation/auto_1",
             "sha256:edited",
             "manual"
         )
         .is_none());
         // A binding with a successor is not the head: the chain does not resolve through it.
-        super::super::persist_record(&dir, BINDING_DIR, "bind_b", &json!({ "owner_ref": "user://alice", "automation_spec_revision_ref": "automation://spec_a/revision/sha256:2", "enabled": false, "revision_ref": "install://automation/bind_a/revision/sha256:4", "binding_hash": "sha256:b2", "predecessor_revision_ref": "install://automation/bind_a/revision/sha256:3" })).unwrap();
+        super::super::persist_record(&dir, BINDING_DIR, "bind_b", &json!({ "owner_ref": "user://alice", "scope_ref": "user://alice", "automation_spec_revision_ref": "automation://spec_a/revision/sha256:2", "enabled": false, "revision_ref": "install://automation/bind_a/revision/sha256:4", "binding_hash": "sha256:b2", "predecessor_revision_ref": "install://automation/bind_a/revision/sha256:3" })).unwrap();
         assert!(
             find_chain(
                 &dir,
+                "user://alice",
                 "user://alice",
                 "workflow://graph/automation/auto_1",
                 "sha256:steps",
@@ -1956,6 +2004,66 @@ mod tests {
             )
             .is_none(),
             "a disabling successor retires the chain"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_chain_answers_only_for_the_scope_it_was_installed_onto_and_a_system_scope_names_the_runs_system(
+    ) {
+        // WP-B: an automation tied to a System installs onto it. The principal's own installation
+        // never answers for the System, the System's never for the principal, and the Work
+        // projection reads a run's System off its exact installation revision.
+        let dir = bridge_dir("scope");
+        seed_chain(&dir, "user://alice", "sha256:steps", true);
+        let graph = "workflow://graph/automation/auto_1";
+        assert!(find_chain(
+            &dir,
+            "user://alice",
+            "system://acme/lending",
+            graph,
+            "sha256:steps",
+            "manual"
+        )
+        .is_none());
+        super::super::persist_record(&dir, BINDING_DIR, "bind_s", &json!({ "owner_ref": "user://alice", "scope_ref": "system://acme/lending", "automation_spec_revision_ref": "automation://spec_a/revision/sha256:2", "enabled": true, "revision_ref": "install://automation/bind_s/revision/sha256:5", "binding_hash": "sha256:b5", "predecessor_revision_ref": Value::Null })).unwrap();
+        let chain = find_chain(
+            &dir,
+            "user://alice",
+            "system://acme/lending",
+            graph,
+            "sha256:steps",
+            "manual",
+        )
+        .expect("the System-scoped chain resolves for the System");
+        assert_eq!(
+            chain.binding_ref,
+            "install://automation/bind_s/revision/sha256:5"
+        );
+        let own = find_chain(
+            &dir,
+            "user://alice",
+            "user://alice",
+            graph,
+            "sha256:steps",
+            "manual",
+        )
+        .expect("the principal's own installation still resolves for the principal");
+        assert_eq!(
+            own.binding_ref,
+            "install://automation/bind_a/revision/sha256:3"
+        );
+        let scopes = installation_system_scopes(&dir);
+        assert_eq!(
+            scopes
+                .get("install://automation/bind_s/revision/sha256:5")
+                .map(String::as_str),
+            Some("system://acme/lending")
+        );
+        assert_eq!(
+            scopes.len(),
+            1,
+            "a principal-scoped installation names no System"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -1969,6 +2077,7 @@ mod tests {
         assert!(find_chain(
             &dir,
             "user://alice",
+            "user://alice",
             "workflow://graph/automation/auto_1",
             "sha256:steps",
             "manual"
@@ -1976,6 +2085,7 @@ mod tests {
         .is_some());
         assert!(find_chain(
             &dir,
+            "user://alice",
             "user://alice",
             "workflow://graph/automation/auto_1",
             "sha256:steps",
@@ -1991,6 +2101,7 @@ mod tests {
         seed_chain(&dir, "user://alice", "sha256:steps", false);
         assert!(find_chain(
             &dir,
+            "user://alice",
             "user://alice",
             "workflow://graph/automation/auto_1",
             "sha256:steps",

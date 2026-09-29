@@ -875,6 +875,26 @@ async function systemHealth(daemonUrl, systemId) {
   return stateBlock(observed ? "ready_or_proposed" : "honest_empty", observed ? null : "no_health_check_observes_system", renderTargetHealth(systemId, all, results.body.health_check_results || []));
 }
 
+// R-240 journey WP-B: the System's own work — the Work projection narrowed by system_ref, read as the
+// caller (every family is policy-filtered by its owner before the projection sees it). A run serves the
+// System its automation's installation is scoped to; each row links its run, whose link lands on the
+// run's timeline and receipts. Active and finished work are both listed; nothing is cached.
+async function systemWork(daemonUrl, systemId) {
+  const answers = await Promise.all(["active", "history"].map((view) =>
+    daemonJson(daemonUrl, "GET", `/v1/hypervisor/work-projection?view=${view}&system_ref=${encodeURIComponent(systemId)}`)));
+  const failed = answers.find((r) => r.networkError || r.status !== 200 || r.body?.ok !== true);
+  if (failed) {
+    const code = failed.networkError ? "daemon_unreachable" : refusalCodeOf(failed.body || {}, failed.status);
+    return stateBlock(stateForErrorCode(code), code, `<div class="empty" data-system-work-unavailable="1">This System's work could not be read — <code>${esc(code)}</code>. Nothing is shown in its place.</div>`);
+  }
+  const rows = answers.flatMap((a) => (Array.isArray(a.body.rows) ? a.body.rows : []).filter((r) => r.system_ref === systemId));
+  if (!rows.length) {
+    return stateBlock("honest_empty", "no_work_names_system", `<div class="empty" data-system-work-empty="1">No run names this System yet. An automation created for it (New automation → System) installs onto it, and each of its runs is listed here.</div>`);
+  }
+  const body = rows.map((r) => `<tr data-system-work-row="${esc(r.subject_ref)}"><td><code>${esc(r.subject_ref)}</code></td><td>${esc(r.subject_kind)}</td><td>${esc(r.display_facets?.activity || "—")}</td><td><a href="${esc(r.canonical_detail_route)}">Run timeline and receipts →</a></td></tr>`).join("");
+  return stateBlock("ready_or_proposed", null, `<table data-system-work="${esc(systemId)}"><thead><tr><th>Run</th><th>Kind</th><th>Activity</th><th>Proof</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
 async function renderSystemWorkspace(daemonUrl, shell, parsed) {
   const { systemId, tailPath, mode } = parsed;
   const modeLabel = (WORKSPACE_MODES.find(([m]) => m === mode) || ["", "Overview"])[1];
@@ -916,7 +936,7 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
     if (mode === "") {
       return shell(title, head + pending + parts.identity + `<h2>Read projection</h2>` + parts.projection
         + `<h2>Health</h2>` + await systemHealth(daemonUrl, systemId)
-        + `<p class="sub">Attention: owner events for your work arrive in the notification inbox (<code>/v1/hypervisor/notifications</code>); a System-scoped view waits for System subjects on runs.</p>`);
+        + `<p class="sub">Attention: owner events for your work arrive in the notification inbox (<code>/v1/hypervisor/notifications</code>); the inbox is not narrowed to one System yet — this System's runs are listed on its <a href="${esc(modeHref(tailPath, "operate"))}">Operate</a> mode.</p>`);
     }
     if (mode === "govern") {
       return shell(title, head + pending + parts.ladder + parts.actions
@@ -924,7 +944,7 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
         + handOffs([["/governance/limits?tab=checkpoints", "Checkpoints in Leases & Limits"], ["/governance/approvals", "Approvals"]]));
     }
     return shell(title, head + pending + `<h2>Evidence — genesis and lifecycle receipts, operation log</h2>` + parts.projection
-      + namedGap("Work Ledger lane by system_ref", "Run and session receipts filtered to this System")
+      + `<h2>Run receipts — this System's runs</h2>` + await systemWork(daemonUrl, systemId)
       + handOffs([["/provenance", "Provenance"], ["/evaluations", "Evaluations"]]));
   }
   if (mode === "operate") {
@@ -934,8 +954,9 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
       ? `<h2>Desired versus observed</h2><table data-system-topology="1"><thead><tr><th></th><th>State</th><th>Reason</th></tr></thead><tbody><tr><th>Desired</th>${cell("desired")}</tr><tr><th>Observed</th>${cell("observed")}</tr></tbody></table>`
       : "";
     return shell(title, head + pending + table
-      + namedGap("System subject on session create (W3 C-1)", "Sessions and automation runs attached to this System")
-      + handOffs([["/operations", "Operations"], ["/environments", "Environments"], ["/work", "Work"]]));
+      + `<h2>Runs attached to this System</h2>` + await systemWork(daemonUrl, systemId)
+      + namedGap("System subject on session create (W3 C-1)", "Sessions attached to this System — a session names no System yet (session create takes no System subject); an automation's runs do")
+      + handOffs([["/operations", "Operations"], ["/environments", "Environments"], ["/work", "Work"], ["/__ioi/automations/new", "New automation"]]));
   }
   if (mode === "design") {
     return shell(title, head + pending + namedGap("blueprint system_ref (Studio blueprint plane)", "Designs bound to this System")

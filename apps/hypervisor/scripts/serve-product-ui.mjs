@@ -1106,6 +1106,7 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
   </div>`;
   const spec = `<dl class="grid">
     <dt>Project</dt><dd><a href="/projects/${encodeURIComponent(pid)}" target="_blank" rel="noopener">${CX_ESC(automationProjectName(a, projectsById))}</a> <code>${CX_ESC(pid)}</code></dd>
+    ${typeof a.system_ref === "string" && a.system_ref.startsWith("system://") ? `<dt>System</dt><dd data-automation-system-ref="${CX_ESC(a.system_ref)}"><a href="/systems/${a.system_ref.slice("system://".length).split("/").map(encodeURIComponent).join("/")}/operate">${CX_ESC(a.system_ref.slice("system://".length))}</a> — its runs install onto this System</dd>` : ""}
     <dt>Trigger</dt><dd>${v(a.trigger_kind || "manual")}</dd>
     <dt>Schedule</dt><dd>${CX_ESC(scheduleHuman)}${sched ? ` · ${enabled ? "active" : "paused"}` : ""}</dd>
     <dt>Next run</dt><dd>${v(a.next_run_at)}</dd>
@@ -1221,8 +1222,14 @@ async function releasedFunctionRevisions() {
     .map((r) => ({ revision_ref: r.revision_ref, content_hash: r.content_hash, display_name: r.display_name, api_name: r.api_name, version: r.version,
       signature: (r.inputs || []).map((i) => `${i.name}: ${i.data_type?.type === "list" ? `list<${i.data_type.element_type}>` : i.data_type?.type}`).join(", ") }));
 }
-function renderAutomationNewForm(projectId, projects, schedule = "manual", releasedFunctions = []) {
+function renderAutomationNewForm(projectId, projects, schedule = "manual", releasedFunctions = [], systems = null) {
   const opts = (projects || []).map((p) => `<option value="${CX_ESC(p.project_id)}"${p.project_id === projectId ? " selected" : ""}>${CX_ESC(p.name || p.project_id)}</option>`).join("");
+  // R-240 journey WP-B — the System this automation runs for: the caller's own Systems (the projection
+  // filters by who asks). The daemon admits only an ACTIVE System in the author's inventory, and each
+  // run then installs onto it. `systems` is null when the projection did not answer — said, not hidden.
+  const systemField = `<div class="field"><label>System (optional — the System this automation runs for)</label>${Array.isArray(systems)
+    ? `<select name="system_ref" data-automation-system="1"><option value="">Not tied to a System</option>${systems.map((s) => `<option value="${CX_ESC(s.system_id)}">${CX_ESC(s.system_id.slice("system://".length))}${s.status ? ` · ${CX_ESC(s.status)}` : ""}</option>`).join("")}</select><div class="sub" style="margin:4px 0 0;font-size:12px">Its runs install onto that System and show on the System's Operate and Evidence modes.${systems.length ? "" : ` You have no System yet — <a href="/systems">Systems →</a>`}</div>`
+    : `<div class="sub" style="margin:0;font-size:12px" data-automation-system-unavailable="1">Your Systems could not be read just now, so none is offered; the automation is created without one.</div>`}</div>`;
   const tzOptions = ["UTC", "-08:00", "-07:00", "-06:00", "-05:00", "-04:00", "+01:00", "+02:00", "+05:30", "+08:00", "+09:00", "+10:00"]
     .map((z) => `<option value="${z}">${z === "UTC" ? "UTC (+00:00)" : "UTC" + z}</option>`).join("");
   // An automation hangs off one of this Hypervisor's projects, which the daemon checks. With none yet, the
@@ -1241,6 +1248,7 @@ function renderAutomationNewForm(projectId, projects, schedule = "manual", relea
     <h1>New automation</h1><p class="sub">A project-scoped spec the daemon runs over a real environment. Start with one step; you can run it manually right away.</p>
     ${noProject ? projectForm : `<form method="post" action="/__ioi/automations">
       ${projectField}
+      ${systemField}
       <div class="field"><label>Name</label><input name="name" placeholder="Nightly CONTRIBUTING note" required></div>
       <div class="field"><label>Description</label><input name="description" placeholder="What this automation does"></div>
       <div class="field"><label>Schedule</label>
@@ -12017,10 +12025,16 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/automations/new" && req.method === "GET") {
       const projectId = automationProjectParam(req.url);
-      const pRes = await daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({}));
+      const [pRes, sysR] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/autonomous-systems/projection?view=compact`).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} })),
+      ]);
+      const systems = sysR.status === 200 && Array.isArray(sysR.j.systems)
+        ? sysR.j.systems.filter((s) => s && typeof s.system_id === "string" && s.system_id.startsWith("system://"))
+        : null;
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       const schedPreset = new URL(req.url, "http://x").searchParams.get("schedule");
-      res.end(renderAutomationNewForm(projectId, pRes.projects || [], ["manual", "interval", "cron"].includes(schedPreset) ? schedPreset : "manual", await releasedFunctionRevisions()));
+      res.end(renderAutomationNewForm(projectId, pRes.projects || [], ["manual", "interval", "cron"].includes(schedPreset) ? schedPreset : "manual", await releasedFunctionRevisions(), systems));
       return;
     }
     if (pathname === "/__ioi/automations/cron-preview" && req.method === "GET") {
@@ -12084,6 +12098,8 @@ async function handleEstateRequest(req, res, body) {
       }
       const payload = {
         project_ref: (p.get("project_ref") || "").trim(),
+        // WP-B: the System chosen on the form, verbatim — the daemon admits it or refuses by name.
+        ...((p.get("system_ref") || "").trim() ? { system_ref: (p.get("system_ref") || "").trim() } : {}),
         name: (p.get("name") || "automation").trim(),
         description: (p.get("description") || "").trim(),
         trigger_kind: schedule_spec ? "time" : "manual",
@@ -15519,7 +15535,7 @@ async function handleEstateRequest(req, res, body) {
       const filters = Object.fromEntries(["assignee", "reporter", "support", "rf", "rt", "uf", "ut"].map((k) => [k, String(qp.get(k) || "").slice(0, 120)]));
       const wantPeople = wantDialog || !!(filters.assignee.trim() || filters.reporter.trim());
       const issueId = String(qp.get("issue") || "").slice(0, 200);
-      const [opsRes, wrRes, filedR, whoR, projR, peopleR, issueR, orgR] = await Promise.all([
+      const [opsRes, wrRes, filedR, whoR, projR, peopleR, issueR, orgR, sysR] = await Promise.all([
         daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/work-results`).then((x) => x.json()).catch(() => ({})),
         readJ("/v1/hypervisor/support-incidents"),
@@ -15528,6 +15544,8 @@ async function handleEstateRequest(req, res, body) {
         wantPeople ? readJ("/v1/hypervisor/principals") : null,
         issueId ? readJ(`/v1/hypervisor/support-incidents/${encodeURIComponent(issueId)}`) : null,
         wantDialog ? readJ("/v1/hypervisor/organization") : null,
+        // The caller's own Systems (the projection filters by who asks), offered as issue subjects.
+        wantDialog ? readJ("/v1/hypervisor/autonomous-systems/projection?view=compact") : null,
       ]);
       const filedOk = filedR.status === 200 && Array.isArray(filedR.j.support_incidents);
       const principalRows = (peopleR && Array.isArray(peopleR.j.principals)) ? peopleR.j.principals : [];
@@ -15550,6 +15568,7 @@ async function handleEstateRequest(req, res, body) {
         const wrs = Array.isArray(wrRes.work_results) ? wrRes.work_results : [];
         const fails = Array.isArray(opsRes?.runs?.failures) ? opsRes.runs.failures : [];
         const candidates = [
+          ...(sysR.status === 200 && Array.isArray(sysR.j.systems) ? sysR.j.systems : []).filter((x) => x && typeof x.system_id === "string" && x.system_id.startsWith("system://")).map((x) => ({ group: "Systems", ref: x.system_id, label: `${x.system_id.slice("system://".length)}${x.status ? ` · ${x.status}` : ""}` })),
           ...(Array.isArray(projR.j.projects) ? projR.j.projects : []).filter((x) => x && x.project_id).map((x) => ({ group: "Projects", ref: `project://${String(x.project_id).replace(/^project:/u, "")}`, label: x.name || x.project_id })),
           ...fails.filter((x) => x && x.execution_id).slice(0, 25).map((x) => ({ group: "Failed runs", ref: `execution://${x.execution_id}`, label: `${x.name || x.execution_id} · ${x.status || "failed"}` })),
           ...wrs.filter((x) => x && ["failed", "blocked"].includes(String(x.status || "").toLowerCase())).slice(0, 25).map((x) => ({ group: "Failed or blocked results", ref: x.work_subject_ref || `work-result://${x.work_result_id}`, label: `${x.work_subject_ref || x.work_result_id} · ${x.status}` })),

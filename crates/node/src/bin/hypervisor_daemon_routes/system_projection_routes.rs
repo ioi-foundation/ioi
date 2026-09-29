@@ -110,6 +110,36 @@ fn hosts_records_under(
         .any(|resource| resource.starts_with(&prefix))
 }
 
+/// Whether ONE System is in this caller's inventory: `row_visible_to` over its verified genesis
+/// admission — the policy every projection row passes (R-240 journey WP-B: a record that ties itself to
+/// a System may name only a System its author can see). `Ok(false)` when no admission answers to the
+/// id; a substrate that cannot answer is the typed error, never a guess.
+pub(crate) fn system_in_inventory(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    system_id: &str,
+) -> Result<bool, VErr> {
+    let key = super::system_genesis_routes::record_tail(system_id);
+    let Some(admission) =
+        super::system_genesis_routes::load_verified_admission_by_key(data_dir, &key)?
+    else {
+        return Ok(false);
+    };
+    if admission.record.get("system_id").and_then(Value::as_str) != Some(system_id) {
+        return Ok(false);
+    }
+    if row_visible_to(&admission.record, identity, &Default::default()).is_some() {
+        return Ok(true);
+    }
+    let hosted = super::substrate_store::authorized_request_resource_refs(
+        data_dir,
+        identity,
+        super::system_record_routes::RESOURCE_KIND,
+    )
+    .map_err(|error| verr("system_projection_scope_unreadable", error.message()))?;
+    Ok(row_visible_to(&admission.record, identity, &hosted).is_some())
+}
+
 fn project_one(data_dir: &str, record: &Value, view: &str, policy: &Value) -> Result<Value, VErr> {
     let system_id = required(record, "/system_id")?;
     let key = super::system_genesis_routes::record_tail(&system_id);

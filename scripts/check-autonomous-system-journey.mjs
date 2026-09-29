@@ -86,11 +86,9 @@ export const REQUIRED_GAPS = Object.freeze({
   "design/legs/design-bound-to-system": "blueprint_system_ref_absent",
   "data/legs/attach-to-system": "system_data_attachment_absent",
   "limits/legs/limits": "system_limits_authority_node_absent",
-  "run/legs/run-the-system": "session_system_subject_absent",
-  "run/legs/automation-installation": "automation_system_binding_absent",
+  // WP-B (2026-09-28): a run satisfies "running THE System"; the SESSION half keeps the code here.
+  "run/legs/session-subject-system": "session_system_subject_absent",
   "observe/legs/telemetry": "system_telemetry_absent",
-  "observe/legs/issue-subject-system": "issue_system_subject_absent",
-  "provenance/legs/ledger-by-system": "ledger_system_lane_absent",
   "evaluate/legs/evaluation-ui": "evaluation_ui_consumer_absent",
   "improve/legs/change-sets": "change_set_blueprint_subject_absent",
   "improve/legs/system-scope": "improvement_system_scope_refused",
@@ -103,8 +101,7 @@ export const REQUIRED_GAPS = Object.freeze({
 export const REQUIRED_PROBES = Object.freeze({
   "create/handoff/system-offered-to-studio": 'data-system-named-gap="blueprint system_ref (Studio blueprint plane)"',
   "limits/legs/limits": 'data-system-named-gap="authority node (ADR 0056 Ruling 8)"',
-  "run/legs/run-the-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
-  "provenance/legs/ledger-by-system": 'data-system-named-gap="Work Ledger lane by system_ref"',
+  "run/legs/session-subject-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
   "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement (ADR 0056 P4 change sets)"',
 });
 
@@ -130,6 +127,12 @@ export const REQUIRED_LIVE = Object.freeze([
   "provenance/legs/system-evidence",
   "operate/legs/operate-mode",
   "operate/terminal/restart-reread",
+  // WP-B (2026-09-28): runs tied to the System.
+  "run/legs/automation-installation",
+  "run/legs/run-the-system",
+  "run/handoff/run-names-system",
+  "observe/legs/issue-subject-system",
+  "provenance/legs/ledger-by-system",
 ]);
 
 // The gap map's "Composes (does not re-prove)" list, plus the two R-240 lanes the walk leans on.
@@ -754,8 +757,10 @@ async function liveLeg() {
     };
     const automationForm = await automationFormPage();
     const walkProject = automationForm.project;
+    // WP-B: the automation is created FOR the walk's System — the form's System select must offer it.
+    const systemOffered = !!renderedForm(automationForm.page.text, "/__ioi/automations")?.options.system_ref?.has(ids.systemId);
     const createdAutomation = await submitRenderedForm(ctx, { id: "automation", page: automationForm.page, from: automationForm.at, action: "/__ioi/automations",
-      fields: { project_ref: walkProjectId, name: automationName, step_kind: "command", step_body: "echo journey" } });
+      fields: { project_ref: walkProjectId, system_ref: ids.systemId, name: automationName, step_kind: "command", step_body: "echo journey" } });
     const automationAt = String(createdAutomation.headers.location || "");
     const automate = await page(ctx, "/__ioi/automations/monitors?tab=automations");
     const walkAutomationRecord = /auto_[0-9a-f]+/u.test(automationAt)
@@ -794,16 +799,56 @@ async function liveLeg() {
     claimLive("run/handoff/walk-run-in-work",
       [302, 303].includes(ranNow.status) && !!walkRunRef && workHistory.status === 200 && workRowAt >= 0,
       `run now ${ranNow.status} · run ${walkRunRef || "none named on the automation's history"} · /work/history ${workHistory.status} row ${workRowAt >= 0}`);
+    // WP-B — THIS walk's run is THE System's, read from daemon truth: the automation is stored tied to
+    // the System; the canonical run's exact installation revision is scoped to it (and its hash is the
+    // one the run's resolution froze); the execution the run admitted ran on an environment; the run's
+    // Work row names the System; the projection narrowed to the System returns it; and the System's
+    // Operate mode lists it.
+    const walkRunTail = walkRunRef.replace(/^automation-run:\/\//u, "");
+    const canonicalRun = walkRunTail ? ((((await read(ctx, `/v1/hypervisor/automation-runs/${encodeURIComponent(walkRunTail)}`)).json || {}).automation_run) || {}) : {};
+    const walkInstallation = canonicalRun.automation_installation_binding_revision_ref
+      ? ((((await read(ctx, "/v1/hypervisor/automation-installations")).json || {}).automation_installation_bindings || []).find((b) => b.revision_ref === canonicalRun.automation_installation_binding_revision_ref) || null)
+      : null;
+    const runExecutionId = (String(canonicalRun.activation_event_ref || "").match(/\/run-now\/(aex_[0-9a-f]+)$/u) || [])[1] || "";
+    const runExecution = automationIdOfWalk && runExecutionId
+      ? ((((await read(ctx, `/v1/hypervisor/automations/${automationIdOfWalk}/runs`)).json || {}).runs || []).find((r) => r.execution_id === runExecutionId) || null)
+      : null;
+    claimLive("run/legs/automation-installation",
+      systemOffered && walkAutomationRecord.system_ref === ids.systemId
+        && !!walkInstallation && walkInstallation.scope_ref === ids.systemId && walkInstallation.enabled === true
+        && canonicalRun.automation_installation_binding_hash === walkInstallation.binding_hash
+        && !!runExecution && !!runExecution.environment_id,
+      `form offers the System ${systemOffered} · automation tied to ${walkAutomationRecord.system_ref || "none"} · installation ${walkInstallation ? `${walkInstallation.revision_ref} scoped ${walkInstallation.scope_ref}` : "none"} · execution ${runExecutionId || "none"} on ${runExecution?.environment_id || "no environment"}`);
+    const walkWorkRow = walkRunRef ? ((((await read(ctx, `/v1/hypervisor/work-projection?view=history&subject_ref=${encodeURIComponent(walkRunRef)}`)).json || {}).rows || [])[0] || null) : null;
+    const systemLane = (((await read(ctx, `/v1/hypervisor/work-projection?view=history&system_ref=${encodeURIComponent(ids.systemId)}`)).json || {}).rows || []);
+    claimLive("run/handoff/run-names-system",
+      !!walkWorkRow && walkWorkRow.subject_ref === walkRunRef && walkWorkRow.system_ref === ids.systemId
+        && systemLane.some((r) => r.subject_ref === walkRunRef) && systemLane.every((r) => r.system_ref === ids.systemId),
+      `Work row ${walkWorkRow ? `names ${walkWorkRow.system_ref || "no System"}` : "absent"} · the System's lane ${systemLane.length} row(s), holds the run ${systemLane.some((r) => r.subject_ref === walkRunRef)}`);
+    const operateWork = await page(ctx, `/systems/${vars.system}/operate`);
+    claimLive("run/legs/run-the-system",
+      operateWork.status === 200 && operateWork.text.includes(`data-system-workspace-id="${ids.systemId}"`) && !!walkRunRef
+        && operateWork.text.includes(`data-system-work="${ids.systemId}"`) && operateWork.text.includes(`data-system-work-row="${walkRunRef}"`),
+      `operate ${operateWork.status} · lists the run ${walkRunRef ? operateWork.text.includes(`data-system-work-row="${walkRunRef}"`) : "no run"}${operateWork.text.includes('data-system-work-unavailable="1"') ? " · work unreadable" : ""}`);
     // ==== STEP 6 — OBSERVE =========================================================================
-    // THIS walk's issue, from Issues' New dialog, naming the System by reference.
+    // THIS walk's issue, from Issues' New dialog, naming the System — picked from the dialog's own
+    // Systems group (WP-B), and read back from the daemon's issue record.
     const issueName = `issue-${vars.tag}`;
     const issueRoute = "/__ioi/missions/incidents?new=1";
-    const filed = await submitRenderedForm(ctx, { id: "issue", page: await page(ctx, issueRoute), from: issueRoute, action: "/__ioi/missions/incidents/new",
-      fields: { title: issueName, affected: "__other", affected_ref: ids.systemId } });
+    const issueDialog = await page(ctx, issueRoute);
+    const issueOffersSystem = issueDialog.text.includes('<optgroup label="Systems">') && !!renderedForm(issueDialog.text, "/__ioi/missions/incidents/new")?.options.affected?.has(ids.systemId);
+    const filed = await submitRenderedForm(ctx, { id: "issue", page: issueDialog, from: issueRoute, action: "/__ioi/missions/incidents/new",
+      fields: { title: issueName, affected: ids.systemId } });
     const openIssues = await page(ctx, "/operations/issues?lane=open");
     claimLive("observe/legs/walk-issue",
       [200, 302, 303].includes(filed.status) && !/Not filed/u.test(filed.text) && openIssues.status === 200 && openIssues.text.includes(issueName),
       `filed ${filed.status}${/Not filed/u.test(filed.text) ? " (Not filed)" : ""} · open lane lists it ${openIssues.text.includes(issueName)}`);
+    const issueTail = outcomeOf(filed).q.get("issue") || "";
+    const issueRecord = issueTail ? ((((await read(ctx, `/v1/hypervisor/support-incidents/${encodeURIComponent(issueTail)}`)).json || {}).incident) || {}) : {};
+    const issueAffects = Array.isArray(issueRecord.affected?.object_refs) ? issueRecord.affected.object_refs : [];
+    claimLive("observe/legs/issue-subject-system",
+      issueOffersSystem && filed.status === 303 && issueRecord.title === issueName && issueAffects.includes(ids.systemId),
+      `dialog offers the System ${issueOffersSystem} · filed ${filed.status} ${issueTail || "no issue"} · record affects ${issueAffects.join(", ") || "nothing"}`);
     // THIS walk's health check on its System, from Operations / Health's New check form (ADR 0056 P2):
     // the probe runs `true` in the environment THIS walk's run used, Evaluate now admits its result, and
     // the System's Overview lists the check by its own name with that result's outcome.
@@ -898,6 +943,19 @@ async function liveLeg() {
       evidencePage.status === 200 && evidencePage.text.includes('data-system-workspace-mode="evidence"') && !!chainRoot && evidencePage.text.includes(chainRoot)
         && !!latestReceipt && evidencePage.text.includes(latestReceipt),
       `evidence ${evidencePage.status} · chain root ${chainRoot ? "known" : "absent"} · latest receipt ${latestReceipt ? "known" : "absent"}`);
+    // WP-B — the System's run receipts: the Evidence mode lists THIS walk's run (the Work projection
+    // narrowed by system_ref), and the row's own link opens that run's timeline, named by its execution.
+    const evidenceRowAt = walkRunRef ? evidencePage.text.indexOf(`data-system-work-row="${walkRunRef}"`) : -1;
+    const evidenceRow = evidenceRowAt >= 0 ? evidencePage.text.slice(evidenceRowAt, evidencePage.text.indexOf("</tr>", evidenceRowAt)) : "";
+    const evidenceLink = unesc((evidenceRow.match(/<a href="([^"]+)"/u) || [])[1] || "");
+    const evidenceHop = evidenceLink ? await httpCall(ctx.serve, "GET", evidenceLink, { cookie: ctx.cookie, accept: "text/html" }) : { status: 0, headers: {} };
+    const evidenceReceiptsAt = String(evidenceHop.headers?.location || "");
+    const evidenceReceipts = evidenceReceiptsAt ? await page(ctx, evidenceReceiptsAt) : { status: 0, text: "" };
+    claimLive("provenance/legs/ledger-by-system",
+      evidencePage.status === 200 && evidencePage.text.includes(`data-system-work="${ids.systemId}"`) && evidenceRowAt >= 0 && !!evidenceLink
+        && evidenceHop.status === 302 && !!walkExecution && evidenceReceiptsAt === `/__ioi/run-timeline/${walkExecution}`
+        && evidenceReceipts.status === 200 && evidenceReceipts.text.includes(walkExecution),
+      `evidence lists the run ${evidenceRowAt >= 0} · row link ${evidenceLink || "none"} → ${evidenceHop.status} ${evidenceReceiptsAt || ""} · receipts name ${walkExecution || "no execution"} ${evidenceReceipts.text.includes(walkExecution || "@@")}`);
     await probesOf("provenance");
 
     // ==== STEP 8 — EVALUATE ========================================================================

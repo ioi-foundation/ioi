@@ -308,6 +308,71 @@ fn admitted_automation_project(
     })
 }
 
+/// The System an automation is tied to (R-240 journey WP-B): none when the body names none; else a
+/// `system://` ref to an ACTIVE bounded System in the caller's own Systems inventory — the projection's
+/// row policy (`system_in_inventory`) and the record seam's activity check (`load_active_system_graph`),
+/// applied exactly as there. Its runs install onto that System (`automation_contract_routes::mint_chain`).
+fn admitted_automation_system(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    body: &Value,
+) -> Result<Option<String>, (StatusCode, Json<Value>)> {
+    let refusal = |status: StatusCode, code: &str, message: String| {
+        (
+            status,
+            Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+        )
+    };
+    let named = match body.get("system_ref") {
+        None | Some(Value::Null) => return Ok(None),
+        Some(Value::String(named)) if named.trim().is_empty() => return Ok(None),
+        Some(Value::String(named)) => named.trim(),
+        Some(_) => {
+            return Err(refusal(
+                StatusCode::BAD_REQUEST,
+                "automation_system_ref_invalid",
+                "system_ref names one System as system://… (or is absent)".into(),
+            ))
+        }
+    };
+    let shown: String = named.chars().take(160).collect();
+    if !named.starts_with("system://")
+        || named.len() > 320
+        || named.chars().any(char::is_whitespace)
+    {
+        return Err(refusal(
+            StatusCode::BAD_REQUEST,
+            "automation_system_ref_invalid",
+            format!("system_ref {shown:?} is not a system:// ref"),
+        ));
+    }
+    match super::system_projection_routes::system_in_inventory(data_dir, identity, named) {
+        Ok(true) => {}
+        Ok(false) => {
+            return Err(refusal(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "automation_system_unknown",
+                format!("system_ref {shown:?} is not a System in your inventory. Choose one of the Systems this Hypervisor lists for you."),
+            ))
+        }
+        Err((code, message)) => {
+            return Err(refusal(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "automation_system_unreadable",
+                format!("the System could not be read ({code}: {message}); nothing was created"),
+            ))
+        }
+    }
+    super::system_activation_routes::load_active_system_graph(data_dir, named).map_err(|(code, message)| {
+        refusal(
+            StatusCode::CONFLICT,
+            "automation_system_not_active",
+            format!("{shown} is not an ACTIVE System ({code}: {message}); an automation runs only on a live System"),
+        )
+    })?;
+    Ok(Some(named.to_string()))
+}
+
 /// PATCH never moves an automation to another project: the project is its durable container. A body
 /// naming the SAME project (either spelling) changes nothing and passes; one naming any other is
 /// refused 422 `automation_project_immutable`. The project is NOT required to exist here — an
@@ -341,6 +406,25 @@ fn automation_project_change_refusal(
     None
 }
 
+/// An automation stays tied to the System it was created for (WP-B): its runs install onto that
+/// System, so a PATCH naming any other (or naming one for an automation tied to none) is refused 422
+/// `automation_system_immutable`, never silently dropped. Naming the same System changes nothing.
+fn automation_system_change_refusal(
+    current: &Value,
+    body: &Value,
+) -> Option<(StatusCode, Json<Value>)> {
+    let named = body.get("system_ref").filter(|v| !v.is_null())?;
+    (Some(named) != current.get("system_ref").filter(|v| !v.is_null())).then(|| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "ok": false, "error": {
+                "code": "automation_system_immutable",
+                "message": "An automation stays tied to the System it was created for: a PATCH cannot change it. Create the automation for the other System instead."
+            } })),
+        )
+    })
+}
+
 /// POST /v1/hypervisor/automations — create a project-scoped AutomationWorkflow spec.
 /// `project_ref` (alias `project_id`) is REQUIRED: an automation is durable work that must hang off
 /// a project. Returns 400 if absent, 422 `automation_project_unknown` unless it names one of this
@@ -365,6 +449,10 @@ pub(crate) async fn handle_automation_create(
         Err(refusal) => return refusal,
     };
     let project_id = project_id.as_str();
+    let system_ref = match admitted_automation_system(&st.data_dir, &identity, &body) {
+        Ok(system_ref) => system_ref,
+        Err(refusal) => return refusal,
+    };
     let id = format!("auto_{:x}", nanos());
     let now = iso_now();
     let trigger = body
@@ -404,6 +492,8 @@ pub(crate) async fn handle_automation_create(
         // Project linkage (durable container) — project_id kept for back-compat with the executor.
         "project_id": project_id,
         "project_ref": project_id,
+        // The System it runs for, admitted above (or null): its runs install onto that System.
+        "system_ref": system_ref,
         "name": body.get("name").and_then(|v| v.as_str()).unwrap_or("automation"),
         "description": body.get("description").and_then(|v| v.as_str()).unwrap_or(""),
         "trigger": trigger,
@@ -532,6 +622,9 @@ pub(crate) async fn handle_automation_patch(
         );
     };
     if let Some(refusal) = automation_project_change_refusal(&a, &body) {
+        return refusal;
+    }
+    if let Some(refusal) = automation_system_change_refusal(&a, &body) {
         return refusal;
     }
     if let Some(spec) = body.get("schedule_spec") {
@@ -3313,6 +3406,71 @@ mod automation_project_tests {
                 .unwrap(),
             "project:acme"
         );
+    }
+
+    #[test]
+    fn an_automation_names_no_system_or_one_active_system_in_its_authors_inventory() {
+        // WP-B: absent or blank names none; anything but one system:// ref is malformed; a System no
+        // admission answers to is not in anyone's inventory (the live gate walks the admitted path).
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let alice = super::super::substrate_store::RequestIdentity::local_development_operator(
+            "user://alice",
+        );
+        for none in [
+            json!({}),
+            json!({ "system_ref": null }),
+            json!({ "system_ref": "  " }),
+        ] {
+            assert_eq!(
+                admitted_automation_system(data_dir, &alice, &none).unwrap(),
+                None,
+                "{none}"
+            );
+        }
+        let code = |body: Value| {
+            let (status, Json(reply)) =
+                admitted_automation_system(data_dir, &alice, &body).expect_err("refused");
+            (status, reply["error"]["code"].clone())
+        };
+        for invalid in [
+            json!("org://acme"),
+            json!("system://acme lending"),
+            json!(7),
+        ] {
+            assert_eq!(
+                code(json!({ "system_ref": invalid })),
+                (
+                    StatusCode::BAD_REQUEST,
+                    json!("automation_system_ref_invalid")
+                )
+            );
+        }
+        assert_eq!(
+            code(json!({ "system_ref": "system://acme/none" })),
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                json!("automation_system_unknown")
+            )
+        );
+        // A PATCH never re-ties an automation: the same System passes, any other is refused.
+        let tied = json!({ "automation_id": "auto_1", "system_ref": "system://acme/lending" });
+        let untied = json!({ "automation_id": "auto_2", "system_ref": null });
+        assert!(automation_system_change_refusal(&tied, &json!({ "name": "x" })).is_none());
+        assert!(automation_system_change_refusal(
+            &tied,
+            &json!({ "system_ref": "system://acme/lending" })
+        )
+        .is_none());
+        for (current, body) in [
+            (&tied, json!({ "system_ref": "system://acme/other" })),
+            (&untied, json!({ "system_ref": "system://acme/lending" })),
+        ] {
+            let (status, Json(reply)) =
+                automation_system_change_refusal(current, &body).expect("refused");
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(reply["error"]["code"], json!("automation_system_immutable"));
+        }
     }
 
     #[test]

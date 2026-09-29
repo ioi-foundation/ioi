@@ -292,6 +292,30 @@ fn parse_subject_filter(
     Ok(Some((subject_ref.to_owned(), kind)))
 }
 
+/// `system_ref` narrows the rows to the work serving ONE System (R-240 journey WP-B: the System's own
+/// lane, read by its Operate and Evidence modes). Like the subject filter it narrows rows only — counts
+/// and recents stay over the caller's whole policy-filtered set.
+fn parse_system_filter(params: &HashMap<String, String>) -> Result<Option<String>, Reply> {
+    let Some(system_ref) = params
+        .get("system_ref")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(None);
+    };
+    if !system_ref.starts_with("system://")
+        || system_ref.len() <= "system://".len()
+        || system_ref.chars().any(char::is_whitespace)
+    {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "work_projection_system_ref_invalid",
+            format!("{system_ref} is not a system:// ref"),
+        ));
+    }
+    Ok(Some(system_ref.to_owned()))
+}
+
 /// The projection's pure half: rows the owners' readers have ALREADY policy-filtered become the
 /// answer for one view, with counts and recents computed over that same filtered set (never over
 /// anything wider) and search applied last.
@@ -310,6 +334,7 @@ fn assemble(
         ));
     }
     let subject_filter = parse_subject_filter(params)?;
+    let system_filter = parse_system_filter(params)?;
     let query = params
         .get("q")
         .map(|value| value.trim().to_lowercase())
@@ -381,6 +406,11 @@ fn assemble(
             subject_filter
                 .as_ref()
                 .is_none_or(|(subject_ref, _)| item.row["subject_ref"] == *subject_ref)
+        })
+        .filter(|item| {
+            system_filter
+                .as_deref()
+                .is_none_or(|system_ref| item.row["system_ref"] == system_ref)
         })
         .filter(|item| {
             query.as_deref().is_none_or(|needle| {
@@ -462,7 +492,7 @@ fn assemble(
 }
 
 /// GET /v1/hypervisor/work-projection?view=active|sessions|queues|reviews|incidents|history
-///     [&q=…][&subject_ref=…][&subject_kind=…]
+///     [&q=…][&subject_ref=…][&subject_kind=…][&system_ref=…]
 pub(crate) async fn handle_work_projection(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -479,6 +509,9 @@ pub(crate) async fn handle_work_projection(
     if let Err(reply) = parse_subject_filter(&params) {
         return reply;
     }
+    if let Err(reply) = parse_system_filter(&params) {
+        return reply;
+    }
     // EVERY CORE FAMILY THROUGH ITS OWNER'S READER — each applies its own policy first. Nothing
     // else is read: a contributed family (goal runs, rooms) has no reader here by ruling.
     let sessions = match super::lifecycle_routes::sessions_for_request(&st, &headers) {
@@ -490,6 +523,8 @@ pub(crate) async fn handle_work_projection(
             Ok(records) => records,
             Err(reply) => return reply,
         };
+    // WP-B: a run serves the System its exact installation revision is scoped to.
+    let system_scopes = super::automation_contract_routes::installation_system_scopes(&st.data_dir);
     let mut derived: Vec<Derived> = Vec::new();
     for record in &sessions {
         let subject_ref = text(record, "session_ref");
@@ -516,14 +551,20 @@ pub(crate) async fn handle_work_projection(
             super::automation_contract_routes::current_run_view(&st.data_dir, record);
         let admitted = text(record, "admitted_at").to_string();
         let updated = moved.unwrap_or(admitted);
-        derived.push(derive_row(
+        let mut item = derive_row(
             "automation_run",
             subject_ref,
             record,
             &status,
             &updated,
             "automation_contract_routes::automation_runs_for_request",
-        ));
+        );
+        if let Some(system_ref) =
+            system_scopes.get(text(record, "automation_installation_binding_revision_ref"))
+        {
+            item.row["system_ref"] = json!(system_ref);
+        }
+        derived.push(item);
     }
     // REVIEW FACETS — pointers at the governance plane's approval requests over these subjects.
     let subject_refs: Vec<String> = derived
@@ -884,6 +925,58 @@ mod work_projection_tests {
             .unwrap()
             .contains("subject attachment"));
         assert_eq!(answer["policy"]["applied_before"][0], json!("search"));
+    }
+
+    #[test]
+    fn a_system_filter_narrows_the_rows_to_that_systems_work_and_never_the_counts() {
+        // WP-B: a run installed onto a System carries it on its row (a registered field), and the
+        // System's own lane is the same projection narrowed by system_ref.
+        let mut on_system = derive_row(
+            "automation_run",
+            "automation-run://autorun_1",
+            &json!({}),
+            "succeeded",
+            "2026-09-28T10:00:00Z",
+            "t",
+        );
+        on_system.row["system_ref"] = json!("system://acme/lending");
+        validate(SUBJECT_CONTRACT_ID, "automation_run", &on_system.row).unwrap();
+        let elsewhere = derive_row(
+            "automation_run",
+            "automation-run://autorun_2",
+            &json!({}),
+            "succeeded",
+            "2026-09-28T11:00:00Z",
+            "t",
+        );
+        let mut params = HashMap::new();
+        params.insert(
+            "system_ref".to_string(),
+            "system://acme/lending".to_string(),
+        );
+        let answer = assemble(
+            "history",
+            &params,
+            vec![on_system, elsewhere],
+            Vec::new(),
+            Vec::new(),
+        )
+        .unwrap();
+        let rows = answer["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["subject_ref"], json!("automation-run://autorun_1"));
+        assert_eq!(rows[0]["system_ref"], json!("system://acme/lending"));
+        assert_eq!(answer["counts"]["history"], json!(2));
+        for invalid in ["org://acme", "system://", "system://acme lending"] {
+            params.insert("system_ref".to_string(), invalid.to_string());
+            assert!(
+                refusal_code(
+                    &assemble("history", &params, Vec::new(), Vec::new(), Vec::new()).unwrap_err()
+                )
+                .contains("work_projection_system_ref_invalid"),
+                "{invalid}"
+            );
+        }
     }
 
     #[test]
