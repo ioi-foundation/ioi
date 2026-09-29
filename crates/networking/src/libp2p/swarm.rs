@@ -668,13 +668,32 @@ fn enqueue_vote(
     pending.push_back((data, topic));
 }
 
-fn drain_pending_blocks(
+/// A gossipsub publish can only reach a connected peer; with none, every
+/// attempt is refused `InsufficientPeers` only after it has built, signed and
+/// encoded the message. A peerless node (the Solo single validator has no
+/// peer, ever) would otherwise re-sign its whole queued outbox -- up to
+/// `PENDING_BLOCK_OUTBOX_MAX` blocks on two mirrors, plus every queued vote and
+/// transaction -- twice a second for the life of the process. The queues are
+/// kept; the first connection drains them (`ConnectionEstablished`), and the
+/// retry tick resumes once a peer exists.
+fn gossip_has_no_peers<D, F>(gossipsub: &gossipsub::Behaviour<D, F>) -> bool
+where
+    D: gossipsub::DataTransform + Send + 'static,
+    F: gossipsub::TopicSubscriptionFilter + Send + 'static,
+{
+    gossipsub.peer_protocol().next().is_none()
+}
+
+fn drain_pending_blocks<D, F>(
     pending: &mut VecDeque<Vec<u8>>,
-    gossipsub: &mut gossipsub::Behaviour,
+    gossipsub: &mut gossipsub::Behaviour<D, F>,
     block_topic_a: &gossipsub::IdentTopic,
     block_topic_b: &gossipsub::IdentTopic,
-) {
-    if pending.is_empty() {
+) where
+    D: gossipsub::DataTransform + Send + 'static,
+    F: gossipsub::TopicSubscriptionFilter + Send + 'static,
+{
+    if pending.is_empty() || gossip_has_no_peers(gossipsub) {
         return;
     }
 
@@ -694,11 +713,14 @@ fn drain_pending_blocks(
     });
 }
 
-fn drain_pending_votes(
+fn drain_pending_votes<D, F>(
     pending: &mut VecDeque<(Vec<u8>, gossipsub::IdentTopic)>,
-    gossipsub: &mut gossipsub::Behaviour,
-) {
-    if pending.is_empty() {
+    gossipsub: &mut gossipsub::Behaviour<D, F>,
+) where
+    D: gossipsub::DataTransform + Send + 'static,
+    F: gossipsub::TopicSubscriptionFilter + Send + 'static,
+{
+    if pending.is_empty() || gossip_has_no_peers(gossipsub) {
         return;
     }
 
@@ -720,12 +742,15 @@ fn drain_pending_votes(
     }
 }
 
-fn drain_pending_txs(
+fn drain_pending_txs<D, F>(
     pending: &mut VecDeque<Vec<u8>>,
-    gossipsub: &mut gossipsub::Behaviour,
+    gossipsub: &mut gossipsub::Behaviour<D, F>,
     tx_topic: &gossipsub::IdentTopic,
-) {
-    if pending.is_empty() {
+) where
+    D: gossipsub::DataTransform + Send + 'static,
+    F: gossipsub::TopicSubscriptionFilter + Send + 'static,
+{
+    if pending.is_empty() || gossip_has_no_peers(gossipsub) {
         return;
     }
 
@@ -1808,6 +1833,66 @@ mod tests {
     use ioi_crypto::transport::pq_authenticated_channel::PqChannelContentTypeV1;
     use ioi_types::app::{account_id_from_key_material, AccountId, SignatureSuite};
     use libp2p::identity::Keypair;
+
+    /// Counts publish attempts: gossipsub runs the outbound transform first,
+    /// before it builds, signs and encodes the message.
+    #[derive(Clone, Default)]
+    struct CountingTransform(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+    impl gossipsub::DataTransform for CountingTransform {
+        fn inbound_transform(
+            &self,
+            raw_message: gossipsub::RawMessage,
+        ) -> Result<gossipsub::Message, std::io::Error> {
+            gossipsub::IdentityTransform.inbound_transform(raw_message)
+        }
+
+        fn outbound_transform(
+            &self,
+            _topic: &gossipsub::TopicHash,
+            data: Vec<u8>,
+        ) -> Result<Vec<u8>, std::io::Error> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(data)
+        }
+    }
+
+    #[test]
+    fn a_peerless_node_keeps_its_outbox_without_re_signing_it_every_retry_tick() {
+        let attempts = CountingTransform::default();
+        let mut gossipsub = gossipsub::Behaviour::<
+            CountingTransform,
+            gossipsub::AllowAllSubscriptionFilter,
+        >::new_with_transform(
+            gossipsub::MessageAuthenticity::Signed(Keypair::generate_ed25519()),
+            gossipsub::Config::default(),
+            None,
+            attempts.clone(),
+        )
+        .unwrap();
+        let block_topic_a = gossipsub::IdentTopic::new("blocks_mirror_a");
+        let block_topic_b = gossipsub::IdentTopic::new("blocks_mirror_b");
+        let tx_topic = gossipsub::IdentTopic::new("transactions");
+        let vote_topic = gossipsub::IdentTopic::new("consensus_votes");
+        let mut blocks = VecDeque::from(vec![vec![1_u8; 64], vec![2_u8; 64]]);
+        let mut txs = VecDeque::from(vec![vec![3_u8; 16]]);
+        let mut votes = VecDeque::from(vec![(vec![4_u8; 16], vote_topic)]);
+
+        for _ in 0..3 {
+            drain_pending_blocks(&mut blocks, &mut gossipsub, &block_topic_a, &block_topic_b);
+            drain_pending_txs(&mut txs, &mut gossipsub, &tx_topic);
+            drain_pending_votes(&mut votes, &mut gossipsub);
+        }
+
+        assert_eq!(
+            attempts.0.load(std::sync::atomic::Ordering::SeqCst),
+            0,
+            "no publish can reach a peer, so none may be built and signed"
+        );
+        assert_eq!(blocks.len(), 2, "queued blocks wait for a peer");
+        assert_eq!(txs.len(), 1, "queued transactions wait for a peer");
+        assert_eq!(votes.len(), 1, "queued votes wait for a peer");
+    }
 
     #[test]
     fn addressed_peer_extracts_only_explicit_p2p_identity() {
