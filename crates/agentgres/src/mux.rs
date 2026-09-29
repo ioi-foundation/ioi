@@ -743,6 +743,14 @@ fn scan_mux_log(log_path: &Path) -> std::io::Result<RecoveryScan> {
     })
 }
 
+/// The rooted log file's observable identity at one instant (see
+/// [`MuxEngine::log_mark`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct MuxLogMark {
+    len: u64,
+    modified: std::time::SystemTime,
+}
+
 pub struct MuxEngine {
     dir: PathBuf,
     log: File,
@@ -858,6 +866,17 @@ impl MuxEngine {
 
     pub fn current_epoch(&self) -> u64 {
         self.current_epoch
+    }
+
+    /// Length and modification time of the rooted log file, or `None` when it
+    /// cannot be read. The log is append-only, so any process that linearizes
+    /// anything changes at least its length.
+    pub(crate) fn log_mark(&self) -> Option<MuxLogMark> {
+        let metadata = std::fs::metadata(self.dir.join("muxlog.bin")).ok()?;
+        Some(MuxLogMark {
+            len: metadata.len(),
+            modified: metadata.modified().ok()?,
+        })
     }
 
     /// Current log length in bytes (fully rooted batch-boundary aligned

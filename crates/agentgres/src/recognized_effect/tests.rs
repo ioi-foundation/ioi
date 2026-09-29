@@ -1086,6 +1086,55 @@ fn multiple_live_pre_cutover_processes_refresh_and_refuse_the_retired_writer() {
 }
 
 #[test]
+fn a_live_writer_rereads_the_spine_only_after_another_process_appends_to_it() {
+    let temp = TempDir::new().expect("tempdir");
+    let mut writer = open(&temp);
+    let owner = StaticAuthority(authority());
+    for index in 0..4u64 {
+        let mut value = template();
+        value["checkpoint"]["previous_canonical_head"] = json!(writer.canonical_head());
+        let prepared = prepare(&mut writer, &format!("effect-{index}"), value);
+        writer
+            .commit(prepared, &owner, 100 + index)
+            .expect("effect commits");
+    }
+    // The first commit boundary proves the in-memory spine against the rooted
+    // log; every later append is this writer's own batch, so re-reading the
+    // whole history at each commit would only re-verify what it just wrote.
+    assert_eq!(writer.full_refreshes, 1);
+
+    // Another live process linearizes a cutover that retires this writer.
+    let mut integrator = open(&temp);
+    commit_cutover(
+        &mut integrator,
+        strengthening_request(),
+        &RefuseAllWeakening,
+        10,
+    )
+    .expect("cutover linearizes");
+
+    // The retired writer still believes it is active in memory, and prepares
+    // against that belief. The commit boundary sees a rooted log it did not
+    // write, re-reads committed truth, and refuses.
+    let mut value = template();
+    value["checkpoint"]["previous_canonical_head"] = json!(writer.canonical_head());
+    let stale = prepare(&mut writer, "effect-after-cutover", value);
+    assert!(matches!(
+        writer.commit(stale, &owner, 200),
+        Err(RecognizedEffectError::Profile(
+            ProfileRefusal::WriterIdentityMismatch { .. }
+                | ProfileRefusal::ActiveProfileMismatch { .. }
+        ))
+    ));
+    assert_eq!(writer.full_refreshes, 2);
+    assert!(writer.committed("effect-after-cutover").is_none());
+    assert!(writer.committed_cutover("cutover://acme/1").is_some());
+    for index in 0..4u64 {
+        assert!(writer.committed(&format!("effect-{index}")).is_some());
+    }
+}
+
+#[test]
 fn commit_recovery_replay_and_outbox_are_byte_identical() {
     let temp = TempDir::new().expect("tempdir");
     let mut store = open(&temp);

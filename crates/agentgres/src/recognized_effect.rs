@@ -25,7 +25,7 @@ use crate::cutover::{
 };
 #[cfg(test)]
 use crate::mux::MuxCommitTestPoint;
-use crate::mux::{ExactProjection, MuxEngine};
+use crate::mux::{ExactProjection, MuxEngine, MuxLogMark};
 use crate::profile::{
     verified_runtime_coordinates, FinalityProfile, GuaranteeDirection, ProfileBindings,
     ProfileBindingsDigest, ProfileIdentity,
@@ -553,10 +553,17 @@ pub struct RecognizedEffectStore {
     freezes: BTreeSet<String>,
     /// Terminal spine coordinates, for governance checkpoint anchoring.
     last_batch_seq: u64,
+    /// The rooted log's mark at the moment the in-memory spine was last proven
+    /// equal to committed truth: after a complete re-read, or after this
+    /// store's own admitted batch. `None` until the first commit-boundary
+    /// refresh. See `lock_and_refresh`.
+    truth_mark: Option<MuxLogMark>,
     #[cfg(test)]
     armed_crash: Option<CrashPoint>,
     #[cfg(test)]
     observed_points: Vec<CrashPoint>,
+    #[cfg(test)]
+    full_refreshes: usize,
 }
 
 impl RecognizedEffectStore {
@@ -624,10 +631,13 @@ impl RecognizedEffectStore {
             cutovers: BTreeMap::new(),
             freezes: BTreeSet::new(),
             last_batch_seq: 0,
+            truth_mark: None,
             #[cfg(test)]
             armed_crash: None,
             #[cfg(test)]
             observed_points: Vec::new(),
+            #[cfg(test)]
+            full_refreshes: 0,
         };
         store.recover()?;
         Ok(Some(store))
@@ -702,10 +712,13 @@ impl RecognizedEffectStore {
             cutovers: BTreeMap::new(),
             freezes: BTreeSet::new(),
             last_batch_seq: 0,
+            truth_mark: None,
             #[cfg(test)]
             armed_crash: None,
             #[cfg(test)]
             observed_points: Vec::new(),
+            #[cfg(test)]
+            full_refreshes: 0,
         };
         store.recover()?;
         match &store.genesis {
@@ -833,7 +846,8 @@ impl RecognizedEffectStore {
     /// Re-read the complete rooted spine while holding the cross-process
     /// admission lock. A process may remain alive across another process's
     /// cutover, so its in-memory profile state is never sufficient evidence
-    /// at the final write boundary.
+    /// at the final write boundary unless the rooted log is provably unchanged
+    /// since that state was derived from it (`lock_and_refresh`).
     fn refresh_from_committed_truth(&mut self) -> Result<(), RecognizedEffectError> {
         let sealed = self.genesis.clone().ok_or_else(|| {
             RecognizedEffectError::Invalid("profile spine has no sealed genesis".into())
@@ -872,7 +886,24 @@ impl RecognizedEffectStore {
             ));
         }
         let lock = acquire_spine_lock(&self.root)?;
-        self.refresh_from_committed_truth()?;
+        // Under the cross-process lock every writer appends to the rooted log.
+        // If the log is exactly as it was when the in-memory spine was last
+        // proven equal to it (by a complete re-read, or by this store's own
+        // admitted batch), no process has linearized anything since and the
+        // in-memory spine already IS committed truth. Re-reading it anyway
+        // re-verifies every historical record at every commit: O(history) per
+        // admission, which on a long-lived single validator grows until block
+        // production can no longer keep its cadence.
+        let current = self.mux.log_mark();
+        if current.is_none() || current != self.truth_mark {
+            self.truth_mark = None;
+            self.refresh_from_committed_truth()?;
+            #[cfg(test)]
+            {
+                self.full_refreshes += 1;
+            }
+            self.truth_mark = self.mux.log_mark();
+        }
         #[cfg(test)]
         if let Some(point) = self.armed_crash {
             self.arm_crash(point);
@@ -1354,6 +1385,10 @@ impl RecognizedEffectStore {
         };
         self.effects
             .insert(effect.record.effect_id.clone(), effect.clone());
+        // The spine was proven current under this lock and the only append
+        // since is this batch, now applied in memory exactly as a re-read
+        // would reconstruct it.
+        self.truth_mark = self.mux.log_mark();
         Ok(CommitResult {
             disposition: CommitDisposition::Committed,
             effect,
