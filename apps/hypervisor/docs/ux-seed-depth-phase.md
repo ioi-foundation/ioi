@@ -509,9 +509,11 @@ assertion in its verifier.
   The local mirror boots the app with no failed asset. The GraphQL bodies (documents and streamed answers) are recorded
   in the mirror's traffic dir (`data-connection-flow/operations`).
 - **Still to harvest.** A succeeded run and its dataset (they need working credentials), and the setup wizard's
-  remaining steps (export configuration, code import configuration, summary). The chunks the reference's save loads for
-  its checkpoint prompt (`49952070…`, `26003ca7…`, `b88e3924…` and the stylesheet `6cfee11d…`): the mirror answers them
-  with a stub, so a sync's Save and Duplicate sync's Create sync reject inside the app and send nothing (D5).
+  remaining steps (export configuration, code import configuration, summary). A source's Edit syncs page (chunk 98867,
+  `SourceEditSyncsPage`): the mirror stubs `8112b6f75eef2412510daee34ab462641f6060f6eac700d47290dd157f0aed39.js` and its
+  stylesheet `4deea8964b34e1b685eec69842e1308b9a5fe4f8250a61911eb2cd3bf986cdde.css`, so the page crashes (D6 found it).
+  The checkpoint prompt's chunks (`49952070…`, `26003ca7…`, `b88e3924…`, `6cfee11d…`) were fed on 2026-09-29, with a
+  harvest of Save's checkpoint read and body (`.artifacts/live-tenant-atlas/r241-dc-checkpoint-save/`).
 - **Backing truth.** Data sources (`/v1/hypervisor/data-sources`: kind `rest_api`, endpoint, credential posture),
   connectors with their credentials, and the materialization ladder (connector mapping → projection → lease plan →
   materializing run → materialized object set). That ladder is the Hypervisor's import, the analog of a sync.
@@ -562,6 +564,34 @@ assertion in its verifier.
     ladder its configuration names. But a click cannot reach them yet (the checkpoint chunks above), so that row stays
     open. `check:adopted-data-connection` 24/24, `check:adopted-data-connection-runs` 4/4, `adopted-data-connection.test`
     18/18; seed depth 43 = 25 bound / 3 refused / 14 named gaps / 1 open (ledger CCXXIX).
+  - D6: a sync's writes, reached by a click. Done 2026-09-29, once the checkpoint prompt's chunks were in the mirror.
+    Before each write the reference asks which checkpoints apply, keyed on the sync's source. That read is answered
+    from the daemon's justification-checkpoint plane (ADR 0056 P5). Its catalog gates no lease-plan write, and the
+    daemon refuses to configure a checkpoint for one, so the answer is none. If the catalog ever names one and an
+    enabled checkpoint configures it, the read is refused by name rather than answered "none". With the daemon stopped
+    the read fails (503) rather than answering none. The flows:
+    - **Save.** After a real edit (the lease TTL typed into the reference's editor), Save sends the full configuration,
+      and the plan's PATCH makes revision 2, receipted ("Sync saved").
+    - **Duplicate sync → Create sync.** Declares a plan on the original's ladder and lands on the new sync.
+    - **New on a custom source.** From a source's Batch syncs (now offered to the source's declarer), New opens the
+      reference's own YAML editor. The plan's ladder is written into it, and Create sync declares the plan.
+    - **New on a bucket.** It opens the reference's file-sync form. Its Create sync is refused by name
+      (`DataConnectionSyncAdapterFixed`): the Hypervisor never lists or copies a source's files.
+
+    A new sync's output folder (`GetOrCreateSourceOutputFolder`) is the folder of the project its source is filed in,
+    else the owner's organization folder. Either exists, so nothing is created. A project folder's destination crumb
+    names the project; the organization folder's still reads "Error" (named gap). The dataset the page reserves is the
+    sync's name in that folder, so syncing into an existing or elsewhere-named dataset is refused by name before
+    anything is declared. The dataset's build policy (always) and branch (master) are what is already true, and
+    anything else is refused by name. `check:adopted-data-connection` 31/31, `adopted-data-connection.test` 22/22;
+    seed depth 51 = 31 bound / 5 refused / 14 named gaps / 1 open (ledger CCXLIV). The open row is Edit syncs (chunks
+    above).
+    Traps paid:
+    - The checkpoint read's path is `/checkpoints/api/checkpoints/configuration/getConfigsV5`, not the serve's older
+      `/checkpoints/configuration/…`. The fence answered it 501, and the app went on to write anyway.
+    - After `add-extract`, the reference awaits `createBranch2` on the reserved dataset. A fenced 501 there crashed the
+      page after the plan existed.
+    - A project folder's compass resource carried `branches: null`, and the destination link calls `.find` on it.
 
 ### Approvals — harvest and the adoption path (2026-09-28)
 

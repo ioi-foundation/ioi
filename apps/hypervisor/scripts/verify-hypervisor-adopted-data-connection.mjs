@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D5).
+// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D6).
 //
 // The reference Data Connection (booted by the local mirror, routed at /workspace/data-ingestion-app) answers from the
 // Hypervisor's data-source plane (adopted-data-connection.mjs), in a real browser against an ISOLATED daemon + serve:
@@ -13,15 +13,21 @@
 //     (none, and none can be) and Explore source (nothing browses a source), each saying why in words made true here
 //     (cut D5 — the reference's advice to contact a representative, switch runtime or configure a catalog is gone); its
 //     Logs, which are the receipts of its syncs' runs (a refused execute shows as an ERROR, with the daemon's reason);
-//   - Duplicate sync opens over the original's plan (cut D5); a sync's writes — its configuration's Save, a new sync —
-//     are its plan's re-declaration and declaration, asserted through the serve (a click cannot reach them yet: the
-//     reference's save first loads its checkpoint prompt, whose chunks the local mirror lacks);
+//   - Duplicate sync opens over the original's plan (cut D5); a sync's writes are driven as a person does them (cut D6 —
+//     the reference's checkpoint prompt chunks are in the mirror now): Save after a real edit of the configuration
+//     re-declares the plan (the daemon's revision), Duplicate's Create sync and New from a source's Batch syncs (the
+//     reference's own YAML editor, the plan's ladder written into it) each declare a plan, landing on the new sync; the
+//     checkpoint read before each is the daemon's justification-checkpoint plane (none can apply: its catalog gates no
+//     lease-plan write); a new sync's output folder is its source's project folder, else the owner's organization folder
+//     — answered, never created — and its dataset's build policy (always) and branch (master) are what is already true;
+//     New on a bucket (the reference's file-sync form) is refused by name, and nothing is declared;
 //   - New source (cut D3), driven as a person does it: pick REST API, name it, file it in a project, create — a draft
 //     data source — give it its domain (the draft becomes declared, with that endpoint), and walk the remaining steps;
 //   - an existing REST source's connection settings: its declarer's new domain becomes its endpoint, path kept;
 //   - no read reaches the mirror but the reference's chrome, no service read gets the serve's HTML page; a type other
 //     than REST API is refused by name at create, and any other write is a named gap that writes nothing;
-//   - with the daemon stopped, the Sources list shows its error rather than "No sources".
+//   - with the daemon stopped, the Sources list shows its error rather than "No sources", and the checkpoint read fails
+//     rather than answering none.
 //
 // Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, or the local mirror cannot boot the reference app).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
@@ -133,7 +139,8 @@ async function run() {
       /Orders API REST API .{0,30}\b0 syncs/u.test(table) && /Plants bucket S3 .{0,30}\b1 sync(?!s)/u.test(table) && !/No sources/u.test(sources), table);
     // a source's own page, opened from the list the way a person opens it (cut D2)
     await pg.getByText("Orders API", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    let restPage = ""; for (let i = 0; i < 25 && !/Orders API \(REST API\)|An error occurred/u.test(restPage); i++) { await pg.waitForTimeout(800); restPage = await text(); }
+    // (waited for until the page's sections have loaded — the header renders first)
+    let restPage = ""; for (let i = 0; i < 25 && !/Orders API \(REST API\)[\s\S]*Explore source capabilities|An error occurred/u.test(restPage); i++) { await pg.waitForTimeout(800); restPage = await text(); }
     const restUrl = new URL(pg.url()).pathname;
     await visit(`${BASE}/sources`, /Plants bucket/u);
     await pg.getByText("Plants bucket", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
@@ -203,7 +210,8 @@ async function run() {
     // a sync's own pages, opened from the list the way a person opens one
     await visit(`${BASE}/syncs`, /Plants import/u);
     await pg.getByText("Plants import", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    let overview = ""; for (let i = 0; i < 25 && !/Build details .{0,40}Next run|An error occurred/u.test(overview); i++) { await pg.waitForTimeout(800); overview = await text(); }
+    // (waited for until its dataset and source have loaded, not only its build details)
+    let overview = ""; for (let i = 0; i < 25 && !/Output dataset (?!Loading)[\s\S]*Source (?!Loading)[\s\S]*Build details .{0,40}Next run|An error occurred/u.test(overview); i++) { await pg.waitForTimeout(800); overview = await text(); }
     const syncUrl = new URL(pg.url()).pathname;
     const syncBase = syncUrl.replace(/\/overview$/u, "");
     const configuration = await visit(`${syncBase}/configuration`, /type: capability-lease-plan|An error occurred/u);
@@ -329,27 +337,148 @@ async function run() {
       shownHost === "api.example.test" && edited?.endpoint === "https://orders.example.test/orders" && (edited?.receipt_refs || []).length === 2,
       `shown ${shownHost || "(none)"} · endpoint ${edited?.endpoint} · ${(edited?.receipt_refs || []).length} receipts`);
 
-    // ---- (cut D5) a sync's writes, through the serve with the page's own bodies. A click cannot reach them yet — the
-    // reference's save first loads its checkpoint prompt, whose chunks the local mirror lacks — so they are asserted here
+    // ---- (cut D6) a sync's writes, driven as a person does them. The reference first asks which checkpoints apply (its
+    // prompt's chunks are in the mirror now), then writes; every answer on the way is captured here.
+    const writes = [];
+    const WRITE_ROUTE = /getConfigsV5|\/build\/add-extract|\/extract-store\/extract\/ri\.|\/set-policies|\/branchesUnrestricted2\/|\/createDataset2|\/hierarchy\/projects\/decorated/u;
+    const onWrite = async (r) => {
+      const u = new URL(r.url()); const req = r.request().postData() || "";
+      if (WRITE_ROUTE.test(u.pathname) || (/graphql/u.test(u.pathname) && /GetOrCreateSourceOutputFolder/u.test(req))) writes.push({ p: u.pathname, m: r.request().method(), s: r.status(), req, body: await r.text().catch(() => "") });
+    };
+    pg.on("response", onWrite);
+    const fencedBefore = fenced.size, pageErrorsBefore = pageErrors.length, gqlBefore = gqlErrors.size;
+    const jsonOf = (s) => { try { return JSON.parse(s); } catch { return null; } };
+    const plans = async () => (await d("GET", "/v1/hypervisor/odk/capability-lease-plans")).j.capability_lease_plans || [];
+    const folderAnswered = (sourceRid) => (writes.filter((w) => /graphql/u.test(w.p) && w.req.includes(sourceRid)).map((w) => /"outputFolder":\{"rid":"([^"]+)"/u.exec(w.body)?.[1]).filter(Boolean)).at(-1) || null;
+    const s3Rid = s3Base.split("/").pop();
+
+    // Save, after a real edit of the configuration: the plan's lease TTL, 900 → 600, typed into the reference's editor
+    await visit(`${syncBase}/configuration`, /leaseTtlSeconds: 900/u);
+    await pg.locator("pre.CodeMirror-line").filter({ hasText: /leaseTtlSeconds: 900/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.keyboard.press("End");
+    for (let i = 0; i < 3; i++) await pg.keyboard.press("Backspace");
+    await pg.keyboard.type("600");
+    const saveBtn = pg.getByRole("button", { name: /^Save$/u }).first();
+    let saveOffered = false; for (let i = 0; i < 12 && !saveOffered; i++) { await pg.waitForTimeout(400); saveOffered = await saveBtn.isVisible().catch(() => false); }
+    await saveBtn.click({ timeout: 8000 }).catch(() => {});
+    let savedPage = ""; for (let i = 0; i < 20 && !/Sync saved/u.test(savedPage); i++) { await pg.waitForTimeout(600); savedPage = await text(); }
+    const planSaved = (await d("GET", `/v1/hypervisor/odk/capability-lease-plans/${planId}`)).j.capability_lease_plan || {};
+    const editGate = writes.find((w) => /getConfigsV5/u.test(w.p) && /DATA_CONNECTION_SYNC_EDIT/u.test(w.req));
+    const put = writes.find((w) => w.m === "PUT" && /\/extract-store\/extract\//u.test(w.p));
+    ok("a sync's Save, pressed after a real edit of its configuration, re-declares its plan: the checkpoint read keyed on its source answers none, the PUT carries the whole configuration, and the daemon's plan is revision 2 with the new lease TTL, receipted — the page says Sync saved",
+      saveOffered && editGate?.s === 200 && jsonOf(editGate.body)?.checkpointConfigs?.length === 0 && editGate.req.includes(s3Rid) && put?.s === 200 && jsonOf(put.req)?.extractConfig?.sourceAdapter?.leaseTtlSeconds === 600
+        && planSaved.revision === 2 && planSaved.ttl_seconds === 600 && (planSaved.history || []).at(-1)?.op === "patched" && !!(planSaved.history || []).at(-1)?.receipt_ref && /Sync saved/u.test(savedPage),
+      `Save ${saveOffered ? "offered" : "NOT OFFERED"} · checkpoint read ${editGate ? `${editGate.s} ${editGate.body.slice(0, 40)}` : "NOT SENT"} · PUT ${put?.s ?? "NOT SENT"} · plan r${planSaved.revision} ttl ${planSaved.ttl_seconds} ${(planSaved.history || []).at(-1)?.op} · ${/Sync saved/u.test(savedPage) ? "Sync saved" : "NO TOAST"}`);
+
+    // the checkpoint read is the daemon's plane: its catalog names no lease-plan write, and it refuses to configure one
+    const checkpointPlane = (await d("GET", "/v1/hypervisor/justification-checkpoints")).j;
+    const offCatalog = await d("POST", "/v1/hypervisor/justification-checkpoints", { owner_ref: owner, idempotency_key: "adopted-dc-sync-edit-checkpoint", display_name: "Sync edits need a reason",
+      interaction_kinds: ["capability_lease_plan.patch"], prompt: { title: "Why change this sync?", body: "Say why." }, justification: { kind: "response" } });
+    ok("the checkpoint read before a sync's writes is the daemon's justification-checkpoint plane: its catalog gates no lease-plan write and the daemon refuses to configure a checkpoint for one, so none can apply — and the page's read says so (never the recorded tenant's configurations)",
+      Array.isArray(checkpointPlane.catalog) && checkpointPlane.catalog.length > 0 && !checkpointPlane.catalog.some((k) => /capability_lease_plan/u.test(k))
+        && offCatalog.status === 400 && offCatalog.j.error?.code === "justification_checkpoint_interaction_invalid"
+        && jsonOf(editGate?.body)?.classificationInferabilityStatus?.uninferableClassifcation === "CBAC_NOT_ENABLED",
+      `catalog ${JSON.stringify(checkpointPlane.catalog)} · configure for a sync edit ${offCatalog.status} ${offCatalog.j.error?.code}`);
+
+    // Duplicate sync → Create sync: a new plan on the original's ladder, its dataset in the bucket's output folder (the
+    // owner's organization folder: the bucket is filed in no project)
+    await visit(`${syncBase}/configuration`, /Duplicate sync/u);
+    await pg.getByText("Duplicate sync", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let dupForm = ""; for (let i = 0; i < 25 && !/exact duplicate of Plants import[\s\S]*leaseTtlSeconds: 600/u.test(dupForm); i++) { await pg.waitForTimeout(800); dupForm = await text(); }
+    await pg.locator("input[placeholder='Dataset name']").first().fill("Plants copy").catch(() => {});
+    await pg.waitForTimeout(1200);
+    const dupDestination = after(await text(), "Confirm destination for output dataset", 90);
+    await pg.getByRole("button", { name: /^Create sync$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let dupLanded = ""; for (let i = 0; i < 25 && !/Sync created/u.test(dupLanded); i++) { await pg.waitForTimeout(700); dupLanded = await text(); }
+    const dupUrlNow = new URL(pg.url()).pathname;
+    const copy = (await plans()).find((x) => x.name === "Plants copy");
+    const dupFolder = folderAnswered(s3Rid);
+    const dupCreate = writes.find((w) => /createDataset2/u.test(w.p) && /Plants copy/u.test(w.req));
+    const createGate = writes.find((w) => /getConfigsV5/u.test(w.p) && /DATA_CONNECTION_SYNC_CREATE/u.test(w.req) && w.req.includes(s3Rid));
+    const dupAdd = writes.find((w) => /add-extract/u.test(w.p) && /Plants copy/u.test(w.req));
+    const dupPolicy = writes.find((w) => /set-policies/u.test(w.p) && w.req.includes(String(jsonOf(dupCreate?.body)?.rid)));
+    const dupBranch = writes.find((w) => /branchesUnrestricted2/u.test(w.p) && w.p.includes(String(jsonOf(dupCreate?.body)?.rid)));
+    ok("Duplicate sync's Create sync declares a new plan on the original's ladder and lands on the new sync: its output folder is the bucket's (the owner's organization folder — answered, nothing created), the checkpoint read answers none, and the dataset's build policy (always) and branch (master) are what is already true",
+      copy?.status === "declared" && copy?.data_source_id === plantsId && copy?.connector_mapping_id === mappingId && copy?.ttl_seconds === 600 && dupUrlNow === `${BASE}/syncs/${String(jsonOf(dupAdd?.body))}/overview` && /Sync created/u.test(dupLanded)
+        && !!dupFolder && jsonOf(dupCreate?.req)?.requestWithName?.parentRid === dupFolder && /master Error local/u.test(dupDestination)
+        && createGate?.s === 200 && jsonOf(createGate.body)?.checkpointConfigs?.length === 0 && dupAdd?.s === 200 && dupPolicy?.s === 204 && dupBranch?.s === 200 && jsonOf(dupBranch.body)?.id === "master",
+      `plan ${copy ? `${copy.status} on ${copy.connector_mapping_id} ttl ${copy.ttl_seconds}` : "NONE"} · ${dupUrlNow.replace(/ri\.[\w.-]+/u, "<rid>")} · destination "${dupDestination.slice(39)}" · checkpoint ${createGate?.s} · add-extract ${dupAdd?.s} · policy ${dupPolicy?.s} · branch ${dupBranch?.s}`);
+
+    // New, from a source's Batch syncs: a feed filed in the project, with its own import ladder and no sync. The reference
+    // opens its YAML editor for a custom source; the plan's ladder is written into it, the dataset named, Create sync pressed.
+    const meter = await d("POST", "/v1/hypervisor/data-sources", { name: "Meter feed", kind: "http_feed", endpoint: "https://feed.example.test/meters", credential_posture: "wallet_credential_lease", project_ref: project.project_ref });
+    const meterId = meter.j.data_source?.source_id;
+    const meterOntology = await d("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "meters", canonical_object_model: { object_types: [{ id: "meter", name: "Meter", title_property: "title",
+      properties: [{ id: "meter_id", name: "Meter Id", value_type: "string", required: true }, { id: "title", name: "Title", value_type: "string" }] }], action_types: [] } });
+    const meterMapping = (await d("POST", "/v1/hypervisor/odk/connector-mappings", { owner_ref: owner, idempotency_key: "adopted-dc-meters-mapping", name: "meters-map", data_source_id: meterId, ontology_ref: meterOntology.j.ontology?.ref,
+      object_type_id: "meter", key_mapping: { source_field: "id", property_id: "meter_id", source_type: "string" }, title_mapping: { source_field: "name", property_id: "title", source_type: "string" } })).j.connector_mapping?.id;
+    const meterGate = (await d("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: meterMapping, name: "meters-gate", authority_subjects: ["agent://materializer"], allowed_operations: ["read", "transform"],
+      purpose: "meter catalog", property_scope: ["meter_id", "title"], retention_posture: "bounded" })).j.policy_bound_data_view?.id;
+    const meterTransform = (await d("POST", "/v1/hypervisor/odk/transformation-runs", { owner_ref: owner, idempotency_key: "adopted-dc-meters-transform", connector_mapping_id: meterMapping, policy_view_id: meterGate, name: "meters-transform" })).j.transformation_run?.id;
+    await d("POST", `/v1/hypervisor/odk/transformation-runs/${meterTransform}/dry-run`);
+    const meterProjection = (await d("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: meterMapping, policy_view_id: meterGate, name: "meters-explorer", visible_properties: ["meter_id", "title"] })).j.ontology_projection?.id;
+    await visit(`${BASE}/sources`, /Meter feed/u);
+    await pg.getByText("Meter feed", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let meterPage = ""; for (let i = 0; i < 25 && !/Batch syncs/u.test(meterPage); i++) { await pg.waitForTimeout(700); meterPage = await text(); }
+    const meterRid = new URL(pg.url()).pathname.split("/").at(-2);
+    await pg.getByRole("button", { name: /^New$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let newForm = ""; for (let i = 0; i < 25 && !/type: custom/u.test(newForm); i++) { await pg.waitForTimeout(700); newForm = await text(); }
+    const newUrl = new URL(pg.url()).pathname;
+    await pg.locator("pre.CodeMirror-line").first().click({ timeout: 8000 }).catch(() => {});
+    await pg.keyboard.press("Control+A");
+    await pg.keyboard.type(`type: capability-lease-plan\nconnectorMapping: ${meterMapping}\npolicyView: ${meterGate}\ntransformationRun: ${meterTransform}\nontologyProjection: ${meterProjection}\nsubject: agent://materializer\nleaseTtlSeconds: 900\n`);
+    await pg.locator("input[placeholder='Dataset name']").first().fill("Meter readings").catch(() => {});
+    await pg.waitForTimeout(1500);
+    const newDestination = after(await text(), "Confirm destination for output dataset", 80);
+    await pg.getByRole("button", { name: /^Create sync$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let newLanded = ""; for (let i = 0; i < 25 && !/Sync created/u.test(newLanded); i++) { await pg.waitForTimeout(700); newLanded = await text(); }
+    const readings = (await plans()).find((x) => x.name === "Meter readings");
+    const newAdd = writes.find((w) => /add-extract/u.test(w.p) && /Meter readings/u.test(w.req));
+    const newCreate = writes.find((w) => /createDataset2/u.test(w.p) && /Meter readings/u.test(w.req));
+    const meterFolder = folderAnswered(meterRid);
+    const meterRow = after(await visit(`${BASE}/syncs`, /Meter readings objects \/\S+ Meter feed/u), "Meter readings Meter readings objects", 80);
+    ok("New, from a feed's Batch syncs, opens the reference's editor for a custom source; the plan's ladder written into it and Create sync pressed declare the plan on the feed and land on it — its output folder is the project the feed is filed in (the destination names it; nothing created), and the new sync's dataset sits there",
+      meter.status === 201 && /\/sources\/ri\.magritte\.\.source\.[0-9a-f-]{36}\/extracts\/new$/u.test(newUrl) && /type: custom/u.test(newForm)
+        && readings?.status === "declared" && readings?.data_source_id === meterId && readings?.connector_mapping_id === meterMapping && readings?.ontology_projection_id === meterProjection && newAdd?.s === 200 && /Sync created/u.test(newLanded)
+        && !!meterFolder && meterFolder !== dupFolder && jsonOf(newCreate?.req)?.requestWithName?.parentRid === meterFolder && /master payments New/u.test(newDestination) && /^Meter readings Meter readings objects \/payments Meter feed/u.test(meterRow),
+      `${newUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · editor ${/type: custom/u.test(newForm) ? "custom" : "ABSENT"} · plan ${readings ? `${readings.status} on ${readings.connector_mapping_id}` : "NONE"} · destination "${newDestination.slice(39)}" · row ${meterRow}`);
+
+    // New on the bucket: the reference's file-sync form — a sync of a bucket's files — refused by name, nothing declared
+    const plansBeforeFiles = (await plans()).length;
+    await visit(`${s3Base}/overview`, /Create batch sync/u);
+    await pg.getByRole("button", { name: /^Create batch sync$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let filesForm = ""; for (let i = 0; i < 25 && !/Subfolder/u.test(filesForm); i++) { await pg.waitForTimeout(700); filesForm = await text(); }
+    await pg.locator("input[placeholder='Dataset name']").first().fill("Plants files").catch(() => {});
+    await pg.waitForTimeout(1000);
+    await pg.getByRole("button", { name: /^Create sync$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let filesToast = ""; for (let i = 0; i < 15 && !/A sync here is a capability-lease plan/u.test(filesToast); i++) { await pg.waitForTimeout(600); filesToast = await text(); }
+    const filesAdd = writes.find((w) => /add-extract/u.test(w.p) && /Plants files/u.test(w.req));
+    ok("New on a bucket opens the reference's file-sync form, and its Create sync is refused by name — a sync here is a lease plan, and the Hypervisor never lists or copies a source's files — with nothing declared",
+      /Subfolder/u.test(filesForm) && filesAdd?.s === 409 && jsonOf(filesAdd.body)?.errorName === "Hypervisor:DataConnectionSyncAdapterFixed" && /never lists or copies a source's files/u.test(filesToast)
+        && (await plans()).length === plansBeforeFiles && /\/extracts\/new$/u.test(new URL(pg.url()).pathname),
+      `form ${/Subfolder/u.test(filesForm) ? "file sync" : "ABSENT"} · add-extract ${filesAdd?.s} ${jsonOf(filesAdd?.body)?.errorName} · plans ${plansBeforeFiles} → ${(await plans()).length}`);
+    pg.off("response", onWrite);
+
+    // what a plan cannot hold, sent with the page's own bodies: the daemon's refusal carries its own code
     const SH = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}${syncBase}/configuration` };
     const serveJ = (method, p, body) => fetch(`${SERVE}${p}`, { method, headers: SH, body: body === undefined ? undefined : JSON.stringify(body) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => null) }));
     const syncRid = syncBase.split("/").pop();
     const stored = (await serveJ("POST", "/magritte-coordinator/api/extract-store/extracts/bulk", [syncRid])).j?.[syncRid] || {};
     const withAdapter = (a, extra = {}) => ({ ...stored, ...extra, extractConfig: { ...stored.extractConfig, sourceAdapter: { ...stored.extractConfig?.sourceAdapter, ...a } } });
-    const saved = await serveJ("PUT", `/magritte-coordinator/api/extract-store/extract/${syncRid}`, withAdapter({ leaseTtlSeconds: 600 }));
-    const planSaved = (await d("GET", `/v1/hypervisor/odk/capability-lease-plans/${planId}`)).j.capability_lease_plan || {};
-    const wrongPurpose = await serveJ("PUT", `/magritte-coordinator/api/extract-store/extract/${syncRid}`, withAdapter({ leaseTtlSeconds: 600, purpose: "anything else" }));
+    const wrongPurpose = await serveJ("PUT", `/magritte-coordinator/api/extract-store/extract/${syncRid}`, withAdapter({ purpose: "anything else" }));
     const planKept = (await d("GET", `/v1/hypervisor/odk/capability-lease-plans/${planId}`)).j.capability_lease_plan || {};
-    const dupDeclared = await serveJ("POST", "/magritte-coordinator/api/build/add-extract?branchName=master", { ...stored, extractName: "Plants copy" });
-    const noLadder = await serveJ("POST", "/magritte-coordinator/api/build/add-extract?branchName=master", withAdapter({ connectorMapping: null }, { extractName: "Plants orphan" }));
-    const plansNow = (await d("GET", "/v1/hypervisor/odk/capability-lease-plans")).j.capability_lease_plans || [];
-    const copy = plansNow.find((x) => x.name === "Plants copy");
-    ok("a sync's configuration is its plan: Save re-declares it (the daemon's receipted revision), a purpose its policy view does not grant is the daemon's own refusal by name, a new sync declares a plan on the ladder its configuration names, and one naming no ladder is refused by name",
-      saved.status === 200 && planSaved.revision === 2 && planSaved.ttl_seconds === 600 && (planSaved.history || []).at(-1)?.op === "patched"
-        && wrongPurpose.status === 409 && wrongPurpose.j?.errorName === "Hypervisor:lease_plan_purpose_mismatch" && planKept.revision === 2 && planKept.purpose === "plant catalog"
-        && dupDeclared.status === 200 && /^ri\.magritte\.\.extract\.[0-9a-f-]{36}$/u.test(String(dupDeclared.j)) && copy?.data_source_id === plantsId && copy?.connector_mapping_id === mappingId && copy?.status === "declared"
-        && noLadder.status === 409 && noLadder.j?.errorName === "Hypervisor:DataConnectionSyncLadderRequired" && !plansNow.some((x) => x.name === "Plants orphan"),
-      `save ${saved.status} → plan r${planSaved.revision} ttl ${planSaved.ttl_seconds} · purpose ${wrongPurpose.status} ${wrongPurpose.j?.errorName} (plan r${planKept.revision}) · new ${dupDeclared.status} ${copy ? `plan ${copy.status} on ${copy.connector_mapping_id}` : "NO PLAN"} · no ladder ${noLadder.status} ${noLadder.j?.errorName}`);
+    const noLadder = await serveJ("POST", "/magritte-coordinator/api/build/add-extract?branchName=master", withAdapter({ connectorMapping: null }, { extractName: "Plants orphan", datasetId: undefined }));
+    const intoExisting = await serveJ("POST", "/magritte-coordinator/api/build/add-extract?branchName=master", { ...stored, extractName: "Plants twin" });
+    const otherBranch = await serveJ("POST", `/foundry-catalog/api/catalog/datasets/${stored.datasetId}/branchesUnrestricted2/develop`, {});
+    const plansNow = await plans();
+    ok("what a plan cannot hold is refused by name and changes nothing: a purpose its policy view does not grant (the daemon's own refusal), a new sync naming no ladder, one syncing into an existing dataset, and another branch",
+      wrongPurpose.status === 409 && wrongPurpose.j?.errorName === "Hypervisor:lease_plan_purpose_mismatch" && planKept.revision === 2 && planKept.purpose === "plant catalog"
+        && noLadder.status === 409 && noLadder.j?.errorName === "Hypervisor:DataConnectionSyncLadderRequired" && intoExisting.status === 409 && intoExisting.j?.errorName === "Hypervisor:DataConnectionSyncDatasetNotBound"
+        && otherBranch.status === 409 && otherBranch.j?.errorName === "Hypervisor:DataConnectionBranchNotBound" && !plansNow.some((x) => ["Plants orphan", "Plants twin"].includes(x.name)),
+      `purpose ${wrongPurpose.status} ${wrongPurpose.j?.errorName} (plan r${planKept.revision}) · no ladder ${noLadder.status} ${noLadder.j?.errorName} · existing dataset ${intoExisting.status} ${intoExisting.j?.errorName} · branch ${otherBranch.status} ${otherBranch.j?.errorName}`);
+    ok("no write flow met a fenced read, a page error or an unbound GraphQL operation",
+      fenced.size === fencedBefore && pageErrors.length === pageErrorsBefore && gqlErrors.size === gqlBefore && unnamed.size === 0 && htmlAnswers.size === 0,
+      `fenced ${[...fenced].slice(fencedBefore).join(",") || "none"} · page ${pageErrors.slice(pageErrorsBefore, pageErrorsBefore + 1).join("") || "none"} · gql ${[...gqlErrors].slice(gqlBefore, gqlBefore + 2).join(" | ") || "none"}`);
 
     // ---- refused by name: a type this plane cannot create, and a write the app would send that is not bound ----------
     const H = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}${BASE}/sources/new` };
@@ -372,6 +501,11 @@ async function run() {
     ok("with the daemon stopped, the Syncs list shows its error — never \"No syncs\"",
       !/Plants import/u.test(syncsDown) && !/No syncs Please create/u.test(syncsDown) && /Syncs Could not load syncs/u.test(syncsDown),
       after(syncsDown, "Syncs Could", 80));
+    // (cut D6) …and the checkpoint read before a sync's write fails rather than answering none (which would let the
+    // write skip an obligation the daemon might keep)
+    const gateDown = await serveJ("POST", "/checkpoints/api/checkpoints/configuration/getConfigsV5", { checkpointedItems: [{ checkpointedItemId: { checkpointedResourceRid: s3Rid, type: "checkpointedResourceRid" }, branches: [] }], checkpointType: "DATA_CONNECTION_SYNC_EDIT" });
+    ok("with the daemon stopped, the checkpoint read before a sync's write fails — never \"no checkpoint applies\"",
+      gateDown.status >= 500 && !Array.isArray(gateDown.j?.checkpointConfigs), `${gateDown.status} ${JSON.stringify(gateDown.j).slice(0, 120)}`);
   } finally {
     await browser.close();
   }

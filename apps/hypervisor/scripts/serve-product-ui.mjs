@@ -9396,22 +9396,27 @@ async function handleEstateRequest(req, res, body) {
       };
       // The caller's ontologies with their object models, as the adopted Ontology Manager reads them (adopted-ontology.mjs).
       // (the data-source plane is read first: a daemon that does not answer is named by the plane this app reads)
+      // (the daemon's project rows, read once per request: a source is visible through its project, and a sync's dataset
+      // is placed in its source's project folder, cut D6)
+      let projectRowsRead = null;
+      const callerProjectRows = () => (projectRowsRead ||= planeRead("/v1/hypervisor/projects").then((j) => j.projects || []).catch(() => []));
       const callerDataSources = async () => {
         const sources = await planeRead("/v1/hypervisor/data-sources").then((j) => j.data_sources || []);
         const principalRef = (await planeRead("/v1/hypervisor/auth/whoami")).principal?.principal_ref || null;
-        const projects = await planeRead("/v1/hypervisor/projects").then((j) => (j.projects || []).map((p) => p.project_ref || (p.project_id ? `project://${p.project_id}` : null)).filter(Boolean)).catch(() => []);
+        const projects = (await callerProjectRows()).map((p) => p.project_ref || (p.project_id ? `project://${p.project_id}` : null)).filter(Boolean);
         return DATA_CONNECTION.callerSourcesOf(sources, principalRef, projects);
       };
       // The caller's syncs (Data Connection cut D4): the capability-lease plans on their data sources, each with its
       // materializing runs (the plane's lists are not caller-scoped; only plans on the caller's sources are kept)
       const callerSyncs = async (sources) => {
         const mine = sources || await callerDataSources();
-        const [plans, runs, who] = await Promise.all([
+        const [plans, runs, who, projects] = await Promise.all([
           planeRead("/v1/hypervisor/odk/capability-lease-plans").then((j) => j.capability_lease_plans || []),
           planeRead("/v1/hypervisor/odk/materializing-runs").then((j) => j.materializing_runs || []),
           planeRead("/v1/hypervisor/auth/whoami"),
+          callerProjectRows(),
         ]);
-        return DATA_CONNECTION.callerSyncsOf(plans, runs, mine, (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) || null);
+        return DATA_CONNECTION.callerSyncsOf(plans, runs, mine, (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) || null, projects);
       };
       const ontologyModels = async () => {
         const who = await planeRead("/v1/hypervisor/auth/whoami");
@@ -9525,7 +9530,8 @@ async function handleEstateRequest(req, res, body) {
           // a source's sync count and a sync's pages read its lease plans and their runs (cut D4)
           const syncs = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.SYNC_PAGE_OPERATIONS.has(name) ? await callerSyncs(sources) : [];
           const ownerRef = DATA_CONNECTION.OWNER_REF_OPERATIONS.has(name) ? ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) : null;
-          return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources, syncs, ownerRef }), null, name) };
+          const projects = DATA_CONNECTION.OWNER_REF_OPERATIONS.has(name) ? await callerProjectRows() : [];
+          return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources, syncs, ownerRef, projects }), null, name) };
         }
         // The Approvals app's list rows and a request's page (on its surface only), over the daemon's own asks
         if (APPROVALS.APPROVALS_GRAPHQL_OPERATIONS.has(name) && query && onApprovalsSurface()) {
@@ -10922,7 +10928,10 @@ async function handleEstateRequest(req, res, body) {
         const dcSourceList = pathname.endsWith("/resources") && onDataConnectionSurface() ? await callerDataSources() : [];
         const dcSources = pathname.endsWith("/resources") && onDataConnectionSurface() ? DATA_CONNECTION.compassSourceResources(rids, dcSourceList, (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")),
           rids.some((r) => String(r).startsWith("ri.foundry.main.dataset.")) ? await callerSyncs(dcSourceList) : []) : {};
-        return res.end(JSON.stringify(pathname.endsWith("/resources") ? { ...AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref), ...datasets, ...dcSources } : AUTOMATE.compassFileSystems(projects, rids)));
+        // (on Data Connection's pages a project folder answers its branches as none rather than null: a new sync's
+        // destination link reads them, cut D6)
+        const projectResources = Object.fromEntries(Object.entries(AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref)).map(([rid, r]) => [rid, onDataConnectionSurface() ? { ...r, branches: r.branches || [] } : r]));
+        return res.end(JSON.stringify(pathname.endsWith("/resources") ? { ...projectResources, ...datasets, ...dcSources } : AUTOMATE.compassFileSystems(projects, rids)));
       }
       // The function registry's REST reads (the wizard's chosen function): metadata and a version
       // range resolved to released specs — the Hypervisor's released revisions, nothing recorded.
@@ -11210,16 +11219,45 @@ async function handleEstateRequest(req, res, body) {
             if (Object.keys(patch).length) { const out = await plane(`/v1/hypervisor/odk/capability-lease-plans/${encodeURIComponent(sync.plan.id)}`, "PATCH", patch); if (out.refusal) return refused(...out.refusal); }
             return sendO(200, DATA_CONNECTION.extractsBulkOf([rid], await callerSyncs(sources))[rid] || null);
           }
-          const out = await plane("/v1/hypervisor/odk/capability-lease-plans", "POST", DATA_CONNECTION.planDeclarationOf(asked, sources));
+          const ownerRef = ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) || null;
+          const out = await plane("/v1/hypervisor/odk/capability-lease-plans", "POST", DATA_CONNECTION.planDeclarationOf(asked, sources, { ownerRef, projects: await callerProjectRows() }));
           if (out.refusal) return refused(...out.refusal);
           return sendO(200, DATA_CONNECTION.extractRidOf(out.j.capability_lease_plan.id));
         } catch (e) { if (e instanceof DATA_CONNECTION.DataConnectionRefusal) return refused(e.code, e.message); throw e; }
       }
+      // (cut D6) before a sync's writes, the checkpoint read — keyed on its source — answered from the daemon's
+      // justification-checkpoint plane: none can apply while the daemon gates no lease-plan write
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/checkpoints/api/checkpoints/configuration/getConfigsV5") {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const [sources, plane] = await Promise.all([callerDataSources(), planeRead("/v1/hypervisor/justification-checkpoints")]);
+        try { return sendO(200, DATA_CONNECTION.syncCheckpointConfigsOf(asked, sources, plane)); }
+        catch (e) { if (e instanceof DATA_CONNECTION.DataConnectionRefusal) return dataConnectionRefusal(/NotFound$/u.test(e.code) ? 404 : 409, e.code, e.message); throw e; }
+      }
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/code-assist-proxy/api/error-enhancer/is-enabled") return sendO(200, DATA_CONNECTION.ERROR_ENHANCER);
+      // …and after a new sync's declaration, its dataset's build policy and branch: what is already true ("always",
+      // master) changes nothing; anything else is refused by name
+      const dcBranch = onDataConnectionSurface() && req.method === "POST" && /^\/foundry-catalog\/api\/catalog\/datasets\/(ri\.foundry\.main\.dataset\.[0-9a-f-]{36})\/branchesUnrestricted2\/([^/]+)$/u.exec(pathname);
+      if (dcBranch || (onDataConnectionSurface() && req.method === "POST" && pathname === "/build2/api/manager/set-policies")) {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const syncs = await callerSyncs();
+        try {
+          if (dcBranch) return sendO(200, DATA_CONNECTION.branchCreatedOf(dcBranch[1], decodeURIComponent(dcBranch[2]), syncs));
+          DATA_CONNECTION.buildPoliciesSetOf(asked, syncs);
+          res.writeHead(204); return res.end();
+        } catch (e) { if (e instanceof DATA_CONNECTION.DataConnectionRefusal) return dataConnectionRefusal(/NotFound$/u.test(e.code) ? 404 : 409, e.code, e.message); throw e; }
+      }
       // a new sync's destination folder (the owner's organization folder) sits in no project here
       if (onDataConnectionSurface() && req.method === "POST" && pathname === "/compass/api/batch/hierarchy/projects/decorated") {
         let asked = []; try { asked = JSON.parse(body.toString() || "[]"); } catch { /* none */ }
-        const owner = ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+        const who = await planeRead("/v1/hypervisor/auth/whoami");
+        const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
         if (owner && Array.isArray(asked) && asked.length && asked.every((r) => r === ONTOLOGY.namespaceRidOf(owner))) return sendO(200, {});
+        // (cut D6) …while a project's folder — a project-filed source's output folder — sits in that project
+        if (owner && Array.isArray(asked) && asked.length) {
+          const orgRid = ONTOLOGY.namespaceRidOf(owner);
+          const answer = DATA_CONNECTION.projectHierarchiesOf(asked, AUTOMATE.compassProjectResources(await callerProjectRows(), asked, who.principal?.principal_ref), DATA_CONNECTION.compassSourceResources([orgRid], [], owner)[orgRid]);
+          if (asked.every((r) => r === orgRid || answer[r])) return sendO(200, answer);
+        }
       }
       // …and its output dataset is the plan's own: the dataset a new sync asks for first is named, not created
       if (onDataConnectionSurface() && req.method === "POST" && pathname === "/foundry-catalog/api/catalog/createDataset2") {

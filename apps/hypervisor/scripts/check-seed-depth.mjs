@@ -114,7 +114,16 @@ const PINS = {
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
   "ontology-manager": { total: 65, bound: 31, refused: 8, named_gap: 25, open: 1 },
-  // 2026-09-28 (R-241, Data Connection D2 part 3 / D5): 41 → 43. A source's Virtual tables (none, and none can be) and
+  // 2026-09-29 (R-241, Data Connection D6): 43 → 51. The reference's checkpoint prompt chunks reached the mirror, so the
+  // writes are driven by a click, and the one open row splits in seven: a configuration's Save after a real edit (the
+  // plan's PATCH), the checkpoint read before a write (the daemon's justification-checkpoint plane: its catalog gates no
+  // lease-plan write, so none applies), Duplicate's Create sync, New on a custom source (the reference's YAML editor, the
+  // plan's ladder written in it) and a new sync's output folder (its source's project folder, else the owner's
+  // organization folder; nothing created) bound; New on a bucket (the reference's file-sync form) and what a plan cannot
+  // hold refused by name. The checkpoint read with the daemon stopped joins as bound. Found on the way: Edit syncs crashes
+  // on a chunk the mirror lacks (open). bound 25 → 31, refused 3 → 5, open 1 → 1 (sync.create-duplicate-save closed,
+  // source.edit-syncs opened).
+  // Before that, 2026-09-28 (R-241, Data Connection D2 part 3 / D5): 41 → 43. A source's Virtual tables (none, and none can be) and
   // Logs (the reference's log viewer over its syncs' run receipts) bound; Explore source (no explore plane) and the Webhooks
   // callout (no webhook plane, no other runtime) named, each shown in the reference's words made true at the wire; a failed
   // run bound by check:adopted-data-connection-runs (a sealed authority grants the lease and the session, the daemon refuses
@@ -145,7 +154,7 @@ const PINS = {
   // and Delete refused by name; Versions' history, Created by, the output dataset, the live banner and the build report
   // named; a failed run (needs a grant to drive) and New / Duplicate / Save (undriven) open. The splash row's proof text
   // (stale since D3, so this gate was red) now cites the assertion. 30 → 41.
-  "data-connection": { total: 43, bound: 25, refused: 3, named_gap: 14, open: 1 },
+  "data-connection": { total: 51, bound: 31, refused: 5, named_gap: 14, open: 1 },
   // 2026-09-28 (R-241, Approvals A2): the two open rows become five, all driven live by check:adopted-approvals over daemon
   // truth. A challenge Approved (the operator's passphrase on the daemon's decision route mints one grant), Completed (the
   // requester's retry consumes it; a replay is refused) and Closed (a restarted daemon with a shortened pending window —

@@ -1,4 +1,4 @@
-// The adopted Data Connection's pure answers (R-241, Data Connection D1–D4): the caller's data sources as the reference
+// The adopted Data Connection's pure answers (R-241, Data Connection D1–D6): the caller's data sources as the reference
 // app's sources, the bootstrap reads over them, and their syncs (lease plans) with their builds (materializing runs).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -159,7 +159,9 @@ test("a sync's pages answer in the reference's own documents: its name, its sour
   const answered = answerDocument(banner, DC.dataConnectionGraphqlFacts("RunningBuildBannerQuery", { datasetRid: y.datasetRid, branchId: "master" }, ctx), null, "RunningBuildBannerQuery");
   assert.deepEqual([answered.runningJobs.results.length, answered.waitingJobs.results.map((r) => r.status)], [0, ["WAITING"]], "a planned run waits for its lease");
   const table = DC.dataConnectionGraphqlFacts("BatchExtractsForSourceTableQuery", { sourceRid: DC.sourceRidOf("ds_2"), pageSize: 100 }, ctx);
-  assert.deepEqual([table.source.numberOfExtracts, table.source.permissions.canCreateExtract], [1, false], "no sync can be created here yet");
+  assert.deepEqual([table.source.numberOfExtracts, table.source.permissions.canCreateExtract], [1, false], "a source the caller may not change takes no new sync");
+  const declared = DC.callerSourcesOf([bucket], "user://me", []);
+  assert.equal(DC.dataConnectionGraphqlFacts("BatchExtractsForSourceTableQuery", { sourceRid: DC.sourceRidOf("ds_2"), pageSize: 100 }, { sources: declared, syncs }).source.permissions.canCreateExtract, true, "its declarer may add a sync (cut D6)");
   const row = table.searchMagritteBatchExtracts.values[0].magritteExtract;
   assert.deepEqual([row.extractName, row.dataset.metadata.name, row.dataset.metadata.permissions.canOpenLink, row.branch.jobs.results[0].build.status], ["Plants import", "Plants import objects", false, "RUNNING"]);
   const list = DC.dataConnectionGraphqlFacts("SourcesListQuery", {}, { sources: [mine, bucket], syncs });
@@ -287,11 +289,68 @@ test("a sync's configuration is its plan: Save re-declares only what changed, a 
   assert.equal(code(() => DC.planPatchOf(stored, { ...sync, source: { ...sync.source, caller_may_change: false } })), "Hypervisor:DataConnectionSyncNotYours");
   assert.equal(code(() => DC.planPatchOf(stored, undefined)), "Hypervisor:DataConnectionSyncNotFound");
   assert.equal(code(() => DC.planPatchOf(stored, sync)), null);
-  assert.deepEqual(DC.planDeclarationOf({ ...stored, extractName: " Plants copy " }, theirs), { data_source_id: "ds_2", name: "Plants copy", connector_mapping_id: "cmap_1", policy_view_id: "pbdv_1", transformation_run_id: "trun_1",
+  const reserved = DC.reservedDatasetRidOf(sync.folder.rid, "Plants copy");
+  assert.deepEqual(DC.planDeclarationOf({ ...stored, datasetId: reserved, extractName: " Plants copy " }, theirs, { ownerRef: "org://local" }), { data_source_id: "ds_2", name: "Plants copy", connector_mapping_id: "cmap_1", policy_view_id: "pbdv_1", transformation_run_id: "trun_1",
     ontology_projection_id: "oproj_1", subject: "agent://materializer", purpose: "plant catalog", requested_operations: ["read", "transform"], requested_properties: ["plant_id"], ttl_seconds: 900 });
+  assert.equal(code(() => DC.planDeclarationOf({ ...stored, extractName: "Plants copy" }, theirs, { ownerRef: "org://local" })), "Hypervisor:DataConnectionSyncDatasetNotBound", "syncing into an existing dataset (the original's) is refused before anything is declared");
+  assert.equal(code(() => DC.planDeclarationOf({ ...stored, datasetId: reserved, extractName: "Plants renamed" }, theirs, { ownerRef: "org://local" })), "Hypervisor:DataConnectionSyncDatasetNotBound", "a dataset named apart from the sync is refused");
   assert.equal(code(() => DC.planDeclarationOf(edit({ connectorMapping: null, policyView: "" }, { extractName: "x" }), theirs)), "Hypervisor:DataConnectionSyncLadderRequired");
   assert.equal(code(() => DC.planDeclarationOf({ ...stored, extractName: "  " }, theirs)), "Hypervisor:DataConnectionSyncNameRequired");
+  assert.match(String((() => { try { DC.planDeclarationOf(edit({ type: "custom" }, { extractName: "x" }), theirs); } catch (e) { return e.message; } })()), /not custom .*Nothing was created\.$/u, "a create's refusal says nothing was created");
   assert.equal(code(() => DC.planDeclarationOf({ ...stored, sourceId: DC.sourceRidOf("ds_3"), extractName: "x" }, theirs)), "Hypervisor:DataConnectionSyncNotYours", "a source filed in a visible project is not the caller's to add syncs to");
   assert.equal(code(() => DC.planDeclarationOf({ ...stored, sourceId: DC.sourceRidOf("ds_4"), extractName: "x" }, theirs)), "Hypervisor:DataConnectionSourceNotFound");
   assert.match(DC.reservedDatasetRidOf("ri.compass.main.folder.x", "Plants copy"), /^ri\.foundry\.main\.dataset\.[0-9a-f-]{36}$/u);
+});
+
+// ---- cut D6: the writes reached by a click — a new sync's output folder, the dataset writes after its declaration, the
+// checkpoint read, and New from a source's Batch syncs
+test("a new sync's output folder is its source's project folder, else the owner's organization folder; nothing is created", () => {
+  const projects = [{ project_id: "project:payments", project_name: "payments" }];
+  const filed = { ...bucket, source_id: "ds_5", name: "Meter feed", kind: "http_feed", project_ref: "project://project:payments" };
+  const inProject = DC.outputFolderOf(filed, "org://local", projects);
+  const inOrg = DC.outputFolderOf(bucket, "org://local", projects);
+  assert.deepEqual([inProject.name, inProject.projectRef, inOrg.name, inOrg.projectRef], ["payments", "project://project:payments", "local", null]);
+  assert.notEqual(inProject.rid, inOrg.rid);
+  assert.equal(DC.outputFolderOf({ ...filed, project_ref: "project://gone" }, "org://local", projects).rid, inOrg.rid, "a project the caller cannot see files nothing");
+  const sources = DC.callerSourcesOf([bucket, filed], "user://me", []);
+  const out = (rid) => DC.dataConnectionGraphqlFacts("GetOrCreateSourceOutputFolder", { sourceRid: rid }, { sources, ownerRef: "org://local", projects }).getOrCreateSourceOutputFolderV2;
+  assert.deepEqual([out(DC.sourceRidOf("ds_5")).source.outputFolder.rid, out(DC.sourceRidOf("ds_2")).source.outputFolder.rid], [inProject.rid, inOrg.rid]);
+  const [y] = DC.callerSyncsOf([{ ...plan, data_source_id: "ds_5", name: "Meter readings" }], [], sources, "org://local", projects);
+  assert.deepEqual([y.datasetPath, y.folder.rid, y.reservedDatasetRid], ["/payments/Meter readings objects", inProject.rid, DC.reservedDatasetRidOf(inProject.rid, "Meter readings")], "its syncs' datasets sit there too");
+  const h = DC.projectHierarchiesOf([inProject.rid, inOrg.rid], { [inProject.rid]: { rid: inProject.rid, name: "payments", branches: null } }, { rid: inOrg.rid, name: "local" });
+  assert.deepEqual(Object.keys(h), [inProject.rid], "the organization folder belongs to no project");
+  assert.deepEqual([h[inProject.rid].project.resource.name, h[inProject.rid].project.resource.branches, h[inProject.rid].organization.resource.name], ["payments", [], "local"]);
+});
+
+test("after a new sync's declaration its dataset's build policy and branch are what is already true — always, master — and nothing else", () => {
+  const sources = DC.callerSourcesOf([bucket], "user://me", []);
+  const [y] = DC.callerSyncsOf([plan], [], sources, "org://local");
+  const code = (fn) => { try { fn(); return null; } catch (e) { return e.code; } };
+  for (const rid of [y.datasetRid, y.reservedDatasetRid]) assert.equal(DC.branchCreatedOf(rid, "master", [y]).id, "master");
+  assert.equal(code(() => DC.branchCreatedOf(y.datasetRid, "develop", [y])), "Hypervisor:DataConnectionBranchNotBound");
+  assert.equal(code(() => DC.branchCreatedOf("ri.foundry.main.dataset.00000000-0000-0000-0000-000000000000", "master", [y])), "Hypervisor:DataConnectionDatasetNotFound");
+  assert.equal(DC.buildPoliciesSetOf([{ datasetRid: y.reservedDatasetRid, buildPolicy: { type: "always", always: {} }, branch: "master" }], [y]), true);
+  assert.equal(code(() => DC.buildPoliciesSetOf([{ datasetRid: y.datasetRid, buildPolicy: { type: "custom" }, branch: "master" }], [y])), "Hypervisor:DataConnectionBuildPolicyNotBound");
+  assert.equal(code(() => DC.buildPoliciesSetOf([{ datasetRid: "ri.foundry.main.dataset.other", buildPolicy: { type: "always" } }], [y])), "Hypervisor:DataConnectionDatasetNotFound");
+});
+
+test("the checkpoint read before a sync's writes is the daemon's plane: none while its catalog gates no lease-plan write, refused by name when one would apply", () => {
+  const sources = DC.callerSourcesOf([bucket], "user://me", []);
+  const ask = (type, rid = DC.sourceRidOf("ds_2")) => ({ checkpointedItems: [{ checkpointedItemId: { checkpointedResourceRid: rid, type: "checkpointedResourceRid" }, branches: [] }], checkpointType: type });
+  const plane = { catalog: ["automation.run_now", "support_incident.file", "health_check.declare"], checkpoints: [{ enablement: "enabled", interaction_kinds: ["automation.run_now"] }] };
+  const code = (fn) => { try { fn(); return null; } catch (e) { return e.code; } };
+  for (const t of ["DATA_CONNECTION_SYNC_EDIT", "DATA_CONNECTION_SYNC_CREATE", "DATA_CONNECTION_SYNC_BULK_CREATE"]) assert.deepEqual(DC.syncCheckpointConfigsOf(ask(t), sources, plane), DC.NO_CHECKPOINTS);
+  const gated = { catalog: [...plane.catalog, "capability_lease_plan.patch"], checkpoints: [{ enablement: "enabled", interaction_kinds: ["capability_lease_plan.patch"] }] };
+  assert.equal(code(() => DC.syncCheckpointConfigsOf(ask("DATA_CONNECTION_SYNC_EDIT"), sources, gated)), "Hypervisor:DataConnectionCheckpointPromptNotBound", "an obligation is never answered away");
+  assert.deepEqual(DC.syncCheckpointConfigsOf(ask("DATA_CONNECTION_SYNC_EDIT"), sources, { ...gated, checkpoints: [{ enablement: "paused", interaction_kinds: ["capability_lease_plan.patch"] }] }), DC.NO_CHECKPOINTS, "a paused checkpoint puts none");
+  assert.equal(code(() => DC.syncCheckpointConfigsOf(ask("COMPASS_EXPORT"), sources, plane)), "Hypervisor:DataConnectionCheckpointTypeNotBound");
+  assert.equal(code(() => DC.syncCheckpointConfigsOf(ask("DATA_CONNECTION_SYNC_EDIT", DC.sourceRidOf("ds_4")), sources, plane)), "Hypervisor:DataConnectionSourceNotFound");
+});
+
+test("New from a source's Batch syncs opens over the source, and no assistant explains a failed preview", () => {
+  const sources = DC.callerSourcesOf([bucket], "user://me", []);
+  assert.equal(DC.dataConnectionGraphqlFacts("SourceNewBatchExtractPageQuery", { sourceRid: DC.sourceRidOf("ds_2") }, { sources, syncs: [] }).source.type, "s3-direct");
+  assert.equal(DC.dataConnectionGraphqlFacts("SourceNewBatchExtractPageQuery", { sourceRid: DC.sourceRidOf("ds_4") }, { sources, syncs: [] }).source, null);
+  assert.ok(DC.SYNC_PAGE_OPERATIONS.has("SourceNewBatchExtractPageQuery"));
+  assert.notEqual(DC.ERROR_ENHANCER.type, "enabled");
 });

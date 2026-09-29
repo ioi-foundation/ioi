@@ -10,7 +10,7 @@
 import crypto from "node:crypto";
 import { uuidOf } from "./adopted-pipeline.mjs";
 import { namespaceRidOf, namespaceNameOf } from "./adopted-ontology.mjs";
-import { principalUserId } from "./adopted-automate.mjs";
+import { principalUserId, projectFolderRid } from "./adopted-automate.mjs";
 
 const cid = (s) => crypto.createHash("sha256").update(String(s)).digest("base64");
 
@@ -77,15 +77,27 @@ const jobRidOf = (runId) => `ri.foundry.main.job.${uuidOf(`materializing-run-job
 // the sync's source adapter names what it is: a capability-lease plan
 export const SYNC_ADAPTER = "capability-lease-plan";
 const BRANCH = "master";
-export function callerSyncsOf(plans, runs, sources, ownerRef = null) {
+// (cut D6) The folder a source's syncs write their datasets into: the folder of the project the source is filed in, when
+// that is one of the caller's projects, else the owner's organization folder. Either exists already: a sync creates no
+// folder. `projects` are the daemon's project rows.
+const projectRefOf = (p) => p?.project_ref || (p?.project_id ? `project://${p.project_id}` : null);
+export function outputFolderOf(src, ownerRef, projects = []) {
+  const p = src?.project_ref ? (projects || []).find((x) => projectRefOf(x) === src.project_ref) : null;
+  if (p) return { rid: projectFolderRid(p.project_id), name: p.project_name || p.name || p.project_id, projectRef: projectRefOf(p) };
+  return ownerRef ? { rid: namespaceRidOf(ownerRef), name: namespaceNameOf(ownerRef), projectRef: null } : null;
+}
+export function callerSyncsOf(plans, runs, sources, ownerRef = null, projects = []) {
   const bySource = new Map((sources || []).map((s) => [s.source_id, s]));
-  const folder = ownerRef ? namespaceNameOf(ownerRef) : null;
   return (plans || []).filter((p) => p && p.id && p.status !== "revoked" && bySource.has(p.data_source_id)).map((plan) => {
     const own = (runs || []).filter((r) => r && r.id && r.capability_lease_plan_id === plan.id).sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
     const held = own.find((r) => r.status === "executed" && r.execution?.materialized_set_ref);
     const datasetName = `${plan.name || plan.id} objects`;
-    return { plan, source: bySource.get(plan.data_source_id), rid: extractRidOf(plan.id), datasetRid: syncDatasetRidOf(plan.id), datasetName,
-      datasetPath: folder ? `/${folder}/${datasetName}` : `/${datasetName}`, folder: ownerRef ? { rid: namespaceRidOf(ownerRef), name: folder } : null, runs: own,
+    const source = bySource.get(plan.data_source_id);
+    const folder = outputFolderOf(source, ownerRef, projects);
+    return { plan, source, rid: extractRidOf(plan.id), datasetRid: syncDatasetRidOf(plan.id), datasetName,
+      datasetPath: folder ? `/${folder.name}/${datasetName}` : `/${datasetName}`, folder: folder ? { rid: folder.rid, name: folder.name } : null, runs: own,
+      // the dataset rid the new-sync page was answered for this sync (its name in its source's output folder, cut D6)
+      reservedDatasetRid: folder ? reservedDatasetRidOf(folder.rid, plan.name || plan.id) : null,
       set: held ? { ref: held.execution.materialized_set_ref, objects: Number(held.execution.object_instances) || 0 } : null };
   });
 }
@@ -207,10 +219,11 @@ export function syncWriteRefusalOf(method, route) {
 const LADDER_KEYS = { connectorMapping: "connector_mapping_id", policyView: "policy_view_id", transformationRun: "transformation_run_id", ontologyProjection: "ontology_projection_id" };
 const SHAPE_KEYS = { subject: "subject", purpose: "purpose", operations: "requested_operations", properties: "requested_properties", leaseTtlSeconds: "ttl_seconds" };
 const refuseSync = (code, message) => { throw new DataConnectionRefusal(`Hypervisor:${code}`, message); };
-function checkPlanShaped(extract) {
+function checkPlanShaped(extract, done = "changed") {
   const cfg = extract?.extractConfig || {};
   const adapter = cfg.sourceAdapter || {};
-  if (adapter.type !== SYNC_ADAPTER) refuseSync("DataConnectionSyncAdapterFixed", `A sync here is a capability-lease plan: its adapter is ${SYNC_ADAPTER}, not ${adapter.type || "none"}. Nothing was changed.`);
+  // (cut D6) the reference's own adapters — a bucket's file sync, the custom editor's starting "custom" — are refused with why
+  if (adapter.type !== SYNC_ADAPTER) refuseSync("DataConnectionSyncAdapterFixed", `A sync here is a capability-lease plan: its adapter is ${SYNC_ADAPTER}, not ${adapter.type || "none"} — the Hypervisor never lists or copies a source's files or tables; a run obtains a lease and registers one object set. Name the plan's import ladder in its configuration. Nothing was ${done}.`);
   const extra = [];
   if ((cfg.transforms || []).length) extra.push("transforms");
   if ((cfg.completionStrategies || []).length) extra.push("completion strategies");
@@ -219,7 +232,7 @@ function checkPlanShaped(extract) {
   if (extract?.maxAllowedDuration != null) extra.push("a maximum duration");
   if ((extract?.sparkProfiles || []).length) extra.push("Spark profiles");
   if (extract?.branchName && extract.branchName !== BRANCH) extra.push(`the branch ${extract.branchName}`);
-  if (extra.length) refuseSync("DataConnectionSyncFieldNotBound", `A capability-lease plan holds none of ${extra.join(", ")}: a run obtains a lease and registers one object set. Nothing was changed.`);
+  if (extra.length) refuseSync("DataConnectionSyncFieldNotBound", `A capability-lease plan holds none of ${extra.join(", ")}: a run obtains a lease and registers one object set. Nothing was ${done}.`);
   return adapter;
 }
 // the plan fields an extract's configuration names (only those present), ladder refs and lease shape
@@ -245,22 +258,83 @@ export function planPatchOf(extract, sync) {
   return patch;
 }
 // POST build/add-extract → the plan plane's declaration body: a plan on the caller's source, over the ladder its
-// configuration names
-export function planDeclarationOf(extract, sources) {
+// configuration names. (cut D6) The dataset the page names is the one it was answered for the new sync — its name in its
+// source's output folder, which becomes the plan's own dataset; syncing into another dataset (an existing one, or one
+// placed elsewhere or named apart from the sync) is refused by name before anything is declared.
+export function planDeclarationOf(extract, sources, { ownerRef = null, projects = [] } = {}) {
   const src = sourceOf(sources, extract?.sourceId);
   if (!src) refuseSync("DataConnectionSourceNotFound", "No source of yours has this id. Nothing was created.");
   if (!src.caller_may_change) refuseSync("DataConnectionSyncNotYours", "Only a source's declarer adds syncs to it here. Nothing was created.");
-  const adapter = checkPlanShaped(extract);
+  const adapter = checkPlanShaped(extract, "created");
   const RUNG = { connectorMapping: "connector mapping (connectorMapping)", policyView: "policy-bound view (policyView)", transformationRun: "transformation run (transformationRun)", ontologyProjection: "ontology projection (ontologyProjection)" };
   const missing = Object.keys(LADDER_KEYS).filter((k) => !String(adapter[k] || "").trim());
   if (missing.length) refuseSync("DataConnectionSyncLadderRequired", `A sync is a lease plan over its import ladder: its configuration names its ${missing.map((k) => RUNG[k]).join(", ")}. Nothing was created.`);
   const name = String(extract?.extractName ?? "").trim();
   if (!name) refuseSync("DataConnectionSyncNameRequired", "A sync needs a name. Nothing was created.");
+  if (extract?.datasetId != null) {
+    const folder = outputFolderOf(src, ownerRef, projects);
+    if (!folder || extract.datasetId !== reservedDatasetRidOf(folder.rid, name))
+      refuseSync("DataConnectionSyncDatasetNotBound", `A new sync writes its own plan's dataset, placed in its source's output folder${folder ? ` (${folder.name})` : ""} and named for the sync: choose a new dataset there named "${name}". Nothing was created.`);
+  }
   return { data_source_id: src.source_id, name, ...planFieldsOf(adapter) };
+}
+// (cut D6) Where a new sync's destination sits: a project's folder (a project-filed source's output folder) is that
+// project, under the owner's organization folder. The owner's organization folder itself belongs to no project, so it
+// is not answered (the destination's project crumb stays unnamed — a named gap). `projectResources` are the caller's
+// project folders as compass resources; `orgResource` the organization folder's.
+export function projectHierarchiesOf(rids, projectResources, orgResource) {
+  const out = {};
+  for (const rid of Array.isArray(rids) ? rids : []) {
+    const p = projectResources?.[rid];
+    if (p && orgResource) out[rid] = { organization: { resource: orgResource, permissions: {} }, project: { resource: { ...p, branches: p.branches || [] }, permissions: {}, operations: [] } };
+  }
+  return out;
+}
+// (cut D6) The writes that follow a new sync's declaration, on the dataset it was answered: its build policy and its
+// branch. A plan keeps no build policy — a run is admitted by hand, so once admitted it may always run — and its dataset
+// has one branch, master. So "always" and "master" are what is already true and change nothing; anything else is refused
+// by name. Only a caller's sync's dataset (its own rid, or the one its new-sync page was answered) is answered.
+export const syncOfDatasetRid = (rid, syncs) => (syncs || []).find((y) => y.datasetRid === rid || (y.reservedDatasetRid && y.reservedDatasetRid === rid)) || null;
+export function branchCreatedOf(rid, branch, syncs) {
+  const y = syncOfDatasetRid(rid, syncs);
+  if (!y) refuseSync("DataConnectionDatasetNotFound", "No sync of yours writes this dataset. Nothing was created.");
+  if (branch !== BRANCH) refuseSync("DataConnectionBranchNotBound", `A sync's dataset has one branch, ${BRANCH}: another branch is not kept here. Nothing was created.`);
+  return { id: BRANCH, rid: `ri.foundry.main.branch.${uuidOf(`lease-plan-dataset:${y.plan.id}`)}.${Buffer.from(BRANCH).toString("base64")}`, ancestorBranchIds: [], creationTime: y.plan.created_at || null, transactionRid: null };
+}
+export function buildPoliciesSetOf(requests, syncs) {
+  for (const q of Array.isArray(requests) ? requests : []) {
+    if (!syncOfDatasetRid(q?.datasetRid, syncs)) refuseSync("DataConnectionDatasetNotFound", "No sync of yours writes this dataset. Nothing was changed.");
+    if ((q?.branch ?? BRANCH) !== BRANCH) refuseSync("DataConnectionBranchNotBound", `A sync's dataset has one branch, ${BRANCH}. Nothing was changed.`);
+    const type = q?.buildPolicy?.type;
+    if (type !== "always") refuseSync("DataConnectionBuildPolicyNotBound", `A sync keeps no build policy: its run is admitted by hand and, once admitted, may always run — the ${type || "untyped"} policy is not kept here. Nothing was changed.`);
+  }
+  return true;
+}
+
+// (cut D6) The reference asks, before a sync's writes, which justification checkpoints apply (keyed on the sync's source).
+// The Hypervisor's checkpoints are the daemon's justification-checkpoint plane (ADR 0056 P5), and a checkpoint can only
+// be configured for an interaction the daemon gates (its catalog). A sync's writes are the capability-lease plan's PATCH
+// and declaration: while the daemon's catalog names neither, no checkpoint can apply, and the answer is none. When it names
+// one and an enabled checkpoint configures it, the prompt is not carried here yet, so the read is refused by name rather
+// than answered "none" (which would let the write skip an obligation).
+export const SYNC_CHECKPOINT_INTERACTIONS = { DATA_CONNECTION_SYNC_EDIT: "capability_lease_plan.patch", DATA_CONNECTION_SYNC_CREATE: "capability_lease_plan.declare", DATA_CONNECTION_SYNC_BULK_CREATE: "capability_lease_plan.declare" };
+export const NO_CHECKPOINTS = { checkpointConfigs: [], classificationInferabilityStatus: { type: "uninferableClassifcation", uninferableClassifcation: "CBAC_NOT_ENABLED" } };
+// plane: the daemon's GET /v1/hypervisor/justification-checkpoints answer ({ checkpoints, catalog })
+export function syncCheckpointConfigsOf(request, sources, plane) {
+  const kind = SYNC_CHECKPOINT_INTERACTIONS[request?.checkpointType];
+  if (!kind) throw new DataConnectionRefusal("Hypervisor:DataConnectionCheckpointTypeNotBound", `The checkpoint type ${request?.checkpointType || "(none)"} is not a Data Connection sync write here.`);
+  const items = (request?.checkpointedItems || []).map((i) => i?.checkpointedItemId?.checkpointedResourceRid);
+  if (!items.length || items.some((rid) => !sourceOf(sources, rid))) throw new DataConnectionRefusal("Hypervisor:DataConnectionSourceNotFound", "No source of yours has this id.");
+  if (!(plane?.catalog || []).includes(kind)) return NO_CHECKPOINTS;
+  const applicable = (plane?.checkpoints || []).filter((c) => c?.enablement === "enabled" && (c.interaction_kinds || []).includes(kind));
+  if (applicable.length) throw new DataConnectionRefusal("Hypervisor:DataConnectionCheckpointPromptNotBound", `${applicable.length} justification checkpoint${applicable.length === 1 ? "" : "s"} the daemon keeps put${applicable.length === 1 ? "s" : ""} an obligation on this write (${kind}), and its prompt is not carried on this page yet. Nothing was changed.`);
+  return NO_CHECKPOINTS;
 }
 // POST foundry-catalog/api/catalog/createDataset2 → a new sync's output dataset is its plan's own, made with the plan by the
 // add-extract that follows; nothing is created here, and the answer names the dataset by the folder and name asked
 export const reservedDatasetRidOf = (parentRid, name) => `ri.foundry.main.dataset.${uuidOf(`sync-dataset-reservation:${parentRid}:${name}`)}`;
+// REST: POST code-assist-proxy/api/error-enhancer/is-enabled — no assistant explains a failed preview here (cut D6)
+export const ERROR_ENHANCER = { type: "disabled", disabled: {} };
 // REST: the agent and external-stack reads — none exists, and none can be made here
 export const EXTERNAL_STACK_PRELOAD = { enabledAsSource: false, enabledAsDestination: false, canCreateExternalStacks: false };
 export const AGENTS = [];
@@ -313,6 +387,8 @@ function sourceDetailOf(src, syncs = []) {
     canUpdateExportControls: false, canUpdateExportMarkings: false };
   // a REST source's connection details are its endpoint, which its declarer may change (cut D3); nothing else is editable
   if (src.caller_may_change && sourceTypeOf(src.kind) === "webhooks-rest") off.canUpdateSourceConfig = true;
+  // its declarer may add a sync to it: a lease plan declared on the ladder the new sync's configuration names (cut D6)
+  if (src.caller_may_change) off.canCreateExtract = true;
   return {
     // every entity carries a stable _id: the app's cache normalizes by it, and a null id collapses every source's
     // permissions into one entry
@@ -465,7 +541,7 @@ const sourceOf = (sources, rid) => (sources || []).find((s) => sourceRidOf(s.sou
 // run of it is in progress
 // (and a source's Batch syncs table)
 export const SYNC_PAGE_OPERATIONS = new Set(["BatchExtractPageHelperQuery", "SourceNameAndTypeQuery", "ExtractOverviewQuery", "BatchExtractConfigurationPageQuery", "RunningBuildBannerQuery", "BatchExtractsForSourceTableQuery",
-  "NewDuplicateExtractPageQuery", "GetOrCreateSourceOutputFolder"]);
+  "NewDuplicateExtractPageQuery", "GetOrCreateSourceOutputFolder", "SourceNewBatchExtractPageQuery"]);
 const jobReportOf = (y, run) => ({ __typename: "JobReport", _id: cid(`JobReport:${run.id}`), status: runStatusOf(run).job, build: { __typename: "Build", _id: cid(`Build:${run.id}`), rid: buildRidOf(run.id) } });
 // a run as the table's build report: its status, and its one job's
 const buildReportOf = (run) => ({ __typename: "BuildReport", _id: cid(`BuildReport:${run.id}`), rid: buildRidOf(run.id), status: runStatusOf(run).build,
@@ -584,15 +660,20 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
         branch: { __typename: "CatalogBranch", _id: cid(`CatalogBranch:${y.datasetRid}:${BRANCH}`), indirectlyRelevantSchedules: [] },
         source: { __typename: "MagritteSource", _id: cid(`MagritteSource:${sourceRidOf(y.plan.data_source_id)}`), type: sourceTypeOf(y.source.kind), runtimePlatform: { __typename: "CloudRuntimePlatform" } } } : null };
     }
-    // a new sync's output folder: a sync's dataset is placed in the owner's organization folder (where every plan's
-    // dataset is), which exists — nothing is created
+    // a new sync's output folder (cut D6): the folder of the project its source is filed in, else the owner's
+    // organization folder — where the source's syncs' datasets are placed. Either exists: nothing is created.
     case "GetOrCreateSourceOutputFolder": {
       const src = sourceOf(ctx.sources, variables?.sourceRid);
-      const folder = ctx.ownerRef ? namespaceRidOf(ctx.ownerRef) : null;
+      const folder = src ? outputFolderOf(src, ctx.ownerRef, ctx.projects)?.rid || null : null;
       return { ...root, getOrCreateSourceOutputFolderV2: { __typename: "GetOrCreateSourceOutputFolderResult", error: src && folder ? null : "NOT_FOUND",
         source: src ? { __typename: "MagritteSource", _id: cid(`MagritteSource:${sourceRidOf(src.source_id)}`), outputFolder: folder ? { __typename: "CompassFolder", _id: cid(`CompassFolder:${folder}`), rid: folder } : null } : null } };
     }
-    // a source's Batch syncs table: its lease plans, newest first (no sync can be created here yet)
+    // New sync (cut D6), from a source's Batch syncs: the source and its runtime (the Hypervisor's own)
+    case "SourceNewBatchExtractPageQuery": {
+      const src = sourceOf(ctx.sources, variables?.sourceRid);
+      return { ...root, source: src ? sourceNodeOf(src, ctx.syncs) : null };
+    }
+    // a source's Batch syncs table: its lease plans, newest first; its declarer may add one (New, cut D6)
     case "BatchExtractsForSourceTableQuery": {
       const src = sourceOf(ctx.sources, variables?.sourceRid);
       const text = String(variables?.name || "").trim().toLowerCase();
@@ -600,7 +681,7 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
       const byName = variables?.sort?.field === "NAME";
       rows.sort((a, b) => (byName ? String(a.plan.name || "").localeCompare(String(b.plan.name || "")) : String(a.plan.created_at || "").localeCompare(String(b.plan.created_at || ""))) * (variables?.sort?.direction === "ASCENDING" ? 1 : -1));
       const from = Math.max(0, Number(variables?.pageToken) || 0), size = Math.max(1, Number(variables?.pageSize) || 100);
-      return { ...root, source: src ? { ...sourceNodeOf(src, ctx.syncs), permissions: { __typename: "MagritteSourcePermissions", _id: cid(`MagritteSourcePermissions:${sourceRidOf(src.source_id)}`), canCreateExtract: false } } : null,
+      return { ...root, source: src ? { ...sourceNodeOf(src, ctx.syncs), permissions: { __typename: "MagritteSourcePermissions", _id: cid(`MagritteSourcePermissions:${sourceRidOf(src.source_id)}`), canCreateExtract: !!src.caller_may_change } } : null,
         searchMagritteBatchExtracts: { __typename: "MagritteBatchExtractSearchPage", nextPageToken: from + size < rows.length ? String(from + size) : null,
           values: rows.slice(from, from + size).map((y) => ({ __typename: "MagritteBatchExtractSearchResult", magritteExtract: extractNodeOf(y) })) } };
     }
