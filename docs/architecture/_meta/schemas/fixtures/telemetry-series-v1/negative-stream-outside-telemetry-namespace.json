@@ -1,0 +1,49 @@
+{
+  "schema_version": "ioi.hypervisor.telemetry_series.v1",
+  "series_id": "telemetry-series://ts_3f9a1c72b4e8d605",
+  "identity_digest": "sha256:3f9a1c72b4e8d6059f3a1c72b4e8d6059f3a1c72b4e8d6059f3a1c72b4e8d605",
+  "subject_ref": "health-check://hc_0123456789abcdef",
+  "scope_ref": "system://acme/lending",
+  "metric": {
+    "name": "ioi.health_check.passed",
+    "unit": "1",
+    "instrument": "gauge",
+    "description": "1 when an evaluation of the check passed, 0 when it did not; the outcome word is the ioi.health_check.outcome attribute.",
+    "semantic_convention": {
+      "registry": "ioi",
+      "stability": "ioi_extension",
+      "reference": "canon://docs/architecture/components/daemon-runtime/platform-operability.md#telemetryseries"
+    }
+  },
+  "stream_id": "event-stream://thread-orchestration/series.ts_3f9a1c72b4e8d605",
+  "event_class_declaration": {
+    "admitted_truth_classes": [
+      {
+        "class_id": "telemetry.point",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+        "classification_basis": "read from an admitted record; required to replay the series"
+      }
+    ],
+    "ephemeral_delivery_classes": [
+      {
+        "class_id": "telemetry.sample",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+        "classification_basis": "a sample of a changing value; delivered, never admitted"
+      }
+    ]
+  },
+  "ephemeral_window": {
+    "retention": "process_memory",
+    "window_points": 512
+  },
+  "producer_ref": "daemon-producer://health-check-evaluate",
+  "producer_principal_ref": "user://acme-operator",
+  "owner_ref": "org://acme",
+  "declared_at": "2026-09-29T10:05:00Z",
+  "declaration_receipt_ref": "receipt://agentgres/event-stream/hypervisor-telemetry/telemetry-series.3f9a/batch/7/3f9a1c72b4e8d6059f3a1c72b4e8d6059f3a1c72b4e8d6059f3a1c72b4e8d605",
+  "latest_point": {
+    "point_class": "admitted",
+    "time_unix_ms": 1790676300000,
+    "value": 1
+  }
+}

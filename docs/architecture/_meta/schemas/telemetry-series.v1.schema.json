@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+  "title": "TelemetrySeries",
+  "x-ioi-schema-version": "ioi.hypervisor.telemetry_series.v1",
+  "description": "One telemetry series (ADR 0056 Amendment 1, plane 6): the identity of a metric trend about ONE subject, and the owner-namespaced event stream its points are appended to. Identity is (owner, producing principal, subject, scope, metric name, unit), committed by `identity_digest` and carried in `series_id`; a series never changes identity, and a different metric, unit or subject is a different series. Points are appended to `stream_id` through the event-stream plane under the classes its `event_class_declaration` names: `telemetry.point` is ADMITTED truth (read from an admitted record, required to replay the series, receipted) and `telemetry.sample` is EPHEMERAL delivery (a sample of a changing value: no sequence, head, root or receipt, held only in the daemon's bounded in-process window, gone at restart). Metric names and units adopt OpenTelemetry semantic conventions where one fits and use the `ioi.` namespace where none does; `metric.semantic_convention` says which. A series grants nothing and is never authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "series_id",
+    "identity_digest",
+    "subject_ref",
+    "scope_ref",
+    "metric",
+    "stream_id",
+    "event_class_declaration",
+    "ephemeral_window",
+    "producer_ref",
+    "producer_principal_ref",
+    "owner_ref",
+    "declared_at",
+    "declaration_receipt_ref",
+    "latest_point"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.telemetry_series.v1"
+    },
+    "series_id": {
+      "type": "string",
+      "pattern": "^telemetry-series://ts_[0-9a-f]{16}$",
+      "description": "ts_ plus the first 16 hex characters of identity_digest."
+    },
+    "identity_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "sha256 over the JCS bytes of {owner_ref, producer_principal_ref, subject_ref, scope_ref, metric_name, metric_unit}."
+    },
+    "subject_ref": {
+      "type": "string",
+      "pattern": "^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$",
+      "description": "The one thing the series measures: a System, an automation or one of its runs, an environment, an agent, a health check, a session."
+    },
+    "scope_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,480}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The System the subject serves, when it serves one (a check that observes the System, a run of an automation installed for it); null otherwise."
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "unit",
+        "instrument",
+        "description",
+        "semantic_convention"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$",
+          "description": "An OpenTelemetry-style metric name: lowercase, dot-namespaced."
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[!-~]{1,63}$",
+          "description": "A UCUM case-sensitive unit as OpenTelemetry uses it: `1` for a dimensionless value, `s` for seconds, `{token}` for an annotated count."
+        },
+        "instrument": {
+          "type": "string",
+          "enum": [
+            "gauge",
+            "counter",
+            "updowncounter",
+            "histogram"
+          ],
+          "description": "The OpenTelemetry instrument kind the measurements are recorded with; it decides how points aggregate."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "semantic_convention": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "registry",
+            "stability",
+            "reference"
+          ],
+          "properties": {
+            "registry": {
+              "type": "string",
+              "enum": [
+                "opentelemetry",
+                "ioi"
+              ],
+              "description": "Whose naming the metric follows: an OpenTelemetry semantic convention, or an `ioi.` name where no OpenTelemetry convention fits."
+            },
+            "stability": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "development",
+                "ioi_extension"
+              ]
+            },
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400,
+              "description": "Where the convention is defined: an OpenTelemetry semantic-conventions URL, or the canon anchor for an `ioi.` name."
+            }
+          }
+        }
+      }
+    },
+    "stream_id": {
+      "type": "string",
+      "pattern": "^event-stream://hypervisor-telemetry/series[.]ts_[0-9a-f]{16}$",
+      "description": "The owner-namespaced event stream the series' points are appended to — one stream per series in the hypervisor-telemetry namespace."
+    },
+    "event_class_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admitted_truth_classes",
+        "ephemeral_delivery_classes"
+      ],
+      "description": "The stream's declared event classes, exactly as admitted in its genesis operation.",
+      "properties": {
+        "admitted_truth_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/eventClass"
+          }
+        },
+        "ephemeral_delivery_classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/eventClass"
+          }
+        }
+      }
+    },
+    "ephemeral_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retention",
+        "window_points"
+      ],
+      "description": "Where ephemeral samples live: in the daemon process only, newest window_points kept. They do not survive a restart and carry no receipt.",
+      "properties": {
+        "retention": {
+          "type": "string",
+          "enum": [
+            "process_memory"
+          ]
+        },
+        "window_points": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        }
+      }
+    },
+    "producer_ref": {
+      "type": "string",
+      "pattern": "^daemon-producer://[a-z0-9][a-z0-9._-]{0,119}$",
+      "description": "The daemon producer that emits the series' points (for example daemon-producer://health-check-evaluate)."
+    },
+    "producer_principal_ref": {
+      "type": "string",
+      "pattern": "^user://[^\\s]{1,480}$",
+      "description": "The signed-in principal whose request produced the points. It is part of the series identity: the event-stream plane admits appends only from the principal that reserved the stream."
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+    },
+    "declared_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "declaration_receipt_ref": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,400}$",
+      "description": "The receipt of the series' admitted declaration."
+    },
+    "latest_point": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "point_class",
+            "time_unix_ms",
+            "value"
+          ],
+          "properties": {
+            "point_class": {
+              "type": "string",
+              "enum": [
+                "admitted",
+                "ephemeral"
+              ]
+            },
+            "time_unix_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "A projection of the newest appended point, for listings; the range read is the truth."
+    }
+  },
+  "$defs": {
+    "eventClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class_id",
+        "payload_schema_ref"
+      ],
+      "properties": {
+        "class_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "payload_schema_ref": {
+          "type": "string",
+          "pattern": "^schema://[^\\s]{1,400}$"
+        },
+        "classification_basis": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

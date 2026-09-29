@@ -9966,6 +9966,128 @@ export type HealthCheckResultV1 = {
   admitted_head?: string | null;
 };
 
+export type TelemetrySeriesV1 = {
+  schema_version: "ioi.hypervisor.telemetry_series.v1";
+  series_id: string;
+  identity_digest: string;
+  subject_ref: string;
+  scope_ref: string | null;
+  metric: {
+      name: string;
+      unit: string;
+      instrument: "gauge" | "counter" | "updowncounter" | "histogram";
+      description: string;
+      semantic_convention: {
+            registry: "opentelemetry" | "ioi";
+            stability: "stable" | "development" | "ioi_extension";
+            reference: string;
+          };
+    };
+  stream_id: string;
+  event_class_declaration: {
+      admitted_truth_classes: Array<{
+              class_id: string;
+              payload_schema_ref: string;
+              classification_basis?: string;
+            }>;
+      ephemeral_delivery_classes: Array<{
+              class_id: string;
+              payload_schema_ref: string;
+              classification_basis?: string;
+            }>;
+    };
+  ephemeral_window: {
+      retention: "process_memory";
+      window_points: number;
+    };
+  producer_ref: string;
+  producer_principal_ref: string;
+  owner_ref: string;
+  declared_at: string;
+  declaration_receipt_ref: string;
+  latest_point: {
+      point_class: "admitted" | "ephemeral";
+      time_unix_ms: number;
+      value: number;
+    } | null;
+};
+
+export type TelemetryPointV1 = {
+  schema_version: "ioi.hypervisor.telemetry_point.v1";
+  series_ref: string;
+  point_class: "admitted" | "ephemeral";
+  time_unix_ms: number;
+  observed_at: string;
+  value: number;
+  attributes: Array<{
+        key: string;
+        value: string | number | boolean;
+      }>;
+  source_ref: string | null;
+  run_ref: string | null;
+};
+
+export type TelemetryRangeV1 = {
+  schema_version: "ioi.hypervisor.telemetry_range.v1";
+  series_ref: string;
+  subject_ref: string;
+  scope_ref: string | null;
+  metric: {
+      name: string;
+      unit: string;
+      instrument: "gauge" | "counter" | "updowncounter" | "histogram";
+    };
+  window: {
+      from_unix_ms: number;
+      to_unix_ms: number;
+      step_seconds: number;
+    };
+  bounds: {
+      max_span_ms: number;
+      max_buckets: number;
+      max_points: number;
+    };
+  points: Array<{
+        point_class: "admitted" | "ephemeral";
+        time_unix_ms: number;
+        observed_at: string;
+        value: number;
+        attributes: Array<{
+                  key: string;
+                  value: string | number | boolean;
+                }>;
+        source_ref: string | null;
+        run_ref: string | null;
+        operation_ref: string | null;
+        receipt_ref: string | null;
+      }>;
+  points_in_window: number;
+  points_truncated: boolean;
+  buckets: Array<{
+        start_unix_ms: number;
+        count: number;
+        mean: number | null;
+        min: number | null;
+        max: number | null;
+      }>;
+  derived: {
+      derivation: "rolling_mean";
+      window_points: number;
+      basis: "raw_points";
+      formula: string;
+      points: Array<{
+              time_unix_ms: number;
+              value: number;
+            }>;
+    };
+  ephemeral_window: {
+      retention: "process_memory";
+      window_points: number;
+      held_points: number;
+    };
+  read_at: string;
+};
+
 export type ConnectorCredentialGrantV1 = {
   schema_version: "ioi.hypervisor.connector_credential_grant.v1";
   id: string;
@@ -23220,6 +23342,86 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/positive-health-check-passed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-unregistered-instrument.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-admitted-health-outcome.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-attributes-as-map.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-value-not-a-number.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-derivation-unnamed.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-fabricated-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
     "expected": "accept",
@@ -35680,6 +35882,16 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json","contract_id":"schema://ioi/components/daemon-runtime/health-check/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json","contract_id":"schema://ioi/components/daemon-runtime/health-check-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json","contract_id":"schema://ioi/components/daemon-runtime/health-check-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/positive-health-check-passed.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-series/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/positive-health-check-passed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-unregistered-instrument.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-series/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-unregistered-instrument.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-series/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-admitted-health-outcome.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-point/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-admitted-health-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-point/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-attributes-as-map.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-point/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-attributes-as-map.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-value-not-a-number.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-point/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-value-not-a-number.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-range/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-derivation-unnamed.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-range/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-derivation-unnamed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-fabricated-receipt.json","contract_id":"schema://ioi/components/daemon-runtime/telemetry-range/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-fabricated-receipt.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json","contract_id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json","contract_id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json","contract_id":"schema://ioi/components/wallet-network/authority-review-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json","mutation_id":null,"value_json":null}),
@@ -37108,6 +37320,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:model_route|harness-profile|tool|connector)://[^\\s]{1,500}$",
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
   "^(?:object-model|ontology-action|schema)://[^\\s]{1,240}$",
+  "^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$",
   "^(?:observed-state|agentgres)://[^\\s]{1,240}$",
   "^(?:ontology-assertion|finding)://[^\\s]{1,240}$",
   "^(?:ontology-assertion|finding)://[^\\s]{1,248}$",
@@ -37233,6 +37446,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$",
   "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]{1,500}$",
   "^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$",
+  "^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$",
   "^(?:system|domain)://[^\\s]{1,248}$",
   "^(?:system|domain)://[^\\s]{1,500}$",
   "^(?:system|domain|org|service)://[^\\s]{1,500}$",
@@ -37320,10 +37534,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^/v1/hypervisor/\\S*$",
   "^[ -~]{1,2048}$",
   "^[ -~]{1,256}$",
+  "^[!-~]{1,63}$",
   "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
   "^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$",
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$",
+  "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$",
   "^[0-9a-f]{128}$",
@@ -37383,7 +37599,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9_-]*:\\S+$",
   "^[a-z][a-z0-9_-]{0,127}$",
   "^[a-z][a-z0-9_]*$",
+  "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$",
   "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$",
+  "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$",
   "^[a-z][a-z0-9_]{0,159}$",
   "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$",
   "^[a-z][a-z0-9_]{0,80}$",
@@ -37475,6 +37693,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^authority-request://[^\\s]+$",
   "^authority-request://[^\\s]{1,500}$",
   "^automation-run://[^\\s/?#\\\\]{1,160}$",
+  "^automation-run://[^\\s]{1,480}$",
   "^automation://[^\\s/?#\\\\]{1,160}$",
   "^automation://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -37551,6 +37770,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^credential_custody_profile://[^\\s?#\\\\]{1,200}$",
   "^cross_substrate_portability://[^\\s?#\\\\]{1,200}$",
   "^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$",
+  "^daemon-producer://[a-z0-9][a-z0-9._-]{0,119}$",
   "^dapp_[0-9a-f]{16}$",
   "^dartm_[0-9a-f]{1,32}$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -37629,6 +37849,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^event-family://hypervisor/(?:owner_event|work_run|automation_run|session|lease|approval|operation)(?:/[a-z0-9][a-z0-9_.-]*){0,1}$",
   "^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$",
+  "^event-stream://hypervisor-telemetry/series[.]ts_[0-9a-f]{16}$",
   "^evidence://[^\\s]{1,240}$",
   "^evidence://[^\\s]{1,248}$",
   "^execution-branch://[^\\s]+$",
@@ -38055,6 +38276,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$",
   "^system://[^\\s]{1,240}$",
   "^system://[^\\s]{1,248}$",
+  "^system://[^\\s]{1,480}$",
   "^system://[^\\s]{1,500}$",
   "^system://\\S*$",
   "^system://\\S+$",
@@ -38062,6 +38284,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^task-class://[a-z0-9][a-z0-9._/-]{0,190}$",
   "^task://[^\\s]+$",
   "^tax://[^\\s]{1,400}$",
+  "^telemetry-series://ts_[0-9a-f]{16}$",
   "^temporal-evaluation://[^\\s]{1,248}$",
   "^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$",
   "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
@@ -38378,6 +38601,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/support-incident-link/v1": "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3",
   "schema://ioi/components/daemon-runtime/health-check/v1": "sha256:fd5d3837a0e6125a59fe3d68fe4bdce672ac8f874b47f712021dd83662465f65",
   "schema://ioi/components/daemon-runtime/health-check-result/v1": "sha256:4f8afe744c0116f038577682463b0d08c2b547ea526277bf9776576fd4bb988b",
+  "schema://ioi/components/daemon-runtime/telemetry-series/v1": "sha256:a558c80d2136e9ac5e4f6beea9bae17fb79102a9ba133cb46548df3db1df85c4",
+  "schema://ioi/components/daemon-runtime/telemetry-point/v1": "sha256:88b1a173161b8eb9505d386456b2c089df3ef1278015bcf7efe14a15bc6bade8",
+  "schema://ioi/components/daemon-runtime/telemetry-range/v1": "sha256:e0c4719dafd87e427efd6a41729860c3a9d5e69ad818c592ddfeff892980c091",
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8",
   "schema://ioi/components/wallet-network/authority-review-receipt/v1": "sha256:4f4fdd73468bcb9e28d1e0ff2c2ddfcc84a6e5aa869fe2dcca46c5eb0e69ca4c",
   "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1": "sha256:3c0ccfe0fc9ae22cb54e5d3e26bd571763cd45ace48fafe5f43d35dfcb9be3a7",
@@ -112659,6 +112885,812 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/components/daemon-runtime/telemetry-series/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+    "title": "TelemetrySeries",
+    "x-ioi-schema-version": "ioi.hypervisor.telemetry_series.v1",
+    "description": "One telemetry series (ADR 0056 Amendment 1, plane 6): the identity of a metric trend about ONE subject, and the owner-namespaced event stream its points are appended to. Identity is (owner, producing principal, subject, scope, metric name, unit), committed by `identity_digest` and carried in `series_id`; a series never changes identity, and a different metric, unit or subject is a different series. Points are appended to `stream_id` through the event-stream plane under the classes its `event_class_declaration` names: `telemetry.point` is ADMITTED truth (read from an admitted record, required to replay the series, receipted) and `telemetry.sample` is EPHEMERAL delivery (a sample of a changing value: no sequence, head, root or receipt, held only in the daemon's bounded in-process window, gone at restart). Metric names and units adopt OpenTelemetry semantic conventions where one fits and use the `ioi.` namespace where none does; `metric.semantic_convention` says which. A series grants nothing and is never authority.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "series_id",
+      "identity_digest",
+      "subject_ref",
+      "scope_ref",
+      "metric",
+      "stream_id",
+      "event_class_declaration",
+      "ephemeral_window",
+      "producer_ref",
+      "producer_principal_ref",
+      "owner_ref",
+      "declared_at",
+      "declaration_receipt_ref",
+      "latest_point"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.telemetry_series.v1"
+      },
+      "series_id": {
+        "type": "string",
+        "pattern": "^telemetry-series://ts_[0-9a-f]{16}$",
+        "description": "ts_ plus the first 16 hex characters of identity_digest."
+      },
+      "identity_digest": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "sha256 over the JCS bytes of {owner_ref, producer_principal_ref, subject_ref, scope_ref, metric_name, metric_unit}."
+      },
+      "subject_ref": {
+        "type": "string",
+        "pattern": "^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$",
+        "description": "The one thing the series measures: a System, an automation or one of its runs, an environment, an agent, a health check, a session."
+      },
+      "scope_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,480}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The System the subject serves, when it serves one (a check that observes the System, a run of an automation installed for it); null otherwise."
+      },
+      "metric": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "unit",
+          "instrument",
+          "description",
+          "semantic_convention"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$",
+            "description": "An OpenTelemetry-style metric name: lowercase, dot-namespaced."
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[!-~]{1,63}$",
+            "description": "A UCUM case-sensitive unit as OpenTelemetry uses it: `1` for a dimensionless value, `s` for seconds, `{token}` for an annotated count."
+          },
+          "instrument": {
+            "type": "string",
+            "enum": [
+              "gauge",
+              "counter",
+              "updowncounter",
+              "histogram"
+            ],
+            "description": "The OpenTelemetry instrument kind the measurements are recorded with; it decides how points aggregate."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "semantic_convention": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "registry",
+              "stability",
+              "reference"
+            ],
+            "properties": {
+              "registry": {
+                "type": "string",
+                "enum": [
+                  "opentelemetry",
+                  "ioi"
+                ],
+                "description": "Whose naming the metric follows: an OpenTelemetry semantic convention, or an `ioi.` name where no OpenTelemetry convention fits."
+              },
+              "stability": {
+                "type": "string",
+                "enum": [
+                  "stable",
+                  "development",
+                  "ioi_extension"
+                ]
+              },
+              "reference": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "description": "Where the convention is defined: an OpenTelemetry semantic-conventions URL, or the canon anchor for an `ioi.` name."
+              }
+            }
+          }
+        }
+      },
+      "stream_id": {
+        "type": "string",
+        "pattern": "^event-stream://hypervisor-telemetry/series[.]ts_[0-9a-f]{16}$",
+        "description": "The owner-namespaced event stream the series' points are appended to — one stream per series in the hypervisor-telemetry namespace."
+      },
+      "event_class_declaration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "admitted_truth_classes",
+          "ephemeral_delivery_classes"
+        ],
+        "description": "The stream's declared event classes, exactly as admitted in its genesis operation.",
+        "properties": {
+          "admitted_truth_classes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/eventClass"
+            }
+          },
+          "ephemeral_delivery_classes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/eventClass"
+            }
+          }
+        }
+      },
+      "ephemeral_window": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "retention",
+          "window_points"
+        ],
+        "description": "Where ephemeral samples live: in the daemon process only, newest window_points kept. They do not survive a restart and carry no receipt.",
+        "properties": {
+          "retention": {
+            "type": "string",
+            "enum": [
+              "process_memory"
+            ]
+          },
+          "window_points": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          }
+        }
+      },
+      "producer_ref": {
+        "type": "string",
+        "pattern": "^daemon-producer://[a-z0-9][a-z0-9._-]{0,119}$",
+        "description": "The daemon producer that emits the series' points (for example daemon-producer://health-check-evaluate)."
+      },
+      "producer_principal_ref": {
+        "type": "string",
+        "pattern": "^user://[^\\s]{1,480}$",
+        "description": "The signed-in principal whose request produced the points. It is part of the series identity: the event-stream plane admits appends only from the principal that reserved the stream."
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+      },
+      "declared_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "declaration_receipt_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,400}$",
+        "description": "The receipt of the series' admitted declaration."
+      },
+      "latest_point": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "point_class",
+              "time_unix_ms",
+              "value"
+            ],
+            "properties": {
+              "point_class": {
+                "type": "string",
+                "enum": [
+                  "admitted",
+                  "ephemeral"
+                ]
+              },
+              "time_unix_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "value": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "A projection of the newest appended point, for listings; the range read is the truth."
+      }
+    },
+    "$defs": {
+      "eventClass": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "class_id",
+          "payload_schema_ref"
+        ],
+        "properties": {
+          "class_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "payload_schema_ref": {
+            "type": "string",
+            "pattern": "^schema://[^\\s]{1,400}$"
+          },
+          "classification_basis": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/telemetry-point/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+    "title": "TelemetryPoint",
+    "x-ioi-schema-version": "ioi.hypervisor.telemetry_point.v1",
+    "description": "One measurement in one TelemetrySeries (ADR 0056 Amendment 1, plane 6): a timestamp, a numeric value and a bounded attribute list, appended to the series' event stream. `point_class` is the side of the event-class line the stream's declaration puts it on: `admitted` points cross an Agentgres transition and carry a receipt; `ephemeral` samples mint nothing and live only in the daemon's bounded in-process window. Attributes use the OpenTelemetry key/value shape (a list of {key, value}, keys unique, OpenTelemetry attribute naming), bounded in count and length so a series keeps bounded cardinality. `source_ref` names the admitted record the point was read from; `run_ref` names the run it came from, when it came from one, so run receipts stay keyed by run. A point grants nothing and is never authority.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "series_ref",
+      "point_class",
+      "time_unix_ms",
+      "observed_at",
+      "value",
+      "attributes",
+      "source_ref",
+      "run_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.telemetry_point.v1"
+      },
+      "series_ref": {
+        "type": "string",
+        "pattern": "^telemetry-series://ts_[0-9a-f]{16}$"
+      },
+      "point_class": {
+        "type": "string",
+        "enum": [
+          "admitted",
+          "ephemeral"
+        ]
+      },
+      "time_unix_ms": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "When the value was observed, in milliseconds since the Unix epoch."
+      },
+      "observed_at": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$",
+        "description": "The same instant as time_unix_ms, as an RFC 3339 UTC timestamp."
+      },
+      "value": {
+        "type": "number",
+        "description": "The measurement, in the series' unit."
+      },
+      "attributes": {
+        "type": "array",
+        "maxItems": 16,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/attribute"
+        }
+      },
+      "source_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The admitted record this point was read from (a health-check result's observation ref, a run). Null only for an ephemeral sample that no record carries."
+      },
+      "run_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^automation-run://[^\\s]{1,480}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The canonical run this point came from, when it came from one."
+      }
+    },
+    "$defs": {
+      "attribute": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$",
+            "description": "An OpenTelemetry attribute name (for example ioi.health_check.outcome, gen_ai.token.type)."
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/telemetry-range/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+    "title": "TelemetryRange",
+    "x-ioi-schema-version": "ioi.hypervisor.telemetry_range.v1",
+    "description": "The daemon's answer to one bounded range read of one TelemetrySeries (ADR 0056 Amendment 1, plane 6): the raw points observed in [from, to) — admitted points replayed from the series' event stream with their operation and receipt refs, ephemeral samples from the in-process window with none — the points aggregated into step-aligned buckets, and exactly ONE derived series computed at read time whose derivation is named in the answer. Every bound is stated, and a truncated answer says so. Nothing in it is stored; asking again recomputes it from the stream.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "series_ref",
+      "subject_ref",
+      "scope_ref",
+      "metric",
+      "window",
+      "bounds",
+      "points",
+      "points_in_window",
+      "points_truncated",
+      "buckets",
+      "derived",
+      "ephemeral_window",
+      "read_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.telemetry_range.v1"
+      },
+      "series_ref": {
+        "type": "string",
+        "pattern": "^telemetry-series://ts_[0-9a-f]{16}$"
+      },
+      "subject_ref": {
+        "type": "string",
+        "pattern": "^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$"
+      },
+      "scope_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,480}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "metric": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "unit",
+          "instrument"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[!-~]{1,63}$"
+          },
+          "instrument": {
+            "type": "string",
+            "enum": [
+              "gauge",
+              "counter",
+              "updowncounter",
+              "histogram"
+            ]
+          }
+        }
+      },
+      "window": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_unix_ms",
+          "to_unix_ms",
+          "step_seconds"
+        ],
+        "properties": {
+          "from_unix_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "to_unix_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "step_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2678400
+          }
+        }
+      },
+      "bounds": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "max_span_ms",
+          "max_buckets",
+          "max_points"
+        ],
+        "description": "The limits every range read is held to, stated in the answer so a reader never mistakes a bounded answer for the whole series.",
+        "properties": {
+          "max_span_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "max_buckets": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440
+          },
+          "max_points": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        }
+      },
+      "points": {
+        "type": "array",
+        "maxItems": 1000,
+        "items": {
+          "$ref": "#/$defs/rangePoint"
+        },
+        "description": "The raw points in the window, oldest first; when more than max_points fall inside it, the newest max_points."
+      },
+      "points_in_window": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "points_truncated": {
+        "type": "boolean"
+      },
+      "buckets": {
+        "type": "array",
+        "maxItems": 1440,
+        "items": {
+          "$ref": "#/$defs/bucket"
+        },
+        "description": "Step-aligned buckets covering the window; an empty bucket has count 0 and null statistics."
+      },
+      "derived": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "derivation",
+          "window_points",
+          "basis",
+          "formula",
+          "points"
+        ],
+        "description": "The one derived series, computed at read time and never stored.",
+        "properties": {
+          "derivation": {
+            "type": "string",
+            "enum": [
+              "rolling_mean"
+            ]
+          },
+          "window_points": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "raw_points"
+            ]
+          },
+          "formula": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "points": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/$defs/derivedPoint"
+            }
+          }
+        }
+      },
+      "ephemeral_window": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "retention",
+          "window_points",
+          "held_points"
+        ],
+        "properties": {
+          "retention": {
+            "type": "string",
+            "enum": [
+              "process_memory"
+            ]
+          },
+          "window_points": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "held_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4096
+          }
+        }
+      },
+      "read_at": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "$defs": {
+      "attribute": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          }
+        }
+      },
+      "rangePoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "point_class",
+          "time_unix_ms",
+          "observed_at",
+          "value",
+          "attributes",
+          "source_ref",
+          "run_ref",
+          "operation_ref",
+          "receipt_ref"
+        ],
+        "properties": {
+          "point_class": {
+            "type": "string",
+            "enum": [
+              "admitted",
+              "ephemeral"
+            ]
+          },
+          "time_unix_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "observed_at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$"
+          },
+          "value": {
+            "type": "number"
+          },
+          "attributes": {
+            "type": "array",
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/attribute"
+            }
+          },
+          "source_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^automation-run://[^\\s]{1,480}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^agentgres://[^\\s]{1,400}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Agentgres operation that admitted the point; null for an ephemeral sample."
+          },
+          "receipt_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,400}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The admission receipt; null for an ephemeral sample."
+          }
+        }
+      },
+      "bucket": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start_unix_ms",
+          "count",
+          "mean",
+          "min",
+          "max"
+        ],
+        "properties": {
+          "start_unix_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "derivedPoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "time_unix_ms",
+          "value"
+        ],
+        "properties": {
+          "time_unix_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "value": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
@@ -170016,6 +171048,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   ],
   "schema://ioi/components/daemon-runtime/health-check/v1": [],
   "schema://ioi/components/daemon-runtime/health-check-result/v1": [],
+  "schema://ioi/components/daemon-runtime/telemetry-series/v1": [],
+  "schema://ioi/components/daemon-runtime/telemetry-point/v1": [],
+  "schema://ioi/components/daemon-runtime/telemetry-range/v1": [],
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": [
     {
       "rule_id": "connector_credential_grant.tools.declared",
@@ -183629,6 +184664,24 @@ export function validateHealthCheckResultV1(
   value: unknown,
 ): value is HealthCheckResultV1 {
   return validateArchitectureContract("schema://ioi/components/daemon-runtime/health-check-result/v1", value).ok;
+}
+
+export function validateTelemetrySeriesV1(
+  value: unknown,
+): value is TelemetrySeriesV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/telemetry-series/v1", value).ok;
+}
+
+export function validateTelemetryPointV1(
+  value: unknown,
+): value is TelemetryPointV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/telemetry-point/v1", value).ok;
+}
+
+export function validateTelemetryRangeV1(
+  value: unknown,
+): value is TelemetryRangeV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/telemetry-range/v1", value).ok;
 }
 
 export function validateConnectorCredentialGrantV1(

@@ -55,6 +55,7 @@ import { handleSystemGenesisSurfaces, handleSystemWorkspace, SYSTEM_WORKSPACE_LA
 import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal, renderRouteLedgerPage } from "./v2-route-shell.mjs";
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 import { handleOperationsHealth } from "./operations-health.mjs";
+import { handleOperationsTelemetry } from "./operations-telemetry.mjs";
 import { handleGovernanceLimits } from "./governance-limits.mjs";
 import { handleOntologyFunctions } from "./ontology-functions.mjs";
 import * as AUTOMATE from "./adopted-automate.mjs";
@@ -2210,7 +2211,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     ${runFunnel}
     ${ledgerKinds}
     <p class="sub" style="margin:4px 0 0">${improvementPosture} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
-  const inner = `<h1>Operations</h1><p class="sub">Substrate &amp; infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend. Select an automation run to inspect and act on it in place. Runs live in <a href="/automations/runs">Automations / Runs →</a>, filed issues in <a href="/operations/issues">Operations / Issues →</a> and health checks in <a href="/operations/health" data-ops-health-link="1">Operations / Health →</a>. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
+  const inner = `<h1>Operations</h1><p class="sub">Substrate &amp; infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend. Select an automation run to inspect and act on it in place. Runs live in <a href="/automations/runs">Automations / Runs →</a>, filed issues in <a href="/operations/issues">Operations / Issues →</a>, health checks in <a href="/operations/health" data-ops-health-link="1">Operations / Health →</a> and metric trends in <a href="/operations/telemetry" data-ops-telemetry-link="1">Operations / Telemetry →</a>. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
     ${availabilityNotice}
     <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     ${workAnalytics}
@@ -15724,6 +15725,12 @@ async function handleEstateRequest(req, res, body) {
     if (pathname.startsWith("/__ioi/operations/health") && await handleOperationsHealth(req, res, pathname, body, {
       daemonFetch, whyRefused,
       send: (r, status, inner) => { r.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }); r.end(automationsShell("Health", inner, { theme: "light" })); },
+    })) return;
+    // ADR 0056 P6: Operations / Telemetry — the caller's series over the telemetry plane, in the preserved
+    // Quiver port's landing grammar (its time-series core re-homed here, Amendment 1). Read-only.
+    if (pathname === "/__ioi/operations/telemetry" && await handleOperationsTelemetry(req, res, pathname, {
+      daemonFetch,
+      sendHtml: (r, status, html) => { r.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }); r.end(html); },
     })) return;
     if (pathname === "/__ioi/operations" && req.method === "GET") {
       const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, workResultsRes, ledgerRes] = await Promise.all([

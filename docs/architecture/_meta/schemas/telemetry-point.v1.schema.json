@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+  "title": "TelemetryPoint",
+  "x-ioi-schema-version": "ioi.hypervisor.telemetry_point.v1",
+  "description": "One measurement in one TelemetrySeries (ADR 0056 Amendment 1, plane 6): a timestamp, a numeric value and a bounded attribute list, appended to the series' event stream. `point_class` is the side of the event-class line the stream's declaration puts it on: `admitted` points cross an Agentgres transition and carry a receipt; `ephemeral` samples mint nothing and live only in the daemon's bounded in-process window. Attributes use the OpenTelemetry key/value shape (a list of {key, value}, keys unique, OpenTelemetry attribute naming), bounded in count and length so a series keeps bounded cardinality. `source_ref` names the admitted record the point was read from; `run_ref` names the run it came from, when it came from one, so run receipts stay keyed by run. A point grants nothing and is never authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "series_ref",
+    "point_class",
+    "time_unix_ms",
+    "observed_at",
+    "value",
+    "attributes",
+    "source_ref",
+    "run_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.telemetry_point.v1"
+    },
+    "series_ref": {
+      "type": "string",
+      "pattern": "^telemetry-series://ts_[0-9a-f]{16}$"
+    },
+    "point_class": {
+      "type": "string",
+      "enum": [
+        "admitted",
+        "ephemeral"
+      ]
+    },
+    "time_unix_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "When the value was observed, in milliseconds since the Unix epoch."
+    },
+    "observed_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$",
+      "description": "The same instant as time_unix_ms, as an RFC 3339 UTC timestamp."
+    },
+    "value": {
+      "type": "number",
+      "description": "The measurement, in the series' unit."
+    },
+    "attributes": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/attribute"
+      }
+    },
+    "source_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The admitted record this point was read from (a health-check result's observation ref, a run). Null only for an ephemeral sample that no record carries."
+    },
+    "run_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^automation-run://[^\\s]{1,480}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The canonical run this point came from, when it came from one."
+    }
+  },
+  "$defs": {
+    "attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$",
+          "description": "An OpenTelemetry attribute name (for example ioi.health_check.outcome, gen_ai.token.type)."
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 256
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -12751,6 +12751,148 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+      "canonical_name": "TelemetrySeries",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/platform-operability.md#telemetryseries",
+      "schema_version": "ioi.hypervisor.telemetry_series.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "telemetry-series.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "TelemetrySeriesV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "TelemetrySeriesV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/telemetry-series-v1/positive-health-check-passed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/telemetry-series-v1/negative-unregistered-instrument.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+      "canonical_name": "TelemetryPoint",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/platform-operability.md#telemetrypoint",
+      "schema_version": "ioi.hypervisor.telemetry_point.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "telemetry-point.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "TelemetryPointV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "TelemetryPointV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/telemetry-point-v1/positive-admitted-health-outcome.json",
+        "fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/telemetry-point-v1/negative-attributes-as-map.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/telemetry-point-v1/negative-value-not-a-number.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+      "canonical_name": "TelemetryRange",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/platform-operability.md#telemetryrange",
+      "schema_version": "ioi.hypervisor.telemetry_range.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "telemetry-range.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "TelemetryRangeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "TelemetryRangeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/telemetry-range-v1/negative-derivation-unnamed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/telemetry-range-v1/negative-fabricated-receipt.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
       "canonical_name": "ConnectorCredentialGrant",
       "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#connectorcredentialgrant",

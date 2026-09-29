@@ -502,6 +502,9 @@ pub(crate) async fn handle_health_check_evaluate(
         );
     }
     let target_ref = text(&check, "target_ref").to_string();
+    // ADR 0056 P6: how long the probe took, measured here around the governed exec call; the
+    // telemetry plane records it as an ephemeral sample. No probe runs for an automation outcome.
+    let mut probe_seconds = None;
     let (outcome, exit_code, summary, evidence) = match text(&check, "check_kind") {
         "command_exit" => {
             let environment_ref = text(&check["probe"], "environment_ref").to_string();
@@ -509,6 +512,7 @@ pub(crate) async fn handle_health_check_evaluate(
                 .trim_start_matches("environment://")
                 .to_string();
             let command = text(&check["probe"], "command").to_string();
+            let probe_started = std::time::Instant::now();
             let answer = match super::environment_routes::handle_workspace_exec(
                 State(st.clone()),
                 headers.clone(),
@@ -519,6 +523,7 @@ pub(crate) async fn handle_health_check_evaluate(
                 Ok(Json(answer)) => answer,
                 Err(error) => json!({ "error": { "message": error.1 } }),
             };
+            probe_seconds = Some(probe_started.elapsed().as_secs_f64());
             classify_exec_answer(&environment_ref, &answer)
         }
         _ => {
@@ -609,10 +614,19 @@ pub(crate) async fn handle_health_check_evaluate(
     ) {
         return response;
     }
+    // ADR 0056 P6: the evaluation produces its telemetry — an admitted outcome point about this
+    // check, scoped to the System it observes, and the probe's duration as an ephemeral sample. The
+    // result above is already admitted; a telemetry refusal is named beside it, never undoes it.
+    let telemetry = super::telemetry_routes::record_health_evaluation(
+        &st,
+        &caller,
+        &record,
+        probe_seconds,
+    );
     (
         StatusCode::CREATED,
         Json(
-            json!({ "ok": true, "replayed": commit.replayed, "health_check_result": record, "receipt_ref": commit.receipt_ref }),
+            json!({ "ok": true, "replayed": commit.replayed, "health_check_result": record, "receipt_ref": commit.receipt_ref, "telemetry": telemetry }),
         ),
     )
 }

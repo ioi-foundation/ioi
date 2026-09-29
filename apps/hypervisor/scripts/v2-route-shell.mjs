@@ -445,6 +445,18 @@ export const V2_ROUTE_TABLE = [
     ],
   },
   {
+    route: "/operations/telemetry",
+    surface: "Operations / Telemetry",
+    kind: "typed Operations view (substrate: Operations)",
+    rule: "a series is one event stream about ONE subject; an admitted point carries its receipt, an ephemeral sample lives only in the daemon's bounded window, and a range read is bounded and names the one series it derives",
+    waves: "ADR 0056 P6 (2026-09-29)",
+    build_state: "ADR 0056 P6 (2026-09-29): served from the telemetry plane (GET /v1/hypervisor/telemetry/series, GET /v1/hypervisor/telemetry/series/:id/range) in the preserved Quiver port's landing grammar (Quiver's time-series core re-homed here; its BI builder is terminal). Read-only: series are produced by the planes that observe (Health's Evaluate today). Named on the page and not built: formulas across series, annotations, export, favorites, OpenTelemetry GenAI producers, OTLP ingest",
+    serve: { kind: "rewrite", to: "/__ioi/operations/telemetry", heading: "Operations / Telemetry" },
+    serving_today: [
+      { href: "/__ioi/operations/telemetry", label: "Telemetry", note: "ADR 0056 P6: series, their bounded range reads and the rolling mean the daemon derives" },
+    ],
+  },
+  {
     route: "/ontology/functions",
     surface: "Ontology / Functions",
     kind: "typed Ontology view (substrate: Ontology)",

@@ -26,7 +26,7 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-const EVENT_STREAM_SCOPE_KIND: &str = "daemon-event-stream";
+pub(crate) const EVENT_STREAM_SCOPE_KIND: &str = "daemon-event-stream";
 const SUBSCRIPTION_SCOPE_KIND: &str = "daemon-subscription-lease";
 
 /// A refusal that reaches the wire WITH its machine code.
@@ -40,6 +40,14 @@ pub(crate) struct Refused(StatusCode, Value);
 impl IntoResponse for Refused {
     fn into_response(self) -> axum::response::Response {
         (self.0, Json(self.1)).into_response()
+    }
+}
+
+impl Refused {
+    /// The status and the coded body, for a plane that extends this one (the telemetry plane) and
+    /// renders its own reply around a refusal this plane made. The code and message are untouched.
+    pub(crate) fn into_parts(self) -> (StatusCode, Value) {
+        (self.0, self.1)
     }
 }
 
@@ -116,7 +124,7 @@ fn request_identity(
     substrate_store::resolve_request_identity(&st.data_dir, headers).map_err(scope_refused)
 }
 
-fn event_stream_ref(owner_namespace: &str, stream_tail: &str) -> String {
+pub(crate) fn event_stream_ref(owner_namespace: &str, stream_tail: &str) -> String {
     format!("event-stream://{owner_namespace}/{stream_tail}")
 }
 
@@ -256,7 +264,10 @@ fn classify<'a>(body: &'a Value, class_id: &str) -> Option<(&'a str, bool)> {
 }
 
 /// The operation kind that carries a stream's durable event-class declaration.
-const GENESIS_OP_KIND: &str = "event_stream.genesis";
+pub(crate) const GENESIS_OP_KIND: &str = "event_stream.genesis";
+
+/// The operation kind every admitted append crosses Agentgres under.
+pub(crate) const APPEND_OP_KIND: &str = "event_stream.append";
 
 /// Read the stream's ADMITTED declaration out of its genesis operation.
 ///
@@ -297,12 +308,86 @@ pub(crate) async fn handle_substrate_traversals(
     })))
 }
 
+/// Declare one stream, once — the core every declarer shares (the HTTP route below and the
+/// telemetry plane, which declares one stream per series). Refusal order is the route's: the
+/// declaration's shape, the owner, the idempotency key, the scope binding, then admission.
+///
+/// The declaration is admitted inside an EXPECTED-ABSENT genesis operation, so redeclaration is
+/// refused by the substrate's own compare-and-swap rather than by a check that could be forgotten:
+/// a second genesis has a head where absence was required.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn declare_stream(
+    st: &DaemonState,
+    identity: &substrate_store::RequestIdentity,
+    owner_namespace: &str,
+    stream_tail: &str,
+    owner_ref: &str,
+    idempotency_key: &str,
+    declaration: &Value,
+    recorded_at_ms: u64,
+) -> Result<super::mutation_event_foundation::MutationCommit, Refused> {
+    validate_declaration(declaration)?;
+    if owner_ref.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "event_stream_owner_ref_required",
+            "an event stream is bound to one authenticated tenant owner_ref",
+        ));
+    }
+    if idempotency_key.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "idempotency_key_required",
+            "stream creation carries a caller-owned idempotency key",
+        ));
+    }
+    let resource_ref = event_stream_ref(owner_namespace, stream_tail);
+    let scope = bind_scope(
+        st,
+        identity,
+        EVENT_STREAM_SCOPE_KIND,
+        &resource_ref,
+        owner_ref,
+        idempotency_key,
+    )?;
+    // Expected-absent remains the concurrency rule, but an exact duplicate
+    // under the SAME key/body is allowed to replay the original fact.  A fresh
+    // key or changed declaration still conflicts, so a client can resolve an
+    // ambiguous create without "declaring again".
+    let admitted = super::mutation_event_foundation::admit_owner_scoped_mutation(
+        &st.data_dir,
+        true,
+        super::mutation_event_foundation::ScopedMutation {
+            identity,
+            scope: &scope,
+            resource_kind: EVENT_STREAM_SCOPE_KIND,
+            resource_ref: &resource_ref,
+            owner_namespace,
+            stream_tail,
+            op_kind: GENESIS_OP_KIND,
+            expected_head: None,
+            payload: declaration,
+            recorded_at_ms,
+            idempotency_key,
+        },
+    )
+    .map_err(|refusal| match refusal {
+        super::mutation_event_foundation::MutationRefusal::Admission(
+            AdmissionRefusal::HeadConflict,
+        ) => bad(
+            StatusCode::CONFLICT,
+            "event_stream_already_declared",
+            "this stream already carries a different creation identity or declaration",
+        ),
+        other => mutation_refused(other),
+    })?;
+    substrate_store::remember_declaration(owner_namespace, stream_tail, declaration);
+    Ok(admitted)
+}
+
 /// POST /v1/event-streams/:owner_namespace/:stream_tail
 ///
-/// Declare one stream, once. The declaration is admitted inside an
-/// EXPECTED-ABSENT genesis operation, so redeclaration is refused by the
-/// substrate's own compare-and-swap rather than by a check that could be
-/// forgotten: a second genesis has a head where absence was required.
+/// Declare one stream, once (see [`declare_stream`]).
 pub(crate) async fn handle_event_stream_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -317,68 +402,19 @@ pub(crate) async fn handle_event_stream_create(
             "a stream is declared before it admits anything",
         ));
     };
-    validate_declaration(declaration)?;
-    let owner_ref = text(&body, "owner_ref");
-    if owner_ref.is_empty() {
-        return Err(bad(
-            StatusCode::BAD_REQUEST,
-            "event_stream_owner_ref_required",
-            "an event stream is bound to one authenticated tenant owner_ref",
-        ));
-    }
-    let idempotency_key = text(&body, "idempotency_key");
-    if idempotency_key.is_empty() {
-        return Err(bad(
-            StatusCode::BAD_REQUEST,
-            "idempotency_key_required",
-            "stream creation carries a caller-owned idempotency key",
-        ));
-    }
-    let resource_ref = event_stream_ref(&owner_namespace, &stream_tail);
-    let scope = bind_scope(
+    let admitted = declare_stream(
         &st,
         &identity,
-        EVENT_STREAM_SCOPE_KIND,
-        &resource_ref,
-        owner_ref,
-        idempotency_key,
+        &owner_namespace,
+        &stream_tail,
+        text(&body, "owner_ref"),
+        text(&body, "idempotency_key"),
+        declaration,
+        body.get("recorded_at_ms")
+            .and_then(Value::as_u64)
+            .unwrap_or_default(),
     )?;
-    // Expected-absent remains the concurrency rule, but an exact duplicate
-    // under the SAME key/body is allowed to replay the original fact.  A fresh
-    // key or changed declaration still conflicts, so a client can resolve an
-    // ambiguous create without "declaring again".
-    let admitted = super::mutation_event_foundation::admit_owner_scoped_mutation(
-        &st.data_dir,
-        true,
-        super::mutation_event_foundation::ScopedMutation {
-            identity: &identity,
-            scope: &scope,
-            resource_kind: EVENT_STREAM_SCOPE_KIND,
-            resource_ref: &resource_ref,
-            owner_namespace: &owner_namespace,
-            stream_tail: &stream_tail,
-            op_kind: GENESIS_OP_KIND,
-            expected_head: None,
-            payload: declaration,
-            recorded_at_ms: body
-                .get("recorded_at_ms")
-                .and_then(Value::as_u64)
-                .unwrap_or_default(),
-            idempotency_key,
-        },
-    )
-    .map_err(|refusal| match refusal {
-        super::mutation_event_foundation::MutationRefusal::Admission(
-            AdmissionRefusal::HeadConflict,
-        ) => bad(
-            StatusCode::CONFLICT,
-            "event_stream_already_declared",
-            "this stream already carries a different creation identity or declaration",
-        ),
-        other => mutation_refused(other),
-    })?;
     let exact = &admitted.projection;
-    substrate_store::remember_declaration(&owner_namespace, &stream_tail, declaration);
 
     Ok(Json(json!({
         "stream_id": format!("event-stream://{owner_namespace}/{stream_tail}"),
@@ -402,23 +438,38 @@ pub(crate) async fn handle_event_stream_create(
     })))
 }
 
-/// POST /v1/event-streams/:owner_namespace/:stream_tail/events
-///
-/// Appends one event to an owner-namespaced stream. An admitted class crosses
-/// canonical Agentgres with an exact expected head; an ephemeral class is
-/// delivered without ever entering the admission path.
-pub(crate) async fn handle_event_stream_append(
-    State(st): State<Arc<DaemonState>>,
-    headers: HeaderMap,
-    AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
-    Json(body): Json<Value>,
-) -> Result<Json<Value>, Refused> {
-    let identity = request_identity(&st, &headers)?;
-    let resource_ref = event_stream_ref(&owner_namespace, &stream_tail);
+/// Which side of the event-class line one append landed on.
+pub(crate) enum Appended {
+    /// Delivered only: no sequence, head, root or receipt, and no Agentgres operation awaited.
+    Ephemeral { payload_schema_ref: String },
+    /// Crossed canonical Agentgres with an exact expected head.
+    Admitted {
+        payload_schema_ref: String,
+        commit: super::mutation_event_foundation::MutationCommit,
+    },
+}
+
+/// Append one event to an owner-namespaced stream — the core every appender shares (the HTTP
+/// route below and the telemetry plane's point appends). The CLASS decides the side of the line,
+/// read from the stream's admitted declaration and never from the caller: an admitted class
+/// crosses canonical Agentgres with an exact expected head; an ephemeral class is delivered
+/// without ever entering the admission path.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn append_event(
+    st: &DaemonState,
+    identity: &substrate_store::RequestIdentity,
+    owner_namespace: &str,
+    stream_tail: &str,
+    class_id: &str,
+    payload: &Value,
+    expected_head: Option<&str>,
+    idempotency_key: &str,
+    recorded_at_ms: u64,
+) -> Result<Appended, Refused> {
+    let resource_ref = event_stream_ref(owner_namespace, stream_tail);
     // Authorize before reading the declaration/head.  A denied caller does not
     // get an existence oracle for another principal's stream.
-    let scope = authorize_scope(&st, &identity, EVENT_STREAM_SCOPE_KIND, &resource_ref)?;
-    let class_id = text(&body, "class_id");
+    let scope = authorize_scope(st, identity, EVENT_STREAM_SCOPE_KIND, &resource_ref)?;
     if class_id.is_empty() {
         return Err(bad(
             StatusCode::BAD_REQUEST,
@@ -428,7 +479,7 @@ pub(crate) async fn handle_event_stream_append(
     }
     // The declaration comes from the stream, not the request. A caller cannot
     // assert which side of the event-class line its own event falls on.
-    let Some(declaration) = admitted_declaration(&st, &owner_namespace, &stream_tail)? else {
+    let Some(declaration) = admitted_declaration(st, owner_namespace, stream_tail)? else {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
             "event_stream_undeclared",
@@ -456,19 +507,11 @@ pub(crate) async fn handle_event_stream_append(
         // Ephemeral: no sequence, no head, no root, no receipt, and NO
         // Agentgres operation is awaited. Returning here is the structural
         // property the canon rule names as decisive.
-        return Ok(Json(json!({
-            "delivery": "ephemeral",
-            "class_id": class_id,
-            "payload_schema_ref": payload_schema_ref,
-            "owner_namespace": owner_namespace,
-            "stream_id": format!("event-stream://{owner_namespace}/{stream_tail}"),
-            "nonclaim": "Ephemeral delivery mints no sequence, head, root, or receipt and awaits no Agentgres operation.",
-        })));
+        return Ok(Appended::Ephemeral { payload_schema_ref });
     }
 
     // A declared stream always has a head.  Never read-and-default a missing
     // precondition: that converts an explicit CAS into last-writer-wins.
-    let expected_head = body.get("expected_head").and_then(Value::as_str);
     if expected_head.is_none() {
         return Err(bad(
             StatusCode::BAD_REQUEST,
@@ -476,18 +519,13 @@ pub(crate) async fn handle_event_stream_append(
             "an admitted append must compare-and-swap against the exact observed stream head",
         ));
     }
-    let idem_key = text(&body, "idempotency_key");
-    if idem_key.is_empty() {
+    if idempotency_key.is_empty() {
         return Err(bad(
             StatusCode::BAD_REQUEST,
             "idempotency_key_required",
             "an admitted append carries an idempotency key",
         ));
     }
-    let recorded_at_ms = body
-        .get("recorded_at_ms")
-        .and_then(Value::as_u64)
-        .unwrap_or_default();
 
     // The admitted bytes carry the CLASS, not just the payload. A class known
     // only to the request that made it cannot be filtered on later, so a
@@ -496,26 +534,94 @@ pub(crate) async fn handle_event_stream_append(
     let envelope = json!({
         "class_id": class_id,
         "payload_schema_ref": payload_schema_ref,
-        "payload": body.get("payload").cloned().unwrap_or(Value::Null),
+        "payload": payload,
     });
-    let admitted = super::mutation_event_foundation::admit_owner_scoped_mutation(
+    let commit = super::mutation_event_foundation::admit_owner_scoped_mutation(
         &st.data_dir,
         false,
         super::mutation_event_foundation::ScopedMutation {
-            identity: &identity,
+            identity,
             scope: &scope,
             resource_kind: EVENT_STREAM_SCOPE_KIND,
             resource_ref: &resource_ref,
-            owner_namespace: &owner_namespace,
-            stream_tail: &stream_tail,
-            op_kind: "event_stream.append",
+            owner_namespace,
+            stream_tail,
+            op_kind: APPEND_OP_KIND,
             expected_head,
             payload: &envelope,
             recorded_at_ms,
-            idempotency_key: idem_key,
+            idempotency_key,
         },
     )
     .map_err(mutation_refused)?;
+    Ok(Appended::Admitted {
+        payload_schema_ref,
+        commit,
+    })
+}
+
+/// The exact admitted head of one stream, read under the caller's scope; `None` when no admitted
+/// stream exists at the coordinates.
+pub(crate) fn stream_head(
+    st: &DaemonState,
+    identity: &substrate_store::RequestIdentity,
+    owner_namespace: &str,
+    stream_tail: &str,
+) -> Result<Option<agentgres::mux::ExactProjection>, Refused> {
+    let resource_ref = event_stream_ref(owner_namespace, stream_tail);
+    let scope = authorize_scope(st, identity, EVENT_STREAM_SCOPE_KIND, &resource_ref)?;
+    super::mutation_event_foundation::read_owner_scoped_head(
+        &st.data_dir,
+        identity,
+        &scope,
+        EVENT_STREAM_SCOPE_KIND,
+        &resource_ref,
+        owner_namespace,
+        stream_tail,
+    )
+    .map_err(mutation_refused)
+}
+
+/// POST /v1/event-streams/:owner_namespace/:stream_tail/events
+///
+/// Appends one event to an owner-namespaced stream (see [`append_event`]).
+pub(crate) async fn handle_event_stream_append(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, Refused> {
+    let identity = request_identity(&st, &headers)?;
+    let class_id = text(&body, "class_id");
+    let appended = append_event(
+        &st,
+        &identity,
+        &owner_namespace,
+        &stream_tail,
+        class_id,
+        &body.get("payload").cloned().unwrap_or(Value::Null),
+        body.get("expected_head").and_then(Value::as_str),
+        text(&body, "idempotency_key"),
+        body.get("recorded_at_ms")
+            .and_then(Value::as_u64)
+            .unwrap_or_default(),
+    )?;
+    let (payload_schema_ref, admitted) = match appended {
+        Appended::Ephemeral { payload_schema_ref } => {
+            return Ok(Json(json!({
+                "delivery": "ephemeral",
+                "class_id": class_id,
+                "payload_schema_ref": payload_schema_ref,
+                "owner_namespace": owner_namespace,
+                "stream_id": format!("event-stream://{owner_namespace}/{stream_tail}"),
+                "nonclaim": "Ephemeral delivery mints no sequence, head, root, or receipt and awaits no Agentgres operation.",
+            })));
+        }
+        Appended::Admitted {
+            payload_schema_ref,
+            commit,
+        } => (payload_schema_ref, commit),
+    };
     let exact = &admitted.projection;
 
     Ok(Json(json!({

@@ -1,0 +1,16 @@
+{
+  "schema_version": "ioi.hypervisor.telemetry_point.v1",
+  "series_ref": "telemetry-series://ts_9e2b0d61a3c7f514",
+  "point_class": "ephemeral",
+  "time_unix_ms": 1790676300000,
+  "observed_at": "2026-09-29T10:05:00.000Z",
+  "value": 0.182,
+  "attributes": [
+    {
+      "key": "ioi.health_check.outcome",
+      "value": "passed"
+    }
+  ],
+  "source_ref": "observation://health-check/hc_0123456789abcdef/hcr_fedcba9876543210",
+  "run_ref": null
+}

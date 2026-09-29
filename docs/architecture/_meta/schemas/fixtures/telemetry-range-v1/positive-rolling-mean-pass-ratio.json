@@ -1,0 +1,102 @@
+{
+  "schema_version": "ioi.hypervisor.telemetry_range.v1",
+  "series_ref": "telemetry-series://ts_3f9a1c72b4e8d605",
+  "subject_ref": "health-check://hc_0123456789abcdef",
+  "scope_ref": "system://acme/lending",
+  "metric": {
+    "name": "ioi.health_check.passed",
+    "unit": "1",
+    "instrument": "gauge"
+  },
+  "window": {
+    "from_unix_ms": 1790668800000,
+    "to_unix_ms": 1790676600000,
+    "step_seconds": 3600
+  },
+  "bounds": {
+    "max_span_ms": 2678400000,
+    "max_buckets": 1440,
+    "max_points": 1000
+  },
+  "points": [
+    {
+      "point_class": "admitted",
+      "time_unix_ms": 1790672400000,
+      "observed_at": "2026-09-29T09:00:00Z",
+      "value": 0,
+      "attributes": [
+        {
+          "key": "ioi.health_check.outcome",
+          "value": "failed"
+        }
+      ],
+      "source_ref": "observation://health-check/hc_0123456789abcdef/hcr_0000000000000001",
+      "run_ref": null,
+      "operation_ref": "agentgres://operation/event-stream/hypervisor-telemetry/series.ts_3f9a1c72b4e8d605/sequence/2/head/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "receipt_ref": "receipt://agentgres/event-stream/hypervisor-telemetry/series.ts_3f9a1c72b4e8d605/batch/40/2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "point_class": "admitted",
+      "time_unix_ms": 1790676300000,
+      "observed_at": "2026-09-29T10:05:00Z",
+      "value": 1,
+      "attributes": [
+        {
+          "key": "ioi.health_check.outcome",
+          "value": "passed"
+        }
+      ],
+      "source_ref": "observation://health-check/hc_0123456789abcdef/hcr_fedcba9876543210",
+      "run_ref": null,
+      "operation_ref": "agentgres://operation/event-stream/hypervisor-telemetry/series.ts_3f9a1c72b4e8d605/sequence/3/head/sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "receipt_ref": "receipt://agentgres/event-stream/hypervisor-telemetry/series.ts_3f9a1c72b4e8d605/batch/41/4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "points_in_window": 2,
+  "points_truncated": false,
+  "buckets": [
+    {
+      "start_unix_ms": 1790668800000,
+      "count": 0,
+      "mean": null,
+      "min": null,
+      "max": null
+    },
+    {
+      "start_unix_ms": 1790672400000,
+      "count": 1,
+      "mean": 0,
+      "min": 0,
+      "max": 0
+    },
+    {
+      "start_unix_ms": 1790676000000,
+      "count": 1,
+      "mean": 1,
+      "min": 1,
+      "max": 1
+    }
+  ],
+  "derived": {
+    "derivation": "rolling_mean",
+    "window_points": 5,
+    "basis": "raw_points",
+    "formula": "at each raw point i (oldest first), the mean of value over points max(0, i-4)..=i",
+    "points": [
+      {
+        "time_unix_ms": 1790672400000,
+        "value": 0
+      },
+      {
+        "time_unix_ms": 1790676300000,
+        "value": 0.5
+      }
+    ]
+  },
+  "ephemeral_window": {
+    "retention": "process_memory",
+    "window_points": 512,
+    "held_points": 0
+  },
+  "read_at": "2026-09-29T10:10:00Z"
+}

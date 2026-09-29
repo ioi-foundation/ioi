@@ -91,7 +91,7 @@ export const REQUIRED_GAPS = Object.freeze({
   "limits/handoff/lease-gates-connection-picker": "system_limits_authority_node_absent",
   // WP-B (2026-09-28): a run satisfies "running THE System"; the SESSION half keeps the code here.
   "run/legs/session-subject-system": "session_system_subject_absent",
-  "observe/legs/telemetry": "system_telemetry_absent",
+  // ADR 0056 P6 (2026-09-29): system_telemetry_absent is closed — observe/legs/telemetry is live.
   "evaluate/legs/evaluation-ui": "evaluation_ui_consumer_absent",
   "improve/legs/change-sets": "change_set_blueprint_subject_absent",
   "improve/legs/system-scope": "improvement_system_scope_refused",
@@ -125,6 +125,7 @@ export const REQUIRED_LIVE = Object.freeze([
   "data/legs/walk-function",
   "observe/legs/walk-issue",
   "observe/legs/walk-health",
+  "observe/legs/telemetry",
   "run/legs/walk-automation",
   "run/legs/walk-function-step",
   "run/handoff/walk-run-in-work",
@@ -1032,6 +1033,37 @@ async function liveLeg() {
         && evaluatedCheck.q.get("check") === walkCheckId && /^Passed/u.test(evaluatedCheck.q.get("note") || "")
         && overview.status === 200 && healthRow.includes(healthName) && healthRow.includes('data-health-outcome="passed"'),
       `declare ${declaredCheck.status} ${walkCheckId || declaredCheck.q.get("note") || "no check"} · evaluate ${evaluatedCheck.status} ${evaluatedCheck.q.get("note") || ""} · System overview row ${healthRowAt >= 0} passed ${healthRow.includes('data-health-outcome="passed"')}`);
+    // ADR 0056 P6 — THIS walk's evaluation is telemetry about the System, read from daemon truth: the
+    // result the evaluation admitted; the series the plane declared for it (subject: the check, scope:
+    // the System); the bounded range read holding the point by the result's own observation ref —
+    // admitted, value 1, receipted, with the rolling mean the daemon names; and the System's Overview
+    // (read above, after the evaluation) drawing that series with the point as its latest.
+    const walkResult = walkCheckId ? ((((await read(ctx, `/v1/hypervisor/health-check-results?health_check=${encodeURIComponent(walkCheckId)}`)).json || {}).health_check_results || [])[0] || null) : null;
+    const walkResultRef = walkResult?.result_id || "";
+    const aboutSystem = (((await read(ctx, `/v1/hypervisor/telemetry/series?about_ref=${encodeURIComponent(ids.systemId)}&metric=ioi.health_check.passed`)).json || {}).series || []);
+    const walkSeries = walkCheckId ? (aboutSystem.find((x) => x.subject_ref === `health-check://${walkCheckId}`) || null) : null;
+    const walkSeriesTail = String(walkSeries?.series_id || "").replace(/^telemetry-series:\/\//u, "");
+    const walkRange = walkSeriesTail ? ((((await read(ctx, `/v1/hypervisor/telemetry/series/${encodeURIComponent(walkSeriesTail)}/range`)).json || {}).range) || null) : null;
+    const walkPoint = walkResultRef ? ((walkRange?.points || []).find((p) => p.source_ref === walkResultRef) || null) : null;
+    const telemetryRowAt = walkSeries ? overview.text.indexOf(`data-system-telemetry-series="${walkSeries.series_id}"`) : -1;
+    const telemetryRow = telemetryRowAt >= 0 ? overview.text.slice(telemetryRowAt, overview.text.indexOf("</tr>", telemetryRowAt)) : "";
+    // …and Operations / Telemetry (the Quiver port's landing, rebound) lists the series and opens it on
+    // the same point, with the derivation the daemon named.
+    const telemetryLane = await page(ctx, "/operations/telemetry");
+    const telemetryDetail = walkSeriesTail ? await page(ctx, `/operations/telemetry?series=${walkSeriesTail}`) : { status: 0, text: "" };
+    const lanePointAt = walkResultRef ? telemetryDetail.text.indexOf(`data-telemetry-point="${walkResultRef}"`) : -1;
+    const laneShows = telemetryLane.status === 200 && !!walkSeries && telemetryLane.text.includes(`data-telemetry-series="${walkSeries.series_id}"`)
+      && telemetryDetail.status === 200 && lanePointAt >= 0 && telemetryDetail.text.slice(lanePointAt, lanePointAt + 200).includes('data-telemetry-point-class="admitted"')
+      && telemetryDetail.text.includes('data-telemetry-derivation="rolling_mean"');
+    claimLive("observe/legs/telemetry",
+      !!walkResultRef && walkResult?.outcome === "passed" && !!walkSeries && walkSeries.scope_ref === ids.systemId
+        && walkSeries.stream_id === `event-stream://hypervisor-telemetry/series.${walkSeriesTail}`
+        && !!walkPoint && walkPoint.point_class === "admitted" && walkPoint.value === 1
+        && /^receipt:\/\//u.test(walkPoint.receipt_ref || "") && /^agentgres:\/\//u.test(walkPoint.operation_ref || "")
+        && walkRange?.derived?.derivation === "rolling_mean" && (walkRange?.derived?.points || []).length === (walkRange?.points || []).length
+        && overview.status === 200 && telemetryRow.includes(`data-telemetry-point-source="${walkResultRef}"`) && telemetryRow.includes('data-telemetry-point-class="admitted"')
+        && laneShows,
+      `result ${walkResultRef || "none"} ${walkResult?.outcome || ""} · series ${walkSeries?.series_id || "none"} scoped ${walkSeries?.scope_ref || "nothing"} · range ${walkRange ? `${walkRange.points_in_window} point(s)` : "unread"} holds the point ${!!walkPoint}${walkPoint ? ` (${walkPoint.point_class}, ${walkPoint.value}, receipt ${!!walkPoint.receipt_ref})` : ""} · overview row ${telemetryRowAt >= 0} shows it ${telemetryRow.includes(`data-telemetry-point-source="${walkResultRef || "@@"}"`)} · Operations / Telemetry ${telemetryLane.status}/${telemetryDetail.status} shows it ${laneShows}`);
     // STEP 3 (continued) — THIS walk's function, through Ontology / Functions' own forms, tested in the
     // environment the walk's run used (so it is measured here, after the run).
     const fnName = `fn${vars.tag}`;

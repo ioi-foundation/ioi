@@ -23,6 +23,10 @@
 //   rowsHtml                                    — CALLER-RENDERED rows (real estate truth; the
 //                                                 caller owns escaping of its own row internals)
 //   emptyCopy                                   — honest-empty copy when rowsHtml is ""
+//   viewLabel?                                  — the active view's label (default "Recents")
+//   panelHtml?                                  — CALLER-RENDERED block between the view row and
+//                                                 the table (a detail view's chart; the caller owns
+//                                                 its escaping); absent on a landing
 //   footHtml                                    — truthful footer (evidence citations)
 //   embed                                       — native_single_rail contract: no global rail
 // Returns the full HTML document string.
@@ -55,7 +59,7 @@ export function renderSplashLanding(cfg) {
       <p class="spl-desc">${esc(cfg.heroDesc)}</p>
     </div>${cfg.heroImgUri ? `<img class="spl-heroimg" src="${cfg.heroImgUri}" alt="${esc(cfg.heroImgAlt || "Reference illustration (verbatim capture chrome)")}">` : ""}</section>`;
   const viewRow = `<div class="spl-viewrow">
-    <span class="spl-view on" aria-current="page">Recents</span>
+    <span class="spl-view on" aria-current="page">${esc(cfg.viewLabel || "Recents")}</span>
     ${gap("spl-view", "Favorites", cfg.favoritesGapReason || "No favorites plane exists on the estate (typed absence)")}
   </div>`;
   const table = `<div class="spl-table">
@@ -93,5 +97,5 @@ export function renderSplashLanding(cfg) {
     .spl-empty{padding:22px 10px;color:#5f6b7c;font-size:14px}
     .spl-foot{font-size:12px;line-height:1.6;color:#7b8494;margin:20px 32px 40px}`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(cfg.title)}</title><style>${css}</style></head>
-    <body${cfg.surfaceRoute ? ` data-ioi-surface-route="${cfg.surfaceRoute}" data-ioi-surface-owner="${cfg.surfaceOwner || ""}"` : ""}><div class="spl-shell">${globalRail}<div class="spl-main">${header}<div class="spl-body">${hero}${viewRow}${table}<p class="spl-foot">${cfg.footHtml || ""}</p></div></div></div></body></html>`;
+    <body${cfg.surfaceRoute ? ` data-ioi-surface-route="${cfg.surfaceRoute}" data-ioi-surface-owner="${cfg.surfaceOwner || ""}"` : ""}><div class="spl-shell">${globalRail}<div class="spl-main">${header}<div class="spl-body">${hero}${viewRow}${cfg.panelHtml || ""}${table}<p class="spl-foot">${cfg.footHtml || ""}</p></div></div></div></body></html>`;
 }

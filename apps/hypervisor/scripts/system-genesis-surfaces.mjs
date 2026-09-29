@@ -28,6 +28,7 @@ import http from "node:http";
 import { createHash } from "node:crypto";
 import { callerOwnerRef, escHtml, refusalCodeOf, refusalMessageOf } from "../surfaces/kit.mjs";
 import { renderTargetHealth } from "./operations-health.mjs";
+import { renderTargetTelemetry } from "./operations-telemetry.mjs";
 
 const esc = escHtml;
 const BASE = "/__ioi/systems";
@@ -879,6 +880,34 @@ async function systemHealth(daemonUrl, systemId) {
   return stateBlock(observed ? "ready_or_proposed" : "honest_empty", observed ? null : "no_health_check_observes_system", renderTargetHealth(systemId, all, results.body.health_check_results || []));
 }
 
+// ADR 0056 P6: the telemetry series about this System — its own, and those of what serves it (the
+// checks that observe it, its runs) — each over the plane's bounded range read for the last 7 days, read
+// as the caller; the plane filters by tenant before this page sees a series. At most six are drawn here;
+// the lane lists them all.
+const SYSTEM_TELEMETRY_SERIES = 6;
+const SYSTEM_TELEMETRY_SPAN_MS = 7 * 86_400_000;
+async function systemTelemetry(daemonUrl, systemId) {
+  const listed = await daemonJson(daemonUrl, "GET", `/v1/hypervisor/telemetry/series?about_ref=${encodeURIComponent(systemId)}`);
+  if (listed.networkError || listed.status !== 200 || listed.body?.ok !== true) {
+    const code = listed.networkError ? "daemon_unreachable" : (listed.body?.error?.code || refusalCodeOf(listed.body || {}, listed.status));
+    return stateBlock(stateForErrorCode(code), code, `<div class="empty" data-system-telemetry-unavailable="1">Telemetry could not be read — <code>${esc(code)}</code>. Nothing is shown in its place.</div>`);
+  }
+  const series = (Array.isArray(listed.body.series) ? listed.body.series : [])
+    .filter((s) => s.subject_ref === systemId || s.scope_ref === systemId)
+    .slice(0, SYSTEM_TELEMETRY_SERIES);
+  const now = Date.now();
+  const window = `from=${now - SYSTEM_TELEMETRY_SPAN_MS}&to=${now + 1}&step=3600`;
+  const entries = await Promise.all(series.map(async (one) => {
+    const tail = String(one.series_id || "").replace(/^telemetry-series:\/\//u, "");
+    const read = await daemonJson(daemonUrl, "GET", `/v1/hypervisor/telemetry/series/${encodeURIComponent(tail)}/range?${window}`);
+    if (read.networkError || read.status !== 200 || read.body?.ok !== true) {
+      return { series: one, error: read.networkError ? "daemon_unreachable" : (read.body?.error?.code || refusalCodeOf(read.body || {}, read.status)) };
+    }
+    return { series: one, range: read.body.range };
+  }));
+  return stateBlock(entries.length ? "ready_or_proposed" : "honest_empty", entries.length ? null : "no_telemetry_series_about_system", renderTargetTelemetry(systemId, entries));
+}
+
 // R-240 journey WP-B: the System's own work — the Work projection narrowed by system_ref, read as the
 // caller (every family is policy-filtered by its owner before the projection sees it). A run serves the
 // System its automation's installation is scoped to; each row links its run, whose link lands on the
@@ -940,6 +969,7 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
     if (mode === "") {
       return shell(title, head + pending + parts.identity + `<h2>Read projection</h2>` + parts.projection
         + `<h2>Health</h2>` + await systemHealth(daemonUrl, systemId)
+        + `<h2>Telemetry</h2>` + await systemTelemetry(daemonUrl, systemId)
         + `<p class="sub">Attention: owner events for your work arrive in the notification inbox (<code>/v1/hypervisor/notifications</code>); the inbox is not narrowed to one System yet — this System's runs are listed on its <a href="${esc(modeHref(tailPath, "operate"))}">Operate</a> mode.</p>`);
     }
     if (mode === "govern") {

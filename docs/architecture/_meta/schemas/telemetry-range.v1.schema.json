@@ -1,0 +1,424 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+  "title": "TelemetryRange",
+  "x-ioi-schema-version": "ioi.hypervisor.telemetry_range.v1",
+  "description": "The daemon's answer to one bounded range read of one TelemetrySeries (ADR 0056 Amendment 1, plane 6): the raw points observed in [from, to) — admitted points replayed from the series' event stream with their operation and receipt refs, ephemeral samples from the in-process window with none — the points aggregated into step-aligned buckets, and exactly ONE derived series computed at read time whose derivation is named in the answer. Every bound is stated, and a truncated answer says so. Nothing in it is stored; asking again recomputes it from the stream.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "series_ref",
+    "subject_ref",
+    "scope_ref",
+    "metric",
+    "window",
+    "bounds",
+    "points",
+    "points_in_window",
+    "points_truncated",
+    "buckets",
+    "derived",
+    "ephemeral_window",
+    "read_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.telemetry_range.v1"
+    },
+    "series_ref": {
+      "type": "string",
+      "pattern": "^telemetry-series://ts_[0-9a-f]{16}$"
+    },
+    "subject_ref": {
+      "type": "string",
+      "pattern": "^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$"
+    },
+    "scope_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,480}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "unit",
+        "instrument"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[!-~]{1,63}$"
+        },
+        "instrument": {
+          "type": "string",
+          "enum": [
+            "gauge",
+            "counter",
+            "updowncounter",
+            "histogram"
+          ]
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_unix_ms",
+        "to_unix_ms",
+        "step_seconds"
+      ],
+      "properties": {
+        "from_unix_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "to_unix_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "step_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2678400
+        }
+      }
+    },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_span_ms",
+        "max_buckets",
+        "max_points"
+      ],
+      "description": "The limits every range read is held to, stated in the answer so a reader never mistakes a bounded answer for the whole series.",
+      "properties": {
+        "max_span_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "max_buckets": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1440
+        },
+        "max_points": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      }
+    },
+    "points": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/$defs/rangePoint"
+      },
+      "description": "The raw points in the window, oldest first; when more than max_points fall inside it, the newest max_points."
+    },
+    "points_in_window": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "points_truncated": {
+      "type": "boolean"
+    },
+    "buckets": {
+      "type": "array",
+      "maxItems": 1440,
+      "items": {
+        "$ref": "#/$defs/bucket"
+      },
+      "description": "Step-aligned buckets covering the window; an empty bucket has count 0 and null statistics."
+    },
+    "derived": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "derivation",
+        "window_points",
+        "basis",
+        "formula",
+        "points"
+      ],
+      "description": "The one derived series, computed at read time and never stored.",
+      "properties": {
+        "derivation": {
+          "type": "string",
+          "enum": [
+            "rolling_mean"
+          ]
+        },
+        "window_points": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "raw_points"
+          ]
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "points": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/$defs/derivedPoint"
+          }
+        }
+      }
+    },
+    "ephemeral_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retention",
+        "window_points",
+        "held_points"
+      ],
+      "properties": {
+        "retention": {
+          "type": "string",
+          "enum": [
+            "process_memory"
+          ]
+        },
+        "window_points": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "held_points": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        }
+      }
+    },
+    "read_at": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 256
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }
+      }
+    },
+    "rangePoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "point_class",
+        "time_unix_ms",
+        "observed_at",
+        "value",
+        "attributes",
+        "source_ref",
+        "run_ref",
+        "operation_ref",
+        "receipt_ref"
+      ],
+      "properties": {
+        "point_class": {
+          "type": "string",
+          "enum": [
+            "admitted",
+            "ephemeral"
+          ]
+        },
+        "time_unix_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "observed_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$"
+        },
+        "value": {
+          "type": "number"
+        },
+        "attributes": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/attribute"
+          }
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^automation-run://[^\\s]{1,480}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operation_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^agentgres://[^\\s]{1,400}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The Agentgres operation that admitted the point; null for an ephemeral sample."
+        },
+        "receipt_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,400}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The admission receipt; null for an ephemeral sample."
+        }
+      }
+    },
+    "bucket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_unix_ms",
+        "count",
+        "mean",
+        "min",
+        "max"
+      ],
+      "properties": {
+        "start_unix_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "derivedPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time_unix_ms",
+        "value"
+      ],
+      "properties": {
+        "time_unix_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "value": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

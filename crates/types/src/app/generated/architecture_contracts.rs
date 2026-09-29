@@ -283,6 +283,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3"),
     ("schema://ioi/components/daemon-runtime/health-check/v1", "sha256:fd5d3837a0e6125a59fe3d68fe4bdce672ac8f874b47f712021dd83662465f65"),
     ("schema://ioi/components/daemon-runtime/health-check-result/v1", "sha256:4f8afe744c0116f038577682463b0d08c2b547ea526277bf9776576fd4bb988b"),
+    ("schema://ioi/components/daemon-runtime/telemetry-series/v1", "sha256:a558c80d2136e9ac5e4f6beea9bae17fb79102a9ba133cb46548df3db1df85c4"),
+    ("schema://ioi/components/daemon-runtime/telemetry-point/v1", "sha256:88b1a173161b8eb9505d386456b2c089df3ef1278015bcf7efe14a15bc6bade8"),
+    ("schema://ioi/components/daemon-runtime/telemetry-range/v1", "sha256:e0c4719dafd87e427efd6a41729860c3a9d5e69ad818c592ddfeff892980c091"),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8"),
     ("schema://ioi/components/wallet-network/authority-review-receipt/v1", "sha256:4f4fdd73468bcb9e28d1e0ff2c2ddfcc84a6e5aa869fe2dcca46c5eb0e69ca4c"),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", "sha256:3c0ccfe0fc9ae22cb54e5d3e26bd571763cd45ace48fafe5f43d35dfcb9be3a7"),
@@ -107680,6 +107683,1316 @@ pub enum HealthCheckResultV1Outcome {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetrySeriesV1 {
+    pub schema_version: TelemetrySeriesV1SchemaVersion,
+    pub series_id: String,
+    pub identity_digest: String,
+    pub subject_ref: String,
+    pub scope_ref: Option<String>,
+    pub metric: TelemetrySeriesV1Metric,
+    pub stream_id: String,
+    pub event_class_declaration: TelemetrySeriesV1EventClassDeclaration,
+    pub ephemeral_window: TelemetrySeriesV1EphemeralWindow,
+    pub producer_ref: String,
+    pub producer_principal_ref: String,
+    pub owner_ref: String,
+    pub declared_at: String,
+    pub declaration_receipt_ref: String,
+    pub latest_point: Option<TelemetrySeriesV1LatestPoint>,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetrySeriesV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/telemetry-series/v1","title":"TelemetrySeries","x-ioi-schema-version":"ioi.hypervisor.telemetry_series.v1","description":"One telemetry series (ADR 0056 Amendment 1, plane 6): the identity of a metric trend about ONE subject, and the owner-namespaced event stream its points are appended to. Identity is (owner, producing principal, subject, scope, metric name, unit), committed by `identity_digest` and carried in `series_id`; a series never changes identity, and a different metric, unit or subject is a different series. Points are appended to `stream_id` through the event-stream plane under the classes its `event_class_declaration` names: `telemetry.point` is ADMITTED truth (read from an admitted record, required to replay the series, receipted) and `telemetry.sample` is EPHEMERAL delivery (a sample of a changing value: no sequence, head, root or receipt, held only in the daemon's bounded in-process window, gone at restart). Metric names and units adopt OpenTelemetry semantic conventions where one fits and use the `ioi.` namespace where none does; `metric.semantic_convention` says which. A series grants nothing and is never authority.","type":"object","additionalProperties":false,"required":["schema_version","series_id","identity_digest","subject_ref","scope_ref","metric","stream_id","event_class_declaration","ephemeral_window","producer_ref","producer_principal_ref","owner_ref","declared_at","declaration_receipt_ref","latest_point"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.telemetry_series.v1"},"series_id":{"type":"string","pattern":"^telemetry-series://ts_[0-9a-f]{16}$","description":"ts_ plus the first 16 hex characters of identity_digest."},"identity_digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"sha256 over the JCS bytes of {owner_ref, producer_principal_ref, subject_ref, scope_ref, metric_name, metric_unit}."},"subject_ref":{"type":"string","pattern":"^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$","description":"The one thing the series measures: a System, an automation or one of its runs, an environment, an agent, a health check, a session."},"scope_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,480}$"},{"type":"null"}],"description":"The System the subject serves, when it serves one (a check that observes the System, a run of an automation installed for it); null otherwise."},"metric":{"type":"object","additionalProperties":false,"required":["name","unit","instrument","description","semantic_convention"],"properties":{"name":{"type":"string","maxLength":255,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$","description":"An OpenTelemetry-style metric name: lowercase, dot-namespaced."},"unit":{"type":"string","minLength":1,"maxLength":63,"pattern":"^[!-~]{1,63}$","description":"A UCUM case-sensitive unit as OpenTelemetry uses it: `1` for a dimensionless value, `s` for seconds, `{token}` for an annotated count."},"instrument":{"type":"string","enum":["gauge","counter","updowncounter","histogram"],"description":"The OpenTelemetry instrument kind the measurements are recorded with; it decides how points aggregate."},"description":{"type":"string","minLength":1,"maxLength":400},"semantic_convention":{"type":"object","additionalProperties":false,"required":["registry","stability","reference"],"properties":{"registry":{"type":"string","enum":["opentelemetry","ioi"],"description":"Whose naming the metric follows: an OpenTelemetry semantic convention, or an `ioi.` name where no OpenTelemetry convention fits."},"stability":{"type":"string","enum":["stable","development","ioi_extension"]},"reference":{"type":"string","minLength":1,"maxLength":400,"description":"Where the convention is defined: an OpenTelemetry semantic-conventions URL, or the canon anchor for an `ioi.` name."}}}}},"stream_id":{"type":"string","pattern":"^event-stream://hypervisor-telemetry/series[.]ts_[0-9a-f]{16}$","description":"The owner-namespaced event stream the series' points are appended to — one stream per series in the hypervisor-telemetry namespace."},"event_class_declaration":{"type":"object","additionalProperties":false,"required":["admitted_truth_classes","ephemeral_delivery_classes"],"description":"The stream's declared event classes, exactly as admitted in its genesis operation.","properties":{"admitted_truth_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/eventClass"}},"ephemeral_delivery_classes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/eventClass"}}}},"ephemeral_window":{"type":"object","additionalProperties":false,"required":["retention","window_points"],"description":"Where ephemeral samples live: in the daemon process only, newest window_points kept. They do not survive a restart and carry no receipt.","properties":{"retention":{"type":"string","enum":["process_memory"]},"window_points":{"type":"integer","minimum":1,"maximum":4096}}},"producer_ref":{"type":"string","pattern":"^daemon-producer://[a-z0-9][a-z0-9._-]{0,119}$","description":"The daemon producer that emits the series' points (for example daemon-producer://health-check-evaluate)."},"producer_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$","description":"The signed-in principal whose request produced the points. It is part of the series identity: the event-stream plane admits appends only from the principal that reserved the stream."},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"declared_at":{"type":"string","minLength":1},"declaration_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,400}$","description":"The receipt of the series' admitted declaration."},"latest_point":{"anyOf":[{"type":"object","additionalProperties":false,"required":["point_class","time_unix_ms","value"],"properties":{"point_class":{"type":"string","enum":["admitted","ephemeral"]},"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"number"}}},{"type":"null"}],"description":"A projection of the newest appended point, for listings; the range read is the truth."}},"$defs":{"eventClass":{"type":"object","additionalProperties":false,"required":["class_id","payload_schema_ref"],"properties":{"class_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]*$"},"payload_schema_ref":{"type":"string","pattern":"^schema://[^\\s]{1,400}$"},"classification_basis":{"type":"string"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<TelemetrySeriesV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            series_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"series_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"series_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_digest: serde_json::from_value::<String>(
+                object
+                    .remove(r#"identity_digest"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_digest"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            metric: serde_json::from_value::<TelemetrySeriesV1Metric>(
+                object
+                    .remove(r#"metric"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"metric"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stream_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stream_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stream_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            event_class_declaration:
+                serde_json::from_value::<TelemetrySeriesV1EventClassDeclaration>(
+                    object.remove(r#"event_class_declaration"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"event_class_declaration"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            ephemeral_window: serde_json::from_value::<TelemetrySeriesV1EphemeralWindow>(
+                object
+                    .remove(r#"ephemeral_window"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ephemeral_window"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            producer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"producer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"producer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            producer_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"producer_principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"producer_principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"declared_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declaration_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"declaration_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declaration_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_point: serde_json::from_value::<Option<TelemetrySeriesV1LatestPoint>>(
+                object
+                    .remove(r#"latest_point"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_point"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetrySeriesV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.telemetry_series.v1"#)]
+    IoiHypervisorTelemetrySeriesV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetrySeriesV1Metric {
+    pub name: String,
+    pub unit: String,
+    pub instrument: TelemetrySeriesV1MetricInstrument,
+    pub description: String,
+    pub semantic_convention: TelemetrySeriesV1MetricSemanticConvention,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetrySeriesV1Metric {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["name","unit","instrument","description","semantic_convention"],"properties":{"name":{"type":"string","maxLength":255,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$","description":"An OpenTelemetry-style metric name: lowercase, dot-namespaced."},"unit":{"type":"string","minLength":1,"maxLength":63,"pattern":"^[!-~]{1,63}$","description":"A UCUM case-sensitive unit as OpenTelemetry uses it: `1` for a dimensionless value, `s` for seconds, `{token}` for an annotated count."},"instrument":{"type":"string","enum":["gauge","counter","updowncounter","histogram"],"description":"The OpenTelemetry instrument kind the measurements are recorded with; it decides how points aggregate."},"description":{"type":"string","minLength":1,"maxLength":400},"semantic_convention":{"type":"object","additionalProperties":false,"required":["registry","stability","reference"],"properties":{"registry":{"type":"string","enum":["opentelemetry","ioi"],"description":"Whose naming the metric follows: an OpenTelemetry semantic convention, or an `ioi.` name where no OpenTelemetry convention fits."},"stability":{"type":"string","enum":["stable","development","ioi_extension"]},"reference":{"type":"string","minLength":1,"maxLength":400,"description":"Where the convention is defined: an OpenTelemetry semantic-conventions URL, or the canon anchor for an `ioi.` name."}}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unit: serde_json::from_value::<String>(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            instrument: serde_json::from_value::<TelemetrySeriesV1MetricInstrument>(
+                object
+                    .remove(r#"instrument"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"instrument"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_convention:
+                serde_json::from_value::<TelemetrySeriesV1MetricSemanticConvention>(
+                    object
+                        .remove(r#"semantic_convention"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"semantic_convention"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetrySeriesV1MetricInstrument {
+    #[serde(rename = r#"gauge"#)]
+    Gauge,
+    #[serde(rename = r#"counter"#)]
+    Counter,
+    #[serde(rename = r#"updowncounter"#)]
+    Updowncounter,
+    #[serde(rename = r#"histogram"#)]
+    Histogram,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetrySeriesV1MetricSemanticConvention {
+    pub registry: TelemetrySeriesV1MetricSemanticConventionRegistry,
+    pub stability: TelemetrySeriesV1MetricSemanticConventionStability,
+    pub reference: String,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetrySeriesV1MetricSemanticConvention {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["registry","stability","reference"],"properties":{"registry":{"type":"string","enum":["opentelemetry","ioi"],"description":"Whose naming the metric follows: an OpenTelemetry semantic convention, or an `ioi.` name where no OpenTelemetry convention fits."},"stability":{"type":"string","enum":["stable","development","ioi_extension"]},"reference":{"type":"string","minLength":1,"maxLength":400,"description":"Where the convention is defined: an OpenTelemetry semantic-conventions URL, or the canon anchor for an `ioi.` name."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            registry: serde_json::from_value::<TelemetrySeriesV1MetricSemanticConventionRegistry>(
+                object
+                    .remove(r#"registry"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stability:
+                serde_json::from_value::<TelemetrySeriesV1MetricSemanticConventionStability>(
+                    object
+                        .remove(r#"stability"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"stability"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            reference: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reference"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reference"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetrySeriesV1MetricSemanticConventionRegistry {
+    #[serde(rename = r#"opentelemetry"#)]
+    Opentelemetry,
+    #[serde(rename = r#"ioi"#)]
+    Ioi,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetrySeriesV1MetricSemanticConventionStability {
+    #[serde(rename = r#"stable"#)]
+    Stable,
+    #[serde(rename = r#"development"#)]
+    Development,
+    #[serde(rename = r#"ioi_extension"#)]
+    IoiExtension,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetrySeriesV1EventClassDeclaration {
+    pub admitted_truth_classes: Vec<TelemetrySeriesV1EventClassDeclarationAdmittedTruthClassesItem>,
+    pub ephemeral_delivery_classes:
+        Vec<TelemetrySeriesV1EventClassDeclarationEphemeralDeliveryClassesItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetrySeriesV1EventClassDeclaration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["admitted_truth_classes","ephemeral_delivery_classes"],"description":"The stream's declared event classes, exactly as admitted in its genesis operation.","properties":{"admitted_truth_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/eventClass"}},"ephemeral_delivery_classes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/eventClass"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            admitted_truth_classes: serde_json::from_value::<
+                Vec<TelemetrySeriesV1EventClassDeclarationAdmittedTruthClassesItem>,
+            >(
+                object
+                    .remove(r#"admitted_truth_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_truth_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ephemeral_delivery_classes: serde_json::from_value::<
+                Vec<TelemetrySeriesV1EventClassDeclarationEphemeralDeliveryClassesItem>,
+            >(
+                object
+                    .remove(r#"ephemeral_delivery_classes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ephemeral_delivery_classes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetrySeriesV1EventClassDeclarationAdmittedTruthClassesItem {
+    pub class_id: String,
+    pub payload_schema_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classification_basis: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for TelemetrySeriesV1EventClassDeclarationAdmittedTruthClassesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["class_id","payload_schema_ref"],"properties":{"class_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]*$"},"payload_schema_ref":{"type":"string","pattern":"^schema://[^\\s]{1,400}$"},"classification_basis":{"type":"string"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            class_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"class_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"class_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_schema_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_schema_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            classification_basis: match object.remove(r#"classification_basis"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetrySeriesV1EventClassDeclarationEphemeralDeliveryClassesItem {
+    pub class_id: String,
+    pub payload_schema_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classification_basis: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for TelemetrySeriesV1EventClassDeclarationEphemeralDeliveryClassesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["class_id","payload_schema_ref"],"properties":{"class_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]*$"},"payload_schema_ref":{"type":"string","pattern":"^schema://[^\\s]{1,400}$"},"classification_basis":{"type":"string"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            class_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"class_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"class_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_schema_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_schema_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            classification_basis: match object.remove(r#"classification_basis"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetrySeriesV1EphemeralWindow {
+    pub retention: TelemetrySeriesV1EphemeralWindowRetention,
+    pub window_points: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetrySeriesV1EphemeralWindow {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["retention","window_points"],"description":"Where ephemeral samples live: in the daemon process only, newest window_points kept. They do not survive a restart and carry no receipt.","properties":{"retention":{"type":"string","enum":["process_memory"]},"window_points":{"type":"integer","minimum":1,"maximum":4096}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            retention: serde_json::from_value::<TelemetrySeriesV1EphemeralWindowRetention>(
+                object
+                    .remove(r#"retention"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retention"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            window_points: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"window_points"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"window_points"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetrySeriesV1EphemeralWindowRetention {
+    #[serde(rename = r#"process_memory"#)]
+    ProcessMemory,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetrySeriesV1LatestPoint {
+    pub point_class: TelemetrySeriesV1LatestPointPointClass,
+    pub time_unix_ms: ArchitectureContractInteger,
+    pub value: f64,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetrySeriesV1LatestPoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["point_class","time_unix_ms","value"],"properties":{"point_class":{"type":"string","enum":["admitted","ephemeral"]},"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"number"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            point_class: serde_json::from_value::<TelemetrySeriesV1LatestPointPointClass>(
+                object
+                    .remove(r#"point_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"point_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            time_unix_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"time_unix_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"time_unix_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            value: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"value"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"value"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetrySeriesV1LatestPointPointClass {
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"ephemeral"#)]
+    Ephemeral,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryPointV1 {
+    pub schema_version: TelemetryPointV1SchemaVersion,
+    pub series_ref: String,
+    pub point_class: TelemetryPointV1PointClass,
+    pub time_unix_ms: ArchitectureContractInteger,
+    pub observed_at: String,
+    pub value: f64,
+    pub attributes: Vec<TelemetryPointV1AttributesItem>,
+    pub source_ref: Option<String>,
+    pub run_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryPointV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-point/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/telemetry-point/v1","title":"TelemetryPoint","x-ioi-schema-version":"ioi.hypervisor.telemetry_point.v1","description":"One measurement in one TelemetrySeries (ADR 0056 Amendment 1, plane 6): a timestamp, a numeric value and a bounded attribute list, appended to the series' event stream. `point_class` is the side of the event-class line the stream's declaration puts it on: `admitted` points cross an Agentgres transition and carry a receipt; `ephemeral` samples mint nothing and live only in the daemon's bounded in-process window. Attributes use the OpenTelemetry key/value shape (a list of {key, value}, keys unique, OpenTelemetry attribute naming), bounded in count and length so a series keeps bounded cardinality. `source_ref` names the admitted record the point was read from; `run_ref` names the run it came from, when it came from one, so run receipts stay keyed by run. A point grants nothing and is never authority.","type":"object","additionalProperties":false,"required":["schema_version","series_ref","point_class","time_unix_ms","observed_at","value","attributes","source_ref","run_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.telemetry_point.v1"},"series_ref":{"type":"string","pattern":"^telemetry-series://ts_[0-9a-f]{16}$"},"point_class":{"type":"string","enum":["admitted","ephemeral"]},"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"When the value was observed, in milliseconds since the Unix epoch."},"observed_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$","description":"The same instant as time_unix_ms, as an RFC 3339 UTC timestamp."},"value":{"type":"number","description":"The measurement, in the series' unit."},"attributes":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"$ref":"#/$defs/attribute"}},"source_ref":{"anyOf":[{"type":"string","pattern":"^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"},{"type":"null"}],"description":"The admitted record this point was read from (a health-check result's observation ref, a run). Null only for an ephemeral sample that no record carries."},"run_ref":{"anyOf":[{"type":"string","pattern":"^automation-run://[^\\s]{1,480}$"},{"type":"null"}],"description":"The canonical run this point came from, when it came from one."}},"$defs":{"attribute":{"type":"object","additionalProperties":false,"required":["key","value"],"properties":{"key":{"type":"string","maxLength":128,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$","description":"An OpenTelemetry attribute name (for example ioi.health_check.outcome, gen_ai.token.type)."},"value":{"anyOf":[{"type":"string","maxLength":256},{"type":"number"},{"type":"boolean"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<TelemetryPointV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            series_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"series_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"series_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            point_class: serde_json::from_value::<TelemetryPointV1PointClass>(
+                object
+                    .remove(r#"point_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"point_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            time_unix_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"time_unix_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"time_unix_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            value: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"value"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"value"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attributes: serde_json::from_value::<Vec<TelemetryPointV1AttributesItem>>(
+                object
+                    .remove(r#"attributes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attributes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"source_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            run_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetryPointV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.telemetry_point.v1"#)]
+    IoiHypervisorTelemetryPointV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetryPointV1PointClass {
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"ephemeral"#)]
+    Ephemeral,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryPointV1AttributesItem {
+    pub key: String,
+    pub value: TelemetryPointV1AttributesItemValue,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryPointV1AttributesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-point/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["key","value"],"properties":{"key":{"type":"string","maxLength":128,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$","description":"An OpenTelemetry attribute name (for example ioi.health_check.outcome, gen_ai.token.type)."},"value":{"anyOf":[{"type":"string","maxLength":256},{"type":"number"},{"type":"boolean"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            value: serde_json::from_value::<TelemetryPointV1AttributesItemValue>(
+                object
+                    .remove(r#"value"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"value"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum TelemetryPointV1AttributesItemValue {
+    Branch1(String),
+    Branch2(f64),
+    Branch3(bool),
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1 {
+    pub schema_version: TelemetryRangeV1SchemaVersion,
+    pub series_ref: String,
+    pub subject_ref: String,
+    pub scope_ref: Option<String>,
+    pub metric: TelemetryRangeV1Metric,
+    pub window: TelemetryRangeV1Window,
+    pub bounds: TelemetryRangeV1Bounds,
+    pub points: Vec<TelemetryRangeV1PointsItem>,
+    pub points_in_window: ArchitectureContractInteger,
+    pub points_truncated: bool,
+    pub buckets: Vec<TelemetryRangeV1BucketsItem>,
+    pub derived: TelemetryRangeV1Derived,
+    pub ephemeral_window: TelemetryRangeV1EphemeralWindow,
+    pub read_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/telemetry-range/v1","title":"TelemetryRange","x-ioi-schema-version":"ioi.hypervisor.telemetry_range.v1","description":"The daemon's answer to one bounded range read of one TelemetrySeries (ADR 0056 Amendment 1, plane 6): the raw points observed in [from, to) — admitted points replayed from the series' event stream with their operation and receipt refs, ephemeral samples from the in-process window with none — the points aggregated into step-aligned buckets, and exactly ONE derived series computed at read time whose derivation is named in the answer. Every bound is stated, and a truncated answer says so. Nothing in it is stored; asking again recomputes it from the stream.","type":"object","additionalProperties":false,"required":["schema_version","series_ref","subject_ref","scope_ref","metric","window","bounds","points","points_in_window","points_truncated","buckets","derived","ephemeral_window","read_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.telemetry_range.v1"},"series_ref":{"type":"string","pattern":"^telemetry-series://ts_[0-9a-f]{16}$"},"subject_ref":{"type":"string","pattern":"^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$"},"scope_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,480}$"},{"type":"null"}]},"metric":{"type":"object","additionalProperties":false,"required":["name","unit","instrument"],"properties":{"name":{"type":"string","maxLength":255,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$"},"unit":{"type":"string","minLength":1,"maxLength":63,"pattern":"^[!-~]{1,63}$"},"instrument":{"type":"string","enum":["gauge","counter","updowncounter","histogram"]}}},"window":{"type":"object","additionalProperties":false,"required":["from_unix_ms","to_unix_ms","step_seconds"],"properties":{"from_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"to_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"step_seconds":{"type":"integer","minimum":1,"maximum":2678400}}},"bounds":{"type":"object","additionalProperties":false,"required":["max_span_ms","max_buckets","max_points"],"description":"The limits every range read is held to, stated in the answer so a reader never mistakes a bounded answer for the whole series.","properties":{"max_span_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"max_buckets":{"type":"integer","minimum":1,"maximum":1440},"max_points":{"type":"integer","minimum":1,"maximum":1000}}},"points":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/rangePoint"},"description":"The raw points in the window, oldest first; when more than max_points fall inside it, the newest max_points."},"points_in_window":{"type":"integer","minimum":0,"maximum":9007199254740991},"points_truncated":{"type":"boolean"},"buckets":{"type":"array","maxItems":1440,"items":{"$ref":"#/$defs/bucket"},"description":"Step-aligned buckets covering the window; an empty bucket has count 0 and null statistics."},"derived":{"type":"object","additionalProperties":false,"required":["derivation","window_points","basis","formula","points"],"description":"The one derived series, computed at read time and never stored.","properties":{"derivation":{"type":"string","enum":["rolling_mean"]},"window_points":{"type":"integer","minimum":1,"maximum":100},"basis":{"type":"string","enum":["raw_points"]},"formula":{"type":"string","minLength":1,"maxLength":400},"points":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/derivedPoint"}}}},"ephemeral_window":{"type":"object","additionalProperties":false,"required":["retention","window_points","held_points"],"properties":{"retention":{"type":"string","enum":["process_memory"]},"window_points":{"type":"integer","minimum":1,"maximum":4096},"held_points":{"type":"integer","minimum":0,"maximum":4096}}},"read_at":{"type":"string","minLength":1}},"$defs":{"attribute":{"type":"object","additionalProperties":false,"required":["key","value"],"properties":{"key":{"type":"string","maxLength":128,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$"},"value":{"anyOf":[{"type":"string","maxLength":256},{"type":"number"},{"type":"boolean"}]}}},"rangePoint":{"type":"object","additionalProperties":false,"required":["point_class","time_unix_ms","observed_at","value","attributes","source_ref","run_ref","operation_ref","receipt_ref"],"properties":{"point_class":{"type":"string","enum":["admitted","ephemeral"]},"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"observed_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$"},"value":{"type":"number"},"attributes":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"$ref":"#/$defs/attribute"}},"source_ref":{"anyOf":[{"type":"string","pattern":"^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"},{"type":"null"}]},"run_ref":{"anyOf":[{"type":"string","pattern":"^automation-run://[^\\s]{1,480}$"},{"type":"null"}]},"operation_ref":{"anyOf":[{"type":"string","pattern":"^agentgres://[^\\s]{1,400}$"},{"type":"null"}],"description":"The Agentgres operation that admitted the point; null for an ephemeral sample."},"receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,400}$"},{"type":"null"}],"description":"The admission receipt; null for an ephemeral sample."}}},"bucket":{"type":"object","additionalProperties":false,"required":["start_unix_ms","count","mean","min","max"],"properties":{"start_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"count":{"type":"integer","minimum":0,"maximum":9007199254740991},"mean":{"anyOf":[{"type":"number"},{"type":"null"}]},"min":{"anyOf":[{"type":"number"},{"type":"null"}]},"max":{"anyOf":[{"type":"number"},{"type":"null"}]}}},"derivedPoint":{"type":"object","additionalProperties":false,"required":["time_unix_ms","value"],"properties":{"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"number"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<TelemetryRangeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            series_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"series_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"series_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            metric: serde_json::from_value::<TelemetryRangeV1Metric>(
+                object
+                    .remove(r#"metric"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"metric"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            window: serde_json::from_value::<TelemetryRangeV1Window>(
+                object
+                    .remove(r#"window"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"window"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bounds: serde_json::from_value::<TelemetryRangeV1Bounds>(
+                object
+                    .remove(r#"bounds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bounds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            points: serde_json::from_value::<Vec<TelemetryRangeV1PointsItem>>(
+                object
+                    .remove(r#"points"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"points"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            points_in_window: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"points_in_window"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"points_in_window"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            points_truncated: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"points_truncated"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"points_truncated"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            buckets: serde_json::from_value::<Vec<TelemetryRangeV1BucketsItem>>(
+                object
+                    .remove(r#"buckets"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"buckets"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived: serde_json::from_value::<TelemetryRangeV1Derived>(
+                object
+                    .remove(r#"derived"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ephemeral_window: serde_json::from_value::<TelemetryRangeV1EphemeralWindow>(
+                object
+                    .remove(r#"ephemeral_window"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ephemeral_window"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            read_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"read_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"read_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetryRangeV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.telemetry_range.v1"#)]
+    IoiHypervisorTelemetryRangeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1Metric {
+    pub name: String,
+    pub unit: String,
+    pub instrument: TelemetryRangeV1MetricInstrument,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1Metric {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["name","unit","instrument"],"properties":{"name":{"type":"string","maxLength":255,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$"},"unit":{"type":"string","minLength":1,"maxLength":63,"pattern":"^[!-~]{1,63}$"},"instrument":{"type":"string","enum":["gauge","counter","updowncounter","histogram"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unit: serde_json::from_value::<String>(
+                object
+                    .remove(r#"unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            instrument: serde_json::from_value::<TelemetryRangeV1MetricInstrument>(
+                object
+                    .remove(r#"instrument"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"instrument"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetryRangeV1MetricInstrument {
+    #[serde(rename = r#"gauge"#)]
+    Gauge,
+    #[serde(rename = r#"counter"#)]
+    Counter,
+    #[serde(rename = r#"updowncounter"#)]
+    Updowncounter,
+    #[serde(rename = r#"histogram"#)]
+    Histogram,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1Window {
+    pub from_unix_ms: ArchitectureContractInteger,
+    pub to_unix_ms: ArchitectureContractInteger,
+    pub step_seconds: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1Window {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["from_unix_ms","to_unix_ms","step_seconds"],"properties":{"from_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"to_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"step_seconds":{"type":"integer","minimum":1,"maximum":2678400}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_unix_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"from_unix_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_unix_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            to_unix_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"to_unix_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"to_unix_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            step_seconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"step_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"step_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1Bounds {
+    pub max_span_ms: ArchitectureContractInteger,
+    pub max_buckets: ArchitectureContractInteger,
+    pub max_points: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1Bounds {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["max_span_ms","max_buckets","max_points"],"description":"The limits every range read is held to, stated in the answer so a reader never mistakes a bounded answer for the whole series.","properties":{"max_span_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"max_buckets":{"type":"integer","minimum":1,"maximum":1440},"max_points":{"type":"integer","minimum":1,"maximum":1000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            max_span_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_span_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_span_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_buckets: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_buckets"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_buckets"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_points: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_points"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_points"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1PointsItem {
+    pub point_class: TelemetryRangeV1PointsItemPointClass,
+    pub time_unix_ms: ArchitectureContractInteger,
+    pub observed_at: String,
+    pub value: f64,
+    pub attributes: Vec<TelemetryRangeV1PointsItemAttributesItem>,
+    pub source_ref: Option<String>,
+    pub run_ref: Option<String>,
+    pub operation_ref: Option<String>,
+    pub receipt_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1PointsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["point_class","time_unix_ms","observed_at","value","attributes","source_ref","run_ref","operation_ref","receipt_ref"],"properties":{"point_class":{"type":"string","enum":["admitted","ephemeral"]},"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"observed_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$"},"value":{"type":"number"},"attributes":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"$ref":"#/$defs/attribute"}},"source_ref":{"anyOf":[{"type":"string","pattern":"^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"},{"type":"null"}]},"run_ref":{"anyOf":[{"type":"string","pattern":"^automation-run://[^\\s]{1,480}$"},{"type":"null"}]},"operation_ref":{"anyOf":[{"type":"string","pattern":"^agentgres://[^\\s]{1,400}$"},{"type":"null"}],"description":"The Agentgres operation that admitted the point; null for an ephemeral sample."},"receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,400}$"},{"type":"null"}],"description":"The admission receipt; null for an ephemeral sample."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            point_class: serde_json::from_value::<TelemetryRangeV1PointsItemPointClass>(
+                object
+                    .remove(r#"point_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"point_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            time_unix_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"time_unix_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"time_unix_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            value: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"value"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"value"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attributes: serde_json::from_value::<Vec<TelemetryRangeV1PointsItemAttributesItem>>(
+                object
+                    .remove(r#"attributes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attributes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"source_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            run_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetryRangeV1PointsItemPointClass {
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"ephemeral"#)]
+    Ephemeral,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1PointsItemAttributesItem {
+    pub key: String,
+    pub value: TelemetryRangeV1PointsItemAttributesItemValue,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1PointsItemAttributesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["key","value"],"properties":{"key":{"type":"string","maxLength":128,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$"},"value":{"anyOf":[{"type":"string","maxLength":256},{"type":"number"},{"type":"boolean"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            value: serde_json::from_value::<TelemetryRangeV1PointsItemAttributesItemValue>(
+                object
+                    .remove(r#"value"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"value"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum TelemetryRangeV1PointsItemAttributesItemValue {
+    Branch1(String),
+    Branch2(f64),
+    Branch3(bool),
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1BucketsItem {
+    pub start_unix_ms: ArchitectureContractInteger,
+    pub count: ArchitectureContractInteger,
+    pub mean: Option<f64>,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1BucketsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["start_unix_ms","count","mean","min","max"],"properties":{"start_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"count":{"type":"integer","minimum":0,"maximum":9007199254740991},"mean":{"anyOf":[{"type":"number"},{"type":"null"}]},"min":{"anyOf":[{"type":"number"},{"type":"null"}]},"max":{"anyOf":[{"type":"number"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            start_unix_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"start_unix_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"start_unix_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mean: serde_json::from_value::<Option<f64>>(
+                object
+                    .remove(r#"mean"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mean"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            min: serde_json::from_value::<Option<f64>>(
+                object
+                    .remove(r#"min"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"min"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max: serde_json::from_value::<Option<f64>>(
+                object
+                    .remove(r#"max"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1Derived {
+    pub derivation: TelemetryRangeV1DerivedDerivation,
+    pub window_points: ArchitectureContractInteger,
+    pub basis: TelemetryRangeV1DerivedBasis,
+    pub formula: String,
+    pub points: Vec<TelemetryRangeV1DerivedPointsItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1Derived {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["derivation","window_points","basis","formula","points"],"description":"The one derived series, computed at read time and never stored.","properties":{"derivation":{"type":"string","enum":["rolling_mean"]},"window_points":{"type":"integer","minimum":1,"maximum":100},"basis":{"type":"string","enum":["raw_points"]},"formula":{"type":"string","minLength":1,"maxLength":400},"points":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/derivedPoint"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            derivation: serde_json::from_value::<TelemetryRangeV1DerivedDerivation>(
+                object
+                    .remove(r#"derivation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derivation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            window_points: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"window_points"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"window_points"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            basis: serde_json::from_value::<TelemetryRangeV1DerivedBasis>(
+                object
+                    .remove(r#"basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            formula: serde_json::from_value::<String>(
+                object
+                    .remove(r#"formula"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"formula"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            points: serde_json::from_value::<Vec<TelemetryRangeV1DerivedPointsItem>>(
+                object
+                    .remove(r#"points"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"points"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetryRangeV1DerivedDerivation {
+    #[serde(rename = r#"rolling_mean"#)]
+    RollingMean,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetryRangeV1DerivedBasis {
+    #[serde(rename = r#"raw_points"#)]
+    RawPoints,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1DerivedPointsItem {
+    pub time_unix_ms: ArchitectureContractInteger,
+    pub value: f64,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1DerivedPointsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["time_unix_ms","value"],"properties":{"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"number"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            time_unix_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"time_unix_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"time_unix_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            value: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"value"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"value"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TelemetryRangeV1EphemeralWindow {
+    pub retention: TelemetryRangeV1EphemeralWindowRetention,
+    pub window_points: ArchitectureContractInteger,
+    pub held_points: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for TelemetryRangeV1EphemeralWindow {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["retention","window_points","held_points"],"properties":{"retention":{"type":"string","enum":["process_memory"]},"window_points":{"type":"integer","minimum":1,"maximum":4096},"held_points":{"type":"integer","minimum":0,"maximum":4096}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            retention: serde_json::from_value::<TelemetryRangeV1EphemeralWindowRetention>(
+                object
+                    .remove(r#"retention"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retention"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            window_points: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"window_points"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"window_points"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            held_points: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"held_points"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"held_points"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TelemetryRangeV1EphemeralWindowRetention {
+    #[serde(rename = r#"process_memory"#)]
+    ProcessMemory,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ConnectorCredentialGrantV1 {
     pub schema_version: ConnectorCredentialGrantV1SchemaVersion,
     pub id: String,
@@ -184273,6 +185586,86 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/positive-health-check-passed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-unregistered-instrument.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-series/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-admitted-health-outcome.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-attributes-as-map.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-point/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-value-not-a-number.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-derivation-unnamed.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/telemetry-range/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-fabricated-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
         path: "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
         expected_accept: true,
@@ -205073,6 +206466,116 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/positive-health-check-passed.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/positive-health-check-passed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-unregistered-instrument.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-unregistered-instrument.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-series/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-admitted-health-outcome.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-point/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-admitted-health-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-point/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-attributes-as-map.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-point/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-attributes-as-map.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-value-not-a-number.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-point/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-value-not-a-number.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-derivation-unnamed.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-derivation-unnamed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-fabricated-receipt.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/telemetry-range/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-fabricated-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"#,
         contract_id: r#"schema://ioi/components/connectors-tools/connector-credential-grant/v1"#,
         source_fixture_path: Some(
@@ -218924,6 +220427,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","title":"SupportIncidentLink","x-ioi-schema-version":"ioi.hypervisor.support_incident_link.v1","description":"Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.","type":"object","additionalProperties":false,"required":["schema_version","incident_id","title","severity","status","affected","reported_by","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.support_incident_link.v1"},"incident_id":{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},"title":{"type":"string","minLength":1},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"status":{"type":"string","enum":["open","mitigated","resolved","closed"]},"affected":{"type":"object","additionalProperties":false,"required":["tenant_ref","object_refs"],"properties":{"product":{"type":"string"},"tenant_ref":{"type":"string","minLength":1},"object_refs":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"event_range":{"anyOf":[{"type":"object"},{"type":"null"}]}}},"redacted_diagnostics":{"type":"string","description":"DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."},"reported_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37)."},"assigned_owner_ref":{"type":"string"},"owner_ref":{"type":"string","minLength":1},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
     ("schema://ioi/components/daemon-runtime/health-check/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/health-check/v1","title":"HealthCheck","x-ioi-schema-version":"ioi.hypervisor.health_check.v1","description":"Operations-owned declaration of WHAT TO OBSERVE about one target (ADR 0056 Amendment 1, plane 2): a check kind, a probe, a severity from the incident vocabulary, an incident policy and an enablement. It grants nothing and is never authority; a command probe runs through the governed exec primitive in the target's own environment and inherits every exec guardrail. Cadence is not a field: a periodic check is a monitor-mode AutomationSpec naming it.","type":"object","additionalProperties":false,"required":["schema_version","health_check_id","display_name","target_ref","check_kind","probe","severity","incident_policy","enablement","owner_ref","created_by_principal_ref","created_at","updated_at","admitted_head"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.health_check.v1"},"health_check_id":{"type":"string","pattern":"^health-check://hc_[0-9a-f]{16}$"},"display_name":{"type":"string","minLength":1,"maxLength":160},"target_ref":{"type":"string","pattern":"^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"},"check_kind":{"type":"string","enum":["command_exit","automation_run_outcome"]},"probe":{"anyOf":[{"type":"object","additionalProperties":false,"required":["environment_ref","command"],"properties":{"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,480}$"},"command":{"type":"string","minLength":1,"maxLength":2000}}},{"type":"null"}]},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"incident_policy":{"type":"object","additionalProperties":false,"required":["file_on"],"properties":{"file_on":{"type":"string","enum":["never","failed","failed_or_errored"]}}},"enablement":{"type":"string","enum":["enabled","paused","archived"]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"created_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#),
     ("schema://ioi/components/daemon-runtime/health-check-result/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/health-check-result/v1","title":"HealthCheckResult","x-ioi-schema-version":"ioi.hypervisor.health_check_result.v1","description":"One evaluation of one HealthCheck, admitted as an observation (observation://health-check/<check>/<result>, the reference a serving binding's health_observation_refs names). `errored` means the probe could not be evaluated, which differs from a probe that ran and failed. Raw probe output stays evidence; the result is what the daemon admitted. It grants nothing and is never authority.","type":"object","additionalProperties":false,"required":["schema_version","result_id","health_check_ref","health_check_head","target_ref","outcome","observed_at","exit_code","redacted_summary","evidence_refs","support_incident_ref","evaluated_by_principal_ref","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.health_check_result.v1"},"result_id":{"type":"string","pattern":"^observation://health-check/hc_[0-9a-f]{16}/hcr_[0-9a-f]{16}$"},"health_check_ref":{"type":"string","pattern":"^health-check://hc_[0-9a-f]{16}$"},"health_check_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"target_ref":{"type":"string","pattern":"^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"},"outcome":{"type":"string","enum":["passed","warning","failed","errored","not_applicable","not_computable"]},"observed_at":{"type":"string","minLength":1},"exit_code":{"anyOf":[{"type":"integer","minimum":-2147483648,"maximum":2147483647},{"type":"null"}]},"redacted_summary":{"type":"string","maxLength":2000},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:automation-run|automation-execution|agent-run-transcript|receipt|environment)://[^\\s]{1,480}$"}},"support_incident_ref":{"anyOf":[{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},{"type":"null"}]},"evaluated_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#),
+    ("schema://ioi/components/daemon-runtime/telemetry-series/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/telemetry-series/v1","title":"TelemetrySeries","x-ioi-schema-version":"ioi.hypervisor.telemetry_series.v1","description":"One telemetry series (ADR 0056 Amendment 1, plane 6): the identity of a metric trend about ONE subject, and the owner-namespaced event stream its points are appended to. Identity is (owner, producing principal, subject, scope, metric name, unit), committed by `identity_digest` and carried in `series_id`; a series never changes identity, and a different metric, unit or subject is a different series. Points are appended to `stream_id` through the event-stream plane under the classes its `event_class_declaration` names: `telemetry.point` is ADMITTED truth (read from an admitted record, required to replay the series, receipted) and `telemetry.sample` is EPHEMERAL delivery (a sample of a changing value: no sequence, head, root or receipt, held only in the daemon's bounded in-process window, gone at restart). Metric names and units adopt OpenTelemetry semantic conventions where one fits and use the `ioi.` namespace where none does; `metric.semantic_convention` says which. A series grants nothing and is never authority.","type":"object","additionalProperties":false,"required":["schema_version","series_id","identity_digest","subject_ref","scope_ref","metric","stream_id","event_class_declaration","ephemeral_window","producer_ref","producer_principal_ref","owner_ref","declared_at","declaration_receipt_ref","latest_point"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.telemetry_series.v1"},"series_id":{"type":"string","pattern":"^telemetry-series://ts_[0-9a-f]{16}$","description":"ts_ plus the first 16 hex characters of identity_digest."},"identity_digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"sha256 over the JCS bytes of {owner_ref, producer_principal_ref, subject_ref, scope_ref, metric_name, metric_unit}."},"subject_ref":{"type":"string","pattern":"^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$","description":"The one thing the series measures: a System, an automation or one of its runs, an environment, an agent, a health check, a session."},"scope_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,480}$"},{"type":"null"}],"description":"The System the subject serves, when it serves one (a check that observes the System, a run of an automation installed for it); null otherwise."},"metric":{"type":"object","additionalProperties":false,"required":["name","unit","instrument","description","semantic_convention"],"properties":{"name":{"type":"string","maxLength":255,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$","description":"An OpenTelemetry-style metric name: lowercase, dot-namespaced."},"unit":{"type":"string","minLength":1,"maxLength":63,"pattern":"^[!-~]{1,63}$","description":"A UCUM case-sensitive unit as OpenTelemetry uses it: `1` for a dimensionless value, `s` for seconds, `{token}` for an annotated count."},"instrument":{"type":"string","enum":["gauge","counter","updowncounter","histogram"],"description":"The OpenTelemetry instrument kind the measurements are recorded with; it decides how points aggregate."},"description":{"type":"string","minLength":1,"maxLength":400},"semantic_convention":{"type":"object","additionalProperties":false,"required":["registry","stability","reference"],"properties":{"registry":{"type":"string","enum":["opentelemetry","ioi"],"description":"Whose naming the metric follows: an OpenTelemetry semantic convention, or an `ioi.` name where no OpenTelemetry convention fits."},"stability":{"type":"string","enum":["stable","development","ioi_extension"]},"reference":{"type":"string","minLength":1,"maxLength":400,"description":"Where the convention is defined: an OpenTelemetry semantic-conventions URL, or the canon anchor for an `ioi.` name."}}}}},"stream_id":{"type":"string","pattern":"^event-stream://hypervisor-telemetry/series[.]ts_[0-9a-f]{16}$","description":"The owner-namespaced event stream the series' points are appended to — one stream per series in the hypervisor-telemetry namespace."},"event_class_declaration":{"type":"object","additionalProperties":false,"required":["admitted_truth_classes","ephemeral_delivery_classes"],"description":"The stream's declared event classes, exactly as admitted in its genesis operation.","properties":{"admitted_truth_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/eventClass"}},"ephemeral_delivery_classes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/eventClass"}}}},"ephemeral_window":{"type":"object","additionalProperties":false,"required":["retention","window_points"],"description":"Where ephemeral samples live: in the daemon process only, newest window_points kept. They do not survive a restart and carry no receipt.","properties":{"retention":{"type":"string","enum":["process_memory"]},"window_points":{"type":"integer","minimum":1,"maximum":4096}}},"producer_ref":{"type":"string","pattern":"^daemon-producer://[a-z0-9][a-z0-9._-]{0,119}$","description":"The daemon producer that emits the series' points (for example daemon-producer://health-check-evaluate)."},"producer_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$","description":"The signed-in principal whose request produced the points. It is part of the series identity: the event-stream plane admits appends only from the principal that reserved the stream."},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"declared_at":{"type":"string","minLength":1},"declaration_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,400}$","description":"The receipt of the series' admitted declaration."},"latest_point":{"anyOf":[{"type":"object","additionalProperties":false,"required":["point_class","time_unix_ms","value"],"properties":{"point_class":{"type":"string","enum":["admitted","ephemeral"]},"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"number"}}},{"type":"null"}],"description":"A projection of the newest appended point, for listings; the range read is the truth."}},"$defs":{"eventClass":{"type":"object","additionalProperties":false,"required":["class_id","payload_schema_ref"],"properties":{"class_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]*$"},"payload_schema_ref":{"type":"string","pattern":"^schema://[^\\s]{1,400}$"},"classification_basis":{"type":"string"}}}}}"##),
+    ("schema://ioi/components/daemon-runtime/telemetry-point/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/telemetry-point/v1","title":"TelemetryPoint","x-ioi-schema-version":"ioi.hypervisor.telemetry_point.v1","description":"One measurement in one TelemetrySeries (ADR 0056 Amendment 1, plane 6): a timestamp, a numeric value and a bounded attribute list, appended to the series' event stream. `point_class` is the side of the event-class line the stream's declaration puts it on: `admitted` points cross an Agentgres transition and carry a receipt; `ephemeral` samples mint nothing and live only in the daemon's bounded in-process window. Attributes use the OpenTelemetry key/value shape (a list of {key, value}, keys unique, OpenTelemetry attribute naming), bounded in count and length so a series keeps bounded cardinality. `source_ref` names the admitted record the point was read from; `run_ref` names the run it came from, when it came from one, so run receipts stay keyed by run. A point grants nothing and is never authority.","type":"object","additionalProperties":false,"required":["schema_version","series_ref","point_class","time_unix_ms","observed_at","value","attributes","source_ref","run_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.telemetry_point.v1"},"series_ref":{"type":"string","pattern":"^telemetry-series://ts_[0-9a-f]{16}$"},"point_class":{"type":"string","enum":["admitted","ephemeral"]},"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"When the value was observed, in milliseconds since the Unix epoch."},"observed_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$","description":"The same instant as time_unix_ms, as an RFC 3339 UTC timestamp."},"value":{"type":"number","description":"The measurement, in the series' unit."},"attributes":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"$ref":"#/$defs/attribute"}},"source_ref":{"anyOf":[{"type":"string","pattern":"^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"},{"type":"null"}],"description":"The admitted record this point was read from (a health-check result's observation ref, a run). Null only for an ephemeral sample that no record carries."},"run_ref":{"anyOf":[{"type":"string","pattern":"^automation-run://[^\\s]{1,480}$"},{"type":"null"}],"description":"The canonical run this point came from, when it came from one."}},"$defs":{"attribute":{"type":"object","additionalProperties":false,"required":["key","value"],"properties":{"key":{"type":"string","maxLength":128,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$","description":"An OpenTelemetry attribute name (for example ioi.health_check.outcome, gen_ai.token.type)."},"value":{"anyOf":[{"type":"string","maxLength":256},{"type":"number"},{"type":"boolean"}]}}}}}"##),
+    ("schema://ioi/components/daemon-runtime/telemetry-range/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/telemetry-range/v1","title":"TelemetryRange","x-ioi-schema-version":"ioi.hypervisor.telemetry_range.v1","description":"The daemon's answer to one bounded range read of one TelemetrySeries (ADR 0056 Amendment 1, plane 6): the raw points observed in [from, to) — admitted points replayed from the series' event stream with their operation and receipt refs, ephemeral samples from the in-process window with none — the points aggregated into step-aligned buckets, and exactly ONE derived series computed at read time whose derivation is named in the answer. Every bound is stated, and a truncated answer says so. Nothing in it is stored; asking again recomputes it from the stream.","type":"object","additionalProperties":false,"required":["schema_version","series_ref","subject_ref","scope_ref","metric","window","bounds","points","points_in_window","points_truncated","buckets","derived","ephemeral_window","read_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.telemetry_range.v1"},"series_ref":{"type":"string","pattern":"^telemetry-series://ts_[0-9a-f]{16}$"},"subject_ref":{"type":"string","pattern":"^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\\s]{1,480}$"},"scope_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,480}$"},{"type":"null"}]},"metric":{"type":"object","additionalProperties":false,"required":["name","unit","instrument"],"properties":{"name":{"type":"string","maxLength":255,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$"},"unit":{"type":"string","minLength":1,"maxLength":63,"pattern":"^[!-~]{1,63}$"},"instrument":{"type":"string","enum":["gauge","counter","updowncounter","histogram"]}}},"window":{"type":"object","additionalProperties":false,"required":["from_unix_ms","to_unix_ms","step_seconds"],"properties":{"from_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"to_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"step_seconds":{"type":"integer","minimum":1,"maximum":2678400}}},"bounds":{"type":"object","additionalProperties":false,"required":["max_span_ms","max_buckets","max_points"],"description":"The limits every range read is held to, stated in the answer so a reader never mistakes a bounded answer for the whole series.","properties":{"max_span_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"max_buckets":{"type":"integer","minimum":1,"maximum":1440},"max_points":{"type":"integer","minimum":1,"maximum":1000}}},"points":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/rangePoint"},"description":"The raw points in the window, oldest first; when more than max_points fall inside it, the newest max_points."},"points_in_window":{"type":"integer","minimum":0,"maximum":9007199254740991},"points_truncated":{"type":"boolean"},"buckets":{"type":"array","maxItems":1440,"items":{"$ref":"#/$defs/bucket"},"description":"Step-aligned buckets covering the window; an empty bucket has count 0 and null statistics."},"derived":{"type":"object","additionalProperties":false,"required":["derivation","window_points","basis","formula","points"],"description":"The one derived series, computed at read time and never stored.","properties":{"derivation":{"type":"string","enum":["rolling_mean"]},"window_points":{"type":"integer","minimum":1,"maximum":100},"basis":{"type":"string","enum":["raw_points"]},"formula":{"type":"string","minLength":1,"maxLength":400},"points":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/derivedPoint"}}}},"ephemeral_window":{"type":"object","additionalProperties":false,"required":["retention","window_points","held_points"],"properties":{"retention":{"type":"string","enum":["process_memory"]},"window_points":{"type":"integer","minimum":1,"maximum":4096},"held_points":{"type":"integer","minimum":0,"maximum":4096}}},"read_at":{"type":"string","minLength":1}},"$defs":{"attribute":{"type":"object","additionalProperties":false,"required":["key","value"],"properties":{"key":{"type":"string","maxLength":128,"pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$"},"value":{"anyOf":[{"type":"string","maxLength":256},{"type":"number"},{"type":"boolean"}]}}},"rangePoint":{"type":"object","additionalProperties":false,"required":["point_class","time_unix_ms","observed_at","value","attributes","source_ref","run_ref","operation_ref","receipt_ref"],"properties":{"point_class":{"type":"string","enum":["admitted","ephemeral"]},"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"observed_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$"},"value":{"type":"number"},"attributes":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"$ref":"#/$defs/attribute"}},"source_ref":{"anyOf":[{"type":"string","pattern":"^(?:observation|automation-run|automation-execution|receipt|session)://[^\\s]{1,480}$"},{"type":"null"}]},"run_ref":{"anyOf":[{"type":"string","pattern":"^automation-run://[^\\s]{1,480}$"},{"type":"null"}]},"operation_ref":{"anyOf":[{"type":"string","pattern":"^agentgres://[^\\s]{1,400}$"},{"type":"null"}],"description":"The Agentgres operation that admitted the point; null for an ephemeral sample."},"receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,400}$"},{"type":"null"}],"description":"The admission receipt; null for an ephemeral sample."}}},"bucket":{"type":"object","additionalProperties":false,"required":["start_unix_ms","count","mean","min","max"],"properties":{"start_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"count":{"type":"integer","minimum":0,"maximum":9007199254740991},"mean":{"anyOf":[{"type":"number"},{"type":"null"}]},"min":{"anyOf":[{"type":"number"},{"type":"null"}]},"max":{"anyOf":[{"type":"number"},{"type":"null"}]}}},"derivedPoint":{"type":"object","additionalProperties":false,"required":["time_unix_ms","value"],"properties":{"time_unix_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"number"}}}}}"##),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","title":"ConnectorCredentialGrant","x-ioi-schema-version":"ioi.hypervisor.connector_credential_grant.v1","description":"A principal's finite, declared-tools-only scope over one connector's use-only lease. The grant never carries or exposes the sealed credential; expiry is required and enforced at the single check site; the granting principal is resolved server-side (INV-37); regrant never silently rewrites an existing grant's tool set (revoke first); grant and revocation both write audit records or do not happen.","type":"object","additionalProperties":false,"required":["schema_version","id","grant_id","principal_id","connector_id","tools","granted_by","expires_at_ms","created_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.connector_credential_grant.v1"},"id":{"type":"string","minLength":1},"grant_id":{"type":"string","pattern":"^plg_[0-9a-f]+$"},"principal_id":{"type":"string","minLength":1},"connector_id":{"type":"string","minLength":1},"tools":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"description":"Declared tools only — nothing is granted by default; \"*\" is a deliberate declaration, never a fallback."},"granted_by":{"type":"string","minLength":1},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"created_at":{"type":"string"}}}"#),
     ("schema://ioi/components/wallet-network/authority-review-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/authority-review-receipt/v1","title":"AuthorityReviewReceipt","description":"Portable wallet/policy decision receipt over one exact authority request, reviewed representation, ceremony context, and independently recorded presentation and authenticator evidence.","x-ioi-schema-version":"ioi.components.wallet-network.authority-review-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.wallet-network.authority-review-receipt.v1"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/reviewBody"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_review"},"receipt_profile_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"$ref":"#/$defs/decisionActorRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"type":"null"},"primitive_capabilities":{"type":"array","maxItems":0},"authority_scopes":{"type":"array","maxItems":0},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}},"reviewBody":{"type":"object","additionalProperties":false,"required":["authority_review_ref","authority_review_body_hash","authority_request_ref","authority_request_body_hash","principal_ref","product_session_ref","origin_binding_ref","acting_subject_ref","decision_actor_ref","authorization_subject","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","presentation_dimensions","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","auth_factor_evidence_refs","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","policy_hash","risk_classes","interaction_mode","authentication_posture","receipt_timing","decision","predecessor_authority_review_ref","predecessor_authority_review_body_hash","predecessor_authority_request_ref","predecessor_authority_request_body_hash","predecessor_authority_review_receipt_ref","predecessor_authority_review_receipt_hash","reviewed_at","expires_at"],"properties":{"authority_review_ref":{"type":"string","pattern":"^review://[^\\s]{1,500}$"},"authority_review_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_ref":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"acting_subject_ref":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"decision_actor_ref":{"$ref":"#/$defs/decisionActorRef"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"presentation_dimensions":{"type":"object","additionalProperties":false,"required":["operator_and_surface","content_binding","request_vs_effect_binding","enrollment_and_attestation","user_presence_and_verification","freshness_and_replay","proposer_independence"],"properties":{"operator_and_surface":{"$ref":"#/$defs/presentationDimension"},"content_binding":{"$ref":"#/$defs/presentationDimension"},"request_vs_effect_binding":{"$ref":"#/$defs/presentationDimension"},"enrollment_and_attestation":{"$ref":"#/$defs/presentationDimension"},"user_presence_and_verification":{"$ref":"#/$defs/presentationDimension"},"freshness_and_replay":{"$ref":"#/$defs/presentationDimension"},"proposer_independence":{"$ref":"#/$defs/presentationDimension"}}},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"$ref":"#/$defs/postureEvaluation"}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"auth_factor_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"enum":["before_effect","after_effect"]},"decision":{"enum":["approved","denied","edit_required","expired"]},"predecessor_authority_review_ref":{"oneOf":[{"type":"string","pattern":"^review://[^\\s]{1,500}$"},{"type":"null"}]},"predecessor_authority_review_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_request_ref":{"oneOf":[{"$ref":"#/$defs/authorityRequestRef"},{"type":"null"}]},"predecessor_authority_request_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_review_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"predecessor_authority_review_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"reviewed_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"decision":{"const":"approved"}}},"then":{"properties":{"posture_satisfaction_evaluations":{"type":"array","items":{"allOf":[{"$ref":"#/$defs/postureEvaluation"},{"type":"object","properties":{"decision":{"const":"satisfied"}}}]}}}}}]},"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"presentationDimension":{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}},"postureEvaluation":{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"enum":["satisfied","unsatisfied","unknown"]}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"}}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"}}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"decisionActorRef":{"type":"string","pattern":"^(?:wallet|policy|system|org)://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"guardianRef":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"authFactorRef":{"type":"string","pattern":"^auth_factor://[^\\s]{1,500}$"},"authRequirementRef":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"presentationEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|attestation)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,500}$"},"approvalEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|artifact)://[^\\s]{1,500}$"},"evidenceBundleRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1","title":"WalletAuthenticationChallenge","x-ioi-schema-version":"ioi.wallet_network.wallet_authentication_challenge.v1","description":"The server-minted, single-use, domain/chain/session-bound challenge an external wallet signs to prove account ownership (SIWx). Registered target contract for the wallet-interoperability packet (W1.6); doctrine §Wallet Interoperability and INV-40 govern. A challenge is authentication material, never authority: signing it yields a web3_wallet AuthFactor and nothing else. The nonce is single-use and consumed ATOMICALLY at verification and never lives in an eventually-consistent store; domain, uri, chain, and the bound product session must match at verification or the proof fails typed.","type":"object","additionalProperties":false,"required":["schema_version","challenge_id","siwx_profile_ref","chain_id","domain","uri","nonce","product_session_binding_hash","issued_at","expires_at","statement"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet_network.wallet_authentication_challenge.v1"},"challenge_id":{"type":"string","pattern":"^wallet-auth-challenge://[A-Za-z0-9._:-]+$"},"siwx_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$","description":"The one audited SIWx adapter profile this challenge is issued under (EVM ERC-4361 first)."},"chain_id":{"type":"string","pattern":"^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$","description":"CAIP-2 chain id; a challenge is scoped to exactly one chain."},"requested_account":{"anyOf":[{"type":"string","pattern":"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"},{"type":"null"}],"description":"The CAIP-10 account the challenge targets, or null for discover-then-bind."},"domain":{"type":"string","minLength":1,"description":"Exact relying origin; verification refuses a mismatch (anti-phishing)."},"uri":{"type":"string","minLength":1,"description":"Exact request URI; verification refuses a mismatch (anti-replay)."},"nonce":{"type":"string","minLength":8,"description":"Single-use, atomically consumed at verification. Never stored in an eventually-consistent store."},"product_session_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Binds the challenge to the exact product session that requested it."},"issued_at":{"type":"string","minLength":1},"expires_at":{"type":"string","minLength":1,"description":"Short expiry; verification refuses an expired challenge."},"statement":{"type":"string","minLength":1,"description":"Human-readable sign-in statement shown in the wallet."},"status":{"type":"string","enum":["issued","consumed","expired","invalidated"],"description":"Lifecycle. A provider-side account or chain change invalidates an in-flight challenge."}}}"#),
@@ -219297,6 +220803,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"[{"rule_id":"support_incident.affected.non_empty","description":"An incident links at least one affected object — an incident that affects nothing links nothing.","expression":{"operator":"non_empty","path":"$.affected.object_refs"}},{"rule_id":"support_incident.reporter.bound","description":"The reporting principal is resolved server-side, so an incident has an accountable origin.","expression":{"operator":"non_empty","path":"$.reported_by"}}]"#),
     ("schema://ioi/components/daemon-runtime/health-check/v1", r#"[]"#),
     ("schema://ioi/components/daemon-runtime/health-check-result/v1", r#"[]"#),
+    ("schema://ioi/components/daemon-runtime/telemetry-series/v1", r#"[]"#),
+    ("schema://ioi/components/daemon-runtime/telemetry-point/v1", r#"[]"#),
+    ("schema://ioi/components/daemon-runtime/telemetry-range/v1", r#"[]"#),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"[{"rule_id":"connector_credential_grant.tools.declared","description":"The grant names its exact tool scope; an empty scope grants nothing and is not admissible.","expression":{"operator":"non_empty","path":"$.tools"}},{"rule_id":"connector_credential_grant.grantor.bound","description":"The granting principal is resolved server-side, so standing access has an accountable origin.","expression":{"operator":"non_empty","path":"$.granted_by"}}]"#),
     ("schema://ioi/components/wallet-network/authority-review-receipt/v1", r#"[{"rule_id":"authority_review_receipt.request_hash.matches_envelope","description":"The receipt envelope input is the exact reviewed authority request body hash.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.input_hash","$.body.authority_request_body_hash"]}},{"rule_id":"authority_review_receipt.body_hash.matches_envelope","description":"The receipt envelope output binds the immutable review-receipt body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.output_hash","$.body_hash"]}},{"rule_id":"authority_review_receipt.policy_hash.matches_envelope","description":"The body and generic receipt envelope bind the same policy.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.policy_hash","$.body.policy_hash"]}},{"rule_id":"authority_review_receipt.actor.matches_envelope","description":"The generic receipt actor is the decision actor recorded by the profile body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.actor_id","$.body.decision_actor_ref"]}},{"rule_id":"authority_review_receipt.timestamp.matches_envelope","description":"The generic receipt timestamp is the profile decision time.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.timestamp","$.body.reviewed_at"]}}]"#),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", r#"[{"rule_id":"wallet_auth_challenge.nonce.present","description":"Every challenge carries a nonce; verification consumes it atomically and single-use, so a replayed challenge cannot re-authenticate.","expression":{"operator":"non_empty","path":"$.nonce"}},{"rule_id":"wallet_auth_challenge.session.bound","description":"The challenge binds the exact product session that requested it, so a proof cannot be replayed into another session.","expression":{"operator":"non_empty","path":"$.product_session_binding_hash"}},{"rule_id":"wallet_auth_challenge.domain.bound","description":"The challenge names the exact relying origin, so a phishing origin cannot harvest a usable proof.","expression":{"operator":"non_empty","path":"$.domain"}}]"#),
@@ -220048,6 +221557,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:object-model|ontology-action|schema)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^(?:observation|automation-run|automation-execution|receipt|session)://[^\s]{1,480}$"#,
+        r#"^(?:observation|automation-run|automation-execution|receipt|session)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
+    ),
+    (
         r#"^(?:observed-state|agentgres)://[^\s]{1,240}$"#,
         r#"^(?:observed-state|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -220548,6 +222061,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:system|agent|worker|service|org|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\s]{1,480}$"#,
+        r#"^(?:system|automation|automation-run|environment|agent|health-check|session)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
+    ),
+    (
         r#"^(?:system|domain)://[^\s]{1,248}$"#,
         r#"^(?:system|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -220889,6 +222406,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     ),
     (r#"^[ -~]{1,2048}$"#, r#"^[ -~]{1,2048}$"#),
     (r#"^[ -~]{1,256}$"#, r#"^[ -~]{1,256}$"#),
+    (r#"^[!-~]{1,63}$"#, r#"^[!-~]{1,63}$"#),
     (
         r#"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"#,
         r#"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"#,
@@ -220904,6 +222422,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"#,
         r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"#,
+    ),
+    (
+        r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$"#,
+        r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,9}){0,1}Z$"#,
     ),
     (
         r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$"#,
@@ -221091,8 +222613,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (r#"^[a-z][a-z0-9_-]{0,127}$"#, r#"^[a-z][a-z0-9_-]{0,127}$"#),
     (r#"^[a-z][a-z0-9_]*$"#, r#"^[a-z][a-z0-9_]*$"#),
     (
+        r#"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$"#,
+        r#"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)*$"#,
+    ),
+    (
         r#"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$"#,
         r#"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$"#,
+        r#"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*){1,15}$"#,
     ),
     (r#"^[a-z][a-z0-9_]{0,159}$"#, r#"^[a-z][a-z0-9_]{0,159}$"#),
     (
@@ -221432,6 +222962,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^automation-run://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]{1,160}$"#,
     ),
     (
+        r#"^automation-run://[^\s]{1,480}$"#,
+        r#"^automation-run://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
+    ),
+    (
         r#"^automation://[^\s/?#\\]{1,160}$"#,
         r#"^automation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]{1,160}$"#,
     ),
@@ -221725,6 +223259,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"#,
         r#"^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"#,
+    ),
+    (
+        r#"^daemon-producer://[a-z0-9][a-z0-9._-]{0,119}$"#,
+        r#"^daemon-producer://[a-z0-9][a-z0-9._-]{0,119}$"#,
     ),
     (r#"^dapp_[0-9a-f]{16}$"#, r#"^dapp_[0-9a-f]{16}$"#),
     (r#"^dartm_[0-9a-f]{1,32}$"#, r#"^dartm_[0-9a-f]{1,32}$"#),
@@ -222031,6 +223569,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$"#,
         r#"^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$"#,
+    ),
+    (
+        r#"^event-stream://hypervisor-telemetry/series[.]ts_[0-9a-f]{16}$"#,
+        r#"^event-stream://hypervisor-telemetry/series[.]ts_[0-9a-f]{16}$"#,
     ),
     (
         r#"^evidence://[^\s]{1,240}$"#,
@@ -223677,6 +225219,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^system://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^system://[^\s]{1,480}$"#,
+        r#"^system://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
+    ),
+    (
         r#"^system://[^\s]{1,500}$"#,
         r#"^system://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -223703,6 +225249,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^tax://[^\s]{1,400}$"#,
         r#"^tax://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
+        r#"^telemetry-series://ts_[0-9a-f]{16}$"#,
+        r#"^telemetry-series://ts_[0-9a-f]{16}$"#,
     ),
     (
         r#"^temporal-evaluation://[^\s]{1,248}$"#,
@@ -226058,6 +227608,16 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json"))),
     ("docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json"))),
     ("docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/positive-health-check-passed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/positive-health-check-passed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-unregistered-instrument.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-unregistered-instrument.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-series-v1/negative-stream-outside-telemetry-namespace.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-admitted-health-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-admitted-health-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/positive-ephemeral-probe-duration.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-attributes-as-map.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-attributes-as-map.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-value-not-a-number.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-point-v1/negative-value-not-a-number.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/positive-rolling-mean-pass-ratio.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-derivation-unnamed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-derivation-unnamed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-fabricated-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/telemetry-range-v1/negative-fabricated-receipt.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json"))),
@@ -228373,6 +229933,21 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/telemetry-series/v1" => {
+            serde_json::from_value::<TelemetrySeriesV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/telemetry-point/v1" => {
+            serde_json::from_value::<TelemetryPointV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/telemetry-range/v1" => {
+            serde_json::from_value::<TelemetryRangeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/connectors-tools/connector-credential-grant/v1" => {
             serde_json::from_value::<ConnectorCredentialGrantV1>(value.clone())
                 .map(|_| ())
@@ -230229,6 +231804,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/telemetry-series/v1" => {
+            let projection = serde_json::from_value::<TelemetrySeriesV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/telemetry-point/v1" => {
+            let projection = serde_json::from_value::<TelemetryPointV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/telemetry-range/v1" => {
+            let projection = serde_json::from_value::<TelemetryRangeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/connectors-tools/connector-credential-grant/v1" => {
             let projection = serde_json::from_value::<ConnectorCredentialGrantV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -231015,8 +232605,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            2046,
-            "the registered golden corpus must remain the explicit 2046-fixture bar",
+            2056,
+            "the registered golden corpus must remain the explicit 2056-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -231258,7 +232848,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1182,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1193,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -270,6 +270,8 @@ mod system_sequence_zero_routes;
 mod system_topology_routes;
 #[path = "hypervisor_daemon_routes/system_writer_routes.rs"]
 mod system_writer_routes;
+#[path = "hypervisor_daemon_routes/telemetry_routes.rs"]
+mod telemetry_routes;
 #[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
 mod transformation_run_routes;
 #[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
@@ -1811,6 +1813,22 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/health-check-results",
             get(health_check_routes::handle_health_check_result_list),
+        )
+        // ADR 0056 Amendment 1, plane 6 — telemetry series over the event-stream plane: one
+        // owner-namespaced stream per series, admitted points with receipts and ephemeral samples
+        // in a bounded in-process window, a bounded range read, and one derived series (the rolling
+        // mean) computed at read time. Producers live in the planes that observe (Health's Evaluate).
+        .route(
+            "/v1/hypervisor/telemetry/series",
+            get(telemetry_routes::handle_series_list),
+        )
+        .route(
+            "/v1/hypervisor/telemetry/series/:id",
+            get(telemetry_routes::handle_series_get),
+        )
+        .route(
+            "/v1/hypervisor/telemetry/series/:id/range",
+            get(telemetry_routes::handle_series_range),
         )
         // ADR 0056 Amendment 1, plane 3 — functions. A revision is immutable typed code; releasing it
         // compiles an exact RuntimeToolContract revision into the runtime tool-contract registry, and

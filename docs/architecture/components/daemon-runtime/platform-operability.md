@@ -1236,3 +1236,106 @@ an `owner_event` item `health_check.<outcome>` linking back to the check, and a
 later pass re-derives it away. Not built yet, and named on the lane rather than
 simulated: scheduled evaluation (nothing fires a monitor-mode AutomationSpec
 yet), snooze, and watch levels.
+
+## TelemetrySeries
+
+Registered contract: `schema://ioi/components/daemon-runtime/telemetry-series/v1`
+(ADR 0056 Amendment 1, plane 6: "telemetry stream (+ range, derived series) — extends
+event streams (ephemeral and admitted classes)"; the owner's answer: it "serves software
+agents' metric trends as well as embodied systems"). Runtime:
+`GET /v1/hypervisor/telemetry/series[?subject_ref=&scope_ref=&about_ref=&metric=]` and
+`GET /v1/hypervisor/telemetry/series/:id`. The lane is Operations / Telemetry, seeded
+from the preserved Quiver port (Amendment 1: Quiver's time-series core re-homes there; its
+BI dashboard builder is a terminal absence).
+
+A series is the identity of one metric trend about **one subject** and the event stream
+its points go to. It **extends the event-stream plane and is not a second spine**: each
+series is one owner-namespaced stream, `event-stream://hypervisor-telemetry/series.<ts_id>`,
+declared through the event-stream plane's own genesis admission with two classes, one on
+each side of the event-class line (see Agentgres doctrine, `EventStream`):
+
+- `telemetry.point` — **admitted truth**: a point read from an admitted record (a
+  health-check result, a run). It crosses an Agentgres transition with an exact expected
+  head, carries a receipt, and is replayed by every range read.
+- `telemetry.sample` — **ephemeral delivery**: a sample of a changing value (how long a
+  probe took). The event-stream plane decides that from the stream's admitted declaration
+  and awaits no Agentgres operation; the sample mints no sequence, head, root or receipt and
+  is held only in the daemon's bounded in-process window (`ephemeral_window`:
+  `process_memory`, the newest 512 samples per series, the least recently sampled series
+  dropped first past 4096). A restart empties it, and every range answer says how many it
+  held.
+
+Identity is `(owner, producing principal, subject, scope, metric name, unit)`, committed by
+`identity_digest` (sha256 over the JCS bytes) and carried in `series_id`
+(`telemetry-series://ts_<16 hex>`). The subject is one `system://`, `automation://`,
+`automation-run://`, `environment://`, `agent://`, `health-check://` or `session://`
+reference; `scope_ref` is the System the subject serves, when it serves one (a check that
+observes the System; the System an automation is tied to). The producing principal is part
+of the identity because the event-stream plane admits appends only from the principal that
+reserved the stream; reads are the owner **tenant's**, exactly like the health-check plane
+whose results feed it: the series record and the stream's admitted scope must both name a
+tenant the caller belongs to. The declaration is admitted once (`telemetry_series.declare`)
+before the stream's genesis, and both replay under one key derived from the series.
+
+**Adopted standard — the OpenTelemetry profile.** Metric names follow OpenTelemetry's
+naming (lowercase dot-separated namespaces), units are UCUM as OpenTelemetry uses them
+(`1`, `s`, `{token}`), instruments are OpenTelemetry's kinds (`gauge`, `counter`,
+`updowncounter`, `histogram`), durations are seconds recorded by a histogram, and
+attributes use OpenTelemetry's key/value shape and attribute naming. Where an OpenTelemetry
+semantic convention fits, it is adopted by name; where none does, the name lives in the
+`ioi.` namespace, and `metric.semantic_convention` says which. The profile the daemon
+accepts today (a producer may only declare a series under one of these names; a unit test
+holds each to OpenTelemetry's rules):
+
+| Metric | Unit | Instrument | Convention |
+|---|---|---|---|
+| `ioi.health_check.passed` | `1` | gauge | `ioi` extension — 1 when an evaluation passed, 0 when it did not; the outcome word is the `ioi.health_check.outcome` attribute |
+| `ioi.health_check.duration` | `s` | histogram | `ioi` extension — the probe's duration, measured by the daemon around the governed exec call |
+| `gen_ai.client.token.usage` | `{token}` | histogram | OpenTelemetry GenAI (development) — reserved for the model/agent producer W9.3 feeds |
+| `gen_ai.client.operation.duration` | `s` | histogram | OpenTelemetry GenAI (development) — reserved likewise |
+
+**Producers.** Health's Evaluate is the first: each evaluation of a check appends one
+admitted `ioi.health_check.passed` point about the **check**, scoped to the System it
+observes, and — when a probe ran — one ephemeral `ioi.health_check.duration` sample. The
+result is admitted before either; a telemetry refusal is returned by name beside the result
+and never undoes it. Not built yet, and named on the lane: an OpenTelemetry GenAI producer
+(model and agent token usage and operation duration), an external producer route (OTLP
+ingest), formulas across series, annotations and export. A series grants nothing and is
+never authority.
+
+## TelemetryPoint
+
+Registered contract: `schema://ioi/components/daemon-runtime/telemetry-point/v1`. One
+measurement in one series: `time_unix_ms` and the same instant as `observed_at`, a numeric
+`value` in the series' unit, and at most sixteen attributes (keys unique, OpenTelemetry
+attribute naming, bounded lengths — the Privacy-Safe Observability rule of bounded
+cardinality and allowlisted fields). `point_class` is the side of the event-class line the
+stream's declaration puts it on, and the plane's answer must agree with it. An admitted point
+names the admitted record it was read from (`source_ref`, for example the health-check
+result's `observation://` ref), and its idempotency key derives from that record, so
+producing one observation twice replays the original admission. `run_ref` names the
+canonical run the point came from, when it came from one, so receipts stay keyed by run.
+
+## TelemetryRange
+
+Registered contract: `schema://ioi/components/daemon-runtime/telemetry-range/v1`. Runtime:
+`GET /v1/hypervisor/telemetry/series/:id/range[?from=&to=&step=&window=]` (epoch
+milliseconds; `step` in seconds; `window` the rolling mean's point count). The answer is
+computed on every read and stored nowhere: the raw points in `[from, to)` — admitted points
+replayed from the series' stream, each with its Agentgres `operation_ref` and
+`receipt_ref`, and ephemeral samples from the window with neither — the newest 1000 when
+more fall inside (`points_truncated` says so), step-aligned buckets (count, mean, min, max;
+an empty bucket has nulls), and exactly **one derived series**, the `rolling_mean` over the
+last `window_points` raw points, whose formula the answer names. Every bound is stated in
+the answer (`max_span_ms` 31 days, `max_buckets` 1440, `max_points` 1000), and a request past
+any of them is refused by name (`telemetry_range_span_exceeded`,
+`telemetry_range_too_many_buckets`, …), never clamped.
+
+Readers, each through the plane's tenant-filtered readers: Operations / Telemetry
+(`/operations/telemetry`) — the Quiver port's landing grammar and configuration, its recents
+table rebound from a typed absence onto the caller's series, a series opening in the same
+grammar over its range read with the rolling mean plotted and named; the Quiver
+capabilities with no daemon counterpart (authoring an analysis, favorites, marketplace
+installs, formulas, annotations, export) stay in place, disabled, each with its reason. A
+System's Overview (`/systems/<id>`) draws the series about the System or about what serves
+it — at most six, over the last seven days.
