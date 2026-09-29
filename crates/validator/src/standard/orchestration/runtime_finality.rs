@@ -155,12 +155,62 @@ pub(crate) struct RuntimeFinalityCoordinator {
     /// is rebuilt from device-flushed staged bytes on restart and therefore is
     /// an exclusion fence, not a second source of canonical truth.
     staged_transaction_hashes: BTreeSet<[u8; 32]>,
+    /// Where the fence above comes from: height -> staged block hash -> its
+    /// transaction hashes, for every verified staged envelope above the
+    /// admitted head. Each admission adds what was staged since the previous
+    /// one (from its re-read bytes), prunes what the new head passed and
+    /// rebuilds the fence from what is left, instead of re-reading every
+    /// staged file ever written.
+    staged_fence: BTreeMap<u64, BTreeMap<[u8; 32], Vec<[u8; 32]>>>,
+    /// Every staged envelope verified from its device-flushed bytes: all of
+    /// them at open, and each one this process stages at the first admission
+    /// after staging it. It is the rotation order of the integrity scrub.
+    staged_catalog: BTreeSet<[u8; 32]>,
+    /// Blocks staged by this process since the last admission. The next
+    /// admission re-reads each from disk and verifies it before it counts.
+    unverified_staged: BTreeSet<[u8; 32]>,
+    /// The last catalog entry the integrity scrub re-verified.
+    staged_scrub_cursor: Option<[u8; 32]>,
+    /// Verified staged envelopes whose block carries a governed
+    /// profile-cutover call. A derived locator only: the cutover itself is
+    /// always re-derived from the committed record and the exact staged bytes.
+    cutover_candidate_blocks: BTreeSet<[u8; 32]>,
+    /// Which committed effects can carry a governed cutover (see
+    /// `CutoverLocators`).
+    cutover_locators: CutoverLocators,
+    #[cfg(test)]
+    staged_verifications: std::sync::atomic::AtomicUsize,
     /// Authenticated chained-finality evidence can arrive before the exact
     /// block's staging ACK (QC and block gossip are independent streams). Keep
     /// it pending until the exact durable bytes are locally reconstructible;
     /// draining and then treating message reordering as terminal would freeze
     /// an honest validator and permanently discard finality evidence.
     pending_native_aft: Vec<NativeAftFinalizedEvidence>,
+}
+
+/// Staged envelopes the integrity scrub re-reads and re-verifies per admission,
+/// on top of the ones staged since the previous admission. Every durable staged
+/// file is thereby revisited in rotation (and all of them at every open) while
+/// the per-block work stays constant instead of growing with chain length.
+const STAGED_SCRUB_PER_ADMISSION: usize = 2;
+
+/// Committed effects classified by whether their exact staged block carries a
+/// governed profile-cutover call. Every committed effect is classified once;
+/// `apply_due_governed_cutovers` then revisits only the locators, never every
+/// historical effect. Derived locators only: each use re-reads the committed
+/// record and its staged bytes, so no side state grants authority.
+#[derive(Default)]
+struct CutoverLocators {
+    /// Committed effects, in Agentgres admission order, whose staged block
+    /// carries at least one governed profile-cutover call.
+    effects: Vec<String>,
+    /// How many committed effects have been classified.
+    classified: usize,
+    /// The most recently classified effect, which a store whose history was
+    /// replaced underneath this process would no longer hold.
+    last_classified: Option<String>,
+    /// Committed effects still to classify, in admission order.
+    unclassified: std::collections::VecDeque<String>,
 }
 
 enum NativeStageReadiness {
@@ -1426,9 +1476,23 @@ impl RuntimeFinalityCoordinator {
             #[cfg(test)]
             staged_reads: std::sync::atomic::AtomicUsize::new(0),
             staged_transaction_hashes: BTreeSet::new(),
+            staged_fence: BTreeMap::new(),
+            staged_catalog: BTreeSet::new(),
+            unverified_staged: BTreeSet::new(),
+            staged_scrub_cursor: None,
+            cutover_candidate_blocks: BTreeSet::new(),
+            cutover_locators: CutoverLocators::default(),
+            #[cfg(test)]
+            staged_verifications: std::sync::atomic::AtomicUsize::new(0),
             pending_native_aft: Vec::new(),
         };
-        coordinator.staged_transaction_hashes = coordinator.verify_all_staged()?;
+        coordinator.verify_all_staged()?;
+        coordinator.cutover_locators.unclassified = coordinator
+            .store
+            .committed_effects_in_order()
+            .into_iter()
+            .map(|effect| effect.record.effect_id.clone())
+            .collect();
         coordinator.committed_manifest_index = coordinator.rebuild_manifest_index()?;
         Ok(coordinator)
     }
@@ -1566,9 +1630,13 @@ impl RuntimeFinalityCoordinator {
         };
         staged.stage_hash = staged_hash(&staged)?;
         let bytes = to_bytes_canonical(&staged).map_err(anyhow::Error::msg)?;
-        let path = self.staged_path(&block_hash(&staged.block)?);
+        let hash = block_hash(&staged.block)?;
+        let path = self.staged_path(&hash);
         persist_exact_device_flushed(&path, &bytes)?;
         self.staged_transaction_hashes.extend(transaction_hashes);
+        // It enters the fence's source (and the catalog) from its re-read,
+        // verified bytes at the next admission.
+        self.unverified_staged.insert(hash);
         Ok(())
     }
 
@@ -1727,16 +1795,26 @@ impl RuntimeFinalityCoordinator {
     /// transaction is already a rooted recognized effect. Early authorization
     /// remains inert and is deterministically rediscovered from Agentgres on
     /// every later admission/restart; no side file grants authority.
+    ///
+    /// Only committed effects whose staged block carries a governed-cutover
+    /// call are revisited (`CutoverLocators`); every other effect has nothing
+    /// this pass could act on, and re-reading all of history at every block
+    /// made admission cost grow with chain length.
     pub(crate) fn apply_due_governed_cutovers(
         &mut self,
         recorded_at_ms: u64,
     ) -> Result<Vec<String>> {
+        self.classify_committed_effects()?;
         let committed_effects = self
-            .store
-            .committed_effects_in_order()
-            .into_iter()
-            .cloned()
-            .collect::<Vec<_>>();
+            .cutover_locators
+            .effects
+            .iter()
+            .map(|effect_id| {
+                self.store.committed(effect_id).cloned().ok_or_else(|| {
+                    anyhow!("governed cutover locator names no committed runtime effect")
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
         let current_height = self
             .last_admitted_block()?
             .map(|block| block.header.height)
@@ -1786,6 +1864,61 @@ impl RuntimeFinalityCoordinator {
             }
         }
         Ok(applied)
+    }
+
+    /// Classify every committed effect not yet classified, in admission order.
+    /// An effect this coordinator admitted is queued by `admit_material`; the
+    /// store can also gain effects this coordinator never admitted (a refresh
+    /// that loaded another process's appends), which the count check catches
+    /// and answers by reclassifying the whole rooted order.
+    fn classify_committed_effects(&mut self) -> Result<()> {
+        let known = self.cutover_locators.classified + self.cutover_locators.unclassified.len();
+        let last_still_committed = self
+            .cutover_locators
+            .last_classified
+            .as_deref()
+            .map_or(true, |effect_id| self.store.committed(effect_id).is_some());
+        if self.store.committed_effect_count() != known || !last_still_committed {
+            self.cutover_locators = CutoverLocators {
+                unclassified: self
+                    .store
+                    .committed_effects_in_order()
+                    .into_iter()
+                    .map(|effect| effect.record.effect_id.clone())
+                    .collect(),
+                ..CutoverLocators::default()
+            };
+        }
+        while let Some(effect_id) = self.cutover_locators.unclassified.front().cloned() {
+            let head = self
+                .store
+                .committed(&effect_id)
+                .ok_or_else(|| anyhow!("unknown committed runtime effect {effect_id}"))?
+                .record
+                .bundle
+                .pointer("/checkpoint/resulting_canonical_head")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("committed runtime effect lost resulting head"))?
+                .to_owned();
+            let hash = parse_hash_label(&head)?;
+            let carries_cutover = if self.staged_catalog.contains(&hash) {
+                self.cutover_candidate_blocks.contains(&hash)
+            } else {
+                // Not verified by this process (staged by another one): the
+                // exact bytes answer, and a missing or corrupt block refuses
+                // exactly as the full historical scan did.
+                let staged = self.read_staged(&hash)?;
+                self.remember_verified_staged(hash, &staged.block)?;
+                self.cutover_candidate_blocks.contains(&hash)
+            };
+            if carries_cutover {
+                self.cutover_locators.effects.push(effect_id.clone());
+            }
+            self.cutover_locators.unclassified.pop_front();
+            self.cutover_locators.classified += 1;
+            self.cutover_locators.last_classified = Some(effect_id);
+        }
+        Ok(())
     }
 
     fn apply_governed_cutover(
@@ -2167,11 +2300,23 @@ impl RuntimeFinalityCoordinator {
                 commit.effect.record.effect_id.clone(),
             );
         }
+        // A committed batch is this block's effect and makes it the canonical
+        // head; anything else is re-read from the rooted head.
+        let admitted_height = if commit.disposition == CommitDisposition::Committed {
+            self.cutover_locators
+                .unclassified
+                .push_back(commit.effect.record.effect_id.clone());
+            staged.block.header.height
+        } else {
+            self.last_admitted_block()?
+                .map(|block| block.header.height)
+                .unwrap_or(0)
+        };
         // Forked same-height staged candidates remain durable evidence but
         // cease to fence their transactions once Agentgres advances past that
         // height. Rebuild from the rooted head so an abandoned proposal cannot
         // strand a still-pending transaction forever after replacement.
-        self.staged_transaction_hashes = self.verify_all_staged()?;
+        self.refresh_staged_after_admission(admitted_height)?;
         Ok(RuntimeAdmission {
             effect_id,
             block: staged.block,
@@ -2200,34 +2345,129 @@ impl RuntimeFinalityCoordinator {
         Ok(staged)
     }
 
-    fn verify_all_staged(&self) -> Result<BTreeSet<[u8; 32]>> {
+    /// Verify every staged file in the directory (the restart path): each must
+    /// decode, carry its exact envelope hash and per-transaction receipts, and
+    /// be named by its block hash. Builds the catalog, the cutover locators'
+    /// candidate blocks and the exclusion fence from those device-flushed bytes.
+    fn verify_all_staged(&mut self) -> Result<()> {
         let admitted_height = self
             .last_admitted_block()?
             .map(|block| block.header.height)
             .unwrap_or(0);
-        let mut transaction_hashes = BTreeSet::new();
         for entry in fs::read_dir(self.root.join("staged"))? {
             let entry = entry?;
             let path = entry.path();
             if path.extension().and_then(|value| value.to_str()) != Some("scale") {
                 continue;
             }
-            let bytes = fs::read(&path)?;
-            let staged: StagedBlock = from_bytes_canonical(&bytes).map_err(anyhow::Error::msg)?;
-            validate_staged(&staged)
-                .with_context(|| format!("invalid staged finality bytes at {}", path.display()))?;
-            if path != self.staged_path(&block_hash(&staged.block)?) {
-                return Err(anyhow!(
-                    "staged finality filename does not bind its block hash"
-                ));
-            }
-            if staged.block.header.height > admitted_height {
-                for transaction in &staged.block.transactions {
-                    transaction_hashes.insert(transaction.hash()?);
-                }
-            }
+            let staged = self.verified_staged_file(&path)?;
+            self.remember_verified_staged(block_hash(&staged.block)?, &staged.block)?;
         }
-        Ok(transaction_hashes)
+        self.prune_staged_fence(admitted_height);
+        Ok(())
+    }
+
+    /// The admission-time half of staged verification: work proportional to
+    /// what changed since the last admission, not to history. Every block
+    /// staged since then is re-read from disk and verified, the scrub
+    /// re-verifies `STAGED_SCRUB_PER_ADMISSION` already verified envelopes in
+    /// rotation, and the exclusion fence drops what the admitted head passed.
+    /// A corrupt or substituted staged file refuses the admission exactly as
+    /// the full directory scan did; `open` still verifies every file.
+    fn refresh_staged_after_admission(&mut self, admitted_height: u64) -> Result<()> {
+        for hash in self.unverified_staged.clone() {
+            self.reverify_staged(hash)?;
+            self.unverified_staged.remove(&hash);
+        }
+        for _ in 0..STAGED_SCRUB_PER_ADMISSION.min(self.staged_catalog.len()) {
+            let next = self
+                .staged_scrub_cursor
+                .and_then(|cursor| {
+                    self.staged_catalog
+                        .range((
+                            std::ops::Bound::Excluded(cursor),
+                            std::ops::Bound::Unbounded,
+                        ))
+                        .next()
+                        .copied()
+                })
+                .or_else(|| self.staged_catalog.first().copied());
+            let Some(hash) = next else {
+                break;
+            };
+            self.staged_scrub_cursor = Some(hash);
+            self.reverify_staged(hash)?;
+        }
+        self.prune_staged_fence(admitted_height);
+        Ok(())
+    }
+
+    /// Re-read one staged envelope by name and verify it. A file that is no
+    /// longer in the directory is forgotten, as the full directory scan never
+    /// saw it either.
+    fn reverify_staged(&mut self, hash: [u8; 32]) -> Result<()> {
+        let path = self.staged_path(&hash);
+        if !path.exists() {
+            self.staged_catalog.remove(&hash);
+            self.cutover_candidate_blocks.remove(&hash);
+            for blocks in self.staged_fence.values_mut() {
+                blocks.remove(&hash);
+            }
+            return Ok(());
+        }
+        let staged = self.verified_staged_file(&path)?;
+        self.remember_verified_staged(hash, &staged.block)
+    }
+
+    fn verified_staged_file(&self, path: &Path) -> Result<StagedBlock> {
+        #[cfg(test)]
+        self.staged_verifications
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let bytes = fs::read(path)?;
+        let staged: StagedBlock = from_bytes_canonical(&bytes).map_err(anyhow::Error::msg)?;
+        validate_staged(&staged)
+            .with_context(|| format!("invalid staged finality bytes at {}", path.display()))?;
+        if path != self.staged_path(&block_hash(&staged.block)?) {
+            return Err(anyhow!(
+                "staged finality filename does not bind its block hash"
+            ));
+        }
+        Ok(staged)
+    }
+
+    /// Record one envelope verified from its device-flushed bytes.
+    fn remember_verified_staged(
+        &mut self,
+        hash: [u8; 32],
+        block: &Block<ChainTransaction>,
+    ) -> Result<()> {
+        let transaction_hashes = block
+            .transactions
+            .iter()
+            .map(ChainTransaction::hash)
+            .collect::<Result<Vec<_>, _>>()?;
+        self.staged_catalog.insert(hash);
+        if carries_governed_cutover_call(block) {
+            self.cutover_candidate_blocks.insert(hash);
+        }
+        self.staged_fence
+            .entry(block.header.height)
+            .or_default()
+            .insert(hash, transaction_hashes);
+        Ok(())
+    }
+
+    /// Keep only staged envelopes strictly above the admitted head in the
+    /// exclusion fence, and rebuild the fence from them.
+    fn prune_staged_fence(&mut self, admitted_height: u64) {
+        self.staged_fence = self
+            .staged_fence
+            .split_off(&admitted_height.saturating_add(1));
+        self.staged_transaction_hashes = self
+            .staged_fence
+            .values()
+            .flat_map(|blocks| blocks.values().flatten().copied())
+            .collect();
     }
 }
 
@@ -2295,20 +2535,34 @@ fn hash_json(value: &Value) -> Result<String> {
     ))
 }
 
-fn governed_cutover_operation(
-    transaction: &ChainTransaction,
-) -> Result<Option<GovernedFinalityProfileCutoverV1>> {
+/// The parameters of a wallet-authorized profile-cutover call, undecoded.
+fn governed_cutover_call_params(transaction: &ChainTransaction) -> Option<&[u8]> {
     let ChainTransaction::System(system) = transaction else {
-        return Ok(None);
+        return None;
     };
     let SystemPayload::CallService {
         service_id,
         method,
         params,
     } = &system.payload;
-    if service_id != "wallet_network" || method != AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD {
+    (service_id == "wallet_network" && method == AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD)
+        .then_some(params.as_slice())
+}
+
+/// Whether `apply_due_governed_cutovers` has anything to examine in this block.
+fn carries_governed_cutover_call(block: &Block<ChainTransaction>) -> bool {
+    block
+        .transactions
+        .iter()
+        .any(|transaction| governed_cutover_call_params(transaction).is_some())
+}
+
+fn governed_cutover_operation(
+    transaction: &ChainTransaction,
+) -> Result<Option<GovernedFinalityProfileCutoverV1>> {
+    let Some(params) = governed_cutover_call_params(transaction) else {
         return Ok(None);
-    }
+    };
     let request: AuthorizeFinalityProfileCutoverParamsV1 =
         from_bytes_canonical(params).map_err(anyhow::Error::msg)?;
     Ok(Some(request.operation))
@@ -3843,5 +4097,371 @@ mod tests {
             RuntimeFinalityProfile::BftConsensusAftV1
         );
         assert_eq!(reopened.writer_identity, rollback_writer);
+    }
+
+    fn open_single_authority(
+        root: &Path,
+        domain: &str,
+        writer: &str,
+        seed: [u8; 32],
+    ) -> Result<RuntimeFinalityCoordinator> {
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        RuntimeFinalityCoordinator::open(
+            root.to_path_buf(),
+            domain.into(),
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            writer.into(),
+            runtime_finality_initial_head(None).unwrap(),
+            format!(
+                "key://test/{}",
+                hex::encode(key.public_key().unwrap().as_bytes())
+            ),
+            &seed,
+        )
+    }
+
+    /// Stages and admits empty blocks `from..=to` on top of `parent`,
+    /// returning the last admitted hash.
+    fn admit_empty_chain(
+        coordinator: &mut RuntimeFinalityCoordinator,
+        mut parent: [u8; 32],
+        from: u64,
+        to: u64,
+    ) -> [u8; 32] {
+        for height in from..=to {
+            let block = empty_block(parent, height);
+            parent = block_hash(&block).unwrap();
+            coordinator.stage_block(block, Vec::new()).unwrap();
+            coordinator.admit_single_authority(parent, height).unwrap();
+        }
+        parent
+    }
+
+    fn corrupt_staged(coordinator: &RuntimeFinalityCoordinator, hash: &[u8; 32]) {
+        let path = coordinator.staged_path(hash);
+        let mut bytes = fs::read(&path).unwrap();
+        // The envelope's trailing stage hash: the bytes still decode, and only
+        // the envelope-hash check can refuse them.
+        let last = bytes.len() - 1;
+        bytes[last] ^= 0xff;
+        fs::write(&path, bytes).unwrap();
+    }
+
+    #[test]
+    fn admission_verifies_what_was_staged_since_the_last_one_plus_a_bounded_scrub() {
+        use std::sync::atomic::Ordering;
+        let dir = tempdir().unwrap();
+        let mut coordinator = open_single_authority(
+            dir.path(),
+            "chain://test/incremental",
+            "writer://test/incremental",
+            [41; 32],
+        )
+        .unwrap();
+        let mut parent = [0_u8; 32];
+        let mut verified_per_admission = Vec::new();
+        for height in 1..=24 {
+            let block = empty_block(parent, height);
+            let hash = block_hash(&block).unwrap();
+            coordinator.stage_block(block, Vec::new()).unwrap();
+            coordinator.staged_verifications.store(0, Ordering::Relaxed);
+            coordinator.admit_single_authority(hash, height).unwrap();
+            verified_per_admission.push(coordinator.staged_verifications.load(Ordering::Relaxed));
+            parent = hash;
+        }
+        // The one envelope staged since the previous admission, plus the
+        // scrub's fixed rotation: the same at height 24 as at height 3, where
+        // the full directory scan re-read every staged file each time.
+        assert!(
+            verified_per_admission
+                .iter()
+                .enumerate()
+                .all(|(index, count)| *count == 1 + STAGED_SCRUB_PER_ADMISSION.min(index + 1)),
+            "{verified_per_admission:?}"
+        );
+        assert_eq!(
+            verified_per_admission[23], verified_per_admission[3],
+            "{verified_per_admission:?}"
+        );
+        assert_eq!(coordinator.staged_catalog.len(), 24);
+        drop(coordinator);
+        // A restart still verifies every staged file.
+        let reopened = open_single_authority(
+            dir.path(),
+            "chain://test/incremental",
+            "writer://test/incremental",
+            [41; 32],
+        )
+        .unwrap();
+        assert_eq!(reopened.staged_verifications.load(Ordering::Relaxed), 24);
+    }
+
+    #[test]
+    fn a_corrupted_newly_staged_envelope_refuses_the_next_admission_and_the_next_open() {
+        let dir = tempdir().unwrap();
+        let (domain, writer, seed) = (
+            "chain://test/planted-new",
+            "writer://test/planted-new",
+            [42; 32],
+        );
+        let mut coordinator = open_single_authority(dir.path(), domain, writer, seed).unwrap();
+        let first = empty_block([0; 32], 1);
+        let first_hash = block_hash(&first).unwrap();
+        let transaction = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader::default(),
+            payload: SystemPayload::CallService {
+                service_id: "test".into(),
+                method: "planted@v1".into(),
+                params: vec![7],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let second = block_with_transactions(first_hash, 2, vec![transaction.clone()]);
+        let second_hash = block_hash(&second).unwrap();
+        coordinator.stage_block(first, Vec::new()).unwrap();
+        coordinator
+            .stage_block(
+                second,
+                vec![BlockExecutionReceipt::for_success(
+                    2,
+                    0,
+                    transaction.hash().unwrap(),
+                    0,
+                    &[],
+                )],
+            )
+            .unwrap();
+        // The descendant is not the block being admitted, so only the
+        // re-verification of what was staged since the last admission can
+        // see that its durable bytes no longer match what was written.
+        corrupt_staged(&coordinator, &second_hash);
+        let refusal = coordinator
+            .admit_single_authority(first_hash, 1)
+            .unwrap_err();
+        assert!(
+            format!("{refusal:#}").contains("invalid staged finality bytes"),
+            "{refusal:#}"
+        );
+        drop(coordinator);
+        let reopen = open_single_authority(dir.path(), domain, writer, seed)
+            .err()
+            .expect("the full verification at open refuses the planted envelope");
+        assert!(
+            format!("{reopen:#}").contains("invalid staged finality bytes"),
+            "{reopen:#}"
+        );
+    }
+
+    #[test]
+    fn a_corrupted_historical_envelope_refuses_the_next_open() {
+        let dir = tempdir().unwrap();
+        let (domain, writer, seed) = (
+            "chain://test/planted-open",
+            "writer://test/planted-open",
+            [43; 32],
+        );
+        let mut coordinator = open_single_authority(dir.path(), domain, writer, seed).unwrap();
+        let second = admit_empty_chain(&mut coordinator, [0; 32], 1, 2);
+        admit_empty_chain(&mut coordinator, second, 3, 6);
+        // Height 2 is neither the rooted head nor manifest-bearing: nothing but
+        // the full directory verification reads it at open.
+        corrupt_staged(&coordinator, &second);
+        drop(coordinator);
+        let refusal = open_single_authority(dir.path(), domain, writer, seed)
+            .err()
+            .expect("the full verification at open refuses the planted envelope");
+        assert!(
+            format!("{refusal:#}").contains("invalid staged finality bytes"),
+            "{refusal:#}"
+        );
+    }
+
+    #[test]
+    fn the_scrub_refuses_a_historical_envelope_corrupted_while_the_node_runs() {
+        let dir = tempdir().unwrap();
+        let mut coordinator = open_single_authority(
+            dir.path(),
+            "chain://test/planted-scrub",
+            "writer://test/planted-scrub",
+            [44; 32],
+        )
+        .unwrap();
+        let second = admit_empty_chain(&mut coordinator, [0; 32], 1, 2);
+        let mut parent = admit_empty_chain(&mut coordinator, second, 3, 6);
+        corrupt_staged(&coordinator, &second);
+        // With one new envelope and a scrub of two per admission, a catalog of
+        // n entries is fully revisited within n admissions.
+        let mut refusal = None;
+        for height in 7..=18 {
+            let block = empty_block(parent, height);
+            parent = block_hash(&block).unwrap();
+            coordinator.stage_block(block, Vec::new()).unwrap();
+            if let Err(error) = coordinator.admit_single_authority(parent, height) {
+                refusal = Some(error);
+                break;
+            }
+        }
+        let refusal = refusal.expect("the scrub reaches the planted envelope");
+        assert!(
+            format!("{refusal:#}").contains("invalid staged finality bytes"),
+            "{refusal:#}"
+        );
+    }
+
+    #[test]
+    fn governed_cutover_pass_revisits_only_cutover_bearing_effects() {
+        use std::sync::atomic::Ordering;
+        let dir = tempdir().unwrap();
+        let (domain, writer, seed) = (
+            "chain://test/cutover-locators",
+            "writer://test/cutover-locators",
+            [45; 32],
+        );
+        let mut coordinator = open_single_authority(dir.path(), domain, writer, seed).unwrap();
+        let second = admit_empty_chain(&mut coordinator, [0; 32], 1, 2);
+        let operation = cutover_operation(
+            "profile-cutover://test/locators/1",
+            domain,
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            writer,
+            0,
+            1,
+            second,
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            &format!("{writer}/profile/aft/epoch/2"),
+            2,
+            1_000,
+            20,
+        );
+        let transaction = governed_cutover_transaction(operation, &[[61; 32], [62; 32]]);
+        let authorization = block_with_transactions(second, 3, vec![transaction.clone()]);
+        let mut parent = block_hash(&authorization).unwrap();
+        coordinator
+            .stage_block(
+                authorization,
+                vec![BlockExecutionReceipt::for_success(
+                    3,
+                    0,
+                    transaction.hash().unwrap(),
+                    0,
+                    &[],
+                )],
+            )
+            .unwrap();
+        coordinator.admit_single_authority(parent, 3).unwrap();
+        let mut reads_per_pass = Vec::new();
+        for height in 4..=12 {
+            parent = admit_empty_chain(&mut coordinator, parent, height, height);
+            coordinator.staged_reads.store(0, Ordering::Relaxed);
+            assert!(coordinator
+                .apply_due_governed_cutovers(1_000_000)
+                .unwrap()
+                .is_empty());
+            reads_per_pass.push(coordinator.staged_reads.load(Ordering::Relaxed));
+        }
+        // The rooted head plus the one authorization-bearing block, whatever
+        // the height; the historical scan read every committed block.
+        assert!(
+            reads_per_pass.iter().all(|reads| *reads == 2),
+            "{reads_per_pass:?}"
+        );
+        drop(coordinator);
+
+        // A restart classifies history from the verified catalog, still
+        // without reading blocks that carry no cutover call.
+        let mut coordinator = open_single_authority(dir.path(), domain, writer, seed).unwrap();
+        coordinator.staged_reads.store(0, Ordering::Relaxed);
+        assert!(coordinator
+            .apply_due_governed_cutovers(1_000_000)
+            .unwrap()
+            .is_empty());
+        assert_eq!(coordinator.staged_reads.load(Ordering::Relaxed), 2);
+        admit_empty_chain(&mut coordinator, parent, 13, 20);
+        assert_eq!(
+            coordinator.apply_due_governed_cutovers(1_000_000).unwrap(),
+            vec!["profile-cutover://test/locators/1"]
+        );
+        assert_eq!(
+            coordinator.active_profile().unwrap(),
+            RuntimeFinalityProfile::BftConsensusAftV1
+        );
+    }
+
+    #[test]
+    fn a_cutover_authorized_through_another_process_is_found_after_the_refresh() {
+        let dir = tempdir().unwrap();
+        let (domain, writer, seed) = (
+            "chain://test/cutover-other-process",
+            "writer://test/cutover-other-process",
+            [46; 32],
+        );
+        let mut local = open_single_authority(dir.path(), domain, writer, seed).unwrap();
+        let first = admit_empty_chain(&mut local, [0; 32], 1, 1);
+        assert!(local
+            .apply_due_governed_cutovers(1_000_000)
+            .unwrap()
+            .is_empty());
+
+        // A second process on the same spine admits the authorization; this
+        // coordinator never sees that admission, only the rooted log it left.
+        // (Live, the stale coordinator's next prepare is refused on the moved
+        // head until a restart re-reads everything; the count check is the
+        // defence for any refresh that loads such an effect in place.)
+        let mut other = open_single_authority(dir.path(), domain, writer, seed).unwrap();
+        let operation = cutover_operation(
+            "profile-cutover://test/other-process/1",
+            domain,
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            writer,
+            0,
+            1,
+            first,
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            &format!("{writer}/profile/aft/epoch/2"),
+            2,
+            1_000,
+            3,
+        );
+        let transaction = governed_cutover_transaction(operation, &[[71; 32], [72; 32]]);
+        let authorization = block_with_transactions(first, 2, vec![transaction.clone()]);
+        let authorization_hash = block_hash(&authorization).unwrap();
+        other
+            .stage_block(
+                authorization,
+                vec![BlockExecutionReceipt::for_success(
+                    2,
+                    0,
+                    transaction.hash().unwrap(),
+                    0,
+                    &[],
+                )],
+            )
+            .unwrap();
+        other.admit_single_authority(authorization_hash, 2).unwrap();
+        drop(other);
+
+        // What a commit-boundary refresh does to this coordinator's store:
+        // re-derive it from the rooted log, now including an effect this
+        // coordinator never admitted and so never queued for classification.
+        let mut refreshed = RecognizedEffectStore::open_existing(dir.path(), domain.to_owned())
+            .unwrap()
+            .unwrap();
+        refreshed
+            .bind_writer(WriterClaim::new(writer.to_owned(), INITIAL_FENCE_TOKEN))
+            .unwrap();
+        local.store = refreshed;
+
+        let checkpoint = empty_block(authorization_hash, 3);
+        let checkpoint_hash = block_hash(&checkpoint).unwrap();
+        local.stage_block(checkpoint, Vec::new()).unwrap();
+        local.admit_single_authority(checkpoint_hash, 3).unwrap();
+        assert_eq!(
+            local.apply_due_governed_cutovers(1_000_000).unwrap(),
+            vec!["profile-cutover://test/other-process/1"]
+        );
+        assert_eq!(
+            local.active_profile().unwrap(),
+            RuntimeFinalityProfile::BftConsensusAftV1
+        );
     }
 }
