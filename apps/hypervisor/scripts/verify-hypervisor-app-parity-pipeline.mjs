@@ -34,8 +34,18 @@ import { fileURLToPath } from "node:url";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+// Since the mapping and transformation-run creates took an idempotency key (a retried write cannot apply twice) and an
+// owner (an unowned record can never be custody-proved), each fixture create names a fresh key and the operator's
+// organization (2026-09-29, R-240 verifier auth sweep — hidden until then behind the anonymous 401).
+const IDEM = (tag) => `${tag}-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 
@@ -49,8 +59,7 @@ const grantFor = (ch) => mintApprovalGrant({ policyHash: ch.approval?.policy_has
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/materialized-object-sets/overview`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon ODK plane not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/odk/materialized-object-sets/overview`, "daemon ODK plane");
   const cleanup = [];
   const SENTINEL = "pipeline-parity-bearer";
 
@@ -76,7 +85,7 @@ async function run() {
   // yield a stale pass. Scale the timeout to the (configurable) lane count + margin.
   try { if (existsSync(pfResultPath)) rmSync(pfResultPath); } catch { /* */ }
   const ridCount = ((process.env.IOI_BUILDER_EXAMPLE_RID || "").split(",").map((s) => s.trim()).filter(Boolean).length) || 1;
-  const pf = spawnSync("node", [path.join(here, "verify-pipeline-reference-data-clean.mjs")], { encoding: "utf8", timeout: (3 + ridCount) * 30000 + 60000, env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: pfDir } });
+  const pf = spawnSync("node", [path.join(here, "verify-pipeline-reference-data-clean.mjs")], { encoding: "utf8", timeout: (3 + ridCount) * 30000 + 60000, env: { ...STACK.childEnv(), IOI_HARNESS_ARTIFACT_DIR: pfDir } });
   if (pf.status === 2) { console.error("BLOCKED: the pipeline data-clean preflight could not reach the :9225 mirror / :4173 serve"); process.exit(2); }
   // Read the result ONLY when the preflight completed cleanly (exit 0) — a timeout (status null) / crash
   // (1) leaves pfr null → the asserts below fail (the block cannot be proven from a stale/absent result).
@@ -114,14 +123,14 @@ async function run() {
       { id: "title", name: "Title", value_type: "string" }, { id: "amount", name: "Amount", value_type: "money" } ] }],
     action_types: [{ id: "approve", name: "Approve", kind: "modify_object", applies_to: "loan" }] } })).j.ontology;
   track("domain-ontologies", ont?.id);
-  const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: "pipe-parity-map", data_source_id: ds, ontology_ref: ont.ref, object_type_id: "loan",
+  const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "pipe-parity-map", data_source_id: ds, ontology_ref: ont.ref, object_type_id: "loan",
     key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
     title_mapping: { source_field: "disp", property_id: "title", source_type: "string" },
     field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }] })).j.connector_mapping?.id;
   track("connector-mappings", map);
   const view = (await jd("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: map, name: "pipe-parity-gate", authority_subjects: ["agent://m"], allowed_operations: ["read", "transform"], purpose: "a", property_scope: ["loan_id", "title", "amount"], retention_posture: "bounded" })).j.policy_bound_data_view?.id;
   track("policy-bound-data-views", view);
-  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { connector_mapping_id: map, policy_view_id: view, name: "pipe-parity-trun" })).j.transformation_run?.id;
+  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: map, policy_view_id: view, name: "pipe-parity-trun" })).j.transformation_run?.id;
   track("transformation-runs", trun);
   await jd("POST", `/v1/hypervisor/odk/transformation-runs/${trun}/dry-run`);
   const proj = (await jd("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: map, policy_view_id: view, name: "pipe-parity-proj", visible_properties: ["loan_id", "title", "amount"] })).j.ontology_projection?.id;
@@ -157,7 +166,7 @@ async function run() {
   // Remove any STALE harness artifact first + gate the read on a fresh exit 0 (the recurring stale-child
   // bug class) — never certify off a cached visual_parity=true.
   try { if (existsSync(path.join(artDir, "result.json"))) rmSync(path.join(artDir, "result.json")); } catch { /* */ }
-  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 120000, env: { ...process.env, IOI_HARNESS_SURFACES: "pipeline", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 120000, env: { ...STACK.childEnv(), IOI_HARNESS_SURFACES: "pipeline", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
   ok("harness ran + captured real screenshots for the pipeline reference vs IOI port", hp && hp.evidence_ok === true, hp ? `ref ${hp.reference_screenshot_bytes}b · ioi ${hp.ioi_screenshot_bytes}b` : "harness did not run");
@@ -186,6 +195,7 @@ async function run() {
     const b = await chromium.launch();
     try {
       const pg = await b.newPage({ viewport: { width: 1440, height: 900 } });
+      await STACK.signIn(pg);
       const base = `${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`;
       await pg.goto(base, { waitUntil: "networkidle" });
       ok("all 7 ladder nodes are selection anchors (keyboard-reachable links)", await pg.locator("a.pb-node[data-node]").count() === 7);
@@ -251,6 +261,7 @@ async function run() {
     const b = await chromium.launch();
     try {
       const pg = await b.newPage({ viewport: { width: 1440, height: 900 } });
+      await STACK.signIn(pg);
       await pg.goto(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`, { waitUntil: "networkidle" });
       ok("Build is enabled on the READY ladder as the governed-workflow anchor (#67 — review pane, never a direct POST)", await pg.locator('a.pb-btn.primary[data-cmd="build"][href*="pane=build"]').count() === 1);
       const setsBefore = ((await jd("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || []).length;

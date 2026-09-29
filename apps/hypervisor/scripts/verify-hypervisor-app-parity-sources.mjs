@@ -38,10 +38,14 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon + serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read the
+// OWNER's :8765 registry with no caller — the data-source list is caller-scoped since 3aaaad467, so the anonymous 401 read
+// as "registry not reachable" (BLOCKED). An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 
@@ -50,16 +54,13 @@ const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: 
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
 async function run() {
-  const regProbe = await fetch(`${DAEMON}/v1/hypervisor/data-sources`).then((r) => r.json()).catch(() => ({}));
-  if (!Array.isArray(regProbe.data_sources)) { console.error("BLOCKED: daemon data-source registry not reachable at " + DAEMON); process.exit(2); }
-  // FIXTURE ISOLATION: with a populated real registry the dynamic checks read it as-is (zero
-  // writes). With an EMPTY registry the dynamic checks run on an isolated daemon+serve pair with
-  // fixtures declared there — the shared daemon is NEVER written and there is no DELETE "cleanup".
-  let SERVE_D = SERVE, DAEMON_D = DAEMON, plane = null;
+  const regProbe = await STACK.requireRead("/v1/hypervisor/data-sources", "the data-source registry");
+  if (!Array.isArray(regProbe?.data_sources)) { console.error(`FAIL: the data-source registry answered no list: ${JSON.stringify(regProbe).slice(0, 160)}`); process.exit(1); }
+  // FIXTURE ISOLATION: the dynamic checks run on this verifier's own isolated stack (since 2026-09-29 always — it no
+  // longer reads a shared daemon at all); an EMPTY registry gets its fixture declared there, and the stack is torn down
+  // whole, so there is no DELETE "cleanup".
+  const SERVE_D = SERVE, DAEMON_D = DAEMON;
   if (!regProbe.data_sources.length) {
-    plane = await startIsolatedPlane({ serve: true });
-    if (!plane) { console.error("BLOCKED: real registry is empty and target/debug/hypervisor-daemon is not built for the isolated fixture lane"); process.exit(2); }
-    SERVE_D = plane.serveUrl; DAEMON_D = plane.daemonUrl;
     await fetch(`${DAEMON_D}/v1/hypervisor/data-sources`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "sources-parity-fixture", kind: "rest_api", endpoint: "http://127.0.0.1:9/declared-only", credential_posture: "wallet_credential_lease" }) });
   }
   async function jd(method, p, body) {
@@ -151,6 +152,22 @@ async function run() {
 
   // DAT-1 (remediation v2) — the Syncs lane: the reference /syncs route (All syncs, cols=6) LIVE
   // over /v1/hypervisor/odk/materializing-runs. Adjudication: reference-gap-adjudication.v1.json#Syncs.
+  // 2026-09-29 (R-240, verifier auth sweep): on its own EMPTY stack there is no run to render (the owner's daemon had some),
+  // and the per-row claims below (typed-absent Next run, gapped Actions) need one — so one planned run is declared over an
+  // unreachable source, through the same ladder any caller uses (no lease, no source contact).
+  if (!((await jd("GET", "/v1/hypervisor/odk/materializing-runs")).j.materializing_runs || []).length) {
+    const key = (tag) => `${tag}-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+    const ds = (await jd("POST", "/v1/hypervisor/data-sources", { name: "syncs-parity-src", kind: "postgres", endpoint: "postgres://unreachable.invalid:5432/db", credential_posture: "wallet_credential_lease" })).j.data_source?.source_id;
+    const ont = (await jd("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "syncs-parity", canonical_object_model: { object_types: [{ id: "loan", name: "Loan", title_property: "title", properties: [{ id: "loan_id", name: "Loan Id", value_type: "string", required: true }, { id: "title", name: "Title", value_type: "string" }] }], action_types: [{ id: "approve", name: "Approve", kind: "modify_object", applies_to: "loan" }] } })).j.ontology;
+    const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: key("cmap"), owner_ref: STACK.owner, name: "syncs-parity-map", data_source_id: ds, ontology_ref: ont?.ref, object_type_id: "loan", key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" }, title_mapping: { source_field: "disp", property_id: "title", source_type: "string" } })).j.connector_mapping?.id;
+    const view = (await jd("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: map, name: "syncs-parity-gate", authority_subjects: ["agent://materializer"], allowed_operations: ["read", "transform"], purpose: "sync parity", property_scope: ["loan_id", "title"], retention_posture: "bounded" })).j.policy_bound_data_view?.id;
+    const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { idempotency_key: key("trun"), owner_ref: STACK.owner, connector_mapping_id: map, policy_view_id: view, name: "syncs-parity-trun" })).j.transformation_run?.id;
+    await jd("POST", `/v1/hypervisor/odk/transformation-runs/${trun}/dry-run`);
+    const proj = (await jd("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: map, policy_view_id: view, name: "syncs-parity-proj", visible_properties: ["loan_id", "title"] })).j.ontology_projection?.id;
+    const plan = (await jd("POST", "/v1/hypervisor/odk/capability-lease-plans", { data_source_id: ds, connector_mapping_id: map, policy_view_id: view, transformation_run_id: trun, ontology_projection_id: proj, name: "syncs-parity-plan", subject: "agent://materializer", ttl_seconds: 900 })).j.capability_lease_plan?.id;
+    const run = await jd("POST", "/v1/hypervisor/odk/materializing-runs", { capability_lease_plan_id: plan, name: "syncs-parity-run" });
+    if (run.status !== 201) { console.error(`FAIL: the Syncs fixture run was not declared: ${run.status} ${JSON.stringify(run.j).slice(0, 200)}`); process.exit(1); }
+  }
   const mrs = (await jd("GET", "/v1/hypervisor/odk/materializing-runs")).j.materializing_runs || [];
   const syn = await page(`${SERVE}/__ioi/data/sources?lane=syncs`);
   const st2 = syn.text;
@@ -164,9 +181,8 @@ async function run() {
   ok("DAT-1: the Syncs tab is the LIVE lane link and Sources tab returns (both in-shell)", t.includes(`href="/__ioi/data/sources?lane=syncs"`) && st2.includes(`href="/__ioi/data/sources"`));
   ok("DAT-1: the lane cites its adjudication + atlas evidence", /reference-gap-adjudication\.v1\.json#Syncs/.test(st2) && /reference-family-atlas\.v1\.json/.test(st2));
 
-  // Isolation teardown (only when the empty-registry fixture lane spawned a plane): both
-  // processes stop and the temp data dir is removed — the shared daemon was never written.
-  if (plane) await plane.stop();
+  // Isolation teardown: both processes stop and the temp data dir is removed.
+  await STACK.stop();
 }
 
 run().then(() => {

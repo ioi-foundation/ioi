@@ -26,8 +26,14 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SHELL = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -35,6 +41,7 @@ const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: 
 async function run() {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+  await STACK.signIn(page);
   const consoleErrors = [];
   const failedUrls = [];
   page.on("requestfailed", (r) => failedUrls.push(r.url()));

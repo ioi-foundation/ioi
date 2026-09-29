@@ -357,6 +357,9 @@ async function run() {
   mkdirSync(path.join(ARTIFACT_DIR, "screens"), { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  // A verifier on its own stack hands its operator's session down (R-240, verifier auth sweep, 2026-09-29): a candidate
+  // whose reads are caller-scoped renders its refusal, not its data, to a browser that carries no caller.
+  if (process.env.IOI_VERIFIER_SESSION_TOKEN) await ctx.addCookies([{ name: "ioi_session", value: process.env.IOI_VERIFIER_SESSION_TOKEN, url: SERVE }]);
   const rows = [];
   for (const s of surfaces) {
     const refPng = path.join(ARTIFACT_DIR, "screens", `${s.slug}-reference.png`);

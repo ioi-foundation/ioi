@@ -10,14 +10,19 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
-const SERVE = process.env.IOI_SERVE_URL || "http://127.0.0.1:4173";
-const DAEMON = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
-const probe = await fetch(`${DAEMON}/v1/hypervisor/domain-apps`).then((r) => r.json()).catch(() => null);
-if (!probe) { console.error("BLOCKED: daemon not reachable at " + DAEMON); process.exit(2); }
+const probe = await STACK.requireRead("/v1/hypervisor/domain-apps", "the domain-app plane");
 const da = probe.domain_apps || [];
 const sd = await fetch(`${DAEMON}/v1/hypervisor/odk/surface-descriptors`).then((r) => r.json()).then((j) => j.surface_descriptors || []).catch(() => []);
 
@@ -33,7 +38,10 @@ const t = p.text;
 ok("port renders 200 with the I-4 grammar, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && t.includes("Workshop") && t.includes("Recents") && t.includes("Favorites"), String(p.status));
 ok("row count equals the REAL planes (domain-apps + surface-descriptors; honest empty when zero)", (t.match(/class="spl-row"/g) || []).length === da.length + sd.length && (da.length + sd.length > 0 || /never fabricates rows/.test(t)), `rows=${(t.match(/class="spl-row"/g) || []).length} plane=${da.length + sd.length}`);
 ok("every gap control carries the UNIFIED contract (aria-disabled count === data-ioi count)", (t.match(/aria-disabled="true"/g) || []).length >= 4 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
-ok("New module is a NAMED gap (authoring = ODK authority cut), never silent", /Application\/module authoring is an authority-crossing cut/.test(t));
+// 2026-09-29 (R-240, verifier auth sweep — first run since the anonymous 401 BLOCKED it): 1bb4ef99e rewrote the reason to say
+// what is missing (a descriptor binds a PUBLISHED ontology revision, which this product cannot publish yet); the claim is
+// unchanged — New module is disabled in place and names why.
+ok("New module is a NAMED gap (authoring = ODK authority cut), never silent", /aria-disabled="true"[^>]*data-ioi-disabled-reason="A module is composed from a surface descriptor[^"]*no module can be composed here/.test(t.replace(/\n/g, " ")) || (t.includes("New module") && /data-ioi-disabled-reason="A module is composed from a surface descriptor[^"]*no module can be composed here/.test(t)));
 ok("the lane is READ-ONLY (no forms)", !t.includes("<form"));
 ok("the D6 donor story + evidence are cited ON the surface (adjudication + atlas + dead-lane truth)", /reference-seed-adjudications\.v1\.json#workshop/.test(t) && /reference-family-atlas\.v1\.json/.test(t) && /307\/octet-stream/.test(t));
 ok("truth links land on the owner planes (domain-apps · ODK · Agent Studio)", t.includes("/__ioi/domain-apps") && t.includes("/__ioi/odk") && t.includes("/__ioi/agent-studio"));

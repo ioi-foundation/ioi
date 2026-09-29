@@ -37,9 +37,20 @@ import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs"
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: false });
+// Since the mapping and transformation-run creates took an idempotency key (a retried write cannot apply twice) and an
+// owner (an unowned record can never be custody-proved), each fixture create names a fresh key and the operator's
+// organization (2026-09-29, R-240 verifier auth sweep — hidden until then behind the anonymous 401).
+const IDEM = (tag) => `${tag}-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+const DAEMON = STACK.daemonUrl;
 const JOURNEY_PORT = 4613, JOURNEY_UI_PORT = 9413;
 const SERVE = `http://127.0.0.1:${JOURNEY_PORT}`;
+STACK.addOrigin(SERVE); // its own production-posture serve (below) reads the same daemon as the same operator
 const SENTINEL = `governed-build-bearer-${process.pid}`;
 
 const results = [];
@@ -118,14 +129,14 @@ async function run() {
       { id: "title", name: "Title", value_type: "string" }, { id: "amount", name: "Amount", value_type: "money" }] }],
     link_types: [], action_types: [] } })).j.ontology;
   track("domain-ontologies", ont?.id);
-  const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: "gb-map", data_source_id: ds, ontology_ref: ont.ref, object_type_id: "loan",
+  const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "gb-map", data_source_id: ds, ontology_ref: ont.ref, object_type_id: "loan",
     key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
     title_mapping: { source_field: "disp", property_id: "title", source_type: "string" },
     field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }] })).j.connector_mapping?.id;
   track("connector-mappings", map);
   const view = (await jd("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: map, name: "gb-gate", authority_subjects: ["agent://m"], allowed_operations: ["read", "transform"], purpose: "governed-build-proof", property_scope: ["loan_id", "title", "amount"], retention_posture: "bounded" })).j.policy_bound_data_view?.id;
   track("policy-bound-data-views", view);
-  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { connector_mapping_id: map, policy_view_id: view, name: "gb-trun" })).j.transformation_run?.id;
+  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: map, policy_view_id: view, name: "gb-trun" })).j.transformation_run?.id;
   track("transformation-runs", trun);
   await jd("POST", `/v1/hypervisor/odk/transformation-runs/${trun}/dry-run`);
   const proj = (await jd("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: map, policy_view_id: view, name: "gb-proj", visible_properties: ["loan_id", "title", "amount"] })).j.ontology_projection?.id;
@@ -158,6 +169,7 @@ async function run() {
     const { chromium } = await import("playwright");
     const browser = await chromium.launch();
     const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await STACK.signIn(pg);
     const B = `/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}&pane=build&embed=1`;
 
     // Open Pipeline through the REAL native launcher once (single-rail invariant), then drive
@@ -306,7 +318,7 @@ async function run() {
     const cancel = await jd("POST", `/v1/hypervisor/odk/materializing-runs/${mrun2}/cancel`);
     ok("cancel is receipted lifecycle honesty ('cancelled before any crossing')", cancel.status === 200 && (cancel.j.materializing_run.history || []).some((h) => h.op === "cancelled"));
     // release wording live (fresh run+lease on a re-created trun)
-    const trun2 = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { connector_mapping_id: map, policy_view_id: view, name: "gb-trun2" })).j.transformation_run?.id;
+    const trun2 = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: map, policy_view_id: view, name: "gb-trun2" })).j.transformation_run?.id;
     track("transformation-runs", trun2);
     await jd("POST", `/v1/hypervisor/odk/transformation-runs/${trun2}/dry-run`);
     const plan2 = (await jd("POST", "/v1/hypervisor/odk/capability-lease-plans", { data_source_id: ds, connector_mapping_id: map, policy_view_id: view, transformation_run_id: trun2, ontology_projection_id: proj, name: "gb-plan2", subject: "agent://m", ttl_seconds: 900 })).j.capability_lease_plan?.id;
@@ -372,6 +384,7 @@ run().then(() => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("governed pipeline build: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => {
   console.error("verifier crashed:", e);
   process.exit(1);

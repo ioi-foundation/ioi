@@ -24,19 +24,24 @@
 // Exit 2 = BLOCKED (daemon binary not built).
 
 import { existsSync } from "node:fs";
-import { startIsolatedPlane, receiptFileCount } from "./lib/isolated-daemon.mjs";
+import { receiptFileCount } from "./lib/isolated-daemon.mjs";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 import { SURFACES, boundSurface, boundActionRoute } from "./surface-registry.mjs";
 import * as sourcesModule from "../surfaces/sources/index.mjs";
 
-const REAL_DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// The isolation proof reads the real daemon's record FILES, read-only — never the daemon itself (R-240, verifier auth
+// sweep, 2026-09-29): its data-source list became caller-scoped (3aaaad467), so an anonymous GET answered 401 and the
+// "unchanged" comparison held vacuously (no list before, no list after), and this verifier must not call the owner's
+// :8765 at all.
 const REAL_DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || `${process.env.HOME}/.ioi/hypervisor/data`;
+const RECORD_FAMILY = "data-source-registry";
 const RECEIPT_FAMILY = "data-source-registry-receipts";
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 
 async function run() {
-  const realBefore = await fetch(`${REAL_DAEMON}/v1/hypervisor/data-sources`).then((r) => r.json()).catch(() => null);
+  const realRecordsBefore = receiptFileCount(REAL_DATA_DIR, RECORD_FAMILY);
   const realReceiptsBefore = receiptFileCount(REAL_DATA_DIR, RECEIPT_FAMILY);
 
   // 1. CONTRACT (static, from the live registry import — the same objects the serve boots with).
@@ -47,8 +52,9 @@ async function run() {
   const ahit = boundActionRoute("/__ioi/data/sources/actions/declare", "POST");
   ok("ONE declared mutation: declare — authority POST /v1/hypervisor/data-sources, dsr_ receipt family, server-side confirmation, allowlisted fields only", !!ahit && ahit.actions.length === 1 && sourcesModule.actions.length === 1 && (() => { const a = sourcesModule.actions[0]; return a.id === "declare" && a.confirm === true && a.receipt === "ioi.hypervisor.data-source-receipt.v1" && a.authority.operation === "POST /v1/hypervisor/data-sources" && JSON.stringify(a.fields) === JSON.stringify(["name", "kind", "endpoint", "credential_posture"]); })());
 
-  const plane = await startIsolatedPlane({ serve: true });
-  if (!plane) { console.error("BLOCKED: target/debug/hypervisor-daemon is not built — cargo build -p ioi-node --bin hypervisor-daemon"); process.exit(2); }
+  // Its own isolated daemon+serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29): the data-source list and
+  // its overview answer only a caller since 3aaaad467 — anonymously the first read below crashed the verifier.
+  const plane = await verifierStack({ serve: true, fresh: true });
   const { daemonUrl, serveUrl, dataDir } = plane;
 
   try {
@@ -64,6 +70,7 @@ async function run() {
     const { chromium } = await import("playwright");
     const browser = await chromium.launch();
     const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await plane.signIn(pg);
 
     // 2. Bare certified render: NO form; New source + Connect-to-external-system ENABLED.
     await pg.goto(`${serveUrl}/__ioi/data/sources`, { waitUntil: "domcontentloaded" });
@@ -170,8 +177,8 @@ async function run() {
   ok("isolated plane torn down: the temp data dir is removed", !existsSync(dataDir));
 
   // 9. ISOLATION PROOF — the real daemon is byte-untouched by every journey above.
-  const realAfter = await fetch(`${REAL_DAEMON}/v1/hypervisor/data-sources`).then((r) => r.json()).catch(() => null);
-  ok("REAL daemon source count unchanged", (realBefore === null && realAfter === null) || (realBefore?.data_sources || []).length === (realAfter?.data_sources || []).length, realBefore ? `${(realBefore.data_sources || []).length} before/after` : "real daemon not running");
+  const realRecordsAfter = receiptFileCount(REAL_DATA_DIR, RECORD_FAMILY);
+  ok("REAL daemon source count unchanged (its data-source record files, read-only)", realRecordsBefore === realRecordsAfter, `${realRecordsBefore} before · ${realRecordsAfter} after`);
   ok("REAL daemon receipt-file count unchanged", realReceiptsBefore === receiptFileCount(REAL_DATA_DIR, RECEIPT_FAMILY), `${realReceiptsBefore} before/after`);
 }
 

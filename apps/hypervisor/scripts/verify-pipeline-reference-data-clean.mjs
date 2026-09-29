@@ -182,6 +182,8 @@ async function run() {
   mkdirSync(path.join(ARTIFACT_DIR, "screens"), { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const ctx = await browser.newContext({ viewport: { width: VW, height: VH } });
+  // A verifier on its own stack hands its operator's session down (R-240, verifier auth sweep, 2026-09-29).
+  if (process.env.IOI_VERIFIER_SESSION_TOKEN) await ctx.addCookies([{ name: "ioi_session", value: process.env.IOI_VERIFIER_SESSION_TOKEN, url: SERVE }]);
   const cap = async (lane, url) => { const c = await capture(ctx, url, path.join(ARTIFACT_DIR, "screens", `${lane}.png`)); return { lane, ...c, screenshot: `screens/${lane}.png` }; };
 
   const proxyLanding = await cap("proxy-landing", `${SERVE}/__apps/pipeline`);

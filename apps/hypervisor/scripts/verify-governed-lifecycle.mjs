@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Governed-lifecycle readiness verifier.
 //
-// Drives the full governed lifecycle against the running daemon (:8765) + serve (:4173) and asserts
+// Drives the full governed lifecycle against its own isolated daemon + serve (it drove the owner's :8765 + :4173
+// until 2026-09-29) and asserts
 // every state transition, receipt/state-root emission, backlink traversal, the kill effect, published
 // metadata durability, no external ingress, empty fallthrough, and surface reachability (Domain Apps,
 // Marketplace, Governance, Work Ledger).
@@ -11,8 +12,7 @@
 //   -> Marketplace listing + candidate + admitted review + publish ReleaseControl -> publish
 //   -> KillSwitch trip + enforce
 //
-// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
-//          node apps/hypervisor/scripts/verify-governed-lifecycle.mjs
+// Usage: node apps/hypervisor/scripts/verify-governed-lifecycle.mjs   (its stack's operator is the session)
 // Exit 0 = all assertions pass; exit 1 = one or more failed. Mutable objects are cleaned up (and a
 // cleanup that does not remove its fixture is REPORTED, never presented as success); immutable proof
 // records (receipts, killed runtime) are intentionally retained.
@@ -31,13 +31,19 @@
 
 import { createHash } from "node:crypto";
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SERVE = STACK.serveUrl;
 // The operator session every mutation below is admitted as. The daemon resolves NO principal from a
 // bare loopback request — `resolve_principal` returns None without a session — so an unauthenticated
 // walk cannot cross the identity seam at all: it would collect 401s and call them a lifecycle. The
 // session rides the ONE http helper, so no call site can opt out of being someone.
-const SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+const SESSION = STACK.token;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -71,7 +77,7 @@ async function run() {
   // and would keep passing against a deployment where that session owns nothing. The reviewer ref
   // is read here for the SAME reason — it is the value the admission review must be found to carry
   // later, and a verifier that supplied it would be checking its own arithmetic.
-  ok("an operator session is present (IOI_HYPERVISOR_DAEMON_SESSION)", !!SESSION, SESSION ? "present" : "absent");
+  ok("an operator session is present (its own stack's operator; IOI_HYPERVISOR_DAEMON_SESSION until 2026-09-29)", !!SESSION, SESSION ? "present" : "absent");
   const who = (await jd("GET", "/v1/hypervisor/auth/whoami")).j || {};
   const principalId = who.authenticated === true ? String(who.principal?.principal_id || "") : "";
   const REVIEWER_REF = principalId ? `user://${principalId}` : "";
@@ -80,7 +86,7 @@ async function run() {
   if (!REVIEWER_REF || !OWNER_REF) {
     // Fail outright rather than walk on: every mutation below would be refused unauthenticated and
     // the run would report a broken identity seam as a broken lifecycle.
-    throw new Error(`no authenticated operator fixture: set IOI_HYPERVISOR_DAEMON_SESSION to a real session token (whoami: ${JSON.stringify(who).slice(0, 200)})`);
+    throw new Error(`no authenticated operator fixture: this stack's operator did not resolve (whoami: ${JSON.stringify(who).slice(0, 200)})`);
   }
 
   // 1. ODK ontology + domain_app surface descriptor.
@@ -286,4 +292,5 @@ async function run() {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) { console.log(`FAILED: ${fails.map((f) => f.name).join(" | ")}`); process.exit(1); }
   console.log("governed-lifecycle readiness: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 })();

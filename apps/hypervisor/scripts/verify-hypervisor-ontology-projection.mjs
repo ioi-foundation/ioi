@@ -25,8 +25,18 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-ontology-projection.mjs
 // Exit 2 = BLOCKED (daemon not running).
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+// Since the mapping and transformation-run creates took an idempotency key (a retried write cannot apply twice) and an
+// owner (an unowned record can never be custody-proved), each fixture create names a fresh key and the operator's
+// organization (2026-09-29, R-240 verifier auth sweep — hidden until then behind the anonymous 401).
+const IDEM = (tag) => `${tag}-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -36,8 +46,7 @@ async function jd(method, p, body) {
 }
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/ontology-projections/overview`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon ontology-projection plane not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/odk/ontology-projections/overview`, "daemon ontology-projection plane");
   const cleanup = [];
   const track = (kind, id) => { if (id) cleanup.push(["DELETE", `/v1/hypervisor/odk/${kind}/${id}`]); };
 
@@ -61,7 +70,7 @@ async function run() {
   } });
   const ontId = ontR.j.ontology?.id; const ontRef = ontR.j.ontology?.ref;
   track("domain-ontologies", ontId);
-  const mapR = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: "oproj-verify-map", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan",
+  const mapR = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "oproj-verify-map", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan",
     key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
     title_mapping: { source_field: "disp", property_id: "title", source_type: "string" },
     field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }] });
@@ -80,7 +89,7 @@ async function run() {
     allowed_operations: ["transform"], purpose: "no read", property_scope: ["title"], retention_posture: "ephemeral" });
   const noReadId = noReadR.j.policy_bound_data_view?.id;
   track("policy-bound-data-views", noReadId);
-  const runR = await jd("POST", "/v1/hypervisor/odk/transformation-runs", { connector_mapping_id: mapId, policy_view_id: viewId, name: "oproj-verify-plan" });
+  const runR = await jd("POST", "/v1/hypervisor/odk/transformation-runs", { idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: mapId, policy_view_id: viewId, name: "oproj-verify-plan" });
   const runId = runR.j.transformation_run?.id;
   track("transformation-runs", runId);
   await jd("POST", `/v1/hypervisor/odk/transformation-runs/${runId}/dry-run`);

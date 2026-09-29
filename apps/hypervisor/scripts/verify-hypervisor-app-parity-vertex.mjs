@@ -33,8 +33,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+// Since the mapping and transformation-run creates took an idempotency key (a retried write cannot apply twice) and an
+// owner (an unowned record can never be custody-proved), each fixture create names a fresh key and the operator's
+// organization (2026-09-29, R-240 verifier auth sweep — hidden until then behind the anonymous 401).
+const IDEM = (tag) => `${tag}-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 const results = [];
@@ -47,8 +57,7 @@ const grantFor = (ch) => mintApprovalGrant({ policyHash: ch.approval?.policy_has
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/materialized-object-sets/overview`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon ODK plane not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/odk/materialized-object-sets/overview`, "daemon ODK plane");
   const cleanup = [];
   const SENTINEL = "vertex-parity-bearer";
 
@@ -87,14 +96,14 @@ async function run() {
       { id: "title", name: "Title", value_type: "string" }, { id: "amount", name: "Amount", value_type: "money" } ] }],
     action_types: [{ id: "approve", name: "Approve", kind: "modify_object", applies_to: "loan" }] } })).j.ontology;
   track("domain-ontologies", ont?.id);
-  const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: "vtx-parity-map", data_source_id: ds, ontology_ref: ont.ref, object_type_id: "loan",
+  const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "vtx-parity-map", data_source_id: ds, ontology_ref: ont.ref, object_type_id: "loan",
     key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
     title_mapping: { source_field: "disp", property_id: "title", source_type: "string" },
     field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }] })).j.connector_mapping?.id;
   track("connector-mappings", map);
   const view = (await jd("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: map, name: "vtx-parity-gate", authority_subjects: ["agent://m"], allowed_operations: ["read", "transform"], purpose: "a", property_scope: ["loan_id", "title", "amount"], retention_posture: "bounded" })).j.policy_bound_data_view?.id;
   track("policy-bound-data-views", view);
-  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { connector_mapping_id: map, policy_view_id: view, name: "vtx-parity-trun" })).j.transformation_run?.id;
+  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: map, policy_view_id: view, name: "vtx-parity-trun" })).j.transformation_run?.id;
   track("transformation-runs", trun);
   await jd("POST", `/v1/hypervisor/odk/transformation-runs/${trun}/dry-run`);
   const proj = (await jd("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: map, policy_view_id: view, name: "vtx-parity-proj", visible_properties: ["loan_id", "title", "amount"] })).j.ontology_projection?.id;

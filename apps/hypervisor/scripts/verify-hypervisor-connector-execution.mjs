@@ -30,9 +30,19 @@ import path from "node:path";
 import os from "node:os";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const DATA = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi", "hypervisor", "data");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+// Since the mapping and transformation-run creates took an idempotency key (a retried write cannot apply twice) and an
+// owner (an unowned record can never be custody-proved), each fixture create names a fresh key and the operator's
+// organization (2026-09-29, R-240 verifier auth sweep — hidden until then behind the anonymous 401).
+const IDEM = (tag) => `${tag}-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
+const DATA = STACK.dataDir;
 const SENTINEL = "fixture-bearer-SENTINEL-verify-exec";
 
 const results = [];
@@ -64,7 +74,7 @@ async function buildChain(tag, endpoint, kind, connId, cleanup, opts = {}) {
     action_types: [{ id: "approve", name: "Approve", kind: "modify_object", applies_to: "loan" }],
   } })).j.ontology;
   track("domain-ontologies", ont?.id);
-  const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: `${tag}-map`, data_source_id: ds, ontology_ref: ont.ref, object_type_id: "loan",
+  const map = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: `${tag}-map`, data_source_id: ds, ontology_ref: ont.ref, object_type_id: "loan",
     key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
     title_mapping: { source_field: "disp", property_id: "title", source_type: "string" },
     field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }] })).j.connector_mapping?.id;
@@ -72,7 +82,7 @@ async function buildChain(tag, endpoint, kind, connId, cleanup, opts = {}) {
   const view = (await jd("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: map, name: `${tag}-gate`, authority_subjects: ["agent://materializer"],
     allowed_operations: ["read", "transform"], purpose: "analysis", property_scope: ["loan_id", "title", "amount"], retention_posture: "bounded" })).j.policy_bound_data_view?.id;
   track("policy-bound-data-views", view);
-  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { connector_mapping_id: map, policy_view_id: view, name: `${tag}-trun` })).j.transformation_run?.id;
+  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: map, policy_view_id: view, name: `${tag}-trun` })).j.transformation_run?.id;
   track("transformation-runs", trun);
   await jd("POST", `/v1/hypervisor/odk/transformation-runs/${trun}/dry-run`);
   const proj = (await jd("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: map, policy_view_id: view, name: `${tag}-explorer`, visible_properties: ["loan_id", "title", "amount"] })).j.ontology_projection?.id;
@@ -95,10 +105,9 @@ async function buildChain(tag, endpoint, kind, connId, cleanup, opts = {}) {
 }
 
 async function run() {
-  // The set reads are caller-scoped and refuse an anonymous caller (401): that answer still proves
-  // the execution plane is mounted. Only no answer, a 404 or a 5xx means it is not.
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/materialized-object-sets/overview`).then((r) => r.ok || r.status === 401).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon execution plane not reachable at " + DAEMON); process.exit(2); }
+  // The set reads are caller-scoped (3aaaad467). 2026-09-29 (R-240, verifier auth sweep): this verifier now reads as its own
+  // stack's operator, so the overview must ANSWER (2xx) — a 401 here is a finding, no longer proof the plane is mounted.
+  await STACK.requireRead("/v1/hypervisor/odk/materialized-object-sets/overview", "the execution plane");
   const cleanup = [];
 
   // Fixture row server — auth-checked; records exactly what the adapter sent.

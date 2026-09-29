@@ -25,8 +25,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 
@@ -36,8 +42,7 @@ const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: aw
 const jd = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/overview`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon ODK plane not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/odk/overview`, "daemon ODK plane");
 
   // 1. MATRIX — the correction is complete and recorded.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
@@ -56,7 +61,7 @@ async function run() {
   // 3. VISUAL PARITY — hardened harness against the origin-aligned reference.
   const artDir = path.join(appRoot, ".artifacts", "explorer-port-verify");
   try { if (existsSync(path.join(artDir, "result.json"))) rmSync(path.join(artDir, "result.json")); } catch { /* */ }
-  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 180000, env: { ...process.env, IOI_HARNESS_SURFACES: "explorer", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 180000, env: { ...STACK.childEnv(), IOI_HARNESS_SURFACES: "explorer", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
   ok("harness ran + captured real screenshots (origin-aligned reference vs the port)", hp && hp.evidence_ok === true, hp ? `ref ${hp.reference_screenshot_bytes}b · ioi ${hp.ioi_screenshot_bytes}b` : "harness did not run");
@@ -66,12 +71,18 @@ async function run() {
   ok("BOTH sides VALID: the origin-aligned reference is data-clean (not errored/blank) + the port is not errored", hp && hp.reference_valid === true && hp.reference_errored === false && hp.ioi_valid === true && hp.ioi_errored === false);
 
   // 4. DAEMON TRUTH — real ODK object/type/set truth + the working filter + backlinks.
+  // 2026-09-29 (R-240, verifier auth sweep): this verifier runs on its own EMPTY stack now — it sampled the owner's populated
+  // daemon before, anonymously, until the ODK reads became caller-scoped — so the live truth it samples is seeded first:
+  // one DomainOntology with one typed object type, declared through the daemon like any other.
+  await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ domain: `explorer-baseline-${process.pid}`, canonical_object_model: { object_types: [{ id: "basek", name: "BaselineShipmentKind", title_property: "t", properties: [{ id: "t", name: "T", value_type: "string" }] }], action_types: [{ id: "b", name: "B", kind: "modify_object", applies_to: "basek" }] } }) });
   const [o, ms] = await Promise.all([jd("/v1/hypervisor/odk/domain-ontologies"), jd("/v1/hypervisor/odk/materialized-object-sets")]);
   const ontologies = o.ontologies || [];
   const msets = ms.materialized_object_sets || [];
   const allTypes = ontologies.flatMap((oo) => (((oo.canonical_object_model || {}).object_types) || []).map((t) => ({ oo, t })));
   const port = await page(`${SERVE}/__ioi/ontology/explorer`);
-  ok("the port renders the reference IA (Object Explorer search · Shortcuts · Object type catalog · Object set catalog · filter/sort/lane chrome)", port.status === 200 && ["Object Explorer search", "Shortcuts", "Object type catalog", "Object set catalog", "Filter for an object type", "Relevancy", "All Ontologies", "New exploration"].every((l) => port.text.includes(l)));
+  // 2026-09-29 (R-240, verifier auth sweep — first run in a while; the anonymous 401 BLOCKED it): W2.1 (#219) replaced the
+  // static "All Ontologies" chrome with the LIVE ontology scope selector, whose first option reads "All ontologies (N)".
+  ok("the port renders the reference IA (Object Explorer search · Shortcuts · Object type catalog · Object set catalog · filter/sort/lane chrome)", port.status === 200 && ["Object Explorer search", "Shortcuts", "Object type catalog", "Object set catalog", "Filter for an object type", "Relevancy", `All ontologies (${ontologies.length})`, "New exploration"].every((l) => port.text.includes(l)));
   ok(`rendered object-type COUNT equals daemon truth (${allTypes.length} across ${ontologies.length} live ontologies — the "N of M" tag)`, port.text.includes(`>${allTypes.length} of ${allTypes.length}<`), `expected ${allTypes.length}`);
   const sample = allTypes.find(({ t }) => t.name) || allTypes[0];
   ok("at least one REAL object type row renders (name from a live DomainOntology, never the capture's example types)", sample && port.text.includes(sample.t.name || sample.t.id) && !/\[Example rk46\] Email Claims/.test(port.text), sample ? (sample.t.name || sample.t.id) : "no types in daemon");
@@ -117,6 +128,7 @@ async function run() {
     const b = await chromium.launch();
     try {
       const pg = await b.newPage({ viewport: { width: 1440, height: 900 } });
+      await STACK.signIn(pg);
       await pg.goto(`${SERVE}/__ioi/ontology/explorer`, { waitUntil: "networkidle" });
       ok("bare route renders NO inspector (the pixel gate's capture state)", await pg.locator('[data-testid="oe-inspector"]').count() === 0 && await pg.locator("tr.oe-trow").count() > 0);
       // Type selection.

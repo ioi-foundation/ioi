@@ -8,7 +8,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
-const SERVE = process.env.IOI_SERVE_URL || "http://127.0.0.1:4173";
+// Its own isolated daemon + serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// the OWNER's :4173 serve and :8765 daemon with no caller; an explicit URL naming the owner's stack is refused
+// (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
@@ -31,7 +37,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 }
 // WOR-1 rows-bearing landing: workspaces over the REAL environments plane (newest 15, cap named).
 {
-  const envs = await fetch(`${process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765"}/v1/hypervisor/environments`).then((r) => r.json()).then((j) => j.environments || []).catch(() => []);
+  const envs = await fetch(`${DAEMON}/v1/hypervisor/environments`).then((r) => r.json()).then((j) => j.environments || []).catch(() => []);
   const p = await page(`${SERVE}/__ioi/developer-workspace/workspaces`);
   const t = p.text;
   ok("workspaces: matrix reference_ported at /__ioi/developer-workspace/workspaces", bySlug.workspaces?.parity_class === "reference_ported" && bySlug.workspaces?.candidate_surface === "/__ioi/developer-workspace/workspaces");
@@ -41,7 +47,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 }
 // DEV-2: devconsole Applications lane over the REAL connector estate.
 {
-  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const D = DAEMON;
   const conns = await fetch(`${D}/v1/hypervisor/connectors`).then((r) => r.json()).then((j) => j.connectors || []).catch(() => []);
   const scm = await fetch(`${D}/v1/hypervisor/scm-connectors`).then((r) => r.json()).then((j) => j.scm_connectors || j.connectors || []).catch(() => []);
   const p = await page(`${SERVE}/__ioi/developer-console`);
@@ -55,7 +61,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 // EVA-2.build (Insight) retired by ADR 0056 M6: merged into Object Explorer — verify-hypervisor-duplicate-retirements.mjs.
 // WOR-2: repositories — D6 donor port over the REAL SCM plane.
 {
-  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const D = DAEMON;
   const scm = await fetch(`${D}/v1/hypervisor/scm-connectors`).then((r) => r.json()).then((j) => j.scm_connectors || j.connectors || []).catch(() => []);
   const p = await page(`${SERVE}/__ioi/developer-workspace/repositories`);
   const t = p.text;
@@ -69,7 +75,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 // absences. The done-bar: rows == the plane (never more), caps NAMED, absences named in BOTH
 // vocabularies, the identity correction stated on-surface, read-only, railless.
 {
-  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const D = DAEMON;
   const projects = await fetch(`${D}/v1/hypervisor/projects`).then((r) => r.json()).then((j) => j.projects || []).catch(() => []);
   const msets = await fetch(`${D}/v1/hypervisor/odk/materialized-object-sets`).then((r) => r.json()).then((j) => j.materialized_object_sets || []).catch(() => []);
   const dsrcs = await fetch(`${D}/v1/hypervisor/data-sources`).then((r) => r.json()).then((j) => j.data_sources || []).catch(() => []);
@@ -101,7 +107,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 // a POST-only plane may never be rendered as either, rows must equal the readable planes exactly,
 // and the estate's registry VERBS must stay on their owner surfaces (this is a projection).
 {
-  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const D = DAEMON;
   const PLANES = [
     "/v1/hypervisor/packages",
     "/v1/hypervisor/marketplace/publish-candidates",
@@ -198,7 +204,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 // filled; (e) a STEP may never be relabelled a "job", because `job` is a live estate noun on
 // another plane; and (f) the transcript plane must be LINKED, not re-rendered.
 {
-  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const D = DAEMON;
   const BLD_PLANES = [
     "/v1/hypervisor/work-ledger",
     "/v1/hypervisor/agent-run-transcripts",
@@ -328,7 +334,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 // COMPUTED occurrence must be labelled computed; (f) the surface must refuse to name which past
 // runs were scheduled fires; and (g) the run planes another surface renders must be LINKED.
 {
-  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const D = DAEMON;
   const sIndex = await fetch(`${D}/v1`).then((r) => r.json()).catch(() => ({}));
   const sRoutes = (Array.isArray(sIndex.families) ? sIndex.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
   const sMethods = (p) => { const r = sRoutes.find((x) => String(x.path || "") === p && !x.retired); return Array.isArray(r?.methods) ? r.methods : []; };
@@ -453,7 +459,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 // carry, every number NAMES its predicate, the one contradiction the estate never resolved is
 // NAMED rather than adjudicated, and the absent automatic BUILDER is counted from the route index.
 {
-  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const D = DAEMON;
   const j = (p) => fetch(`${D}${p}`).then((r) => r.json()).catch(() => ({}));
   const str = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
   const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -609,7 +615,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
 // own answers to the three selections the page puts to it, which are asked again here rather than
 // read back off the page.
 {
-  const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+  const D = DAEMON;
   const j = (p) => fetch(`${D}${p}`).then(async (r) => ({ status: r.status, ok: r.ok, body: await r.json().catch(() => null) })).catch(() => ({ status: 0, ok: false, body: null }));
   const str = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
   const idx = await fetch(`${D}/v1`).then((r) => r.json()).catch(() => ({}));

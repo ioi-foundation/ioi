@@ -15,9 +15,15 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { SURFACES } from "./surface-registry.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || `${process.env.HOME}/.ioi/hypervisor/data`;
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
+const DATA_DIR = STACK.dataDir;
 const B = `${SERVE}/__ioi/ontology/manager`;
 
 const results = [];
@@ -32,9 +38,9 @@ async function act(id, data) {
 const rcount = () => { try { return readdirSync(join(DATA_DIR, "odk-ontology-receipts")).length; } catch { return 0; } };
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/overview`).then((r) => r.ok).catch(() => false);
+  await STACK.requireRead("/v1/hypervisor/odk/overview", "the ODK plane");
   const sup = await fetch(B).then((r) => r.ok).catch(() => false);
-  if (!up || !sup) { console.error("BLOCKED: daemon or serve not reachable"); process.exit(2); }
+  if (!sup) { console.error(`BLOCKED: this verifier's serve did not answer ${B}`); process.exit(2); }
 
   // Registry promotion (static).
   const s = SURFACES.find((x) => x.slug === "schema");
@@ -149,7 +155,9 @@ async function run() {
 
     // (12) Standalone bare route: NO inspector aside (certified capture unchanged).
     const bare = await page(B);
-    ok("standalone bare route renders NO inspector aside (certified capture state)", !bare.text.includes("og-inspectorwrap") && bare.text.includes("og-arail"));
+    // 2026-09-29 (R-240, verifier auth sweep): the class name is in the page's always-emitted mobile stylesheet now
+    // (`.og-inspectorwrap{width:100%…}`), so a substring test failed on a page with no aside; the claim is the ELEMENT.
+    ok("standalone bare route renders NO inspector aside (certified capture state)", !bare.text.includes('<aside class="og-inspectorwrap">') && bare.text.includes("og-arail"));
 
     // (13) Cross-links resolve 200.
     for (const [label, href] of [["Explorer", `${SERVE}/__ioi/ontology/explorer?ontology=${nid}&objectType=account`], ["Pipeline", `${SERVE}/__ioi/pipeline?ontology=${nid}`], ["substrate", `${SERVE}/__ioi/odk/ontologies/${nid}/edit`]]) {
@@ -178,4 +186,5 @@ run().then(() => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("ontology-manager operational: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

@@ -33,8 +33,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 
@@ -52,7 +58,9 @@ const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: 
 // had been removed with the design that introduced it. So the session is taken the way this
 // manually-launched estate takes its URLs, and its absence BLOCKS rather than failing downstream
 // with a symptom unrelated to what it checks.
-const SESSION = (process.env.IOI_HYPERVISOR_SESSION || "").trim();
+// 2026-09-29 (R-240, verifier auth sweep): the session is now this verifier's own stack's operator, never an exported
+// IOI_HYPERVISOR_SESSION for the owner's estate — so the precondition always holds and its BLOCKED branch is gone.
+const SESSION = STACK.token;
 const jd = async (method, p, body) => {
   const headers = { "content-type": "application/json" };
   if (SESSION) headers.cookie = `ioi_session=${SESSION}`;
@@ -62,12 +70,7 @@ const jd = async (method, p, body) => {
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon ODK plane not reachable at " + DAEMON); process.exit(2); }
-  if (!SESSION) {
-    console.error("BLOCKED: IOI_HYPERVISOR_SESSION is unset. This verifier writes an ontology fixture and ODK writes are identity-first (#236); without a session the create 401s and every assertion below fails with a symptom unrelated to what it checks. Export the operator session this estate was launched with.");
-    process.exit(2);
-  }
+  await STACK.requireRead(`/v1/hypervisor/odk/domain-ontologies`, "daemon ODK plane");
 
   // 0. Matrix — schema is daemon_wired with a real landmark spec; approvals is also daemon_wired (#36).
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
@@ -107,7 +110,7 @@ async function run() {
 
   // 3. VISUAL PARITY — the HARDENED harness certifies against the VALID light reference.
   const artDir = path.join(appRoot, ".artifacts", "ontology-manager-port-verify");
-  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "schema", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...STACK.childEnv(), IOI_HARNESS_SURFACES: "schema", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
   ok("HARDENED harness: the port PASSES visual_parity — theme MATCH (light/light) + full IA-landmark reproduction + region geometry, both sides valid", hp && hp.visual_parity === true && hp.theme_match === true && hp.reference_theme === "light" && hp.ioi_theme === "light" && hp.reference_valid === true && hp.ioi_valid === true && hp.evidence_ok === true, hp ? `visual=${hp.visual_parity} regions ${hp.region_score} theme ${hp.reference_theme}/${hp.ioi_theme} landmarks ${hp.landmark_covered}/${hp.landmark_applicable}` : "harness did not run");
@@ -130,20 +133,25 @@ async function run() {
   // to name it, THIS GATE WENT RED on a correction. A verifier that fails when a falsehood is fixed
   // is pinning the falsehood. What it certifies now is the structure — every lane renders as a
   // disabled gap span carrying a non-empty reason that names the lane.
-  ok("named-gap lanes are DISABLED in place (Proposals · Shared properties · Groups · Interfaces · Cleanup), not hidden, each carrying a non-empty reason that names the lane",
-    ["Proposals", "Shared properties", "Groups", "Interfaces", "Cleanup"].every((l) =>
+  // 2026-09-29 (R-240, verifier auth sweep — first run since the anonymous 401 hid this verifier behind BLOCKED): d5020e229
+  // (#292, SURF-ontology) BOUND the Proposals lane — the rail item is a live link into the daemon's proposal queue, so
+  // it left the gap population. The other four lanes are still disabled in place; Proposals is asserted bound below.
+  ok("named-gap lanes are DISABLED in place (Shared properties · Groups · Interfaces · Cleanup), not hidden, each carrying a non-empty reason that names the lane",
+    ["Shared properties", "Groups", "Interfaces", "Cleanup"].every((l) =>
       // PER LANE, NOT PER PAGE. Matching any gap title that merely MENTIONS the lane let a lane be
       // deleted while another lane's reason name-dropped it. Every lane's reason opens on its own
       // name, so the binding is that opening — and it survives the nested icon markup inside the
       // span, which a body-scoped match does not.
-      new RegExp(`<span class="og-nav[^"]*gap" title="${l}[ :]`, "u").test(t)),
+      // 2026-09-29: the gap spans carry role/tabindex/aria-disabled BEFORE the title since the 2026-09-24 reachability
+      // repair (check:named-gap-perception), so the title is matched anywhere inside the span's opening tag.
+      new RegExp(`<span class="og-nav[^"]*gap"[^>]*? title="${l}[ :]`, "u").test(t)),
     "each lane renders its own disabled gap span with a reason that opens on its name");
-  // AND THE PROPOSALS REASON NO LONGER ASSERTS A PLANE THAT EXISTS IS MISSING. Next-legs XIII landed
-  // the proposal family; a named gap whose stated reason has gone false reads as evidence.
-  ok("and the Proposals lane's reason names the daemon plane as EXISTING — the gap is a missing surface control, not a missing contract",
-    /<span class="og-nav[^"]*gap" title="Proposals[^"]*ontology proposal plane exists[^"]*"/u.test(t)
-      && !/<span class="og-nav[^"]*gap" title="Proposals[^"]*no ontology proposal plane[^"]*"/u.test(t),
-    "Proposals reason names the landed plane, and does not negate it");
+  // AND THE PROPOSALS LANE IS BOUND. Next-legs XIII landed the proposal family and #292 bound its surface control, so
+  // the lane must be a live link into the Manager's proposals section — and never again a gap claiming it is missing.
+  ok("and the Proposals lane is BOUND — a live rail link into the proposal queue, no longer a named gap",
+    /<a class="og-nav[^"]*" href="[^"]*section=proposals[^"]*"><span class="og-nico">[\s\S]*?<span class="og-nlabel">Proposals<\/span>/u.test(t)
+      && !/<span class="og-nav[^"]*gap"[^>]*? title="Proposals/u.test(t),
+    "Proposals is an anchor into section=proposals, and no gap span names it");
   ok("action + function EXECUTION are named gaps (declarations only)", /Action <b>declarations<\/b> only/.test(t) && /Function <b>declarations<\/b> only/.test(t) && /in-canvas schema editing/.test(t));
   ok("the authoring lane routes to the /__ioi/odk substrate (Configure model)", /Configure model in substrate/.test(t) && new RegExp(`/__ioi/odk/ontologies/${fix.id}/edit`).test(t));
 

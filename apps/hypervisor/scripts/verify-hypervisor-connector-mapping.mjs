@@ -21,8 +21,18 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-connector-mapping.mjs
 // Exit 2 = BLOCKED (daemon not running).
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+// Since the mapping and transformation-run creates took an idempotency key (a retried write cannot apply twice) and an
+// owner (an unowned record can never be custody-proved), each fixture create names a fresh key and the operator's
+// organization (2026-09-29, R-240 verifier auth sweep — hidden until then behind the anonymous 401).
+const IDEM = (tag) => `${tag}-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -32,8 +42,7 @@ async function jd(method, p, body) {
 }
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/connector-mappings/overview`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon connector-mapping plane not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/odk/connector-mappings/overview`, "daemon connector-mapping plane");
   const cleanup = [];
 
   // Fixtures: a declared data source (#10) pointing at an UNREACHABLE endpoint, and a ready typed
@@ -57,7 +66,7 @@ async function run() {
 
   const KEY = { source_field: "id", property_id: "loan_id", source_type: "string" };
   const TITLE = { source_field: "disp", property_id: "title", source_type: "string" };
-  const base = (extra) => ({ name: "loan-map", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", key_mapping: KEY, title_mapping: TITLE, ...extra });
+  const base = (extra) => ({ idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "loan-map", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", key_mapping: KEY, title_mapping: TITLE, ...extra });
 
   // 1. INERT valid mapping — against the UNREACHABLE source, instantly, with no read.
   const t0 = Date.now();
@@ -74,7 +83,7 @@ async function run() {
   ok("no plaintext credential is stored anywhere on the record", !JSON.stringify(m || {}).match(/hunter2|password|api_key|"secret"/i));
 
   // 2. Honest incomplete — required property left unmapped.
-  const inc = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: "inc-map", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", key_mapping: { source_field: "a", property_id: "amount", source_type: "double" }, title_mapping: TITLE });
+  const inc = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "inc-map", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", key_mapping: { source_field: "a", property_id: "amount", source_type: "double" }, title_mapping: TITLE });
   if (inc.j.connector_mapping?.id) cleanup.push(["DELETE", `/v1/hypervisor/odk/connector-mappings/${inc.j.connector_mapping.id}`]);
   ok("required property left unmapped → honest `incomplete` + named gap", inc.j.connector_mapping?.health?.status === "incomplete" && (inc.j.connector_mapping?.health?.required_gaps || []).some((g) => /Loan Id/i.test(g)));
 
@@ -85,12 +94,12 @@ async function run() {
     if (r.j?.connector_mapping?.id) cleanup.push(["DELETE", `/v1/hypervisor/odk/connector-mappings/${r.j.connector_mapping.id}`]);
   };
   await reject("plaintext secret", base({ password: "hunter2" }), "connector_mapping_plaintext_secret_rejected");
-  await reject("missing name", { data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", key_mapping: KEY, title_mapping: TITLE }, "connector_mapping_name_required");
+  await reject("missing name", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", key_mapping: KEY, title_mapping: TITLE }, "connector_mapping_name_required");
   await reject("unknown data source", base({ data_source_id: "ds_nope" }), "connector_mapping_data_source_unknown");
   await reject("unknown ontology", base({ ontology_ref: "ontology://nope" }), "connector_mapping_ontology_unknown");
   await reject("unknown object type", base({ object_type_id: "ghost" }), "connector_mapping_object_type_unknown");
-  await reject("missing key mapping", { name: "x", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", title_mapping: TITLE }, "connector_mapping_key_mapping_required");
-  await reject("missing title mapping", { name: "x", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", key_mapping: KEY }, "connector_mapping_title_mapping_required");
+  await reject("missing key mapping", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "x", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", title_mapping: TITLE }, "connector_mapping_key_mapping_required");
+  await reject("missing title mapping", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "x", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan", key_mapping: KEY }, "connector_mapping_title_mapping_required");
   await reject("title must target the title_property", base({ title_mapping: { source_field: "d", property_id: "amount", source_type: "double" } }), "connector_mapping_title_mapping_required");
   await reject("unknown property", base({ field_mappings: [{ source_field: "z", property_id: "ghost", source_type: "string" }] }), "connector_mapping_property_unknown");
   await reject("invalid source type", base({ field_mappings: [{ source_field: "z", property_id: "amount", source_type: "blob" }] }), "connector_mapping_source_type_invalid");
@@ -105,9 +114,9 @@ async function run() {
   ok("/:id/history returns history + receipts", (hist.j.history || []).length >= 1 && (hist.j.receipts || []).length >= 1);
   const ov = await jd("GET", "/v1/hypervisor/odk/connector-mappings/overview");
   ok("overview names the inert/missing-contract governance gaps", (ov.j.governance_gaps || []).some((g) => /INERT|nothing here reads|no extraction/i.test(g)) && JSON.stringify(ov.j.missing_contracts) === JSON.stringify(["PolicyBoundDataView", "TransformationRun", "OntologyProjection"]));
-  const p1 = await jd("PATCH", `/v1/hypervisor/odk/connector-mappings/${m.id}`, { description: "bound" });
+  const p1 = await jd("PATCH", `/v1/hypervisor/odk/connector-mappings/${m.id}`, { idempotency_key: IDEM("patch"), description: "bound" });
   ok("valid patch bumps revision + history + receipt", p1.j.connector_mapping?.revision === 2 && (p1.j.connector_mapping?.history || []).length === 2 && (p1.j.connector_mapping?.receipt_refs || []).length === 2);
-  const p2 = await jd("PATCH", `/v1/hypervisor/odk/connector-mappings/${m.id}`, { field_mappings: [{ source_field: "z", property_id: "ghost", source_type: "string" }] });
+  const p2 = await jd("PATCH", `/v1/hypervisor/odk/connector-mappings/${m.id}`, { idempotency_key: IDEM("patch"), field_mappings: [{ source_field: "z", property_id: "ghost", source_type: "string" }] });
   ok("malformed patch rejected (ok:false + code)", p2.j.ok === false && p2.j.error?.code === "connector_mapping_property_unknown");
   const after = await jd("GET", `/v1/hypervisor/odk/connector-mappings/${m.id}/health`);
   ok("rejected patch does NOT bump the revision", after.j.revision === 2, `rev ${after.j.revision}`);

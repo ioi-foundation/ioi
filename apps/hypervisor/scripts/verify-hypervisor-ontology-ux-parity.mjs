@@ -28,8 +28,14 @@
 
 import { chromium } from "playwright";
 
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SHELL = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const REFERENCE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 
 const results = [];
@@ -54,9 +60,6 @@ const READY_ONTOLOGY = {
   },
 };
 
-async function daemonUp() {
-  return fetch(`${DAEMON}/v1/hypervisor/odk/overview`).then((r) => r.ok).catch(() => false);
-}
 async function innerTextOf(page, url, waitMs = 1200) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
   await page.waitForTimeout(waitMs); // let the reference SPA hydrate its nav
@@ -64,7 +67,7 @@ async function innerTextOf(page, url, waitMs = 1200) {
 }
 
 async function run() {
-  if (!(await daemonUp())) { console.error("BLOCKED: daemon not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead("/v1/hypervisor/odk/overview", "the ODK plane");
   const refUp = await fetch(`${REFERENCE}/workspace/ontology/`).then((r) => r.ok).catch(() => false);
   if (!refUp) { console.error("BLOCKED: reference capture not reachable at " + REFERENCE); process.exit(2); }
 
@@ -86,6 +89,7 @@ async function run() {
 
   try {
     const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+    await STACK.signIn(page);
     const ownerFailures = [];
     let recording = false;
     page.on("requestfailed", (r) => { if (recording && r.url().includes("/__ioi/")) ownerFailures.push(r.url()); });

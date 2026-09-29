@@ -22,18 +22,19 @@
 
 import { startIsolatedPlane, receiptFileCount, isolatedOperatorSession } from "./lib/isolated-daemon.mjs";
 
-const REAL_DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// The isolation proof reads the real daemon's record FILES, read-only — never the daemon itself (R-240, verifier auth
+// sweep, 2026-09-29): its data-source list is caller-scoped since 3aaaad467, so the anonymous GET this proof made
+// answered 401 and "unchanged" held vacuously (no list before, none after); and no verifier calls the owner's :8765.
 const REAL_DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || `${process.env.HOME}/.ioi/hypervisor/data`;
+const RECORD_FAMILY = "data-source-registry";
 const RECEIPT_FAMILY = "data-source-registry-receipts";
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 
 async function run() {
-  // Real-daemon snapshot (when it is up): the whole point of isolation is that NOTHING below
-  // touches it. Down is fine — the isolation claim is then trivially true for records; receipt
-  // files are counted from storage either way.
-  const realBefore = await fetch(`${REAL_DAEMON}/v1/hypervisor/data-sources`).then((r) => r.json()).catch(() => null);
+  // Real-daemon snapshot, from its storage: the whole point of isolation is that NOTHING below touches it.
+  const realRecordsBefore = receiptFileCount(REAL_DATA_DIR, RECORD_FAMILY);
   const realReceiptsBefore = receiptFileCount(REAL_DATA_DIR, RECEIPT_FAMILY);
 
   const plane = await startIsolatedPlane({ serve: true });
@@ -125,9 +126,9 @@ async function run() {
   }
 
   // 6. ISOLATION PROOF — the real daemon's source count and receipt-file count are UNCHANGED.
-  const realAfter = await fetch(`${REAL_DAEMON}/v1/hypervisor/data-sources`).then((r) => r.json()).catch(() => null);
+  const realRecordsAfter = receiptFileCount(REAL_DATA_DIR, RECORD_FAMILY);
   const realReceiptsAfter = receiptFileCount(REAL_DATA_DIR, RECEIPT_FAMILY);
-  ok("REAL daemon source count unchanged (every journey ran isolated)", (realBefore === null && realAfter === null) || (realBefore?.data_sources || []).length === (realAfter?.data_sources || []).length, realBefore ? `${(realBefore.data_sources || []).length} before/after` : "real daemon not running (trivially unchanged)");
+  ok("REAL daemon source count unchanged (every journey ran isolated; its record files, read-only)", realRecordsBefore === realRecordsAfter, `${realRecordsBefore} before · ${realRecordsAfter} after`);
   ok("REAL daemon receipt-file count unchanged", realReceiptsBefore === realReceiptsAfter, `${realReceiptsBefore} before/after`);
 }
 

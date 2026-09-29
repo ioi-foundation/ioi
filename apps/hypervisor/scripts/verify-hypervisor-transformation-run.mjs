@@ -25,8 +25,18 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-transformation-run.mjs
 // Exit 2 = BLOCKED (daemon not running).
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+// Since the mapping and transformation-run creates took an idempotency key (a retried write cannot apply twice) and an
+// owner (an unowned record can never be custody-proved), each fixture create names a fresh key and the operator's
+// organization (2026-09-29, R-240 verifier auth sweep — hidden until then behind the anonymous 401).
+const IDEM = (tag) => `${tag}-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -36,8 +46,7 @@ async function jd(method, p, body) {
 }
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/transformation-runs/overview`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon transformation-run plane not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/odk/transformation-runs/overview`, "daemon transformation-run plane");
   const cleanup = [];
   const track = (kind, id) => { if (id) cleanup.push(["DELETE", `/v1/hypervisor/odk/${kind}/${id}`]); };
 
@@ -56,13 +65,13 @@ async function run() {
   } });
   const ontId = ontR.j.ontology?.id; const ontRef = ontR.j.ontology?.ref;
   track("domain-ontologies", ontId);
-  const mapR = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: "trun-verify-map", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan",
+  const mapR = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "trun-verify-map", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan",
     key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
     title_mapping: { source_field: "disp", property_id: "title", source_type: "string" },
     field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }] });
   const mapId = mapR.j.connector_mapping?.id;
   track("connector-mappings", mapId);
-  const incMapR = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: "trun-verify-inc", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan",
+  const incMapR = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "trun-verify-inc", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan",
     key_mapping: { source_field: "a", property_id: "amount", source_type: "double" },
     title_mapping: { source_field: "d", property_id: "title", source_type: "string" } });
   const incMapId = incMapR.j.connector_mapping?.id;
@@ -78,7 +87,7 @@ async function run() {
   track("policy-bound-data-views", readOnlyId);
   if (!dataSourceId || !ontId || !mapId || !viewId || !readOnlyId) { console.error("BLOCKED: fixtures failed"); process.exit(2); }
 
-  const base = (extra) => ({ connector_mapping_id: mapId, policy_view_id: viewId, name: "loan-plan", ...extra });
+  const base = (extra) => ({ idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: mapId, policy_view_id: viewId, name: "loan-plan", ...extra });
 
   // 1. Plan admitted instantly (no source contact for an unreachable source), inert, receipted.
   const t0 = Date.now();
@@ -106,7 +115,7 @@ async function run() {
   };
   await reject("plaintext secret", base({ password: "hunter2" }), "transformation_run_plaintext_secret_rejected");
   await reject("raw query body (no ad-hoc extraction semantics)", base({ sql: "SELECT * FROM loans" }), "transformation_run_raw_query_rejected");
-  await reject("missing name", { connector_mapping_id: mapId, policy_view_id: viewId }, "transformation_run_name_required");
+  await reject("missing name", { idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: mapId, policy_view_id: viewId }, "transformation_run_name_required");
   await reject("unknown mapping", base({ connector_mapping_id: "cmap_nope" }), "transformation_run_mapping_unknown");
   await reject("mapping not ready", base({ connector_mapping_id: incMapId }), "transformation_run_mapping_not_ready");
   await reject("unknown policy view", base({ policy_view_id: "pbdv_nope" }), "transformation_run_policy_view_unknown");
@@ -117,7 +126,7 @@ async function run() {
   await reject("invalid output intent", base({ output_intent: "crystal_ball" }), "transformation_run_output_intent_invalid");
   await reject("high-risk intent the view does not authorize", base({ output_intent: "training_material" }), "transformation_run_intent_not_authorized");
   // view↔mapping mismatch: a second ready mapping the view does not bind.
-  const map2R = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: "trun-verify-map2", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan",
+  const map2R = await jd("POST", "/v1/hypervisor/odk/connector-mappings", { idempotency_key: IDEM("connector-mappings"), owner_ref: STACK.owner, name: "trun-verify-map2", data_source_id: dataSourceId, ontology_ref: ontRef, object_type_id: "loan",
     key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
     title_mapping: { source_field: "disp", property_id: "title", source_type: "string" } });
   track("connector-mappings", map2R.j.connector_mapping?.id);
@@ -131,14 +140,14 @@ async function run() {
   const driftViewR = await jd("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: mapId, name: "trun-drift-gate", authority_subjects: ["agent://p"],
     allowed_operations: ["transform"], purpose: "drift test", property_scope: ["title"], retention_posture: "ephemeral" });
   const driftViewId = driftViewR.j.policy_bound_data_view?.id;
-  const driftRunR = await jd("POST", "/v1/hypervisor/odk/transformation-runs", { connector_mapping_id: mapId, policy_view_id: driftViewId, name: "drift-plan" });
+  const driftRunR = await jd("POST", "/v1/hypervisor/odk/transformation-runs", { idempotency_key: IDEM("transformation-runs"), owner_ref: STACK.owner, connector_mapping_id: mapId, policy_view_id: driftViewId, name: "drift-plan" });
   const driftRun = driftRunR.j.transformation_run;
   track("transformation-runs", driftRun?.id);
   await jd("DELETE", `/v1/hypervisor/odk/policy-bound-data-views/${driftViewId}`);
   const blocked = await jd("POST", `/v1/hypervisor/odk/transformation-runs/${driftRun.id}/dry-run`);
   ok("gate drift (view deleted) → dry-run BLOCKED with a named reason (re-checked, never cached)", blocked.j.transformation_run?.status === "blocked" && blocked.j.transformation_run?.blocked_reasons?.[0]?.code === "transformation_run_policy_view_unknown");
   const blocked2 = await jd("POST", `/v1/hypervisor/odk/transformation-runs/${driftRun.id}/dry-run`);
-  ok("retry while blocked keeps history intact (grows, never lost)", blocked2.j.transformation_run?.status === "blocked" && (blocked2.j.transformation_run?.history || []).length === 3);
+  ok("retry while blocked keeps history intact (grows, never lost)", blocked2.j.transformation_run?.status === "blocked" && (blocked2.j.transformation_run?.history || []).length === 3, `HTTP ${blocked2.status} ${blocked2.j?.code || blocked2.j?.error?.code || ""} · run ${blocked2.j?.transformation_run?.status ?? "absent"} · history ${(blocked2.j?.transformation_run?.history || []).length}`);
 
   // 5. Patch semantics + cancel immutability.
   const p1 = await jd("PATCH", `/v1/hypervisor/odk/transformation-runs/${r0.id}`, { requested_fields: ["title"] });
