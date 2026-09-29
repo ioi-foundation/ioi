@@ -22,7 +22,19 @@ use tokio::{
 // --- Test Configuration ---
 // INCREASED TIMEOUT: Raised from 45s to 180s to accommodate slow initialization
 // in heavy tests (like Verkle/KZG setup) on CI runners.
-pub(crate) const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(180);
+pub(crate) const LOG_ASSERT_TIMEOUT_DEFAULT: Duration = Duration::from_secs(180);
+
+/// How long a readiness log assertion waits. A long-lived node (the ADR 0052 local authority) replays its whole spine
+/// at startup, which outgrows 180 s as its chain grows: `IOI_LOG_ASSERT_TIMEOUT_SECS` lengthens the wait for such a
+/// node (unset, zero or unparseable keeps the default; capped at one day).
+pub(crate) fn log_assert_timeout() -> Duration {
+    std::env::var("IOI_LOG_ASSERT_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(|secs| Duration::from_secs(secs.min(86_400)))
+        .unwrap_or(LOG_ASSERT_TIMEOUT_DEFAULT)
+}
 pub(crate) const LOG_CHANNEL_CAPACITY: usize = 8192;
 const LOG_ASSERT_CAPTURE_LIMIT: usize = 512;
 
@@ -58,7 +70,7 @@ pub async fn assert_log_contains(
 
     loop {
         // Manually check overall timeout
-        if start.elapsed() > LOG_ASSERT_TIMEOUT {
+        if start.elapsed() > log_assert_timeout() {
             let combined_logs = received_lines.join("\n");
             return Err(anyhow!(
                 "[{}] Timeout waiting for pattern '{}'.\n--- Received Logs ---\n{}\n--- End Logs ---",
@@ -118,7 +130,7 @@ pub async fn assert_log_contains_any(
     let mut received_lines = Vec::new();
 
     loop {
-        if start.elapsed() > LOG_ASSERT_TIMEOUT {
+        if start.elapsed() > log_assert_timeout() {
             let combined_logs = received_lines.join("\n");
             return Err(anyhow!(
                 "[{}] Timeout waiting for any pattern {:?}.\n--- Received Logs ---\n{}\n--- End Logs ---",
@@ -171,7 +183,7 @@ pub async fn assert_log_contains_and_return_line(
 
     loop {
         // Manually check overall timeout
-        if start.elapsed() > LOG_ASSERT_TIMEOUT {
+        if start.elapsed() > log_assert_timeout() {
             let combined_logs = received_lines.join("\n");
             return Err(anyhow!(
                 "[{}] Timeout waiting for pattern '{}'.\n--- Received Logs ---\n{}\n--- End Logs ---",
