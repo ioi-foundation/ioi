@@ -9036,6 +9036,43 @@ pub(crate) async fn invoke_workload_brokered_provider_operation(
     handle_provider_op_internal(st, HeaderMap::new(), body, Some(authority)).await
 }
 
+/// A failover run's own provider op, crossing as the principal who STARTED the run (R-240, failover
+/// teardown identity). The run core used to call the route with empty headers, so every op a
+/// failover made was anonymous: its create/start/restore asks parked with no requester and bound
+/// their leases to nobody, and the old provider's teardown — an owner-scoped write — answered 401,
+/// leaving the old exposure open behind a quiet `restored_with_warning`.
+///
+/// The run records its starter from the authenticated request that created it (or the arming
+/// request of the plan that triggered it). Here that principal's CURRENT membership is re-resolved
+/// and narrowed to the run's one owner, exactly as the host broker does
+/// (`resolve_workload_broker_identity`) — never a daemon identity, never a principal named by a
+/// body. A revoked membership refuses the op before the route runs. The body must name the same
+/// owner and idempotency key (`provider_write_caller` holds it to them). A failover run consumes no
+/// model proposal, so its proposal-session binding is derived from the run and matches no session.
+pub(crate) async fn invoke_failover_run_provider_operation(
+    st: Arc<DaemonState>,
+    body: Value,
+    principal_ref: &str,
+    owner_ref: &str,
+    idempotency_key: &str,
+    run_ref: &str,
+) -> (StatusCode, Json<Value>) {
+    let session_binding =
+        sha256_bytes(format!("hypervisor.failover-run.session.v1\u{0}{run_ref}").as_bytes());
+    let authority = match WorkloadBrokerProviderAuthority::resolve(
+        &st.data_dir,
+        principal_ref,
+        owner_ref,
+        idempotency_key,
+        &session_binding,
+        run_ref,
+    ) {
+        Ok(authority) => authority,
+        Err(refusal) => return refusal,
+    };
+    handle_provider_op_internal(st, HeaderMap::new(), body, Some(authority)).await
+}
+
 async fn handle_provider_op_internal(
     st: Arc<DaemonState>,
     headers: HeaderMap,

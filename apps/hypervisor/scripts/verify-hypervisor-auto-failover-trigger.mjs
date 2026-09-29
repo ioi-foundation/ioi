@@ -29,6 +29,10 @@ import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 // daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
 // (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
 // passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+//
+// ARMING IS AN OWNED WRITE, AND A TRIGGERED RUN ACTS AS WHOEVER ARMED THE PLAN (R-240, failover teardown identity,
+// 2026-09-29): an arm names its owner and an idempotency key (A.owned); the triggered run's provider ops cross as the
+// arming principal, re-resolved against current membership, and only that principal resumes it.
 const A = await authorityVerifierStack({ label: "auto-failover-trigger" });
 const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
@@ -112,13 +116,13 @@ async function run() {
 
   // plan + arming ladder
   const plan = (await jd("POST", "/v1/hypervisor/failover/plans", { environment_ref: env, source_account_ref: akash.account_ref, intent_ref: intent.intent_ref })).j.plan || {};
-  const badArm = await jd("POST", `/v1/hypervisor/failover/plans/${plan.plan_id}/arm`, { conditions: ["unsupported_condition"] });
+  const badArm = await jd("POST", `/v1/hypervisor/failover/plans/${plan.plan_id}/arm`, A.owned({ conditions: ["unsupported_condition"] }));
   ok("arming with an unknown condition refused by name", badArm.status === 422 && badArm.j.reason === "failover_condition_unknown");
   const emptyPlan = (await jd("POST", "/v1/hypervisor/failover/plans", { environment_ref: `env-never-${tag}` })).j.plan || {};
-  const unreadyArm = await jd("POST", `/v1/hypervisor/failover/plans/${emptyPlan.plan_id}/arm`, { conditions: ["provider_outage"] });
+  const unreadyArm = await jd("POST", `/v1/hypervisor/failover/plans/${emptyPlan.plan_id}/arm`, A.owned({ conditions: ["provider_outage"] }));
   ok("arming an unready plan refused (a trigger without restore truth could only fail closed)",
     unreadyArm.status === 409 && unreadyArm.j.reason === "failover_plan_not_ready");
-  const armed = await jd("POST", `/v1/hypervisor/failover/plans/${plan.plan_id}/arm`, { conditions: ["capacity_eviction", "host_unreachable"], armed_by: "xfa-verifier", max_hourly_usd: 0.4 });
+  const armed = await jd("POST", `/v1/hypervisor/failover/plans/${plan.plan_id}/arm`, A.owned({ conditions: ["capacity_eviction", "host_unreachable"], armed_by: "xfa-verifier", max_hourly_usd: 0.4 }));
   ok("plan arms with declared conditions; arming is detection authority only (explicit note)",
     armed.status === 200 && armed.j.plan?.trigger_state === "armed"
     && /never.*wallet gate|wallet gate/.test(armed.j.plan?.auto_trigger?.authority_note || ""));

@@ -575,7 +575,13 @@ const H_BASELINE = [
   "hypervisoros_node_routes.rs::handle_node_transition",
   "lifecycle_routes.rs::handle_subagent_cancel",
   "lifecycle_routes.rs::handle_subagents_propagate_cancel",
-  "placement_failover_routes.rs::handle_failover_plan_arm",
+  // "placement_failover_routes.rs::handle_failover_plan_arm" — LEFT the baseline 2026-09-29 (R-240,
+  // failover teardown identity). Arming is now an owned write, identity first (`require_write_caller`
+  // before the plan is read): a triggered run's provider ops cross as the principal who armed the
+  // plan, under the owner they named, so the arming request records both. Authority is unchanged —
+  // every mutation of a triggered run still parks at its gate. Removed rather than re-pinned: an entry
+  // asserts NO in-handler identity call, and that is now false. (`handle_failover_run` was never
+  // pinned; it now resolves identity in-handler too.)
   "placement_failover_routes.rs::handle_failover_plan_disarm",
   "recipe_routes.rs::handle_recipe_create",
   "system_amendment_routes.rs::handle_amendment",

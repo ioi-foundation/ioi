@@ -2000,7 +2000,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     const st = String(s || "");
     if (st.startsWith("awaiting_authority")) return `<span class="pill warn">wallet gate: ${CX_ESC(st.replace("awaiting_authority_", ""))}</span>`;
     const cls = ["done", "succeeded", "restored", "restored_with_warning", "success"].includes(st) ? "ok"
-      : ["failed", "refused", "failure", "error"].includes(st) ? "warn" : "muted";
+      : ["failed", "refused", "failure", "error", "restored_old_exposure_open"].includes(st) ? "warn" : "muted";
     return `<span class="pill ${cls}">${CX_ESC(st || "—")}</span>`;
   };
   const JOB_TYPES = [["", "All"], ["automation", "Automation"], ["harness", "Harness"], ["work-result", "Work result"], ["failover", "Failover"]];

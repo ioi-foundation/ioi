@@ -31,6 +31,10 @@ import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 // daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
 // (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
 // passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+//
+// A FAILOVER RUN IS AN OWNED WRITE AND ACTS AS ITS STARTER (R-240, failover teardown identity, 2026-09-29): a create
+// names its owner and an idempotency key (A.owned), the run's provider ops cross as the principal who started it, and
+// only that principal resumes it (this verifier's operator session, on every post).
 const A = await authorityVerifierStack({ label: "cross-provider-failover" });
 const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
@@ -149,10 +153,10 @@ async function run() {
   const plan = (await jd("POST", "/v1/hypervisor/failover/plans", { environment_ref: env, source_account_ref: vast.account_ref, intent_ref: intent.intent_ref })).j.plan || {};
   ok("failover plan snapshots readiness (daemon custody + archive refs)",
     plan.readiness === "ready_daemon_custody" && (plan.archive_refs || []).includes(archiveRef));
-  const badCond = await jd("POST", "/v1/hypervisor/failover/run", { plan_ref: plan.plan_ref, failure_condition: "gremlins" });
+  const badCond = await jd("POST", "/v1/hypervisor/failover/run", A.owned({ plan_ref: plan.plan_ref, failure_condition: "gremlins" }));
   ok("unknown failure condition refused by name", badCond.status === 422 && badCond.j.reason === "failover_condition_unknown");
   const emptyPlan = (await jd("POST", "/v1/hypervisor/failover/plans", { environment_ref: `env-never-${tag}` })).j.plan || {};
-  const noMat = await jd("POST", "/v1/hypervisor/failover/run", { plan_ref: emptyPlan.plan_ref, failure_condition: "provider_outage" });
+  const noMat = await jd("POST", "/v1/hypervisor/failover/run", A.owned({ plan_ref: emptyPlan.plan_ref, failure_condition: "provider_outage" }));
   ok("failover refuses without valid restore material (fail closed)",
     noMat.status === 409 && noMat.j.reason === "failover_refused_no_restore_material");
 
@@ -160,7 +164,7 @@ async function run() {
   // (a quote lives 15 minutes, and each crossing above was a real authority's approval, minutes long: the replacement is
   // chosen among fresh candidates, as a failover after a real outage would be — the first batch's have expired)
   await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref });
-  const p1 = await jd("POST", "/v1/hypervisor/failover/run", { plan_ref: plan.plan_ref, failure_condition: "host_unreachable", max_hourly_usd: 0.4, teardown_policy: "always_teardown_required" });
+  const p1 = await jd("POST", "/v1/hypervisor/failover/run", A.owned({ plan_ref: plan.plan_ref, failure_condition: "host_unreachable", max_hourly_usd: 0.4, teardown_policy: "always_teardown_required" }));
   let runRec = p1.j.run || {};
   replacementEnv = runRec.replacement_environment_ref || "";
   ok("failover selects a replacement on a DIFFERENT provider class (vast excluded by reason code)",
@@ -183,8 +187,14 @@ async function run() {
     runRec.status === "awaiting_authority_restore" && (runRec.events || []).some((e) => e.phase === "started"));
   const p3 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_restore: await grantFor(runRec.next_required) });
   runRec = p3.j.run || {};
+  // The old side's teardown crosses as the run's starter (R-240, failover teardown identity, 2026-09-29). A teardown
+  // is an owner-scoped write that needs no fresh spend authority — provider cleanup never does (e0c6eed9d) — so it
+  // completes without an ask and the run is restored with the old side closed, as its starter; were the teardown's
+  // gate ever to ask, the run would park at the teardown gate instead (and p4 approves it).
+  const tornDownAsStarter = runRec.status === "restored" && runRec.old_teardown?.state === "closed"
+    && runRec.old_teardown?.acting?.principal_ref === runRec.started_by?.principal_ref && !!runRec.started_by?.principal_ref;
   ok("state_root-validated restore admits on the replacement provider",
-    runRec.status === "awaiting_authority_teardown" && (runRec.events || []).some((e) => e.phase === "restored"),
+    (runRec.status === "awaiting_authority_teardown" || tornDownAsStarter) && (runRec.events || []).some((e) => e.phase === "restored"),
     `${runRec.status} · ${(runRec.events || []).slice(-2).map((e) => `${e.phase}:${e.status}`).join(", ")} · ${JSON.stringify(runRec.old_teardown || null).slice(0, 200)}`);
   const p4 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_teardown: await grantFor(runRec.next_required) });
   runRec = p4.j.run || {};
@@ -210,7 +220,7 @@ async function run() {
   const mat = (mats.materials || mats || []).find?.((m) => m.material_ref === materialRef) || {};
   if (mat.path) writeFileSync(refuseOwnerPath(mat.path, "custody material"), "corrupted-custody-bytes");
   const plan2 = (await jd("POST", "/v1/hypervisor/failover/plans", { environment_ref: env, source_account_ref: vast.account_ref, intent_ref: intent.intent_ref })).j.plan || {};
-  let r2 = (await jd("POST", "/v1/hypervisor/failover/run", { plan_ref: plan2.plan_ref, failure_condition: "provider_outage", max_hourly_usd: 0.4 })).j.run || {};
+  let r2 = (await jd("POST", "/v1/hypervisor/failover/run", A.owned({ plan_ref: plan2.plan_ref, failure_condition: "provider_outage", max_hourly_usd: 0.4 }))).j.run || {};
   if (r2.status === "awaiting_authority_archive_restore") {
     r2 = (await jd("POST", "/v1/hypervisor/failover/run", { run_ref: r2.run_ref, wallet_approval_grant_archive_restore: await grantFor(r2.next_required) })).j.run || {};
   }
@@ -223,7 +233,7 @@ async function run() {
   const archPath = arch.commitment?.path || "";
   if (archPath) writeFileSync(refuseOwnerPath(archPath, "sealed archive"), "corrupted-sealed-bytes");
   const plan3 = (await jd("POST", "/v1/hypervisor/failover/plans", { environment_ref: env, source_account_ref: vast.account_ref, intent_ref: intent.intent_ref })).j.plan || {};
-  let r3 = await jd("POST", "/v1/hypervisor/failover/run", { plan_ref: plan3.plan_ref, failure_condition: "provider_outage" });
+  let r3 = await jd("POST", "/v1/hypervisor/failover/run", A.owned({ plan_ref: plan3.plan_ref, failure_condition: "provider_outage" }));
   let r3run = r3.j.run || {};
   if (r3run.status === "awaiting_authority_archive_restore") {
     // the ladder is wallet-gated even on the way to a refusal — resume, then
