@@ -1066,7 +1066,8 @@ async function systemDesign(daemonUrl, systemId, tailPath, query) {
 
 // POST /__ioi/systems/attach-data — ONE SystemDataAttachment through the System-record seam, as the
 // caller. POLICY FIRST, like every workspace page: the System must be an ACTIVE row of the caller's
-// filtered projection before anything is written (the seam itself checks only that it is active).
+// filtered projection before anything is written. The seam enforces the same on its own (ca1cf40de): only the
+// System's admitter or an org admin holding its owner tenant may write, and the subject must be visible to them.
 // The binding is derived by the seam, never composed here. The answer returns to Design mode.
 async function handleAttachData(daemonUrl, res, form) {
   const systemId = (form.get("system_id") || "").trim();
