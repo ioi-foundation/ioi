@@ -14114,6 +14114,67 @@ export type EvaluationResultV1 = {
   admitted_at: string;
 };
 
+export type EvaluationRunV2 = {
+  schema_version: "ioi.evaluation-run.v2";
+  evaluation_run_id: string;
+  content_hash: string;
+  owner_ref: string;
+  system_ref: string | null;
+  evaluation_epoch_ref: string;
+  epoch_frozen_root: string;
+  suite_revision_ref: string;
+  evaluator_revision_ref: string;
+  lane: "visible" | "sealed" | "transfer_ood" | "adversarial" | "cross_play_ablation" | "external_reality" | "production_acceptance" | "independent_reproduction";
+  incumbent_ref: string;
+  incumbent_root: string;
+  target_base_root: string;
+  execution_evidence_refs: Array<string>;
+  policy_bound_data_view_revision_ref: string;
+  nondeterminism_class: "deterministic" | "seeded" | "declared_nondeterministic";
+  seed: number | null;
+  submitter_role: "evaluator" | "target_owner" | "independent_reproducer";
+  cost_units: number;
+  cost_unit: "tokens" | "usd_micros" | "seconds" | "units";
+  admitted_at: string;
+};
+
+export type EvaluationResultV2 = {
+  schema_version: "ioi.evaluation-result.v2";
+  evaluation_result_id: string;
+  content_hash: string;
+  owner_ref: string;
+  system_ref: string | null;
+  evaluation_run_ref: string;
+  evaluation_epoch_ref: string;
+  epoch_frozen_root: string;
+  suite_revision_ref: string;
+  evaluator_revision_ref: string;
+  lane: "visible" | "sealed" | "transfer_ood" | "adversarial" | "cross_play_ablation" | "external_reality" | "production_acceptance" | "independent_reproduction";
+  observations: Array<{
+        observation_id: string;
+        case_commitment: string;
+        outcome: "pass" | "fail" | "error" | "skipped";
+        score_milli: number;
+        evidence_refs: Array<string>;
+      }>;
+  verdict: "pass" | "fail" | "inconclusive" | "blocked" | "invalid";
+  verdict_basis: "observed" | "required_lane_missing" | "mutable_input_refused" | "protected_input_unavailable" | "exposure_exhausted" | "evaluator_not_active" | "nondeterminism_undeclared";
+  uncertainty: {
+      method: "fixed_test" | "sequential" | "anytime_valid" | "bayesian" | "frequentist" | "ranking" | "human_judgment" | "simulation" | "formal_verification" | "domain_acceptance";
+      interval_low_milli: number;
+      interval_high_milli: number;
+      sample_size: number;
+    };
+  guardrail_findings: Array<string>;
+  applicability_scope: string;
+  cost_units: number;
+  cost_unit: "tokens" | "usd_micros" | "seconds" | "units";
+  failures: Array<string>;
+  evaluator_versions: Array<string>;
+  exposure_entry_ref: string | null;
+  admitted_at: string;
+};
+
 export type ModelSwapContinuityReportV1 = {
   schema_version: "ioi.model-swap-continuity-report.v1";
   model_swap_continuity_report_id: string;
@@ -29295,6 +29356,94 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "evaluation_result.sealed_lane.names_its_exposure_entry"
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/positive-system-measured.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/positive-no-system.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-v1-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-not-a-system.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-absent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-outside-the-commitment.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "evaluation_run.content_hash.commits_the_immutable_body"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-result/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/positive-system-measured.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-result/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/positive-no-system.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-result/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-v1-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-result/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-system-ref-absent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/evaluation-result/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-system-ref-outside-the-commitment.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "evaluation_result.content_hash.commits_the_immutable_body"
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/model-swap-continuity-report/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json",
     "expected": "accept",
@@ -36787,6 +36936,17 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-no-observations.json","contract_id":"schema://ioi/components/hypervisor/evaluation-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-no-observations.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/components/hypervisor/evaluation-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json","contract_id":"schema://ioi/components/hypervisor/evaluation-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/positive-system-measured.json","contract_id":"schema://ioi/components/hypervisor/evaluation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/positive-system-measured.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/positive-no-system.json","contract_id":"schema://ioi/components/hypervisor/evaluation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/positive-no-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-v1-schema-version.json","contract_id":"schema://ioi/components/hypervisor/evaluation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-v1-schema-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-not-a-system.json","contract_id":"schema://ioi/components/hypervisor/evaluation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-not-a-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-absent.json","contract_id":"schema://ioi/components/hypervisor/evaluation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-absent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-outside-the-commitment.json","contract_id":"schema://ioi/components/hypervisor/evaluation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-outside-the-commitment.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/positive-system-measured.json","contract_id":"schema://ioi/components/hypervisor/evaluation-result/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/positive-system-measured.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/positive-no-system.json","contract_id":"schema://ioi/components/hypervisor/evaluation-result/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/positive-no-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-v1-schema-version.json","contract_id":"schema://ioi/components/hypervisor/evaluation-result/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-v1-schema-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-system-ref-absent.json","contract_id":"schema://ioi/components/hypervisor/evaluation-result/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-system-ref-absent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-system-ref-outside-the-commitment.json","contract_id":"schema://ioi/components/hypervisor/evaluation-result/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-system-ref-outside-the-commitment.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json","contract_id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-continuity-proven.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-not-proven-with-drift.json","contract_id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/positive-not-proven-with-drift.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/model-swap-continuity-report/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-swap-continuity-report-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
@@ -38461,6 +38621,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$",
   "^system://[^\\s]{1,240}$",
   "^system://[^\\s]{1,248}$",
+  "^system://[^\\s]{1,311}$",
   "^system://[^\\s]{1,480}$",
   "^system://[^\\s]{1,500}$",
   "^system://\\S*$",
@@ -38807,7 +38968,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5",
   "schema://ioi/foundations/objects/function-revision/v1": "sha256:27373945d298eb6ee32cf9cf4b9b80e72c29580161e03e5c9279efee6aeaf8c7",
   "schema://ioi/foundations/objects/change-set/v1": "sha256:40fa96558da571f0c0911d936d13858ccbcc44989d918720ffa661a481543954",
-  "schema://ioi/foundations/objects/change-set/v2": "sha256:0804148885fde1b1ca7b9d6b2d00c877c86e41b0b811c7dd734fcbf40cab51a7",
+  "schema://ioi/foundations/objects/change-set/v2": "sha256:990cfee5497cf6f4758014c28a8a86226141c1b594cc27e1df67bd3c12593c99",
   "schema://ioi/foundations/objects/function-test-run/v1": "sha256:8428e49a8091cb9eadda3ab8179d56788f2e1c9b09fce2fb7853f4adaad2317a",
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": "sha256:8555f92bfd59dffeb01228f8b759d8150962eef762dbf72d26fa002160b171ec",
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": "sha256:72784f0460f17dd9a45503103fdfb32663b25c9ca3698187a2dc1f38cf6c7368",
@@ -38876,6 +39037,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/evaluator-revision/v1": "sha256:9f25a6e73e932b6ade9dd69677fe0cdcc9e2c2cafcd35b6ee794f682bee0a105",
   "schema://ioi/components/hypervisor/evaluation-run/v1": "sha256:92bd9f0c1c8ddd0fd77f076c2c2cb1a22ef5a2453ef085e5001c5c4a6770446e",
   "schema://ioi/components/hypervisor/evaluation-result/v1": "sha256:890234c02e282018b37e029f0bad3766e5c04fd61850a7a57ebc2f2df86c0987",
+  "schema://ioi/components/hypervisor/evaluation-run/v2": "sha256:f8960679edb331be2edee09f6817c8ea6e54bff18a58bd3930158ea2dbf0133b",
+  "schema://ioi/components/hypervisor/evaluation-result/v2": "sha256:83f0fadff3f9340edb5cef555f9a883366dd9e7e60c276f8429b3f98b9efadfa",
   "schema://ioi/components/hypervisor/model-swap-continuity-report/v1": "sha256:14791a149e5fbec52cfbb4a8be22a72e8fa1a9a6651d57db7fa5bd5477db6f33",
   "schema://ioi/foundations/objects/improvement-role-binding/v1": "sha256:c3a49059e877c9a7d5a273951b91af36c57e5759decba91fc1f8af1a7bc0cebd",
   "schema://ioi/foundations/objects/learning-impact-record/v1": "sha256:42f059a812dc4a67edbe0c542440d03b9107e18ab434cbfe28b835348acb1222",
@@ -118759,7 +118922,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     "$id": "schema://ioi/foundations/objects/change-set/v2",
     "title": "ChangeSet",
     "x-ioi-schema-version": "ioi.change-set.v2",
-    "description": "One governed change to one Hypervisor object, drafted in isolation and merged by that subject's own admission (ADR 0056 Amendment 1, plane 4). Canon's patch branch is an isolated draft space: nobody mutates a subject's head directly. A change set pins the head it was opened against, carries an append-only chain of draft bodies shaped as the subject's admission request, validates a draft by running that admission's own checks without persisting, and merges by admitting the draft through the subject's route with the pinned head as the expected head. If the head has moved the merge is refused, never rebased silently. The merge decision is recorded as a BranchMergePlan. v2 carries a closed, generic set of subject kinds — `data_recipe` (a DataRecipe family, which a change set may found) and `blueprint` (one Studio blueprint, whose tip is its admitted head and whose revision is named by its content hash; a change set never founds one) — and reserves `basis_refs` for the evidence a change is proposed on. The daemon admits no basis until it can resolve one through the evaluation readers, so every record it writes today carries an empty list. v1 records remain valid and keep reading. A change set grants nothing, and a draft is not an admitted revision.",
+    "description": "One governed change to one Hypervisor object, drafted in isolation and merged by that subject's own admission (ADR 0056 Amendment 1, plane 4). Canon's patch branch is an isolated draft space: nobody mutates a subject's head directly. A change set pins the head it was opened against, carries an append-only chain of draft bodies shaped as the subject's admission request, validates a draft by running that admission's own checks without persisting, and merges by admitting the draft through the subject's route with the pinned head as the expected head. If the head has moved the merge is refused, never rebased silently. The merge decision is recorded as a BranchMergePlan. v2 carries a closed, generic set of subject kinds — `data_recipe` (a DataRecipe family, which a change set may found) and `blueprint` (one Studio blueprint, whose tip is its admitted head and whose revision is named by its content hash; a change set never founds one) — and carries `basis_refs`, the evidence a change is proposed on: admitted evaluation results, each resolved at open through the evaluation readers as the caller (an unresolvable ref is refused). v1 records remain valid and keep reading. A change set grants nothing, and a draft is not an admitted revision.",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -118924,7 +119087,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "maxLength": 4000
       },
       "basis_refs": {
-        "description": "Reserved: the evidence this change is proposed on (an evaluation result, for one). The daemon admits a basis only once it resolves it through that evidence's own reader; until then it refuses any, so every record it writes carries an empty list.",
+        "description": "The evidence this change is proposed on: admitted evaluation results (evaluation-result://…), each resolved at open through the evaluation plane's own reader as the caller. A ref that does not resolve, or any other kind of ref, is refused change_set_basis_unresolvable before anything is written.",
         "type": "array",
         "maxItems": 16,
         "uniqueItems": true,
@@ -147910,6 +148073,501 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "owner_ref": {
         "$ref": "#/$defs/ownerRef"
+      },
+      "evaluation_run_ref": {
+        "type": "string",
+        "pattern": "^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "evaluation_epoch_ref": {
+        "$ref": "#/$defs/epochRef"
+      },
+      "epoch_frozen_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "suite_revision_ref": {
+        "$ref": "#/$defs/suiteRevisionRef"
+      },
+      "evaluator_revision_ref": {
+        "$ref": "#/$defs/evaluatorRevisionRef"
+      },
+      "lane": {
+        "$ref": "#/$defs/lane"
+      },
+      "observations": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "observation_id",
+            "case_commitment",
+            "outcome",
+            "score_milli",
+            "evidence_refs"
+          ],
+          "properties": {
+            "observation_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "case_commitment": {
+              "$ref": "#/$defs/sha256"
+            },
+            "outcome": {
+              "enum": [
+                "pass",
+                "fail",
+                "error",
+                "skipped"
+              ]
+            },
+            "score_milli": {
+              "$ref": "#/$defs/milli"
+            },
+            "evidence_refs": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 16,
+              "items": {
+                "$ref": "#/$defs/evidenceRef"
+              }
+            }
+          }
+        }
+      },
+      "verdict": {
+        "enum": [
+          "pass",
+          "fail",
+          "inconclusive",
+          "blocked",
+          "invalid"
+        ]
+      },
+      "verdict_basis": {
+        "enum": [
+          "observed",
+          "required_lane_missing",
+          "mutable_input_refused",
+          "protected_input_unavailable",
+          "exposure_exhausted",
+          "evaluator_not_active",
+          "nondeterminism_undeclared"
+        ]
+      },
+      "uncertainty": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "method",
+          "interval_low_milli",
+          "interval_high_milli",
+          "sample_size"
+        ],
+        "properties": {
+          "method": {
+            "enum": [
+              "fixed_test",
+              "sequential",
+              "anytime_valid",
+              "bayesian",
+              "frequentist",
+              "ranking",
+              "human_judgment",
+              "simulation",
+              "formal_verification",
+              "domain_acceptance"
+            ]
+          },
+          "interval_low_milli": {
+            "$ref": "#/$defs/milli"
+          },
+          "interval_high_milli": {
+            "$ref": "#/$defs/milli"
+          },
+          "sample_size": {
+            "$ref": "#/$defs/boundedCount"
+          }
+        }
+      },
+      "guardrail_findings": {
+        "type": "array",
+        "minItems": 0,
+        "maxItems": 256,
+        "items": {
+          "$ref": "#/$defs/label"
+        }
+      },
+      "applicability_scope": {
+        "$ref": "#/$defs/label"
+      },
+      "cost_units": {
+        "$ref": "#/$defs/boundedCount"
+      },
+      "cost_unit": {
+        "enum": [
+          "tokens",
+          "usd_micros",
+          "seconds",
+          "units"
+        ]
+      },
+      "failures": {
+        "type": "array",
+        "minItems": 0,
+        "maxItems": 1024,
+        "items": {
+          "$ref": "#/$defs/label"
+        }
+      },
+      "evaluator_versions": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/$defs/evaluatorRevisionRef"
+        }
+      },
+      "exposure_entry_ref": {
+        "$ref": "#/$defs/optionalExposureEntryRef"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/evaluation-run/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/evaluation-run/v2",
+    "title": "EvaluationRun",
+    "description": "ONE ADMITTED EXECUTION AGAINST A FROZEN EPOCH: the run binds the epoch's frozen root, the RELEASED suite revision, the ACTIVE evaluator revision, the lane, the exact incumbent and target-base roots the epoch froze (copied and re-derived by the daemon, never caller-supplied), the execution evidence it judges by exact ref (model-invocation receipts, event-stream receipts, sessions, Foundry recipe runs), the current policy-bound data-view REVISION, the nondeterminism class with its seed, the submitter's role (Search is never a submitter) and its cost (evaluations.md § Registered shapes). v2 succeeds v1 by ONE member, `system_ref`: the bounded System the run measured, or null for a run that measures no System. The daemon admits a System only when it is in the submitting caller's own Systems inventory, and the member is inside the content commitment. v1 records remain valid and keep reading.",
+    "x-ioi-schema-version": "ioi.evaluation-run.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,311}$"
+      },
+      "suiteRevisionRef": {
+        "type": "string",
+        "pattern": "^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "evaluatorRevisionRef": {
+        "type": "string",
+        "pattern": "^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "epochRef": {
+        "type": "string",
+        "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "viewRevisionRef": {
+        "type": "string",
+        "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"
+      },
+      "lane": {
+        "enum": [
+          "visible",
+          "sealed",
+          "transfer_ood",
+          "adversarial",
+          "cross_play_ablation",
+          "external_reality",
+          "production_acceptance",
+          "independent_reproduction"
+        ]
+      },
+      "nondeterminismClass": {
+        "enum": [
+          "deterministic",
+          "seeded",
+          "declared_nondeterministic"
+        ]
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "boundedCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000
+      }
+    },
+    "required": [
+      "schema_version",
+      "evaluation_run_id",
+      "content_hash",
+      "owner_ref",
+      "system_ref",
+      "evaluation_epoch_ref",
+      "epoch_frozen_root",
+      "suite_revision_ref",
+      "evaluator_revision_ref",
+      "lane",
+      "incumbent_ref",
+      "incumbent_root",
+      "target_base_root",
+      "execution_evidence_refs",
+      "policy_bound_data_view_revision_ref",
+      "nondeterminism_class",
+      "seed",
+      "submitter_role",
+      "cost_units",
+      "cost_unit",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.evaluation-run.v2"
+      },
+      "evaluation_run_id": {
+        "type": "string",
+        "pattern": "^evaluation-run://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "system_ref": {
+        "description": "The bounded System this run measured, or null. Admitted only when the System is in the submitting caller's own Systems inventory; it never moves.",
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "evaluation_epoch_ref": {
+        "$ref": "#/$defs/epochRef"
+      },
+      "epoch_frozen_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "suite_revision_ref": {
+        "$ref": "#/$defs/suiteRevisionRef"
+      },
+      "evaluator_revision_ref": {
+        "$ref": "#/$defs/evaluatorRevisionRef"
+      },
+      "lane": {
+        "$ref": "#/$defs/lane"
+      },
+      "incumbent_ref": {
+        "$ref": "#/$defs/label"
+      },
+      "incumbent_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "target_base_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "execution_evidence_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 256,
+        "items": {
+          "$ref": "#/$defs/evidenceRef"
+        }
+      },
+      "policy_bound_data_view_revision_ref": {
+        "$ref": "#/$defs/viewRevisionRef"
+      },
+      "nondeterminism_class": {
+        "$ref": "#/$defs/nondeterminismClass"
+      },
+      "seed": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "submitter_role": {
+        "enum": [
+          "evaluator",
+          "target_owner",
+          "independent_reproducer"
+        ]
+      },
+      "cost_units": {
+        "$ref": "#/$defs/boundedCount"
+      },
+      "cost_unit": {
+        "enum": [
+          "tokens",
+          "usd_micros",
+          "seconds",
+          "units"
+        ]
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/evaluation-result/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/evaluation-result/v2",
+    "title": "EvaluationResult",
+    "description": "AN IMMUTABLE OBSERVATION AND ITS INTERPRETATION UNDER THE EPOCH — the result and the scorecard as one record: per-case observations bound to their case commitments and evidence, a verdict from the closed set pass | fail | inconclusive | blocked | invalid with the BASIS the daemon derived it on (a missing required lane is at most inconclusive; a mutable input, an inactive evaluator or undeclared nondeterminism is invalid; unavailable protected input or exhausted exposure is blocked), and the scorecard members canon says one aggregate score cannot erase: uncertainty, guardrails, applicability, cost, failures and evaluator versions. A sealed-lane result names the exposure entry its protected access appended. It carries no promotion, nomination or activation member: Evaluations emits evidence and decides nothing. v2 succeeds v1 by ONE member, `system_ref`: the System the result's run measured, COPIED from that run by the daemon (a caller never authors it), or null when the run measured none. v1 records remain valid and keep reading.",
+    "x-ioi-schema-version": "ioi.evaluation-result.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,311}$"
+      },
+      "suiteRevisionRef": {
+        "type": "string",
+        "pattern": "^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "evaluatorRevisionRef": {
+        "type": "string",
+        "pattern": "^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "epochRef": {
+        "type": "string",
+        "pattern": "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "exposureEntryRef": {
+        "type": "string",
+        "pattern": "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$"
+      },
+      "optionalExposureEntryRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/exposureEntryRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:model-invocation://|receipt://|session://|foundry-recipe-run://)[^\\s]{1,240}$"
+      },
+      "lane": {
+        "enum": [
+          "visible",
+          "sealed",
+          "transfer_ood",
+          "adversarial",
+          "cross_play_ablation",
+          "external_reality",
+          "production_acceptance",
+          "independent_reproduction"
+        ]
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "milli": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "boundedCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000
+      }
+    },
+    "required": [
+      "schema_version",
+      "evaluation_result_id",
+      "content_hash",
+      "owner_ref",
+      "system_ref",
+      "evaluation_run_ref",
+      "evaluation_epoch_ref",
+      "epoch_frozen_root",
+      "suite_revision_ref",
+      "evaluator_revision_ref",
+      "lane",
+      "observations",
+      "verdict",
+      "verdict_basis",
+      "uncertainty",
+      "guardrail_findings",
+      "applicability_scope",
+      "cost_units",
+      "cost_unit",
+      "failures",
+      "evaluator_versions",
+      "exposure_entry_ref",
+      "admitted_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.evaluation-result.v2"
+      },
+      "evaluation_result_id": {
+        "type": "string",
+        "pattern": "^evaluation-result://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "system_ref": {
+        "description": "The System the result's run measured, copied from that run by the daemon, or null.",
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "evaluation_run_ref": {
         "type": "string",
@@ -180325,6 +180983,172 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/hypervisor/evaluation-run/v2": [
+    {
+      "rule_id": "evaluation_run.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp — v2's system_ref included — under `ioi.evaluation-run-content-commitment-jcs-sha256.v1`.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-run-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_run_id": {
+            "path": "$.evaluation_run_id"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_ref": {
+            "path": "$.system_ref"
+          },
+          "evaluation_epoch_ref": {
+            "path": "$.evaluation_epoch_ref"
+          },
+          "epoch_frozen_root": {
+            "path": "$.epoch_frozen_root"
+          },
+          "suite_revision_ref": {
+            "path": "$.suite_revision_ref"
+          },
+          "evaluator_revision_ref": {
+            "path": "$.evaluator_revision_ref"
+          },
+          "lane": {
+            "path": "$.lane"
+          },
+          "incumbent_ref": {
+            "path": "$.incumbent_ref"
+          },
+          "incumbent_root": {
+            "path": "$.incumbent_root"
+          },
+          "target_base_root": {
+            "path": "$.target_base_root"
+          },
+          "execution_evidence_refs": {
+            "path": "$.execution_evidence_refs"
+          },
+          "policy_bound_data_view_revision_ref": {
+            "path": "$.policy_bound_data_view_revision_ref"
+          },
+          "nondeterminism_class": {
+            "path": "$.nondeterminism_class"
+          },
+          "seed": {
+            "path": "$.seed"
+          },
+          "submitter_role": {
+            "path": "$.submitter_role"
+          },
+          "cost_units": {
+            "path": "$.cost_units"
+          },
+          "cost_unit": {
+            "path": "$.cost_unit"
+          }
+        }
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/evaluation-result/v2": [
+    {
+      "rule_id": "evaluation_result.content_hash.commits_the_immutable_body",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED: every member except the hash and the admission stamp — v2's system_ref included — under `ioi.evaluation-result-content-commitment-jcs-sha256.v1`.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.evaluation-result-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "evaluation_result_id": {
+            "path": "$.evaluation_result_id"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "system_ref": {
+            "path": "$.system_ref"
+          },
+          "evaluation_run_ref": {
+            "path": "$.evaluation_run_ref"
+          },
+          "evaluation_epoch_ref": {
+            "path": "$.evaluation_epoch_ref"
+          },
+          "epoch_frozen_root": {
+            "path": "$.epoch_frozen_root"
+          },
+          "suite_revision_ref": {
+            "path": "$.suite_revision_ref"
+          },
+          "evaluator_revision_ref": {
+            "path": "$.evaluator_revision_ref"
+          },
+          "lane": {
+            "path": "$.lane"
+          },
+          "observations": {
+            "path": "$.observations"
+          },
+          "verdict": {
+            "path": "$.verdict"
+          },
+          "verdict_basis": {
+            "path": "$.verdict_basis"
+          },
+          "uncertainty": {
+            "path": "$.uncertainty"
+          },
+          "guardrail_findings": {
+            "path": "$.guardrail_findings"
+          },
+          "applicability_scope": {
+            "path": "$.applicability_scope"
+          },
+          "cost_units": {
+            "path": "$.cost_units"
+          },
+          "cost_unit": {
+            "path": "$.cost_unit"
+          },
+          "failures": {
+            "path": "$.failures"
+          },
+          "evaluator_versions": {
+            "path": "$.evaluator_versions"
+          },
+          "exposure_entry_ref": {
+            "path": "$.exposure_entry_ref"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "evaluation_result.sealed_lane.names_its_exposure_entry",
+      "description": "A SEALED-LANE RESULT NAMES THE EXPOSURE ENTRY ITS PROTECTED ACCESS APPENDED; remaining exposure is derived from the admitted ledger head, never from an unreceipted counter.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.lane",
+        "values": [
+          "sealed"
+        ],
+        "path": "$.exposure_entry_ref"
+      }
+    }
+  ],
   "schema://ioi/components/hypervisor/model-swap-continuity-report/v1": [
     {
       "rule_id": "model_swap_continuity_report.content_hash.commits_the_immutable_body",
@@ -186054,6 +186878,18 @@ export function validateEvaluationResultV1(
   value: unknown,
 ): value is EvaluationResultV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/evaluation-result/v1", value).ok;
+}
+
+export function validateEvaluationRunV2(
+  value: unknown,
+): value is EvaluationRunV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/evaluation-run/v2", value).ok;
+}
+
+export function validateEvaluationResultV2(
+  value: unknown,
+): value is EvaluationResultV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/evaluation-result/v2", value).ok;
 }
 
 export function validateModelSwapContinuityReportV1(

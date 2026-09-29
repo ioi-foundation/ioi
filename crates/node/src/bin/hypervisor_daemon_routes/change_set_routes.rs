@@ -20,9 +20,10 @@
 //! supplies, its tip (current revision and head), its draft validation (admission's own checks)
 //! and its merge (admission itself). Change-set v2 (R-240 journey WP-C2) carries two kinds:
 //! `data_recipe` (the Pipeline Builder's drafts) and `blueprint` (a Studio blueprint, merged by its
-//! own compare-and-swap PATCH). v2 also reserves `basis_refs`, the evidence a change is proposed
-//! on; no basis is admitted until one resolves through its own reader. Every change set opened is
-//! v2; a v1 record keeps reading and takes its remaining transitions as v1.
+//! own compare-and-swap PATCH). v2 also carries `basis_refs`, the evidence a change is proposed on:
+//! admitted evaluation results, each resolved at open through the evaluation plane's published
+//! reader as the caller (R-240 journey WP-D); an unresolvable ref is refused by name. Every change
+//! set opened is v2; a v1 record keeps reading and takes its remaining transitions as v1.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -479,19 +480,70 @@ fn transition(
     Ok((commit, record))
 }
 
-/// `basis_refs` is reserved (change-set v2): a basis is admitted only once the daemon resolves it
-/// through that evidence's own reader, which this build does not consult yet — so an absent, null
-/// or empty basis opens, and any basis at all is refused by name rather than recorded unresolved.
-fn reserved_basis(body: &Value) -> Result<(), Reply> {
-    match body.get("basis_refs") {
-        None | Some(Value::Null) => Ok(()),
-        Some(Value::Array(refs)) if refs.is_empty() => Ok(()),
-        Some(_) => Err(bad(
+/// The most evidence one change set is proposed on (the v2 contract's bound).
+const MAX_BASIS: usize = 16;
+
+/// `basis_refs` (change-set v2, R-240 journey WP-D): the evidence a change is proposed on. One kind
+/// resolves today — an admitted evaluation result (`evaluation-result://…`), read through the
+/// evaluation plane's own published reader AS THE CALLER, so a result the caller cannot read is as
+/// unresolvable as one that does not exist. Absent, null or empty opens with no basis; a basis that
+/// is not a list, names a ref twice, runs past the bound, is another kind of ref, or does not resolve
+/// is refused `change_set_basis_unresolvable`, naming the ref, before anything is written. The basis
+/// is evidence, never authority: the subject's own admission still decides the merge.
+fn resolved_basis(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    body: &Value,
+) -> Result<Vec<String>, Reply> {
+    let refuse = |message: String| {
+        bad(
             StatusCode::UNPROCESSABLE_ENTITY,
             "change_set_basis_unresolvable",
-            "a change set's basis is admitted only once it resolves through its own reader (an evaluation result through the evaluation plane), which this build does not consult yet; open the change set with no basis",
-        )),
+            message,
+        )
+    };
+    let refs = match body.get("basis_refs") {
+        None | Some(Value::Null) => return Ok(Vec::new()),
+        Some(Value::Array(refs)) => refs,
+        Some(_) => {
+            return Err(refuse(
+                "basis_refs is a list of evidence refs (evaluation-result://…)".into(),
+            ))
+        }
+    };
+    if refs.len() > MAX_BASIS {
+        return Err(refuse(format!(
+            "a change set is proposed on at most {MAX_BASIS} pieces of evidence"
+        )));
     }
+    let mut resolved: Vec<String> = Vec::new();
+    for item in refs {
+        let Some(reference) = item.as_str().map(str::trim).filter(|r| !r.is_empty()) else {
+            return Err(refuse("each basis ref is a non-empty string".into()));
+        };
+        let shown: String = reference.chars().take(160).collect();
+        if resolved.iter().any(|seen| seen == reference) {
+            return Err(refuse(format!("{shown} is named twice; each basis ref is named once")));
+        }
+        if !reference.starts_with("evaluation-result://") {
+            return Err(refuse(format!(
+                "{shown} is not an evaluation result; a change set's basis is an admitted evaluation result (evaluation-result://…), and no other evidence resolves as a basis yet"
+            )));
+        }
+        if let Err((_, Json(error))) =
+            super::evaluation_routes::resolve_result_record(st, identity, reference)
+        {
+            let inner = error
+                .pointer("/error/code")
+                .and_then(Value::as_str)
+                .unwrap_or("unresolvable");
+            return Err(refuse(format!(
+                "{shown} does not resolve to an evaluation result you can read ({inner}); nothing was opened"
+            )));
+        }
+        resolved.push(reference.to_string());
+    }
+    Ok(resolved)
 }
 
 /// POST /v1/hypervisor/change-sets — open a change set over one subject, pinned to its current head
@@ -510,9 +562,10 @@ pub(crate) async fn handle_change_set_open(
     let Some(subject) = subject_kind(kind) else {
         return unsupported_kind();
     };
-    if let Err(response) = reserved_basis(&body) {
-        return response;
-    }
+    let basis_refs = match resolved_basis(&st, &caller.identity, &body) {
+        Ok(basis_refs) => basis_refs,
+        Err(response) => return response,
+    };
     let family = text(requested, "family").to_string();
     let tip = match (subject.tip)(&st, &caller, &family) {
         Ok(tip) => tip,
@@ -574,7 +627,7 @@ pub(crate) async fn handle_change_set_open(
         "subject": { "kind": subject.kind, "family_ref": format!("{}{family}", subject.ref_prefix), "base_revision_ref": base_revision_ref, "base_head_ref": base_head_ref },
         "title": title,
         "description": description,
-        "basis_refs": [],
+        "basis_refs": basis_refs,
         "drafts": drafts,
         "status": "open",
         "validation": Value::Null,
@@ -597,7 +650,7 @@ pub(crate) async fn handle_change_set_open(
         &change_set_ref,
         "change_set.open",
         None,
-        &json!({ "change_set_ref": change_set_ref, "subject": record["subject"], "title": record["title"], "draft_count": record["drafts"].as_array().map_or(0, Vec::len) }),
+        &json!({ "change_set_ref": change_set_ref, "subject": record["subject"], "title": record["title"], "basis_refs": record["basis_refs"], "draft_count": record["drafts"].as_array().map_or(0, Vec::len) }),
     ) {
         Ok(commit) => commit,
         Err(response) => return response,
@@ -1272,12 +1325,6 @@ mod tests {
             CONTRACT_V1
         );
         assert_eq!(contract_of(&json!({ "schema_version": SCHEMA })), CONTRACT);
-        assert!(reserved_basis(&json!({})).is_ok());
-        assert!(reserved_basis(&json!({ "basis_refs": null })).is_ok());
-        assert!(reserved_basis(&json!({ "basis_refs": [] })).is_ok());
-        let refused = reserved_basis(&json!({ "basis_refs": ["evaluation-result://er_1"] }))
-            .expect_err("a basis nothing resolves is refused");
-        assert_eq!(code_of(&refused), "change_set_basis_unresolvable");
     }
 
     // ---- the plane end to end, on a daemon state of its own ----------------------------------
@@ -1564,6 +1611,62 @@ mod tests {
             read_record_dir(&p.st.data_dir, KIND).is_empty(),
             "nothing was opened"
         );
+    }
+
+    /// A change set is proposed on evidence the caller can read: admitted evaluation results — a v2
+    /// one that measured a System and a v1 one alike — resolve through the evaluation plane's own
+    /// reader and are recorded, in order, on the record and in the open operation's payload. A result
+    /// nobody admitted, one another person's tenant holds, another kind of ref, a ref named twice, a
+    /// basis past the bound, a non-list and a non-string are each refused by name before anything is
+    /// written.
+    #[tokio::test]
+    async fn a_change_set_is_opened_on_evaluation_results_the_caller_can_read() {
+        use super::super::evaluation_routes::tests::{plant_result, stranger};
+        let p = plane();
+        let bp = p.blueprint("bp-basis-evidence").await;
+        let measured = plant_result(&p.st, &p.headers, OWNER, "acme.lending-001", Some("system://acme/lending"), false);
+        let legacy = plant_result(&p.st, &p.headers, OWNER, "acme.legacy-001", None, true);
+        let elsewhere = stranger(&p.st.data_dir, "stranger", "org://elsewhere");
+        let foreign = plant_result(&p.st, &elsewhere, "org://elsewhere", "acme.foreign-001", None, false);
+        let open = |key: &str, basis: Value| {
+            handle_change_set_open(
+                State(p.st.clone()),
+                p.headers.clone(),
+                Json(json!({ "owner_ref": OWNER, "idempotency_key": key, "subject": { "kind": "blueprint", "family": bp }, "title": "t", "basis_refs": basis })),
+            )
+        };
+        let refusals = [
+            ("cs-basis-absent", json!(["evaluation-result://acme.nowhere-001"])),
+            ("cs-basis-foreign", json!([foreign])),
+            ("cs-basis-kind", json!(["receipt://acme/lending/decision"])),
+            ("cs-basis-twice", json!([measured, measured])),
+            ("cs-basis-bound", json!((0..17).map(|n| format!("evaluation-result://acme.r-{n}")).collect::<Vec<_>>())),
+            ("cs-basis-list", json!(measured)),
+            ("cs-basis-string", json!([7])),
+        ];
+        for (key, basis) in refusals {
+            let refused = open(key, basis.clone()).await;
+            assert_eq!(
+                (refused.0, code_of(&refused)),
+                (StatusCode::UNPROCESSABLE_ENTITY, "change_set_basis_unresolvable".to_string()),
+                "{key} {basis}"
+            );
+        }
+        assert!(
+            read_record_dir(&p.st.data_dir, KIND).is_empty(),
+            "no refused basis opened anything"
+        );
+        let (status, Json(opened)) = open("cs-basis-ok", json!([measured, legacy])).await;
+        assert_eq!(status, StatusCode::CREATED, "{opened}");
+        let cs = &opened["change_set"];
+        assert_eq!(cs["basis_refs"], json!([measured, legacy]));
+        validate(CONTRACT, "change set", cs).expect("a v2 record with its basis");
+        let id = cs["change_set_ref"].as_str().unwrap().trim_start_matches("change://").to_string();
+        assert_eq!(load(&p.st.data_dir, &id).unwrap()["basis_refs"], json!([measured, legacy]));
+        // Replaying the same key answers the change set it opened, basis and all.
+        let (status, Json(replayed)) = open("cs-basis-ok", json!([measured, legacy])).await;
+        assert_eq!(status, StatusCode::OK, "{replayed}");
+        assert_eq!(replayed["change_set"]["basis_refs"], json!([measured, legacy]));
     }
 
     /// Every change set opened is v2 — a data recipe's too — and a v1 record keeps reading and takes

@@ -56,6 +56,7 @@ import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, 
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 import { handleOperationsHealth } from "./operations-health.mjs";
 import { handleOperationsTelemetry } from "./operations-telemetry.mjs";
+import { handleGovernedEvaluationAction, readGovernedEvaluations, renderGovernedEvaluations, GOVERNED_LANE as GOVERNED_EVALUATIONS_LANE } from "./evaluations-governed.mjs";
 import { handleGovernanceLimits } from "./governance-limits.mjs";
 import { handleOntologyFunctions } from "./ontology-functions.mjs";
 import * as AUTOMATE from "./adopted-automate.mjs";
@@ -1442,7 +1443,7 @@ function renderFeedbackQueue(ov, entries, flash, subjects = []) {
 // draft specs as adjacent inputs. NOTHING is scored/executed here — EvalRun execution, verdicts,
 // judges, scorecards, auto-mining, the analysis/Quiver canvases, and promotion are NAMED GAPS.
 // Naming: Evaluations is the owner surface; /__ioi/feedback stays a compatibility sublane.
-function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedbackOv, flash) {
+function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedbackOv, flash, governedHtml = "") {
   const enc = encodeURIComponent;
   const list = Array.isArray(suites) ? suites : [];
   const ov = suiteOv || {};
@@ -1458,7 +1459,7 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
   const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
   const flashHtml = flash ? `<div class="card" style="display:block;border-color:#5c4a23"><b style="color:#d6a13a">Refused:</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">${CX_ESC(flash)}</span></div>` : "";
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Evaluations</h1><p class="sub" style="margin:4px 0 0">The eval-suite library — declared assessment suites over real subjects, evidence, and consent, as a table/list over IOI daemon truth. A suite declares WHAT it would assess and under WHAT admissibility; <b>nothing scores or executes here</b>. The <a href="/__ioi/evaluations/evalsuites">AIP Evals landing →</a> is the certified reference-faithful shell over this same plane (#54). Reference grammar: <a href="/__apps/evalsuites">Eval-suite library ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/feedback">Feedback &amp; annotations</a><a class="act ghost" href="/__ioi/work-ledger">Proof stream</a></div></div>`;
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Evaluations</h1><p class="sub" style="margin:4px 0 0">The eval-suite library — declared assessment suites over real subjects, evidence, and consent, as a table/list over IOI daemon truth. A suite declares WHAT it would assess and under WHAT admissibility; below the library, the <a href="#governed-evaluations">governed evaluation plane</a> freezes a suite into a released revision, keeps what judges as evaluators with a validity lifecycle, and lists the runs and scorecards admitted against them. <b>Nothing scores or executes here</b>: a scorecard is its evaluator's, admitted under a frozen epoch. The <a href="/__ioi/evaluations/evalsuites">AIP Evals landing →</a> is the certified reference-faithful shell over this same plane (#54). Reference grammar: <a href="/__apps/evalsuites">Eval-suite library ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/feedback">Feedback &amp; annotations</a><a class="act ghost" href="/__ioi/work-ledger">Proof stream</a></div></div>`;
 
   const banner = `<div class="row" style="gap:10px;align-items:stretch;margin:12px 0 14px;flex-wrap:wrap">${[
     ["Suites", list.length, false], ["Declared", byHealth.declared || list.filter((s) => s.health === "declared").length, false], ["Empty", byHealth.empty || list.filter((s) => s.health === "empty").length, false], ["Subjects in scope", missionRuns.length + failedRuns.length + blockers.length, false],
@@ -1512,9 +1513,9 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
     + `<p class="sub" style="margin:0 0 6px">Candidate evidence is minted in <a href="/__ioi/feedback">Feedback &amp; annotations</a> (${fbTotal} entr${fbTotal === 1 ? "y" : "ies"}) — converting an entry emits a named <code>eval://</code> handoff, gated on consent. This suite library only <b>references</b> those candidates; it never trains or scores.</p>`
     + (drafts.length ? `<div class="chips" style="margin:6px 0 0"><span class="chiplabel">Foundry model_eval drafts</span>${drafts.slice(0, 8).map((d) => `<span class="pill muted" style="margin:0" title="adjacent draft input — not eval execution">${CX_ESC(d.name || d.id || d.spec_id || "spec")}</span>`).join(" ")}</div>` : "");
 
-  const gaps = omBoundaryNote(`Supported here is real daemon truth: the inert eval-suite declaration + real subjects + consent gate + candidate references. <b>Named gaps</b> (no authority contract yet, deliberately not built): EvalRun execution · scoring / verdicts · judge / model evaluation · scorecards · auto-mining failed runs into evals · the object-set analysis canvas (<a href="/__apps/analysis">analysis seed</a>) · Quiver time-series analysis (<a href="/__apps/quiver">quiver seed</a>) · promotion decisions. The <a href="/__apps/evalsuites">eval-suite reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+  const gaps = omBoundaryNote(`Supported here is real daemon truth: the inert eval-suite declaration + real subjects + consent gate + candidate references, and the governed evaluation plane — evaluators and their validity lifecycle, library suites frozen into released revisions, and the admitted runs and scorecards (read). <b>Named gaps</b> (deliberately not built): EvalRun execution (nothing here executes an agent or a verifier cell) · scoring / verdicts computed by an executing scorer (a scorecard is admitted by a Judgment; the daemon derives only its verdict floor) · judge / model evaluation runs · admitting a run or its scorecards from this page (it needs an active epoch and a current policy-bound data-view revision) · auto-mining failed runs into evals · the object-set analysis canvas (<a href="/__apps/analysis">analysis seed</a>) · Quiver time-series analysis (<a href="/__apps/quiver">quiver seed</a>) · promotion decisions. The <a href="/__apps/evalsuites">eval-suite reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
 
-  return automationsShell("Evaluations", head + flashHtml + banner + form + library + subjectsPane + consentPane + gaps);
+  return automationsShell("Evaluations", head + flashHtml + banner + form + library + governedHtml + subjectsPane + consentPane + gaps);
 }
 
 // ---- Search (67-search graft) — typed cross-estate discovery with open-action handoffs.
@@ -15256,16 +15257,22 @@ async function handleEstateRequest(req, res, body) {
     }
     // ---- Evaluations — owner surface for the Evaluations family (eval-suite library). Renders the
     // inert eval-suite contract + real assessment subjects (Missions) + consent ladder + Foundry
-    // model_eval drafts. Declaration-only; nothing scores/executes. /__ioi/feedback stays a sublane.
+    // model_eval drafts, and BELOW the library the governed evaluation plane rebound in place
+    // (R-240 journey WP-D, evaluations-governed.mjs): evaluators, frozen suite revisions, runs and
+    // scorecards, read and written as the caller. /__ioi/feedback stays a sublane.
+    if (pathname.startsWith(`${GOVERNED_EVALUATIONS_LANE}/`) && req.method === "POST"
+      && await handleGovernedEvaluationAction(req, res, pathname, body, { daemonFetch })) return;
     if (pathname === "/__ioi/evaluations" && req.method === "GET") {
-      const flash = new URL(req.url, "http://x").searchParams.get("refused") || "";
-      const [suitesRes, ovRes, opsRes, wrRes, foundryRes, fbOvRes] = await Promise.all([
+      const query = new URL(req.url, "http://x").searchParams;
+      const flash = [query.get("refused"), query.get("reason")].filter(Boolean).join(": ");
+      const [suitesRes, ovRes, opsRes, wrRes, foundryRes, fbOvRes, governed] = await Promise.all([
         daemonFetch(`/v1/hypervisor/eval-suites`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/eval-suites/overview`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/work-results`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/foundry/specs`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
+        readGovernedEvaluations(daemonFetch),
       ]);
       const runs = (opsRes.runs) || {};
       const subjects = {
@@ -15277,7 +15284,8 @@ async function handleEstateRequest(req, res, body) {
       };
       const foundryEvalSpecs = (foundryRes.specs || foundryRes.model_specs || []).filter((s) => /eval/i.test(s.kind || s.spec_kind || s.intent || s.spec_type || ""));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderEvaluations(suitesRes.eval_suites || [], ovRes, subjects, foundryEvalSpecs, fbOvRes, flash));
+      res.end(renderEvaluations(suitesRes.eval_suites || [], ovRes, subjects, foundryEvalSpecs, fbOvRes, flash,
+        renderGovernedEvaluations(governed, suitesRes.eval_suites || [], query)));
       return;
     }
     if (pathname === "/__ioi/evaluations" && req.method === "POST") {

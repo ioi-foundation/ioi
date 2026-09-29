@@ -680,7 +680,7 @@ ChangeSetEnvelope:
     family_ref: data-recipe://<family> | blueprint://bp_<hex>
     base_revision_ref: data-recipe://<family>/revision/<n> | sha256:<hex> | null
     base_head_ref: string | null
-  basis_refs: []                             # reserved: the evidence a change is proposed on
+  basis_refs: [evaluation-result://<family>] # the evidence a change is proposed on, each resolved by the daemon
   merge: { ..., resulting_revision_ref: data-recipe://<family>/revision/<n> | sha256:<hex>, ... } | null
   # every other member exactly as v1
 ```
@@ -707,9 +707,16 @@ ChangeSetEnvelope:
   refused `change_set_base_moved` before admission and by the blueprint's own
   compare-and-swap after it. The merge names the resulting content hash and
   the blueprint's new admitted head.
-- **`basis_refs` is reserved.** A change is proposed on evidence — an
-  evaluation result, for one. The daemon admits a basis only when it can
-  resolve it through that evidence's own reader, which it does not yet; until
-  then any basis is refused `change_set_basis_unresolvable`, and every record
-  carries an empty list (the journey names this
-  `change_set_evaluation_basis_absent`).
+- **`basis_refs` is the evidence a change is proposed on.** Today one kind of
+  evidence is a basis: an admitted evaluation result
+  (`evaluation-result://<family>`, [`evaluations.md`](../../components/hypervisor/evaluations.md)
+  § Registered Shapes). At open the daemon resolves every ref through the
+  evaluation plane's own published reader, AS THE CALLER — so a result the
+  caller cannot read is as unresolvable as one that does not exist — and
+  refuses any ref that does not resolve, or any other kind of ref,
+  `change_set_basis_unresolvable`, naming the ref, before anything is written.
+  At most 16 distinct refs; the open operation's payload commits to them. A
+  result that measured a System (`system_ref`) may be the basis of a change to
+  any subject its caller may change: the basis is evidence, never authority,
+  and the subject's own admission still decides the merge (R-240 journey WP-D,
+  2026-09-29).

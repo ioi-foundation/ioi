@@ -17,7 +17,9 @@
 //!   * `EvaluationRun` — one ADMITTED execution against a frozen AND active epoch: the epoch's frozen
 //!     roots are COPIED and re-derived (a caller-supplied root is refused), the suite revision must
 //!     be released, the evaluator active, the policy-bound data-view revision current, every
-//!     execution evidence ref resolved through its owner, and Search is never a submitter.
+//!     execution evidence ref resolved through its owner, and Search is never a submitter. v2
+//!     (R-240 journey WP-D) names the System the run measured (`system_ref`) — one in the
+//!     submitter's own Systems inventory, or none — and a result copies its run's.
 //!   * `EvaluationResult` — the immutable observation and its interpretation (the scorecard) as one
 //!     record, with a DERIVED verdict floor: a missing required lane is at most `inconclusive`; an
 //!     inactive evaluator, an unknown case or undeclared nondeterminism is `invalid`; exhausted
@@ -31,6 +33,11 @@
 //!     deltas and the threshold verdict from the declared equivalence envelope. It grants no
 //!     authority.
 //!
+//! GENERATIONS. Every run and result is admitted as v2; a v1 record keeps reading as v1 (its registered
+//! successor keeps the predecessor valid). This module's stream readers pick the generation by the
+//! record's own `schema_version`, so every reader here — and the published readers other planes call
+//! (a campaign's nomination, a verified-unlearning claim, a change set's basis) — reads both.
+//!
 //! THE LAYER LAW. Evaluations is a Hypervisor component; this module imports nothing from the
 //! ioi.ai goal-orchestration application, and the gate asserts so. `VerifierChallenge` (a
 //! challenge against a Finding) is the application's family and is not this plane's challenge.
@@ -38,7 +45,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
@@ -49,13 +56,14 @@ use super::improvement_campaign_routes::{
 };
 use super::institutional_learning_boundary_routes::resolve_admitted_boundary_profile;
 use super::model_route_rights_routes::{
-    authorized_stream, bad, body_str, digest_over, family_token, finish_admission, head_assertion,
-    parse_revision_ref, read_stream, reject_authored, replay_for_key, require_exact_head,
-    AdmittedRecord, FamilySpec, Reply,
+    bad, body_str, digest_over, family_token, finish_admission, head_assertion, parse_revision_ref,
+    project_admitted, reject_authored, replay_for_key, require_exact_head, AdmittedRecord,
+    FamilySpec, Reply,
 };
 use super::model_routes::{canonical_value_hash, load_route_record};
 use super::mutation_event_foundation::{
-    admitted_stamp, require_write_caller, scope_refusal_reply, WriteCaller,
+    admitted_stamp, mutation_refusal_reply, read_owner_scoped_history, require_write_caller,
+    scope_refusal_reply, stream_tail, WriteCaller,
 };
 use super::policy_bound_data_view_revision_routes::resolve_admitted_policy_bound_data_view;
 use super::substrate_store::{
@@ -240,7 +248,8 @@ static EVALUATOR: FamilySpec = FamilySpec {
     stamp_field: "admitted_at",
 };
 
-const RUN_MATERIAL: &[&str] = &[
+/// v1's commitment: every member but the hash and the stamp. v1 records keep reading under it.
+const RUN_MATERIAL_V1: &[&str] = &[
     "schema_version",
     "evaluation_run_id",
     "owner_ref",
@@ -261,13 +270,39 @@ const RUN_MATERIAL: &[&str] = &[
     "cost_unit",
 ];
 
+/// v2 (R-240 journey WP-D): v1's members and `system_ref`, the System the run measured, inside the
+/// commitment.
+const RUN_MATERIAL: &[&str] = &[
+    "schema_version",
+    "evaluation_run_id",
+    "owner_ref",
+    "system_ref",
+    "evaluation_epoch_ref",
+    "epoch_frozen_root",
+    "suite_revision_ref",
+    "evaluator_revision_ref",
+    "lane",
+    "incumbent_ref",
+    "incumbent_root",
+    "target_base_root",
+    "execution_evidence_refs",
+    "policy_bound_data_view_revision_ref",
+    "nondeterminism_class",
+    "seed",
+    "submitter_role",
+    "cost_units",
+    "cost_unit",
+];
+
+/// Every run admitted is v2. The admission envelope (op, payload schema, record key) is unchanged:
+/// a stream holds one run, and its record's own `schema_version` says which generation reads it.
 static RUN: FamilySpec = FamilySpec {
     owner_namespace: "evaluation-runs",
     resource_kind: "evaluation_run",
     admit_op: "event_stream.evaluation_run_admitted",
     payload_schema: "ioi.hypervisor.evaluation-run-admission.v1",
-    contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
-    schema_version: "ioi.evaluation-run.v1",
+    contract_id: "schema://ioi/components/hypervisor/evaluation-run/v2",
+    schema_version: "ioi.evaluation-run.v2",
     record_key: "evaluation_run_record",
     code_prefix: "evaluation_run",
     commitment_domain: RUN_DOMAIN,
@@ -277,7 +312,25 @@ static RUN: FamilySpec = FamilySpec {
     stamp_field: "admitted_at",
 };
 
-const RESULT_MATERIAL: &[&str] = &[
+/// The predecessor generation, READ ONLY: its registered successor keeps it valid.
+static RUN_V1: FamilySpec = FamilySpec {
+    owner_namespace: "evaluation-runs",
+    resource_kind: "evaluation_run",
+    admit_op: "event_stream.evaluation_run_admitted",
+    payload_schema: "ioi.hypervisor.evaluation-run-admission.v1",
+    contract_id: "schema://ioi/components/hypervisor/evaluation-run/v1",
+    schema_version: "ioi.evaluation-run.v1",
+    record_key: "evaluation_run_record",
+    code_prefix: "evaluation_run",
+    commitment_domain: RUN_DOMAIN,
+    material_fields: RUN_MATERIAL_V1,
+    identity_field: "evaluation_run_id",
+    ref_scheme: "evaluation-run://",
+    stamp_field: "admitted_at",
+};
+
+/// v1's commitment for a result. v1 records keep reading under it.
+const RESULT_MATERIAL_V1: &[&str] = &[
     "schema_version",
     "evaluation_result_id",
     "owner_ref",
@@ -300,7 +353,50 @@ const RESULT_MATERIAL: &[&str] = &[
     "exposure_entry_ref",
 ];
 
+/// v2: v1's members and `system_ref`, copied from the result's run, inside the commitment.
+const RESULT_MATERIAL: &[&str] = &[
+    "schema_version",
+    "evaluation_result_id",
+    "owner_ref",
+    "system_ref",
+    "evaluation_run_ref",
+    "evaluation_epoch_ref",
+    "epoch_frozen_root",
+    "suite_revision_ref",
+    "evaluator_revision_ref",
+    "lane",
+    "observations",
+    "verdict",
+    "verdict_basis",
+    "uncertainty",
+    "guardrail_findings",
+    "applicability_scope",
+    "cost_units",
+    "cost_unit",
+    "failures",
+    "evaluator_versions",
+    "exposure_entry_ref",
+];
+
+/// Every result admitted is v2.
 static RESULT: FamilySpec = FamilySpec {
+    owner_namespace: "evaluation-results",
+    resource_kind: "evaluation_result",
+    admit_op: "event_stream.evaluation_result_admitted",
+    payload_schema: "ioi.hypervisor.evaluation-result-admission.v1",
+    contract_id: "schema://ioi/components/hypervisor/evaluation-result/v2",
+    schema_version: "ioi.evaluation-result.v2",
+    record_key: "evaluation_result_record",
+    code_prefix: "evaluation_result",
+    commitment_domain: RESULT_DOMAIN,
+    material_fields: RESULT_MATERIAL,
+    identity_field: "evaluation_result_id",
+    ref_scheme: "evaluation-result://",
+    stamp_field: "admitted_at",
+};
+
+/// The predecessor generation, READ ONLY.
+static RESULT_V1: FamilySpec = FamilySpec {
     owner_namespace: "evaluation-results",
     resource_kind: "evaluation_result",
     admit_op: "event_stream.evaluation_result_admitted",
@@ -310,11 +406,83 @@ static RESULT: FamilySpec = FamilySpec {
     record_key: "evaluation_result_record",
     code_prefix: "evaluation_result",
     commitment_domain: RESULT_DOMAIN,
-    material_fields: RESULT_MATERIAL,
+    material_fields: RESULT_MATERIAL_V1,
     identity_field: "evaluation_result_id",
     ref_scheme: "evaluation-result://",
     stamp_field: "admitted_at",
 };
+
+/// The generation that projects a record of `version` in `spec`'s family: the newest (`spec`), or the
+/// predecessor its registered successor keeps valid. A run or result stream holds one record, and that
+/// record's own `schema_version` picks the generation that reads it — and the contract it is validated
+/// against; every admission is written under the newest. The other families have one generation.
+fn generation_for<'a>(spec: &'a FamilySpec, version: Option<&str>) -> &'a FamilySpec {
+    let predecessor: Option<&'static FamilySpec> = if std::ptr::eq(spec, &RUN) {
+        Some(&RUN_V1)
+    } else if std::ptr::eq(spec, &RESULT) {
+        Some(&RESULT_V1)
+    } else {
+        None
+    };
+    match predecessor {
+        Some(older) if version == Some(older.schema_version) => older,
+        _ => spec,
+    }
+}
+
+/// THIS MODULE'S STREAM READERS: the shared chain machinery's, generation-aware. They shadow the
+/// shared `read_stream` / `authorized_stream` on purpose, so every read here — the write context,
+/// the family GETs, the inventories and the published readers other planes call — reads a v1 run or
+/// result as v1 and a v2 one as v2, each re-derived and contract-validated by its own generation.
+fn read_stream(
+    spec: &FamilySpec,
+    data_dir: &str,
+    identity: &RequestIdentity,
+    scope: &RequestResourceScope,
+    resource: &str,
+) -> Result<Vec<AdmittedRecord>, Reply> {
+    let history = read_owner_scoped_history(
+        data_dir,
+        identity,
+        scope,
+        spec.resource_kind,
+        resource,
+        spec.owner_namespace,
+        &stream_tail(spec.resource_kind, resource),
+    )
+    .map_err(mutation_refusal_reply)?;
+    history
+        .iter()
+        .map(|entry| {
+            let version = entry
+                .operation
+                .payload
+                .get(spec.record_key)
+                .and_then(|record| record.get("schema_version"))
+                .and_then(Value::as_str);
+            project_admitted(generation_for(spec, version), entry)
+        })
+        .collect::<Result<Vec<_>, String>>()
+        .map_err(|reason| {
+            bad(
+                StatusCode::BAD_GATEWAY,
+                &spec.code("projection_failed"),
+                reason,
+            )
+        })
+}
+
+fn authorized_stream(
+    spec: &FamilySpec,
+    data_dir: &str,
+    identity: &RequestIdentity,
+    resource: &str,
+) -> Result<Vec<AdmittedRecord>, Reply> {
+    let scope =
+        authorize_request_resource_scope(data_dir, identity, spec.resource_kind, resource, None)
+            .map_err(scope_refusal_reply)?;
+    read_stream(spec, data_dir, identity, &scope, resource)
+}
 
 const REPORT_MATERIAL: &[&str] = &[
     "schema_version",
@@ -580,7 +748,18 @@ fn read_family(
 
 /// The refs of every resource of a family that HOLDS an admission. A scope pinned by a genesis
 /// whose validation then refused is not a record and is not listed.
-fn inventory(st: &DaemonState, headers: &HeaderMap, spec: &'static FamilySpec, key: &str) -> Reply {
+///
+/// Beside the refs, `records` carries each held resource as a product surface reads it (R-240
+/// journey WP-D): its ref, its admitted head (what a successor names), its current record and, for a
+/// revisioned family, each revision at its current record. `system_ref` narrows a run or result
+/// inventory to the resources whose current record measured that System; the refs narrow with it.
+fn inventory(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    spec: &'static FamilySpec,
+    key: &str,
+    system_ref: Option<&str>,
+) -> Reply {
     let identity = match resolve_request_identity(&st.data_dir, headers) {
         Ok(identity) => identity,
         Err(error) => return scope_refusal_reply(error),
@@ -590,14 +769,46 @@ fn inventory(st: &DaemonState, headers: &HeaderMap, spec: &'static FamilySpec, k
         Err(error) => return scope_refusal_reply(error),
     };
     let mut held = Vec::new();
+    let mut records = Vec::new();
     for resource in refs {
         match authorized_stream(spec, &st.data_dir, &identity, &resource) {
-            Ok(stream) if !stream.is_empty() => held.push(resource),
-            Ok(_) => {}
+            Ok(stream) => {
+                let Some(last) = stream.last() else { continue };
+                if let Some(wanted) = system_ref {
+                    if last.record.get("system_ref").and_then(Value::as_str) != Some(wanted) {
+                        continue;
+                    }
+                }
+                records.push(json!({
+                    "ref": resource,
+                    "head": last.head,
+                    "current": last.record,
+                    "revisions": revisions(&stream).into_iter().map(|(_, record)| record).collect::<Vec<_>>(),
+                }));
+                held.push(resource);
+            }
             Err(response) => return response,
         }
     }
-    (StatusCode::OK, Json(json!({ "ok": true, key: held })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, key: held, "records": records })),
+    )
+}
+
+/// `?system_ref=` on a run or result inventory: the System whose evaluations are asked for.
+#[derive(Debug, Default, serde::Deserialize)]
+pub(crate) struct EvaluationQuery {
+    system_ref: Option<String>,
+}
+
+impl EvaluationQuery {
+    fn system_ref(&self) -> Option<&str> {
+        self.system_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    }
 }
 
 fn family_resource(spec: &FamilySpec, family: &str) -> Result<String, Reply> {
@@ -1106,7 +1317,7 @@ pub(crate) async fn handle_suite_query(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
 ) -> Reply {
-    inventory(&st, &headers, &SUITE, "evaluation_suites")
+    inventory(&st, &headers, &SUITE, "evaluation_suites", None)
 }
 
 pub(crate) async fn handle_suite_get(
@@ -1531,7 +1742,7 @@ pub(crate) async fn handle_evaluator_query(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
 ) -> Reply {
-    inventory(&st, &headers, &EVALUATOR, "evaluators")
+    inventory(&st, &headers, &EVALUATOR, "evaluators", None)
 }
 
 pub(crate) async fn handle_evaluator_get(
@@ -1651,6 +1862,7 @@ const RUN_REQUEST_FIELDS: &[&str] = &[
     "expected_revision_ref",
     "expected_epoch_frozen_root",
     "family",
+    "system_ref",
     "evaluation_epoch_ref",
     "suite_revision_ref",
     "evaluator_revision_ref",
@@ -1820,6 +2032,58 @@ pub(crate) fn resolve_evaluator_kind(
 ) -> Result<String, Reply> {
     let record = resolve_evaluator_revision(st, identity, revision_ref)?;
     Ok(text(&record, "evaluator_kind"))
+}
+
+/// The longest `system://` ref a run may name (the v2 contract's bound).
+const SYSTEM_REF_MAX: usize = 320;
+
+/// The System a run measured (v2, R-240 journey WP-D): none when the body names none; else a
+/// `system://` ref to a System in the SUBMITTING caller's own Systems inventory — the Systems
+/// projection's row policy, the same rule an automation or a blueprint binds a System under. An
+/// evaluation reads a System in any lifecycle state (an acceptance run may precede activation), so it
+/// need not be active. `in_inventory` answers for one System id; a substrate that cannot answer is
+/// its own refusal, never a guess.
+fn run_system(
+    body: &Value,
+    in_inventory: impl Fn(&str) -> Result<bool, (String, String)>,
+) -> Result<Option<String>, Reply> {
+    let named = match body.get("system_ref") {
+        None | Some(Value::Null) => return Ok(None),
+        Some(Value::String(named)) if named.trim().is_empty() => return Ok(None),
+        Some(Value::String(named)) => named.trim(),
+        Some(_) => {
+            return Err(bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                &RUN.code("system_ref_invalid"),
+                "system_ref names one System as system://… (or is absent or null)",
+            ))
+        }
+    };
+    let shown: String = named.chars().take(160).collect();
+    if !named.starts_with("system://")
+        || named.len() <= "system://".len()
+        || named.len() > SYSTEM_REF_MAX
+        || named.chars().any(char::is_whitespace)
+    {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &RUN.code("system_ref_invalid"),
+            format!("system_ref {shown:?} is not a system:// ref of at most {SYSTEM_REF_MAX} characters"),
+        ));
+    }
+    match in_inventory(named) {
+        Ok(true) => Ok(Some(named.to_string())),
+        Ok(false) => Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &RUN.code("system_unknown"),
+            format!("system_ref {shown:?} is not a System in your inventory; a run names only a System its submitter can see"),
+        )),
+        Err((code, message)) => Err(bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            &RUN.code("system_unreadable"),
+            format!("the System could not be read ({code}: {message}); nothing was admitted"),
+        )),
+    }
 }
 
 /// The epoch a run or report binds must be FROZEN AND ACTIVE. M10.1's codes are reused so a caller
@@ -2087,11 +2351,23 @@ pub(crate) async fn handle_run_admit(
             "cost_units is 0..=1000000000 and cost_unit is tokens | usd_micros | seconds | units",
         );
     }
+    // v2: the System this run measured — one in the submitter's own inventory, or none.
+    let system_ref = match run_system(&body, |system_id| {
+        super::system_projection_routes::system_in_inventory(
+            &st.data_dir,
+            &ctx.caller.identity,
+            system_id,
+        )
+    }) {
+        Ok(system_ref) => system_ref,
+        Err(response) => return response,
+    };
     let recorded_at_ms = now_ms();
     let record = json!({
         "schema_version": RUN.schema_version,
         "evaluation_run_id": ctx.resource,
         "owner_ref": ctx.caller.owner_ref,
+        "system_ref": system_ref,
         "evaluation_epoch_ref": text(&binding.epoch, "evaluation_epoch_id"),
         "epoch_frozen_root": frozen_root,
         "suite_revision_ref": suite_ref,
@@ -2124,11 +2400,13 @@ pub(crate) async fn handle_run_admit(
     )
 }
 
+/// GET /v1/hypervisor/evaluation-runs[?system_ref=] — the caller's runs; narrowed to one System's.
 pub(crate) async fn handle_run_query(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
+    Query(query): Query<EvaluationQuery>,
 ) -> Reply {
-    inventory(&st, &headers, &RUN, "evaluation_runs")
+    inventory(&st, &headers, &RUN, "evaluation_runs", query.system_ref())
 }
 
 pub(crate) async fn handle_run_get(
@@ -2176,6 +2454,7 @@ const RESULT_REQUEST_FIELDS: &[&str] = &[
 const RESULT_SERVER_RESOLVED: &[&str] = &[
     "schema_version",
     "evaluation_result_id",
+    "system_ref",
     "evaluation_run_ref",
     "evaluation_epoch_ref",
     "epoch_frozen_root",
@@ -2632,6 +2911,8 @@ pub(crate) async fn handle_result_admit(
         "schema_version": RESULT.schema_version,
         "evaluation_result_id": ctx.resource,
         "owner_ref": ctx.caller.owner_ref,
+        // v2: the System the run measured, COPIED from the run (a v1 run measured none).
+        "system_ref": run.get("system_ref").cloned().unwrap_or(Value::Null),
         "evaluation_run_ref": run_resource,
         "evaluation_epoch_ref": epoch_ref,
         "epoch_frozen_root": text(&run, "epoch_frozen_root"),
@@ -2666,11 +2947,14 @@ pub(crate) async fn handle_result_admit(
     )
 }
 
+/// GET /v1/hypervisor/evaluation-results[?system_ref=] — the caller's results; narrowed to the
+/// results whose run measured one System.
 pub(crate) async fn handle_result_query(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
+    Query(query): Query<EvaluationQuery>,
 ) -> Reply {
-    inventory(&st, &headers, &RESULT, "evaluation_results")
+    inventory(&st, &headers, &RESULT, "evaluation_results", query.system_ref())
 }
 
 pub(crate) async fn handle_result_get(
@@ -3242,7 +3526,7 @@ pub(crate) async fn handle_continuity_query(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
 ) -> Reply {
-    inventory(&st, &headers, &REPORT, "model_swap_continuity_reports")
+    inventory(&st, &headers, &REPORT, "model_swap_continuity_reports", None)
 }
 
 pub(crate) async fn handle_continuity_get(
@@ -3273,10 +3557,12 @@ pub(crate) async fn handle_continuity_get(
 // The driven gate (apps/hypervisor/scripts/verify-hypervisor-governed-evaluation-plane.mjs) takes
 // every branch a caller can reach. These cover the branches a caller CANNOT reach by construction —
 // the frozen-root guard on a transition, the floor's ordering, the diagram's closed edge set — and
-// the pure domain checks, so a later edit that opens or bends one fails here before it ships.
+// the pure domain checks, so a later edit that opens or bends one fails here before it ships. The
+// planted-result harness at the end is shared with the change-set plane's basis tests.
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+    use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 
     fn admitted(record: Value, head: &str) -> AdmittedRecord {
         AdmittedRecord {
@@ -3655,5 +3941,331 @@ mod tests {
             .iter()
             .all(|f| EVALUATOR_MATERIAL.contains(f)));
         assert!(!EVALUATOR_FROZEN.contains(&"validity_status"));
+    }
+
+    // ---- v2: the System an evaluation measured (R-240 journey WP-D) -------------------------------
+
+    fn fixture(text: &str) -> Value {
+        serde_json::from_str(text).expect("a registered fixture is JSON")
+    }
+
+    /// v2 is v1 plus ONE committed member, and the daemon's commitment is the registered one: the
+    /// contract's own fixtures re-derive here, v1's under v1 and v2's under v2, and a System edited
+    /// after the fact no longer matches the hash that committed to it.
+    #[test]
+    fn v2_commits_the_system_and_v1_keeps_its_own_commitment() {
+        for (v2, v1) in [(RUN_MATERIAL, RUN_MATERIAL_V1), (RESULT_MATERIAL, RESULT_MATERIAL_V1)] {
+            assert!(v2.contains(&"system_ref") && !v1.contains(&"system_ref"));
+            assert_eq!(v2.len(), v1.len() + 1);
+            assert!(v1.iter().all(|member| v2.contains(member)));
+        }
+        assert_eq!(RUN.schema_version, "ioi.evaluation-run.v2");
+        assert_eq!(RESULT.schema_version, "ioi.evaluation-result.v2");
+        assert_eq!(RUN_V1.schema_version, "ioi.evaluation-run.v1");
+        assert_eq!(RESULT_V1.schema_version, "ioi.evaluation-result.v1");
+        for (spec, text) in [
+            (&RUN, include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/positive-system-measured.json")),
+            (&RUN, include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/positive-no-system.json")),
+            (&RUN_V1, include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/evaluation-run-v1/positive-visible-deterministic.json")),
+            (&RESULT, include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/positive-system-measured.json")),
+            (&RESULT, include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/positive-no-system.json")),
+            (&RESULT_V1, include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/evaluation-result-v1/positive-visible-pass.json")),
+        ] {
+            let record = fixture(text);
+            assert_eq!(
+                spec.content_hash(&record).unwrap(),
+                text_of(&record, "content_hash"),
+                "{} {}",
+                spec.schema_version,
+                text_of(&record, spec.identity_field)
+            );
+            validate_architecture_contract(spec.contract_id, &record)
+                .expect("a registered positive fixture is registered-valid");
+            // The generation a record's own version picks is the one that re-derived it.
+            assert!(std::ptr::eq(
+                generation_for(if std::ptr::eq(spec, &RUN_V1) { &RUN } else if std::ptr::eq(spec, &RESULT_V1) { &RESULT } else { spec }, Some(spec.schema_version)),
+                spec
+            ));
+        }
+        for (spec, text) in [
+            (&RUN, include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/evaluation-run-v2/negative-system-ref-outside-the-commitment.json")),
+            (&RESULT, include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/evaluation-result-v2/negative-system-ref-outside-the-commitment.json")),
+        ] {
+            let record = fixture(text);
+            assert_ne!(spec.content_hash(&record).unwrap(), text_of(&record, "content_hash"));
+        }
+        // A family with one generation reads everything as itself; an unknown version is the
+        // newest's to refuse, never a silent fallback to an older commitment.
+        assert!(std::ptr::eq(generation_for(&SUITE, Some("ioi.evaluation-run.v1")), &SUITE));
+        assert!(std::ptr::eq(generation_for(&RUN, Some("ioi.evaluation-run.v9")), &RUN));
+        assert!(std::ptr::eq(generation_for(&RUN, None), &RUN));
+    }
+
+    fn text_of(value: &Value, key: &str) -> String {
+        value.get(key).and_then(Value::as_str).unwrap_or_default().to_string()
+    }
+
+    fn code_of_reply(reply: &Reply) -> (StatusCode, String) {
+        (
+            reply.0,
+            reply
+                .1
+                 .0
+                .pointer("/error/code")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        )
+    }
+
+    /// A run names only a System its submitter can see: absent, null or blank names none; a
+    /// `system://` ref the inventory holds is admitted verbatim (trimmed); one it does not hold, a ref in
+    /// another scheme, a ref with whitespace or past the bound, and a non-string are each refused by
+    /// name; a substrate that cannot answer refuses rather than guessing.
+    #[test]
+    fn a_run_names_only_a_system_in_its_submitters_inventory() {
+        let held = |id: &str| Ok::<bool, (String, String)>(id == "system://acme/lending");
+        for body in [json!({}), json!({ "system_ref": null }), json!({ "system_ref": "  " })] {
+            assert_eq!(run_system(&body, held).unwrap(), None, "{body}");
+        }
+        assert_eq!(
+            run_system(&json!({ "system_ref": " system://acme/lending " }), held).unwrap(),
+            Some("system://acme/lending".to_string())
+        );
+        assert_eq!(
+            code_of_reply(&run_system(&json!({ "system_ref": "system://acme/other" }), held).unwrap_err()),
+            (StatusCode::UNPROCESSABLE_ENTITY, "evaluation_run_system_unknown".to_string())
+        );
+        for bad_ref in [
+            json!("project://acme/lending"),
+            json!("system://"),
+            json!("system://acme/two words"),
+            json!(format!("system://{}", "x".repeat(SYSTEM_REF_MAX))),
+            json!(7),
+            json!(["system://acme/lending"]),
+        ] {
+            let refused = run_system(&json!({ "system_ref": bad_ref }), held).unwrap_err();
+            assert_eq!(
+                code_of_reply(&refused),
+                (StatusCode::UNPROCESSABLE_ENTITY, "evaluation_run_system_ref_invalid".to_string()),
+                "{bad_ref}"
+            );
+        }
+        let unreadable = |_: &str| Err::<bool, (String, String)>(("system_projection_source_missing".into(), "gone".into()));
+        assert_eq!(
+            code_of_reply(&run_system(&json!({ "system_ref": "system://acme/lending" }), unreadable).unwrap_err()),
+            (StatusCode::SERVICE_UNAVAILABLE, "evaluation_run_system_unreadable".to_string())
+        );
+        // Asked for no System, the inventory is never consulted.
+        let never = |_: &str| -> Result<bool, (String, String)> { panic!("consulted without a System") };
+        assert_eq!(run_system(&json!({}), never).unwrap(), None);
+    }
+
+    // ---- a plane of its own: results planted through the real chain --------------------------------
+
+    pub(crate) const PLANT_OWNER: &str = "org://local";
+    const PLANT_OPERATOR: &str = "00000000-0000-4000-8000-000000000001";
+
+    pub(crate) struct Plane {
+        _dir: tempfile::TempDir,
+        pub(crate) st: Arc<DaemonState>,
+        pub(crate) headers: HeaderMap,
+    }
+
+    /// A daemon state of its own with the deployment operator signed in (a bearer session).
+    pub(crate) fn plane() -> Plane {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8").to_string();
+        super::super::lifecycle_routes::ensure_identity_foundation(&data_dir)
+            .expect("identity foundation");
+        let st = crate::test_daemon_state(&data_dir);
+        let (status, issued) =
+            super::super::lifecycle_routes::issue_session(&data_dir, PLANT_OPERATOR, "local");
+        assert_eq!(status, StatusCode::OK, "{issued}");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {}", issued["session_token"].as_str().expect("token"))
+                .parse()
+                .expect("header"),
+        );
+        Plane { _dir: dir, st, headers }
+    }
+
+    /// Another person, signed in with a bearer session, a member of `tenant` only.
+    pub(crate) fn stranger(data_dir: &str, principal_id: &str, tenant: &str) -> HeaderMap {
+        super::super::persist_record(
+            data_dir,
+            "principals",
+            principal_id,
+            &json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": principal_id,
+                     "email": format!("{principal_id}@example.test"), "name": principal_id, "role": "member",
+                     "status": "active", "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" }),
+        )
+        .expect("principal");
+        let principal_ref = format!("user://{principal_id}");
+        super::super::lifecycle_routes::apply_membership_transition(
+            data_dir,
+            &principal_ref,
+            &principal_ref,
+            tenant,
+            "organization",
+            "active",
+            0,
+            &format!("test-{principal_ref}-{tenant}-active"),
+            "test membership",
+            "deployment_bootstrap",
+        )
+        .expect("membership");
+        let token = format!("token-{principal_id}");
+        super::super::persist_record(
+            data_dir,
+            "sessions",
+            &format!("session-{principal_id}"),
+            &json!({ "session_id": format!("session-{principal_id}"), "token_hash": super::super::sha256_hex_str(&token),
+                     "principal_id": principal_id, "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "expires_at": "9999-12-31T23:59:59Z" }),
+        )
+        .expect("session");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse().expect("header"),
+        );
+        headers
+    }
+
+    /// Admit ONE evaluation result through the family's real write path — the write context, the
+    /// registered-contract check and the owner-scoped chain — without the epoch spine a result's route
+    /// resolves first (the driven gate walks that spine end to end). `v1` plants a predecessor record,
+    /// as an earlier build wrote it. Returns the result's ref.
+    pub(crate) fn plant_result(
+        st: &DaemonState,
+        headers: &HeaderMap,
+        owner_ref: &str,
+        family: &str,
+        system_ref: Option<&str>,
+        v1: bool,
+    ) -> String {
+        let spec: &'static FamilySpec = if v1 { &RESULT_V1 } else { &RESULT };
+        let body = json!({ "owner_ref": owner_ref, "idempotency_key": format!("plant-{family}"), "family": family });
+        let resource = family_resource(spec, family).expect("family token");
+        let ctx = match open_write(
+            st,
+            headers,
+            &body,
+            spec,
+            resource,
+            RESULT_REQUEST_FIELDS,
+            RESULT_SERVER_RESOLVED,
+            Some("already_admitted"),
+            "evaluation_result",
+        ) {
+            Ok(ctx) => ctx,
+            Err(reply) => panic!("the write context opens: {}", reply.1 .0),
+        };
+        let recorded_at_ms = now_ms();
+        let mut record = json!({
+            "schema_version": spec.schema_version,
+            "evaluation_result_id": ctx.resource,
+            "owner_ref": owner_ref,
+            "evaluation_run_ref": format!("evaluation-run://{family}"),
+            "evaluation_epoch_ref": "evaluation-epoch://acme.lending.epoch-1",
+            "epoch_frozen_root": format!("sha256:{}", "1".repeat(64)),
+            "suite_revision_ref": "evaluation-suite://acme.lending/revision/1",
+            "evaluator_revision_ref": "evaluator://acme.exact-match/revision/1",
+            "lane": "visible",
+            "observations": [{ "observation_id": "case-001", "case_commitment": format!("sha256:{}", "2".repeat(64)), "outcome": "fail", "score_milli": 250, "evidence_refs": [] }],
+            "verdict": "fail",
+            "verdict_basis": "observed",
+            "uncertainty": { "method": "fixed_test", "interval_low_milli": 250, "interval_high_milli": 250, "sample_size": 1 },
+            "guardrail_findings": [],
+            "applicability_scope": "the lending desk's intake cases",
+            "cost_units": 1,
+            "cost_unit": "units",
+            "failures": ["case-001 routed an incomplete application to approval"],
+            "evaluator_versions": ["evaluator://acme.exact-match/revision/1"],
+            "exposure_entry_ref": null,
+            "admitted_at": admitted_stamp(recorded_at_ms),
+        });
+        if !v1 {
+            record["system_ref"] = system_ref.map_or(Value::Null, |s| json!(s));
+        }
+        let (status, Json(admitted)) = finish_admission(
+            spec,
+            st,
+            &ctx.caller,
+            &ctx.scope,
+            &ctx.resource,
+            "evaluation_result",
+            record,
+            None,
+            recorded_at_ms,
+            &body,
+            json!({}),
+        );
+        assert_eq!(status, StatusCode::CREATED, "{admitted}");
+        ctx.resource
+    }
+
+    /// A v1 result keeps reading beside a v2 one — through the published reader other planes call and
+    /// through the inventory — each as its own generation; `?system_ref=` narrows the inventory to the
+    /// results that measured that System, and its `records` carry the current record with its head.
+    #[tokio::test]
+    async fn a_v1_result_keeps_reading_beside_a_v2_one_and_the_inventory_narrows_by_system() {
+        let p = plane();
+        let lending = plant_result(&p.st, &p.headers, PLANT_OWNER, "acme.lending-001", Some("system://acme/lending"), false);
+        let unbound = plant_result(&p.st, &p.headers, PLANT_OWNER, "acme.unbound-001", None, false);
+        let legacy = plant_result(&p.st, &p.headers, PLANT_OWNER, "acme.legacy-001", None, true);
+        let identity = resolve_request_identity(&p.st.data_dir, &p.headers).expect("signed in");
+        let read = |reference: &str| resolve_result_record(&p.st, &identity, reference).expect("resolves");
+        let v2 = read(&lending);
+        assert_eq!(v2["schema_version"], "ioi.evaluation-result.v2");
+        assert_eq!(v2["system_ref"], "system://acme/lending");
+        assert_eq!(read(&unbound)["system_ref"], Value::Null);
+        let v1 = read(&legacy);
+        assert_eq!(v1["schema_version"], "ioi.evaluation-result.v1");
+        assert!(v1.get("system_ref").is_none(), "a v1 record reads as v1: no system_ref member");
+
+        let (status, Json(all)) = handle_result_query(
+            State(p.st.clone()),
+            p.headers.clone(),
+            Query(EvaluationQuery::default()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{all}");
+        assert_eq!(all["evaluation_results"].as_array().map_or(0, Vec::len), 3, "{all}");
+        let (status, Json(narrowed)) = handle_result_query(
+            State(p.st.clone()),
+            p.headers.clone(),
+            Query(EvaluationQuery { system_ref: Some("system://acme/lending".into()) }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{narrowed}");
+        assert_eq!(narrowed["evaluation_results"], json!([lending]));
+        let row = &narrowed["records"][0];
+        assert_eq!(row["ref"], lending);
+        assert_eq!(row["current"]["content_hash"], v2["content_hash"]);
+        assert!(row["head"].as_str().is_some_and(|head| !head.is_empty()));
+        let (_, Json(none)) = handle_result_query(
+            State(p.st.clone()),
+            p.headers.clone(),
+            Query(EvaluationQuery { system_ref: Some("system://acme/other".into()) }),
+        )
+        .await;
+        assert_eq!(none["evaluation_results"], json!([]));
+        // A result's System is the daemon's to copy: a body authoring one is refused by name.
+        let authored = handle_result_admit(
+            State(p.st.clone()),
+            p.headers.clone(),
+            Path("acme.lending-001".into()),
+            Json(json!({ "owner_ref": PLANT_OWNER, "idempotency_key": "authored", "family": "acme.authored-001", "system_ref": "system://acme/lending" })),
+        )
+        .await;
+        assert_eq!(
+            code_of_reply(&authored),
+            (StatusCode::UNPROCESSABLE_ENTITY, "evaluation_result_caller_authored_evidence_refused".to_string())
+        );
     }
 }

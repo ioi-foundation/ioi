@@ -18955,7 +18955,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/hypervisor/evaluation-run/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -19021,7 +19021,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/hypervisor/evaluation-result/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -19074,6 +19074,126 @@
           "path": "fixtures/evaluation-result-v1/negative-sealed-without-exposure-entry.json",
           "expected_failure": "invariant",
           "expected_rule_id": "evaluation_result.sealed_lane.names_its_exposure_entry"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/evaluation-run/v2",
+      "canonical_name": "EvaluationRun",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/evaluations.md#registered-shapes",
+      "schema_version": "ioi.evaluation-run.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/hypervisor/evaluation-run/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "evaluation-run.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/evaluation-run/admitted-execution/v2",
+          "path": "invariants/evaluation-run.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EvaluationRunV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EvaluationRunV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/evaluation-run-v2/positive-system-measured.json",
+        "fixtures/evaluation-run-v2/positive-no-system.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/evaluation-run-v2/negative-v1-schema-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-run-v2/negative-system-ref-not-a-system.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-run-v2/negative-system-ref-absent.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-run-v2/negative-system-ref-outside-the-commitment.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_run.content_hash.commits_the_immutable_body"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/evaluation-result/v2",
+      "canonical_name": "EvaluationResult",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/evaluations.md#registered-shapes",
+      "schema_version": "ioi.evaluation-result.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/hypervisor/evaluation-result/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "evaluation-result.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/evaluation-result/immutable-observation/v2",
+          "path": "invariants/evaluation-result.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EvaluationResultV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EvaluationResultV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/evaluation-result-v2/positive-system-measured.json",
+        "fixtures/evaluation-result-v2/positive-no-system.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/evaluation-result-v2/negative-v1-schema-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-result-v2/negative-system-ref-absent.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/evaluation-result-v2/negative-system-ref-outside-the-commitment.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "evaluation_result.content_hash.commits_the_immutable_body"
         }
       ]
     },

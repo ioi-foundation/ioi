@@ -3,7 +3,7 @@
   "$id": "schema://ioi/foundations/objects/change-set/v2",
   "title": "ChangeSet",
   "x-ioi-schema-version": "ioi.change-set.v2",
-  "description": "One governed change to one Hypervisor object, drafted in isolation and merged by that subject's own admission (ADR 0056 Amendment 1, plane 4). Canon's patch branch is an isolated draft space: nobody mutates a subject's head directly. A change set pins the head it was opened against, carries an append-only chain of draft bodies shaped as the subject's admission request, validates a draft by running that admission's own checks without persisting, and merges by admitting the draft through the subject's route with the pinned head as the expected head. If the head has moved the merge is refused, never rebased silently. The merge decision is recorded as a BranchMergePlan. v2 carries a closed, generic set of subject kinds — `data_recipe` (a DataRecipe family, which a change set may found) and `blueprint` (one Studio blueprint, whose tip is its admitted head and whose revision is named by its content hash; a change set never founds one) — and reserves `basis_refs` for the evidence a change is proposed on. The daemon admits no basis until it can resolve one through the evaluation readers, so every record it writes today carries an empty list. v1 records remain valid and keep reading. A change set grants nothing, and a draft is not an admitted revision.",
+  "description": "One governed change to one Hypervisor object, drafted in isolation and merged by that subject's own admission (ADR 0056 Amendment 1, plane 4). Canon's patch branch is an isolated draft space: nobody mutates a subject's head directly. A change set pins the head it was opened against, carries an append-only chain of draft bodies shaped as the subject's admission request, validates a draft by running that admission's own checks without persisting, and merges by admitting the draft through the subject's route with the pinned head as the expected head. If the head has moved the merge is refused, never rebased silently. The merge decision is recorded as a BranchMergePlan. v2 carries a closed, generic set of subject kinds — `data_recipe` (a DataRecipe family, which a change set may found) and `blueprint` (one Studio blueprint, whose tip is its admitted head and whose revision is named by its content hash; a change set never founds one) — and carries `basis_refs`, the evidence a change is proposed on: admitted evaluation results, each resolved at open through the evaluation readers as the caller (an unresolvable ref is refused). v1 records remain valid and keep reading. A change set grants nothing, and a draft is not an admitted revision.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -168,7 +168,7 @@
       "maxLength": 4000
     },
     "basis_refs": {
-      "description": "Reserved: the evidence this change is proposed on (an evaluation result, for one). The daemon admits a basis only once it resolves it through that evidence's own reader; until then it refuses any, so every record it writes carries an empty list.",
+      "description": "The evidence this change is proposed on: admitted evaluation results (evaluation-result://…), each resolved at open through the evaluation plane's own reader as the caller. A ref that does not resolve, or any other kind of ref, is refused change_set_basis_unresolvable before anything is written.",
       "type": "array",
       "maxItems": 16,
       "uniqueItems": true,

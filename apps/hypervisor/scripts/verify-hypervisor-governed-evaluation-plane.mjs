@@ -27,6 +27,9 @@
 //   [P8 missing required lanes] [P9 evaluator invalidation] [P10 provider removal]
 //   [P11 adapter drift] [P12 state restore/replay] [P13 self-promotion refusal]
 //   [P14 reproduction] (M12.5, R-208): the selected result reproduced against the unchanged epoch
+//   [v2 system] (R-240 journey WP-D): runs and results are v2 — a run names only a System in its
+//   submitter's inventory, a result copies its run's, the commitment covers it, and the inventories
+//   carry each record beside its ref and narrow by ?system_ref=
 //
 // Exit: 0 pass · 1 fail · 2 blocked (daemon binary missing).
 //   --mutation  run the planted defects instead of trusting the assertions above.
@@ -79,8 +82,9 @@ const DOMAINS = {
 const SUITE_MATERIAL = ["schema_version", "evaluation_suite_id", "revision_ref", "revision", "predecessor_revision_ref", "owner_ref", "library_suite_ref", "tasks", "scorer_revision_refs", "rubric_refs", "world_refs", "required_lanes", "nondeterminism_class", "declared_seed_policy_ref", "verification_cost_class"];
 const EVALUATOR_FROZEN = ["schema_version", "evaluator_id", "revision_ref", "revision", "predecessor_revision_ref", "owner_ref", "evaluator_kind", "implementation_ref", "affiliation_ref", "custodian_ref"];
 const EVALUATOR_MATERIAL = [...EVALUATOR_FROZEN, "evaluator_root", "validity_status", "validity_decision_ref", "challenge_refs", "impact_disposition_ref"];
-const RUN_MATERIAL = ["schema_version", "evaluation_run_id", "owner_ref", "evaluation_epoch_ref", "epoch_frozen_root", "suite_revision_ref", "evaluator_revision_ref", "lane", "incumbent_ref", "incumbent_root", "target_base_root", "execution_evidence_refs", "policy_bound_data_view_revision_ref", "nondeterminism_class", "seed", "submitter_role", "cost_units", "cost_unit"];
-const RESULT_MATERIAL = ["schema_version", "evaluation_result_id", "owner_ref", "evaluation_run_ref", "evaluation_epoch_ref", "epoch_frozen_root", "suite_revision_ref", "evaluator_revision_ref", "lane", "observations", "verdict", "verdict_basis", "uncertainty", "guardrail_findings", "applicability_scope", "cost_units", "cost_unit", "failures", "evaluator_versions", "exposure_entry_ref"];
+// v2 (R-240 journey WP-D): a run and a result commit to the System they measured (`system_ref`).
+const RUN_MATERIAL = ["schema_version", "evaluation_run_id", "owner_ref", "system_ref", "evaluation_epoch_ref", "epoch_frozen_root", "suite_revision_ref", "evaluator_revision_ref", "lane", "incumbent_ref", "incumbent_root", "target_base_root", "execution_evidence_refs", "policy_bound_data_view_revision_ref", "nondeterminism_class", "seed", "submitter_role", "cost_units", "cost_unit"];
+const RESULT_MATERIAL = ["schema_version", "evaluation_result_id", "owner_ref", "system_ref", "evaluation_run_ref", "evaluation_epoch_ref", "epoch_frozen_root", "suite_revision_ref", "evaluator_revision_ref", "lane", "observations", "verdict", "verdict_basis", "uncertainty", "guardrail_findings", "applicability_scope", "cost_units", "cost_unit", "failures", "evaluator_versions", "exposure_entry_ref"];
 const REPORT_MATERIAL = ["schema_version", "model_swap_continuity_report_id", "owner_ref", "evaluation_epoch_ref", "epoch_frozen_root", "suite_revision_ref", "institutional_state_root", "policy_bound_data_view_revision_ref", "learning_boundary_profile_ref", "incumbent_route_ref", "incumbent_route_record_hash", "incumbent_disabled_evidence", "candidate_route_ref", "candidate_route_record_hash", "baseline_result_refs", "candidate_result_refs", "equivalence_envelope", "observed_deltas", "unsupported_dependencies", "threshold_verdict", "canary_refs", "rollback_refs", "authority_note"];
 
 const deriveSuiteHash = (r) => digestOver(r, DOMAINS.suite, SUITE_MATERIAL);
@@ -648,6 +652,14 @@ async function run() {
   ok("[P13] a run body carrying an activation member is refused by name", activatingRun.status === 422 && code(activatingRun.body) === "self_promotion_refused", `${activatingRun.status} ${code(activatingRun.body)}`);
   const unknownRunField = await post(RUNS, runBody("gep-run-unknown", "acme.run-unknown", { winner: true }));
   ok("a run member the route does not read is refused rather than dropped", unknownRunField.status === 400 && code(unknownRunField.body) === "evaluation_run_request_unknown_field", `${unknownRunField.status} ${code(unknownRunField.body)}`);
+  // v2 (R-240 journey WP-D): a run names only a System its submitter can see. This operator holds no
+  // System, so a well-formed system:// ref is unknown to its inventory; a ref in another scheme is refused
+  // as malformed before the inventory is asked.
+  const unseenSystem = await post(RUNS, runBody("gep-run-unseen-system", "acme.run-unseen-system", { system_ref: "system://acme/nowhere" }));
+  const malformedSystem = await post(RUNS, runBody("gep-run-bad-system", "acme.run-bad-system", { system_ref: "project://acme/lending" }));
+  ok("[v2 system] a run naming a System that is not in its submitter's inventory is refused (evaluation_run_system_unknown), and a system_ref in another scheme is refused as malformed (evaluation_run_system_ref_invalid) — nothing is admitted",
+    unseenSystem.status === 422 && code(unseenSystem.body) === "evaluation_run_system_unknown" && malformedSystem.status === 422 && code(malformedSystem.body) === "evaluation_run_system_ref_invalid",
+    `${unseenSystem.status} ${code(unseenSystem.body)} · ${malformedSystem.status} ${code(malformedSystem.body)}`);
 
   const runBV = await post(RUNS, runBody("gep-run-baseline-visible", "acme.baseline-visible"));
   const rBV = runBV.body?.evaluation_run ?? {};
@@ -660,7 +672,18 @@ async function run() {
   const runCV = await post(RUNS, runBody("gep-run-candidate-visible", "acme.candidate-visible", { execution_evidence_refs: evidenceB.map((e) => e.ref) }));
   const runCS = await post(RUNS, runBody("gep-run-candidate-sealed", "acme.candidate-sealed", { lane: "sealed", execution_evidence_refs: evidenceB.map((e) => e.ref) }));
   ok("baseline SEALED, candidate VISIBLE and candidate SEALED runs admit under the same epoch, the candidate runs citing the candidate route's receipts", runBS.status === 201 && runCV.status === 201 && runCS.status === 201, `${runBS.status}/${runCV.status}/${runCS.status} ${code(runCS.body)}`);
-  const runList = (await jd(RUNS)).body?.evaluation_runs ?? [];
+  // v2: every run is admitted as v2, naming no System when its body names none — and the v2 record's
+  // content_hash (system_ref inside it) is what the oracle above re-derived.
+  ok("[v2 system] every run is admitted as ioi.evaluation-run.v2 and a run that names no System carries system_ref null inside its commitment",
+    rBV.schema_version === "ioi.evaluation-run.v2" && "system_ref" in rBV && rBV.system_ref === null && rBV.content_hash === deriveRunHash(rBV),
+    `${rBV.schema_version} system_ref ${JSON.stringify(rBV.system_ref)}`);
+  const runInventory = (await jd(RUNS)).body ?? {};
+  const narrowedRuns = (await jd(`${RUNS}?system_ref=${encodeURIComponent("system://acme/nowhere")}`)).body ?? {};
+  ok("[v2 system] the run inventory carries each run's current record and head beside its ref, and ?system_ref= narrows it to the runs that measured that System (none here)",
+    (runInventory.records || []).length === 4 && (runInventory.records || []).some((r) => r.ref === "evaluation-run://acme.baseline-visible" && r.current?.content_hash === rBV.content_hash && String(r.head || "").length > 0)
+      && JSON.stringify(narrowedRuns.evaluation_runs) === "[]" && JSON.stringify(narrowedRuns.records) === "[]",
+    `${(runInventory.records || []).length} records · narrowed ${JSON.stringify(narrowedRuns.evaluation_runs)}`);
+  const runList = runInventory.evaluation_runs ?? [];
   const runGet = (await jd(`${RUNS}/acme.baseline-visible`)).body ?? {};
   ok("runs list by ref and resolve by family with their admission stream", runList.includes("evaluation-run://acme.baseline-visible") && runList.length === 4 && runGet.current?.content_hash === rBV.content_hash && (runGet.admissions || []).length === 1, `${runList.length} runs`);
 
@@ -703,6 +726,12 @@ async function run() {
   ok("[P8 missing required lanes] the first VISIBLE result claims pass and is admitted at the DERIVED floor `inconclusive / required_lane_missing` because the suite also requires the sealed lane — the floor re-derives here", resBV.status === 201 && xBV.verdict === floorBV.verdict && xBV.verdict_basis === floorBV.basis && resBV.body?.claimed_verdict === "pass" && xBV.content_hash === deriveResultHash(xBV) && xBV.evaluation_run_ref === "evaluation-run://acme.baseline-visible" && xBV.epoch_frozen_root === FROZEN_ROOT && JSON.stringify(xBV.evaluator_versions) === JSON.stringify([EVALUATOR_REF]), `${resBV.status} ${code(resBV.body)} ${xBV.verdict}/${xBV.verdict_basis}`);
   const resultAgain = await resultOn("acme.baseline-visible", resultBody("gep-result-baseline-visible-again", "acme.result-baseline-visible"));
   ok("a result is immutable and admitted once: a correction is a new result, never a rewrite", resultAgain.status === 409 && code(resultAgain.body) === "evaluation_result_already_admitted", `${resultAgain.status} ${code(resultAgain.body)}`);
+  // v2: a result's System is its run's, COPIED by the daemon; a body authoring one is refused by name.
+  const authoredSystem = await resultOn("acme.baseline-visible", resultBody("gep-result-authored-system", "acme.result-authored-system", { system_ref: "system://acme/lending" }));
+  ok("[v2 system] a result is admitted as ioi.evaluation-result.v2 carrying its run's System (none here) inside its commitment, and a result body authoring a system_ref is refused by name (evaluation_result_caller_authored_evidence_refused)",
+    xBV.schema_version === "ioi.evaluation-result.v2" && "system_ref" in xBV && xBV.system_ref === rBV.system_ref && xBV.content_hash === deriveResultHash(xBV)
+      && authoredSystem.status === 422 && code(authoredSystem.body) === "evaluation_result_caller_authored_evidence_refused",
+    `${xBV.schema_version} system_ref ${JSON.stringify(xBV.system_ref)} · authored ${authoredSystem.status} ${code(authoredSystem.body)}`);
 
   // the sealed lane: protected access appends its exposure entry through M10.1's ledger FIRST
   let ledgerHead = (await jd(`${EPOCHS}/${E1}/exposure`)).body?.head;

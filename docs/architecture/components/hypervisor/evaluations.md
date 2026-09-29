@@ -298,12 +298,22 @@ the released suite revision, the active evaluator revision, the current
 policy-bound data-view revision and every execution evidence ref through its
 owner, and refuses Search as a submitter.
 
+A run may name the bounded System it measured (`system_ref`, v2 — R-240 journey
+WP-D, 2026-09-29). The daemon admits a System only when it is in the submitting
+caller's own Systems inventory (the Systems projection's row policy) and refuses
+any other by name (`evaluation_run_system_unknown`); the member is inside the
+content commitment and never moves. A result copies its run's `system_ref` — a
+caller never authors it — so the evaluations of one System are a filter over the
+runs and results (`?system_ref=`). Every run and result admitted is v2; a v1
+record keeps reading as v1.
+
 ```yaml
 EvaluationRun:
-  schema_version: ioi.evaluation-run.v1
+  schema_version: ioi.evaluation-run.v2    # v1 records (no system_ref) remain valid
   evaluation_run_id: evaluation-run://...
   content_hash: hash
   owner_ref: org://... | user://... | project://... | system://...
+  system_ref: system://... | null         # v2: the System this run measured, in the submitter's inventory
   evaluation_epoch_ref: evaluation-epoch://...
   epoch_frozen_root: hash                 # copied from the epoch, re-derived
   suite_revision_ref: evaluation-suite://.../revision/...   # released
@@ -333,10 +343,11 @@ decides nothing.
 
 ```yaml
 EvaluationResult:
-  schema_version: ioi.evaluation-result.v1
+  schema_version: ioi.evaluation-result.v2 # v1 records (no system_ref) remain valid
   evaluation_result_id: evaluation-result://...
   content_hash: hash
   owner_ref: org://... | user://... | project://... | system://...
+  system_ref: system://... | null         # v2: copied from the run by the daemon, never authored
   evaluation_run_ref: evaluation-run://...
   evaluation_epoch_ref: evaluation-epoch://...
   epoch_frozen_root: hash

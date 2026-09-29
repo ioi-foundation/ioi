@@ -1122,6 +1122,34 @@ async function systemWork(daemonUrl, systemId) {
   return stateBlock("ready_or_proposed", null, `<table data-system-work="${esc(systemId)}"><thead><tr><th>Run</th><th>Kind</th><th>Activity</th><th>Proof</th></tr></thead><tbody>${body}</tbody></table>`);
 }
 
+// R-240 journey WP-D: the evaluations that measured THIS System — the governed evaluation plane's runs
+// and results narrowed by system_ref (EvaluationRun / EvaluationResult v2: a run names the System in its
+// submitter's inventory, a result copies its run's), read as the caller. Each run lists its scorecards
+// with the verdict the daemon derived; nothing is computed here. Exported for its stand-in test.
+export async function systemEvaluations(daemonUrl, systemId) {
+  const narrowed = `?system_ref=${encodeURIComponent(systemId)}`;
+  const [runs, results] = await Promise.all([
+    daemonJson(daemonUrl, "GET", `/v1/hypervisor/evaluation-runs${narrowed}`),
+    daemonJson(daemonUrl, "GET", `/v1/hypervisor/evaluation-results${narrowed}`),
+  ]);
+  const failed = [runs, results].find((r) => r.networkError || r.status !== 200 || r.body?.ok !== true);
+  if (failed) {
+    const code = failed.networkError ? "daemon_unreachable" : refusalCodeOf(failed.body || {}, failed.status);
+    return stateBlock(stateForErrorCode(code), code, `<div class="empty" data-system-evaluations-unavailable="1">This System's evaluations could not be read — <code>${esc(code)}</code>. Nothing is shown in their place.</div>`);
+  }
+  const mine = (answer) => (Array.isArray(answer.body.records) ? answer.body.records : []).map((r) => r.current || {}).filter((r) => r.system_ref === systemId);
+  const measured = mine(runs);
+  const scorecards = mine(results);
+  if (!measured.length) {
+    return stateBlock("honest_empty", "no_evaluation_names_system", `<div class="empty" data-system-evaluations="${esc(systemId)}" data-system-evaluations-empty="1">No evaluation run names this System yet. A run names the System it measured when a Judgment admits it under an active epoch; <a href="/__ioi/evaluations#governed-runs">Evaluations</a> lists every run and scorecard (it offers no run form yet — a named gap there).</div>`);
+  }
+  const body = measured.map((run) => {
+    const cards = scorecards.filter((r) => r.evaluation_run_ref === run.evaluation_run_id);
+    return `<tr data-system-evaluation-run="${esc(run.evaluation_run_id)}"><td><code>${esc(run.evaluation_run_id)}</code></td><td><code>${esc(run.suite_revision_ref || "")}</code></td><td>${esc(run.lane || "")}</td><td>${cards.length ? cards.map((c) => `<span data-system-evaluation-result="${esc(c.evaluation_result_id)}" data-evaluation-verdict="${esc(c.verdict)}">${esc(c.verdict)} <span class="sub">(${esc(c.verdict_basis || "")})</span></span>`).join("<br>") : `<span class="sub">no scorecard yet</span>`}</td></tr>`;
+  }).join("");
+  return stateBlock("ready_or_proposed", null, `<table data-system-evaluations="${esc(systemId)}"><thead><tr><th>Run</th><th>Suite revision</th><th>Lane</th><th>Scorecard</th></tr></thead><tbody>${body}</tbody></table>`);
+}
+
 async function renderSystemWorkspace(daemonUrl, shell, parsed) {
   const { systemId, tailPath, mode } = parsed;
   const modeLabel = (WORKSPACE_MODES.find(([m]) => m === mode) || ["", "Overview"])[1];
@@ -1173,6 +1201,7 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
     }
     return shell(title, head + pending + `<h2>Evidence — genesis and lifecycle receipts, operation log</h2>` + parts.projection
       + `<h2>Run receipts — this System's runs</h2>` + await systemWork(daemonUrl, systemId)
+      + `<h2>Evaluations — the runs and scorecards that measured this System</h2>` + await systemEvaluations(daemonUrl, systemId)
       + handOffs([["/provenance", "Provenance"], ["/evaluations", "Evaluations"]]));
   }
   if (mode === "operate") {
@@ -1425,9 +1454,11 @@ const CHANGE_SET_RESULTS = { "propose-change-set": "Proposed", "merge-change-set
 const changeSetId = (ref) => (/^change:\/\/(cs_[0-9a-f]{16})$/u.exec(String(ref || "")) || [])[1] || null;
 
 async function systemImprove(daemonUrl, systemId, query) {
-  const [blueprints, changeSets] = await Promise.all([
+  const [blueprints, changeSets, evaluations] = await Promise.all([
     daemonJson(daemonUrl, "GET", `/v1/hypervisor/studio/blueprints?system_ref=${encodeURIComponent(systemId)}`),
     daemonJson(daemonUrl, "GET", "/v1/hypervisor/change-sets?kind=blueprint"),
+    // R-240 journey WP-D: the evaluation results that measured this System — offered as a change's basis.
+    daemonJson(daemonUrl, "GET", `/v1/hypervisor/evaluation-results?system_ref=${encodeURIComponent(systemId)}`),
   ]);
   const actedAs = CHANGE_SET_RESULTS[query?.get("acted") || ""];
   const acted = actedAs
@@ -1464,9 +1495,19 @@ async function systemImprove(daemonUrl, systemId, query) {
     : sets.length
       ? stateBlock("ready_or_proposed", null, `<table data-system-change-sets="${esc(systemId)}"><thead><tr><th>Change set</th><th>Blueprint</th><th>Status</th><th>Validation</th><th>Heads</th><th></th></tr></thead><tbody>${sets.map((c) => {
         const b = byRef.get(c.subject.family_ref) || {};
-        return `<tr data-system-change-set="${esc(c.change_set_ref)}" data-change-set-status="${esc(c.status)}" data-change-set-blueprint="${esc(c.subject.family_ref)}"><td><b>${esc(c.title || "")}</b>${c.description ? `<br><span class="sub" style="margin:0">${esc(c.description)}</span>` : ""}<br><code>${esc(c.change_set_ref)}</code></td><td>${esc(b.name || b.id || "")}<br><code>${esc(c.subject.family_ref)}</code></td><td>${pill(c.status, c.status === "merged" ? "ok" : c.status === "proposed" ? "warn" : "muted")}</td><td>${validationOf(c)}</td><td>${headsOf(c)}</td><td>${rowActions(c)}</td></tr>`;
+        return `<tr data-system-change-set="${esc(c.change_set_ref)}" data-change-set-status="${esc(c.status)}" data-change-set-blueprint="${esc(c.subject.family_ref)}"><td><b>${esc(c.title || "")}</b>${c.description ? `<br><span class="sub" style="margin:0">${esc(c.description)}</span>` : ""}<br><code>${esc(c.change_set_ref)}</code>${(c.basis_refs || []).length ? `<br><span class="sub" style="margin:0" data-change-set-basis="${esc(c.basis_refs.join(" "))}">on ${c.basis_refs.map((r) => `<code>${esc(r)}</code>`).join(", ")}</span>` : ""}</td><td>${esc(b.name || b.id || "")}<br><code>${esc(c.subject.family_ref)}</code></td><td>${pill(c.status, c.status === "merged" ? "ok" : c.status === "proposed" ? "warn" : "muted")}</td><td>${validationOf(c)}</td><td>${headsOf(c)}</td><td>${rowActions(c)}</td></tr>`;
       }).join("")}</tbody></table>`)
       : stateBlock("honest_empty", "no_change_set_on_system_blueprints", `<div class="empty" data-system-change-sets="${esc(systemId)}">No change set has been proposed on this System's blueprints yet.</div>`);
+  // The basis a change is proposed on: the admitted evaluation results that measured THIS System, each
+  // resolved again by the daemon when the change set opens (change-set v2 basis_refs).
+  const evCode = unreadCode(evaluations);
+  const results = evCode ? [] : (Array.isArray(evaluations.body?.records) ? evaluations.body.records : [])
+    .map((r) => r.current || {}).filter((r) => r.system_ref === systemId && r.evaluation_result_id);
+  const basisField = evCode
+    ? `<p class="sub" data-system-basis-unread="1">This System's evaluations could not be read (<code>${esc(evCode)}</code>), so no basis is offered.</p>`
+    : results.length
+      ? `<div class="field" data-system-change-set-basis="${esc(systemId)}"><label>Basis — the evaluations of this System this change answers (optional)</label><div>${results.map((r) => `<label style="display:block;font-size:12px"><input type="checkbox" name="basis_ref" value="${esc(r.evaluation_result_id)}"> ${esc(r.verdict || "")} (${esc(r.verdict_basis || "")}) — <code>${esc(r.evaluation_result_id)}</code></label>`).join("")}</div></div>`
+      : `<p class="sub" data-system-change-set-basis-none="1">No evaluation of this System is admitted yet, so no basis is offered — a change set may cite one once it is.</p>`;
   const proposeForm = bps.length
     ? `<form method="post" action="${CHANGE_SET_ACTIONS.propose}" data-system-propose-change-set="1">
         ${hidden("system_id", systemId)}${hidden("form_nonce", randomUUID())}
@@ -1477,6 +1518,7 @@ async function systemImprove(daemonUrl, systemId, query) {
         <div class="field"><label>New name</label><input name="draft_name" maxlength="200"></div>
         <div class="field"><label>New description</label><textarea name="draft_description" maxlength="2000"></textarea></div>
         <div class="field"><label>New graph (a JSON object)</label><textarea name="draft_graph_json"></textarea></div>
+        ${basisField}
         <button class="act" type="submit">Propose this change</button>
       </form>`
     : bpCode
@@ -1542,8 +1584,12 @@ async function handleProposeChangeSet(daemonUrl, res, form) {
   if (refusal) return back(refusal);
   const key = `system-change-set-${sha256Hex(`${systemId}\u0000${blueprint.ref}\u0000${nonce}`).slice(0, 32)}`;
   const owner = blueprint.owner_ref;
+  // The evaluations the person checked as the change's basis travel verbatim: the daemon resolves each
+  // through the evaluation plane as this caller, or refuses the whole open by name (WP-D).
+  const basis = form.getAll("basis_ref").map((r) => r.trim()).filter(Boolean);
   const opened = await daemonJson(daemonUrl, "POST", "/v1/hypervisor/change-sets", {
     owner_ref: owner, idempotency_key: key, subject: { kind: "blueprint", family: blueprint.id }, title, description: (form.get("description") || "").trim(), draft,
+    ...(basis.length ? { basis_refs: basis } : {}),
   });
   const cs = opened.body?.change_set;
   if (opened.networkError || ![200, 201].includes(opened.status) || !cs) return back(daemonRefusal(opened, "change_set_open_refused"));

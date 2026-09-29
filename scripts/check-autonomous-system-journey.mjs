@@ -92,6 +92,9 @@ export const REQUIRED_GAPS = Object.freeze({
   // WP-B (2026-09-28): a run satisfies "running THE System"; the SESSION half keeps the code here.
   "run/legs/session-subject-system": "session_system_subject_absent",
   // ADR 0056 P6 (2026-09-29): system_telemetry_absent is closed — observe/legs/telemetry is live.
+  // WP-D (2026-09-29): Evaluations is rebound onto the governed plane — the walk's evaluator and its
+  // released suite revision are live legs; what stays is admitting a run (no surface opens an epoch or a
+  // policy-bound data view), and the product names it on the page (REQUIRED_PROBES).
   "evaluate/legs/evaluation-ui": "evaluation_ui_consumer_absent",
   // WP-C2 (2026-09-29): change_set_blueprint_subject_absent is closed — improve/legs/change-sets and
   // improve/legs/improve-mode are live; the campaign refusal is named as its own gap (an ADR), and the
@@ -103,9 +106,11 @@ export const REQUIRED_GAPS = Object.freeze({
   "operate/legs/typed-lifecycle": "lifecycle_forms_raw_json",
 });
 
-// The gaps the System workspace itself names on the page (system-genesis-surfaces.mjs `namedGap`). The
-// walk reads each marker: while it is there the gap is true; when it goes, the row is stale.
+// The gaps the System workspace itself names on the page (system-genesis-surfaces.mjs `namedGap`), and the
+// one Evaluations names (evaluations-governed.mjs `EVALUATION_RUN_GAP`). The walk reads each marker: while
+// it is there the gap is true; when it goes, the row is stale.
 export const REQUIRED_PROBES = Object.freeze({
+  "evaluate/legs/evaluation-ui": 'data-evaluation-named-gap="running an evaluation from this page (an active evaluation epoch and a current policy-bound data-view revision)"',
   "operate/legs/typed-lifecycle": 'data-system-named-gap="typed lifecycle forms (continuity, transitions, amendments, the initialize deployment revision)"',
   "run/legs/session-subject-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
   "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement campaigns (the constitution\'s protected profile binding — an ADR)"',
@@ -160,6 +165,9 @@ export const REQUIRED_LIVE = Object.freeze([
   "limits/handoff/lease-gates-connection-picker",
   "data/handoff/data-offered-to-limits",
   "limits/legs/limits",
+  // WP-D (2026-09-29): Evaluations rebound onto the governed evaluation plane.
+  "evaluate/legs/walk-evaluator",
+  "evaluate/legs/walk-suite-revision",
 ]);
 
 // The gap map's "Composes (does not re-prove)" list, plus the two R-240 lanes the walk leans on.
@@ -1290,6 +1298,68 @@ async function liveLeg() {
     claimLive("evaluate/legs/walk-suite",
       declared.redirected && !declared.refused && suites.status === 200 && suites.text.includes(suiteName),
       `declare ${declared.status}${declared.refused ? ` refused ${declared.refused.slice(0, 80)}` : ""} · the suites list it ${suites.text.includes(suiteName)}`);
+    // WP-D — Evaluations rebound onto the governed evaluation plane, in place below the library. THIS
+    // walk's evaluator: registered from the page's Register form, then stepped draft → validated →
+    // released → active from its own row's forms (each on the head the page read). Every outcome is read
+    // back from the daemon's evaluator family, never from the page.
+    const notReached = { status: 0, q: new URLSearchParams(), redirected: false, refused: "not reached" };
+    const evaluatorFamily = `ev-${vars.tag}`;
+    const evaluatorRef = `evaluator://${evaluatorFamily}/revision/1`;
+    const registered = outcomeOf(await submitRenderedForm(ctx, { id: "evaluator", page: await page(ctx, evaluationsRoute), from: evaluationsRoute, action: "/__ioi/evaluations/governed/evaluators",
+      fields: { family: evaluatorFamily, evaluator_kind: "scorer", implementation_ref: `artifact://journey/${vars.tag}/exact-match` } }));
+    let evaluatorActive = registered.q.get("acted") === "register-evaluator";
+    const evaluatorSteps = [];
+    for (const verb of ["validate", "release", "activate"]) {
+      const stepped = evaluatorActive
+        ? outcomeOf(await submitRenderedForm(ctx, { id: `evaluator-${verb}`, page: await page(ctx, evaluationsRoute), from: evaluationsRoute,
+          action: `/__ioi/evaluations/governed/evaluators/${evaluatorFamily}/${verb}`, marker: `data-evaluator-transition="${evaluatorFamily}/${verb}"`, fields: {} }))
+        : notReached;
+      evaluatorSteps.push([verb, stepped]);
+      evaluatorActive = evaluatorActive && stepped.q.get("acted") === `${verb}-evaluator`;
+    }
+    const evaluatorRead = (await read(ctx, `/v1/hypervisor/evaluators/${encodeURIComponent(evaluatorFamily)}`)).json || {};
+    const evaluatorAdmissions = Array.isArray(evaluatorRead.revisions) ? evaluatorRead.revisions : [];
+    const evaluatorNow = evaluatorRead.current || {};
+    const evaluatorsPage = await page(ctx, evaluationsRoute);
+    claimLive("evaluate/legs/walk-evaluator",
+      registered.q.get("record") === evaluatorRef && evaluatorActive
+        && evaluatorAdmissions.length === 4 && evaluatorAdmissions.map((r) => r.validity_status).join(">") === "draft>validated>released>active"
+        && evaluatorAdmissions.every((r) => r.revision_ref === evaluatorRef && !!r.evaluator_root && r.evaluator_root === evaluatorAdmissions[0].evaluator_root)
+        && evaluatorAdmissions.slice(1).every((r) => String(r.validity_decision_ref || "").startsWith("decision://"))
+        && evaluatorNow.validity_status === "active" && evaluatorNow.evaluator_kind === "scorer"
+        && evaluatorsPage.text.includes(`data-evaluator="${evaluatorRef}" data-evaluator-status="active"`),
+      `register ${registered.status} ${registered.refused ? `refused ${registered.refused}: ${registered.q.get("reason") || ""}` : registered.q.get("record") || "no record"} · ${evaluatorSteps.map(([verb, o]) => `${verb} ${o.refused ? `refused ${o.refused}` : o.q.get("acted") || o.status}`).join(" · ")} · daemon ${evaluatorAdmissions.map((r) => r.validity_status).join(">") || "no admissions"} roots ${new Set(evaluatorAdmissions.map((r) => r.evaluator_root)).size} · listed active ${evaluatorsPage.text.includes(`data-evaluator="${evaluatorRef}" data-evaluator-status="active"`)}`);
+    // THIS walk's library suite frozen into a governed revision from the Freeze form — which must OFFER the
+    // walk's library suite and its evaluator (submitRenderedForm refuses an option the form does not
+    // render) — binding the walk's two cases with their own source commitments, then released from the
+    // revision's row. The release is a successor admission carrying the SAME content hash.
+    const suiteFamily = `suite-${vars.tag}`;
+    const suiteRevisionRef = `evaluation-suite://${suiteFamily}/revision/1`;
+    const libraryRef = (((((await read(ctx, "/v1/hypervisor/eval-suites")).json || {}).eval_suites) || []).find((s) => s.name === suiteName) || {}).ref || "";
+    const cases = [1, 2].map((n) => ({ task_ref: `artifact://journey/${vars.tag}/case-${n}`, source_commitment: `sha256:${createHash("sha256").update(`${vars.tag}:case-${n}`).digest("hex")}` }));
+    const frozen = libraryRef && evaluatorActive
+      ? outcomeOf(await submitRenderedForm(ctx, { id: "suite-freeze", page: await page(ctx, evaluationsRoute), from: evaluationsRoute, action: "/__ioi/evaluations/governed/suite-revisions",
+        fields: { library_suite_ref: libraryRef, family: suiteFamily, tasks: cases.map((c) => `${c.task_ref} ${c.source_commitment}`).join("\n"), scorer_revision_ref: evaluatorRef } }))
+      : notReached;
+    const releasedSuite = frozen.q.get("acted") === "freeze-suite"
+      ? outcomeOf(await submitRenderedForm(ctx, { id: "suite-release", page: await page(ctx, evaluationsRoute), from: evaluationsRoute,
+        action: `/__ioi/evaluations/governed/suite-revisions/${suiteFamily}/1/release`, marker: `data-suite-release="${suiteRevisionRef}"`, fields: {} }))
+      : notReached;
+    const suiteRead = (await read(ctx, `/v1/hypervisor/evaluation-suites/${encodeURIComponent(suiteFamily)}`)).json || {};
+    const suiteAdmissions = Array.isArray(suiteRead.revisions) ? suiteRead.revisions : [];
+    const suiteNow = suiteRead.current || {};
+    const revisionsPage = await page(ctx, evaluationsRoute);
+    claimLive("evaluate/legs/walk-suite-revision",
+      !!libraryRef && frozen.q.get("acted") === "freeze-suite" && frozen.q.get("record") === suiteRevisionRef
+        && releasedSuite.q.get("acted") === "release-suite" && releasedSuite.q.get("record") === suiteRevisionRef
+        && suiteAdmissions.length === 2 && suiteAdmissions[0].registry_status === "draft" && suiteNow.registry_status === "released"
+        && suiteNow.revision_ref === suiteRevisionRef && !!suiteNow.content_hash && suiteNow.content_hash === suiteAdmissions[0].content_hash
+        && String(suiteNow.release_decision_ref || "").startsWith("decision://") && suiteNow.library_suite_ref === libraryRef
+        && canonicalJson(suiteNow.tasks ?? null) === canonicalJson(cases) && canonicalJson(suiteNow.scorer_revision_refs ?? null) === canonicalJson([evaluatorRef])
+        && (suiteRead.released_revision_refs || []).includes(suiteRevisionRef)
+        && revisionsPage.text.includes(`data-suite-revision="${suiteRevisionRef}" data-suite-revision-status="released"`),
+      `library ${libraryRef || "not found by name"} · freeze ${frozen.status} ${frozen.refused ? `refused ${frozen.refused}: ${frozen.q.get("reason") || ""}` : frozen.q.get("record") || ""} · release ${releasedSuite.status} ${releasedSuite.refused ? `refused ${releasedSuite.refused}: ${releasedSuite.q.get("reason") || ""}` : releasedSuite.q.get("acted") || ""} · daemon ${suiteAdmissions.map((r) => r.registry_status).join(">") || "no admissions"} hash ${suiteNow.content_hash && suiteNow.content_hash === suiteAdmissions[0]?.content_hash ? "unchanged by the release" : "moved or absent"} · tasks ${canonicalJson(suiteNow.tasks ?? null) === canonicalJson(cases) ? "the walk's" : "not the walk's"} · listed released ${revisionsPage.text.includes(`data-suite-revision="${suiteRevisionRef}" data-suite-revision-status="released"`)}`);
+    await probesOf("evaluate");
     // ==== STEP 9 — IMPROVE =========================================================================
     // THIS walk's improvement, through Agent Studio's own forms. A person records two corrections from
     // the Memory form; the daemon's outcome mining derives a candidate from exactly those entries, and
