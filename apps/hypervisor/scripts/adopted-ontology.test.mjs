@@ -49,6 +49,66 @@ test("the Ontology Manager offers no write it would refuse", () => {
   assert.equal(ONTOLOGY.userSettingsOf("ri.x").proposals.enabledStatus.type, "disabled");
 });
 
+test("what the pages offer follows the daemon's reading of the caller (caller_may_change): its owner edits types and creates object, link and action types; anyone else edits and creates nothing", () => {
+  const withLink = (flag) => [{ ...drafts[0], ...(flag === undefined ? {} : { caller_may_change: flag }), canonical_object_model: { ...drafts[0].canonical_object_model, link_types: [{ id: "held_by", name: "Held by", from: "loan", to: "borrower", cardinality: "one_to_many" }] } }];
+  for (const [flag, may] of [[true, true], [false, false], [undefined, false], ["yes", false]]) {
+    const models = ONTOLOGY.ontologyModelsOf(withLink(flag), "org://local", familyOf);
+    const [m] = models;
+    assert.equal(m.mayChange, may, `caller_may_change ${flag} → ${may} (only a daemon true grants)`);
+    const ot = ONTOLOGY.objectTypePermissionsOf({ objectTypeRids: [m.objectTypes[0].rid] }, models).objectTypePermissions[m.objectTypes[0].rid];
+    assert.deepEqual([ot.canView, ot.canEdit, ot.canDelete, ot.canAddDatasources, ot.canUpdateRoles], [true, may, false, false, false], "deleting, datasources and roles are never offered");
+    assert.equal(ONTOLOGY.linkTypePermissionsOf({ linkTypeRids: [m.linkTypes[0].rid] }, models).linkTypePermissions[m.linkTypes[0].rid].canEdit, may);
+    assert.equal(ONTOLOGY.actionTypePermissionsOf({ actionTypeRids: [m.actionTypes[0].rid] }, models).actionTypePermissions[m.actionTypes[0].rid].canEdit, may);
+    const p = ONTOLOGY.ontologyPermissionsOf(m);
+    assert.deepEqual([p.canCreateObjectTypes, p.canCreateLinkTypes, p.canCreateActionTypes], [may, may, may]);
+    assert.deepEqual([p.canCreateSharedPropertyTypes, p.canCreateTypeGroups, p.canCreateInterfaceTypes, p.canCreateRuleSets, p.canCreateWorkflows, p.canUpdateOntology, p.canDeleteOntology], [false, false, false, false, false, false, false], "what the model keeps none of, and the ontology's settings and deletion, are never offered");
+  }
+  assert.equal(Object.values(ONTOLOGY.ontologyPermissionsOf(null)).every((v) => v === false), true, "an ontology that is not the caller's offers nothing");
+});
+
+test("an edit's save is refused by name and writes nothing; any other write path is not caught here", () => {
+  const rid = "ri.ontology.main.ontology.00000000-0000-0000-0000-00000000000a";
+  for (const path of ["/ontology-metadata/api/ontology/ontology/modify", "/ontology-metadata/api/ontology/v2/modify", `/ontology-metadata/api/ontology/approvals/experimental/ontology/${rid}/modifyBranch`]) {
+    const refusal = ONTOLOGY.ontologySaveRefusalOf("POST", path);
+    assert.equal(refusal?.code, "Hypervisor:OntologyEditNotBound", path);
+    assert.equal(ONTOLOGY.proposalRefusalBodyOf(refusal).errorName, "Hypervisor:OntologyEditNotBound");
+    assert.match(ONTOLOGY.proposalRefusalBodyOf(refusal).parameters.message, /Nothing was changed\.$/u);
+  }
+  assert.equal(ONTOLOGY.ontologySaveRefusalOf("GET", "/ontology-metadata/api/ontology/v2/modify"), null);
+  assert.equal(ONTOLOGY.ontologySaveRefusalOf("POST", "/ontology-metadata/api/ontology/v2/modify/extra"), null);
+  assert.equal(ONTOLOGY.ontologySaveRefusalOf("POST", "/ontology-metadata/api/ontology/ontology/bulkLoadEntities"), null);
+});
+
+test("the Ontology Manager's page names no object view editor (the Hypervisor keeps no object views); nothing else in its environment changes", () => {
+  const escaped = "{&quot;applicationRoutes&quot;:{&quot;hubble&quot;:&quot;/workspace/hubble&quot;,&quot;object-view-editor&quot;:&quot;/workspace/object-view-editor&quot;,&quot;workshop-app&quot;:&quot;/workspace/module&quot;}}";
+  assert.equal(ONTOLOGY.ontologyPageOf(escaped), "{&quot;applicationRoutes&quot;:{&quot;hubble&quot;:&quot;/workspace/hubble&quot;,&quot;workshop-app&quot;:&quot;/workspace/module&quot;}}");
+  const last = "{&quot;hubble&quot;:&quot;/workspace/hubble&quot;,&quot;object-view-editor&quot;:&quot;/x&quot;}";
+  assert.equal(ONTOLOGY.ontologyPageOf(last), "{&quot;hubble&quot;:&quot;/workspace/hubble&quot;}", "the last entry leaves valid JSON");
+  assert.deepEqual(JSON.parse(ONTOLOGY.ontologyPageOf('{"a":"/a","object-view-editor":"/o","b":"/b"}')), { a: "/a", b: "/b" });
+  assert.equal(ONTOLOGY.ontologyPageOf("<html>no routes</html>"), "<html>no routes</html>");
+});
+
+test("the migration assistant finds nothing to move: the caller's object and action types, none in a project, none migratable by anyone; no shared properties or interfaces", () => {
+  const models = ONTOLOGY.ontologyModelsOf([{ ...drafts[0], caller_may_change: true }], "org://local", familyOf);
+  const rid = models[0].rid;
+  const ctx = { models, owner: "org://local" };
+  const ots = ONTOLOGY.ontologyGraphqlFacts("ObjectTypesAndLinkTypesWithDatasourcesQuery", { ontologyRid: rid }, ctx).ontology.objectTypesV2;
+  assert.equal(ots.totalNumberOfResults, 2);
+  assert.deepEqual(ots.values.map((v) => [v.objectType.permissions.canEdit, v.objectType.permissions.canUpdatePermissions, v.objectType.metadata.project, v.objectType.latest.dataSources.length]), [[true, false, null, 0], [true, false, null, 0]]);
+  const ats = ONTOLOGY.ontologyGraphqlFacts("ActionTypesRecommendationsQuery", { ontologyRid: rid }, ctx).ontology.actionTypes;
+  assert.deepEqual(ats.values.map((v) => [v.actionType.permissions.canUpdatePermissions, v.affectedObjectTypes.map((o) => o.rid)]), [[false, [models[0].objectTypes[0].rid]]]);
+  assert.equal(ONTOLOGY.ontologyGraphqlFacts("SharedPropertiesRecommendationsQuery", { ontologyRid: rid }, ctx).ontology.sharedProperties.totalNumberOfResults, 0);
+  assert.equal(ONTOLOGY.ontologyGraphqlFacts("InterfacesRecommendationsQuery", { ontologyRid: rid }, ctx).ontology.interfaces.totalNumberOfResults, 0);
+  assert.equal(ONTOLOGY.ontologyGraphqlFacts("ActionTypesRecommendationsQuery", { ontologyRid: "ri.ontology.main.ontology.00000000-0000-0000-0000-000000000000" }, ctx).ontology, null, "another ontology is not answered");
+  // Review changes' validation reads: the caller's one organization marking, and no entity sits in a protected project
+  const marks = ONTOLOGY.ontologyGraphqlFacts("GetAllMarkingPermissions", {}, ctx);
+  assert.deepEqual([marks.markingCategories, marks.organizations.map((o) => o.marking.permissions.canUse)], [[], [true]]);
+  assert.deepEqual(ONTOLOGY.ontologyGraphqlFacts("GetAllMarkingPermissions", {}, { models }).organizations, [], "signed out: no organization");
+  const prot = ONTOLOGY.ontologyGraphqlFacts("IsResourceBranchProtectedByRidQuery", { rid: models[0].objectTypes[0].rid }, ctx).resourceMetadata;
+  assert.deepEqual([prot.isProtected, prot.projectRid], [false, null]);
+  assert.equal(ONTOLOGY.ontologyGraphqlFacts("IsResourceBranchProtectedByRidQuery", { rid: "ri.ontology.main.object-type.x" }, ctx).resourceMetadata, null);
+});
+
 test("History lists each revision with its recorded changes and its receipt's author; the creation is not a change the app shows", () => {
   const revised = [{ ...drafts[0], revision: 2, history: [
     { revision: 1, op: "created", at: "2026-09-27T01:00:00Z", summary: "DomainOntology draft created", receipt_ref: "r1", affected: { object_types: { loan: "CREATED", borrower: "CREATED" } } },

@@ -313,7 +313,8 @@ pub(crate) async fn handle_odk_overview(
     let ledger = as_list(&get_json(&base, "/v1/hypervisor/work-ledger").await);
     let connectors = as_list(&get_json(&base, "/v1/hypervisor/connectors").await);
 
-    let ontologies = visible_ontologies(&st.data_dir, &identity);
+    let ontologies =
+        visible_ontologies(&st.data_dir, &OntologyAccess::read(&st.data_dir, &identity));
     let recipes = read_record_dir(&st.data_dir, KIND_RECIPE);
     let manifests = read_record_dir(&st.data_dir, KIND_MANIFEST);
     let descriptors = read_record_dir(&st.data_dir, KIND_SD);
@@ -1054,6 +1055,20 @@ fn visible_ontology(
     })
 }
 
+/// An ontology as THIS caller reads it: the stored record, its prose reprojected, plus
+/// `caller_may_change` — whether they may patch it, delete it and apply a proposal on it (its owner,
+/// or an administrator of its organization). Computed per read by the rule the change routes enforce
+/// (`OntologyAccess::may_change`), never stored, so a surface that offers editing offers it exactly to
+/// whom the daemon will not refuse.
+fn ontology_for_caller(access: &OntologyAccess, id: &str, mut record: Value) -> Value {
+    reproject_object_data_note(&mut record);
+    let may_change = access.may_change(&ontology_ref_of(&record, id));
+    if let Some(object) = record.as_object_mut() {
+        object.insert("caller_may_change".to_string(), Value::Bool(may_change));
+    }
+    record
+}
+
 /// PROSE ABOUT THE PLANE IS PROJECTED ON READ, NEVER SERVED FROM THE RECORD.
 ///
 /// `health.object_data_note` describes what this ESTATE can do, and it is computed at write time and
@@ -1072,11 +1087,7 @@ fn reproject_object_data_note(record: &mut Value) {
 }
 
 /// The ontologies the caller may see (daemon-internal readers use `read_record_dir` directly).
-fn visible_ontologies(
-    data_dir: &str,
-    identity: &super::substrate_store::RequestIdentity,
-) -> Vec<Value> {
-    let access = OntologyAccess::read(data_dir, identity);
+fn visible_ontologies(data_dir: &str, access: &OntologyAccess) -> Vec<Value> {
     read_record_dir(data_dir, KIND_ONT)
         .into_iter()
         .filter(|record| {
@@ -1110,14 +1121,23 @@ pub(crate) fn list_ontologies(
     identity: &super::substrate_store::RequestIdentity,
     domain: Option<&str>,
 ) -> Value {
-    let mut items = visible_ontologies(data_dir, identity);
+    let access = OntologyAccess::read(data_dir, identity);
+    let mut items = visible_ontologies(data_dir, &access);
     if let Some(domain) = domain.map(str::trim).filter(|s| !s.is_empty()) {
         items.retain(|o| o.get("domain").and_then(|v| v.as_str()) == Some(domain));
     }
     sort_by_updated(&mut items);
-    for item in items.iter_mut() {
-        reproject_object_data_note(item);
-    }
+    let items: Vec<Value> = items
+        .into_iter()
+        .map(|item| {
+            let id = item
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            ontology_for_caller(&access, &id, item)
+        })
+        .collect();
     json!({ "ok": true, "ontologies": items })
 }
 
@@ -1314,14 +1334,13 @@ pub(crate) fn get_ontology(
     identity: &super::substrate_store::RequestIdentity,
     id: &str,
 ) -> (StatusCode, Json<Value>) {
-    match visible_ontology(data_dir, identity, id) {
-        Some(mut record) => {
-            reproject_object_data_note(&mut record);
-            (
-                StatusCode::OK,
-                Json(json!({ "ok": true, "ontology": record })),
-            )
-        }
+    let access = OntologyAccess::read(data_dir, identity);
+    match load(data_dir, KIND_ONT, id).filter(|record| access.may_see(&ontology_ref_of(record, id)))
+    {
+        Some(record) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "ontology": ontology_for_caller(&access, id, record) })),
+        ),
         None => ontology_not_found(),
     }
 }
@@ -7711,6 +7730,65 @@ mod ontology_access_tests {
             "an org admin closes it"
         );
         assert_eq!(revision(d, &ont), 1);
+    }
+
+    #[test]
+    fn every_ontology_read_says_whether_the_caller_may_change_it_and_the_record_stores_none() {
+        let p = plane();
+        let d = p.data_dir.as_str();
+        let alpha = signed_in(d, "alpha", "member", &["org://local"]);
+        let beta = signed_in(d, "beta", "member", &["org://local"]);
+        let root = signed_in(d, "root", "admin", &["org://local"]);
+        let ont = created(d, &alpha, "lending");
+
+        // what each caller reads they may do is exactly what the change route answers them
+        let flag = |who: &RequestIdentity| {
+            let (status, Json(one)) = get_ontology(d, who, &ont);
+            assert_eq!(status, StatusCode::OK, "{one}");
+            let listed = list_ontologies(d, who, None)["ontologies"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|o| o["id"] == json!(ont))
+                .cloned()
+                .unwrap();
+            assert_eq!(
+                one["ontology"]["caller_may_change"], listed["caller_may_change"],
+                "list and get agree"
+            );
+            one["ontology"]["caller_may_change"]
+                .as_bool()
+                .expect("every read carries the flag")
+        };
+        assert!(flag(&alpha), "the owner");
+        assert!(flag(&root), "an administrator of its organization");
+        assert!(!flag(&beta), "another member sees it but may not change it");
+        assert_eq!(
+            apply_ontology_change(d, &beta, &ont, &json!({ "description": "x" })).0,
+            StatusCode::FORBIDDEN,
+            "the member the flag says may not change it is refused"
+        );
+
+        // computed per read, never stored — and a write that echoes a read back stores none either
+        let (status, Json(reply)) = apply_ontology_change(
+            d,
+            &alpha,
+            &ont,
+            &json!({ "description": "the loan book", "caller_may_change": true }),
+        );
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        assert_eq!(reply["ontology"]["description"], json!("the loan book"));
+        assert!(
+            load(d, KIND_ONT, &ont)
+                .unwrap()
+                .get("caller_may_change")
+                .is_none(),
+            "the flag is computed per read, never stored"
+        );
+        assert!(
+            flag(&alpha) && !flag(&beta),
+            "still read per caller after a write"
+        );
     }
 
     #[test]

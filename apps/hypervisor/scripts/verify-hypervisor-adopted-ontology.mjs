@@ -93,6 +93,20 @@ async function run() {
   ok("PRECONDITION: an ODK draft exists and its revision records which type it created (ODK keeps each revision's changes), and a function is declared and released",
     revised.status === 200 && odkHistory.at(-1)?.affected?.object_types?.branch === "CREATED" && fn.status < 300 && released.status < 300,
     `${JSON.stringify(odkHistory.at(-1)?.affected || null)} · function ${fn.status} ${fnId} · release ${released.status} ${released.j.error?.code || ""}`);
+  // a second person in the same organization (cut O7): they see the ontology, and may not change it — only its owner (the
+  // bootstrap operator who created it) or an administrator of its organization may
+  const memberEmail = "ontology-member@ioi.local";
+  const member = await d("POST", "/v1/hypervisor/principals", { email: memberEmail, name: "Ontology Member", role: "member", password: "adopted-ontology-member-v1" });
+  await d("POST", `/v1/hypervisor/principals/${member.j?.principal?.principal_id}/tenant-memberships`, { tenant_ref: owner, expected_revision: 0, idempotency_key: `adopted-ontology-member-${process.pid}`, reason: "verifier fixture: an ordinary member of the ontology's organization" });
+  const memberLogin = await fetch(`${DAEMON}/v1/hypervisor/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: memberEmail, password: "adopted-ontology-member-v1" }) }).then((r) => r.json()).catch(() => ({}));
+  const MEMBER_COOKIE = `ioi_session=${memberLogin.session_token}`;
+  const dm = (method, route, body) => fetch(`${DAEMON}${route}`, { method, headers: { cookie: MEMBER_COOKIE, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
+  const mayChange = async (read) => { const one = (await read("GET", `/v1/hypervisor/odk/domain-ontologies/${made?.id}`)).j.ontology?.caller_may_change; const listed = ((await read("GET", "/v1/hypervisor/odk/domain-ontologies")).j.ontologies || []).find((o) => o.id === made?.id)?.caller_may_change; return one === listed ? one : `list ${listed} ≠ get ${one}`; };
+  const [ownerMay, memberMay] = [await mayChange(d), await mayChange(dm)];
+  const memberPatch = await dm("PATCH", `/v1/hypervisor/odk/domain-ontologies/${made?.id}`, { expected_revision: 2, description: "the member's edit" });
+  ok("PRECONDITION: a member of the ontology's organization sees it but the daemon reads them as one who may not change it (caller_may_change false, its owner true) and refuses their patch by name",
+    ownerMay === true && memberMay === false && memberPatch.status === 403 && memberPatch.j.error?.code === "odk_ontology_not_owner",
+    `owner ${ownerMay} · member ${memberMay} · member's patch ${memberPatch.status} ${memberPatch.j.error?.code || ""}`);
 
   const { chromium } = await import(path.join(ROOT, "node_modules", "playwright", "index.mjs"));
   const browser = await chromium.launch();
@@ -134,10 +148,10 @@ async function run() {
     ok("the Object types section lists the caller's types from their ODK model, EXPERIMENTAL (a draft)",
       ["Loan", "Borrower", "Branch"].every((n) => types.includes(n)) && /Experimental/u.test(types) && !/Something went wrong/u.test(types), after(types, "Object types 3 Modify", 160));
     const links = await visit("/workspace/ontology/home/link-type", /Held by|Could not find/u);
-    const linkPage = await visit("/workspace/ontology/link-type/held_by/overview", /link type/u);
-    ok("the Link types section lists the ODK link type, and its page opens over daemon truth: its endpoints, its cardinality and that edits are not offered",
+    const linkPage = await visit("/workspace/ontology/link-type/held_by/overview", /Many-to-one link type|was not found/u);
+    ok("the Link types section lists the ODK link type, and its page opens over daemon truth: its endpoints and its cardinality",
       /Held by/u.test(after(links, "Link type 1", 120)) && !/Could not find any link types/u.test(links)
-        && /Held by/u.test(linkPage) && /Borrower/u.test(linkPage) && /Many-to-one link type/u.test(linkPage) && /You do not have edit permissions to this link type/u.test(linkPage) && !/was not found/u.test(linkPage),
+        && /Held by/u.test(linkPage) && /Borrower/u.test(linkPage) && /Many-to-one link type/u.test(linkPage) && !/was not found/u.test(linkPage),
       `${after(links, "Link type 1", 80)} · ${(linkPage.match(/Many-to-one link type|link type was not found|ID held_by/gu) || []).join(" · ")}`);
     const actions = await visit("/workspace/ontology/home/action-type", /Approve/u);
     ok("the Action types section lists the ODK action type, with no rules (an ODK action type declares none)",
@@ -161,10 +175,10 @@ async function run() {
         && await pg.getByRole("button", { name: "Save" }).first().isDisabled().catch(() => false),
       after(config, "API name", 60));
 
-    const overview = await visit("/workspace/ontology/object-type/loan/overview", /Last edited (?!X days).*You do not have edit permissions/u);
-    ok("an object type opens over daemon truth: its properties, its last edit and its author, and that edits are not offered (none is bound)",
-      /Loan/u.test(overview) && /Properties 3/u.test(overview) && /Last edited .* by/u.test(overview) && /You do not have edit permissions/u.test(overview) && !/Failed to load object type/u.test(overview),
-      `${(overview.match(/Properties \d+|Last edited [^·]{0,40}by \w+|You do not have edit permissions/gu) || []).join(" · ")}`);
+    const overview = await visit("/workspace/ontology/object-type/loan/overview", /Last edited (?!X days).* by \w+/u);
+    ok("an object type opens over daemon truth: its properties, its last edit and its author",
+      /Loan/u.test(overview) && /Properties 3/u.test(overview) && /Last edited .* by/u.test(overview) && !/Failed to load object type/u.test(overview),
+      `${(overview.match(/Properties \d+|Last edited [^·]{0,40}by \w+/gu) || []).join(" · ")}`);
     const props = await visit("/workspace/ontology/object-type/loan/properties-tab", /Loan Id/u);
     const security = await visit("/workspace/ontology/object-type/loan/security", /Object type roles Read-only/u);
     const typeHistory = await visit("/workspace/ontology/object-type/loan/history", /draft created/u);
@@ -335,6 +349,147 @@ async function run() {
       [...passthrough].every((p) => CHROME.has(p)) && [...unnamed].every((u) => /\/comments\/api\/comments\/counts/u.test(u)) && htmlAnswers.size === 0
         && [...gqlErrors].every((m) => /keeps no ontology branches/u.test(m)) && pageErrors.every((m) => /keeps no ontology branches/u.test(m)),
       `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · unnamed ${[...unnamed].filter((u) => !/comments/u.test(u)).join(",") || "none (comments are the comment lane's own gap)"} · html ${[...htmlAnswers].join(",") || "none"} · gql ${[...gqlErrors].filter((m) => !/keeps no ontology branches/u.test(m)).slice(0, 2).join(" | ") || "only the named refusal"} · page ${pageErrors.filter((m) => !/keeps no ontology branches/u.test(m)).slice(0, 1).join("") || "none"}`);
+
+    // ---- Who may edit, create and save (cut O7): every permission the pages offer is the daemon's reading of the caller
+    // (caller_may_change: the ontology's owner, or an administrator of its organization). Each person in a fresh browser (the
+    // reference keeps unsaved edits in the browser), each page's reads watched as above.
+    const instrument = (page) => {
+      const seen = { passthrough: new Set(), unnamed: new Set(), html: new Set(), gql: new Set(), ops: new Set(), pageErrors: [] };
+      page.on("pageerror", (e) => seen.pageErrors.push(String(e.message).slice(0, 160)));
+      page.on("response", async (r) => {
+        const u = new URL(r.url()); const key = `${r.request().method()} ${u.pathname.replace(/ri\.[\w.-]+/gu, "<rid>")}`;
+        if (r.headers()["x-ioi-mirror-passthrough"] === "1") seen.passthrough.add(key);
+        if (/^\/[a-z][a-z0-9-]*\/api\//u.test(u.pathname) && /text\/html/u.test(r.headers()["content-type"] || "")) seen.html.add(key);
+        if (r.status() === 501) { const j = await r.json().catch(() => ({})); if (j.errorName !== "Hypervisor:OntologyReadNotBound") seen.unnamed.add(key); }
+        if (/graphql/u.test(u.pathname)) { for (const op of (u.searchParams.get("q") || "").split(",").filter(Boolean)) seen.ops.add(op); const t = await r.text().catch(() => ""); for (const m of t.matchAll(/"message":"([^"]{0,90})/gu)) seen.gql.add(m[1]); }
+      });
+      return seen;
+    };
+    const personPage = async (sessionToken) => {
+      const c = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+      await c.addCookies([{ name: "ioi_session", value: sessionToken, url: SERVE }]);
+      const page = await c.newPage();
+      const seen = instrument(page);
+      const read = async () => (await page.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+      const go = async (p, until) => { await page.goto(`${SERVE}${p}`, { waitUntil: "domcontentloaded", timeout: 60000 }); let t = ""; for (let i = 0; i < 25; i++) { await page.waitForTimeout(800); t = await read(); if (!until || until.test(t)) break; } return t; };
+      const waitText = async (want, n = 15) => { let t = ""; for (let i = 0; i < n; i++) { await page.waitForTimeout(700); t = await read(); if (want.test(t)) break; } return t; };
+      const tooltips = () => page.evaluate(() => [...new Set([...document.querySelectorAll("[class*=tooltip]")].map((e) => e.innerText.trim()).filter(Boolean))].join(" | "));
+      return { page, seen, read, go, waitText, tooltips };
+    };
+    const ownerNow = await ontologyNow();
+    const M = await personPage(memberLogin.session_token);
+    let O = await personPage(boot.session_token);
+    const ownerSeen = [];
+
+    // the member: the type and link pages say they may not edit, and New is disabled with the reference's own reason
+    const memberType = await M.go("/workspace/ontology/object-type/branch/overview", /You do not have edit permissions to this object type/u);
+    const memberLink = await M.go("/workspace/ontology/link-type/held_by/overview", /You do not have edit permissions to this link type/u);
+    await M.go("/workspace/ontology/home/discover", /recently modified/u);
+    const memberNew = M.page.getByRole("button", { name: "New", exact: true }).first();
+    const memberNewDisabled = await memberNew.getAttribute("aria-disabled").catch(() => null);
+    await memberNew.hover().catch(() => {});
+    await M.page.waitForTimeout(1200);
+    const memberTip = await M.tooltips();
+    // the owner: the same pages are editable (no read-only banner), and New offers the kinds the ODK model holds
+    const ownerType = await O.go("/workspace/ontology/object-type/branch/overview", /Type here…|You do not have edit permissions/u);
+    ok("who may edit a type is the daemon's answer: a member who may not change the ontology reads the reference's own \"You do not have edit permissions\" on its type and link pages, and its owner gets the editable page",
+      /You do not have edit permissions to this object type/u.test(memberType) && /You do not have edit permissions to this link type/u.test(memberLink)
+        && /Type here…/u.test(ownerType) && !/You do not have edit permissions/u.test(ownerType) && memberMay === false && ownerMay === true,
+      `member: ${after(memberType, "You do not have edit", 50)} · ${after(memberLink, "You do not have edit", 48)} · owner: ${/Type here…/u.test(ownerType) ? "editable" : "read-only"} · daemon reads member ${memberMay}, owner ${ownerMay}`);
+
+    // the owner edits the type's description: Review changes shows the edit, and the reference's own validation keeps Save to
+    // ontology disabled — an ODK type has no backing datasource. Nothing reaches the daemon.
+    await O.page.getByText("Type here…").first().click({ timeout: 8000 }).catch(() => {});
+    await O.page.waitForTimeout(500);
+    await O.page.keyboard.type("A lending office");
+    await O.page.keyboard.press("Enter");
+    await O.waitText(/1 edit/u, 8);
+    await O.page.getByRole("button", { name: "Save", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    const reviewed = await O.waitText(/Backing datasource is missing|An error occurred while validating/u, 20);
+    const saveToOntology = O.page.getByRole("button", { name: /Save to ontology/u }).first();
+    const saveDisabled = (await saveToOntology.getAttribute("aria-disabled").catch(() => null)) === "true" || await saveToOntology.isDisabled().catch(() => false);
+    const afterTypeEdit = await ontologyNow();
+    ok("its owner's edit to a type reaches Review changes (the edit shown), where the reference's own validation lists \"Backing datasource is missing\" and keeps Save to ontology disabled — and the daemon's ontology is untouched",
+      /Description A lending office/u.test(reviewed) && /Backing datasource is missing/u.test(reviewed) && saveDisabled && afterTypeEdit.revision === ownerNow.revision
+        && !afterTypeEdit.canonical_object_model?.object_types?.find((o) => o.id === "branch")?.description,
+      `${after(reviewed, "GENERAL INFORMATION", 110)} · Save to ontology ${saveDisabled ? "disabled" : "ENABLED"} · revision ${ownerNow.revision} → ${afterTypeEdit.revision}`);
+
+    // an action type needs no datasource, so its edit reaches the save itself — refused by name, nothing written. (A fresh
+    // browser: the reference keeps the type edit above, unsaved, and would review both together.)
+    ownerSeen.push(O.seen); await O.page.context().close();
+    O = await personPage(boot.session_token);
+    await O.go("/workspace/ontology/home/action-type", /Approve/u);
+    await O.page.getByText("Approve", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await O.waitText(/Type here…/u, 15);
+    await O.page.getByText("Type here…").first().click({ timeout: 8000 }).catch(() => {});
+    await O.page.waitForTimeout(500);
+    await O.page.keyboard.type("Approve a loan");
+    await O.page.keyboard.press("Enter");
+    await O.waitText(/1 edit/u, 8);
+    await O.page.getByRole("button", { name: "Save", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await O.waitText(/Description Approve a loan/u, 15);
+    await O.page.getByRole("button", { name: /Save to ontology/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await O.waitText(/Save changes to Ontology/u, 8);
+    await O.page.getByRole("button", { name: "Save changes", exact: true }).click({ timeout: 8000 }).catch(() => {});
+    const refusedSave = await O.waitText(/Hypervisor:OntologyEditNotBound/u, 15);
+    const afterActionSave = await ontologyNow();
+    ok("an action type's edit (it needs no datasource) reaches Save changes, and the save is refused by name (Hypervisor:OntologyEditNotBound): the daemon's ontology keeps its revision and the action type its description",
+      /Failed to save changes to the ontology/u.test(refusedSave) && /Hypervisor:OntologyEditNotBound/u.test(refusedSave) && /Saving from the Ontology Manager is not bound yet/u.test(refusedSave)
+        && afterActionSave.revision === ownerNow.revision && !afterActionSave.canonical_object_model?.action_types?.find((a) => a.id === "approve")?.description,
+      `${after(refusedSave, "Failed to save changes", 110)} · revision ${ownerNow.revision} → ${afterActionSave.revision}`);
+
+    // New: the owner's menu offers object, link and action types; the kinds the model keeps none of stay disabled; Object type
+    // opens the reference's creation wizard, whose first step asks for a backing datasource
+    await O.go("/workspace/ontology/home/discover", /recently modified/u);
+    const ownerNew = O.page.getByRole("button", { name: "New", exact: true }).first();
+    const ownerNewDisabled = await ownerNew.getAttribute("aria-disabled").catch(() => null);
+    await ownerNew.click({ timeout: 8000 }).catch(() => {});
+    await O.page.waitForTimeout(1500);
+    const menu = await O.page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".bp6-menu-item, .bp5-menu-item, .bp4-menu-item")].map((b) => [b.innerText.split("\n")[0].trim(), /disabled/.test(b.className)])));
+    await O.page.locator(".bp6-menu-item, .bp5-menu-item, .bp4-menu-item").filter({ hasText: /^Object type/u }).first().click({ timeout: 8000 }).catch(() => {});
+    const wizard = await O.waitText(/Object type backing/u, 10);
+    const wizardNext = O.page.getByRole("button", { name: "Next", exact: true }).first();
+    const nextDisabled = (await wizardNext.getAttribute("aria-disabled").catch(() => null)) === "true" || await wizardNext.isDisabled().catch(() => false);
+    ok("New is the daemon's answer too: disabled for the member, whose tooltip is the reference's own \"You do not have permission to create new entities on this ontology.\" (true — the daemon refuses their patch); its owner's menu offers object, link and action types",
+      memberNewDisabled === "true" && /You do not have permission to create new entities on this ontology\./u.test(memberTip) && memberPatch.status === 403
+        && ownerNewDisabled !== "true" && menu["Object type"] === false && menu["Link type"] === false && menu["Action type"] === false,
+      `member: ${memberNewDisabled === "true" ? "disabled" : "ENABLED"} "${memberTip.slice(0, 70)}" · owner: ${ownerNewDisabled === "true" ? "DISABLED" : "enabled"} ${JSON.stringify(menu)}`);
+    ok("its owner's New → Object type opens the reference's creation wizard, whose first step asks for the type's backing datasource (Next disabled until one is chosen); the kinds the ODK model keeps none of (shared properties, groups, interfaces) stay disabled",
+      /STEP 1 Object type backing/u.test(wizard) && /Continue with an empty datasource/u.test(wizard) && nextDisabled
+        && menu["Shared property"] === true && menu.Group === true && menu.Interface === true,
+      `${after(wizard, "STEP 1", 60)} · Next ${nextDisabled ? "disabled" : "ENABLED"}`);
+
+    // an object type's Object views: the page environment names no object view editor, so the reference disables the tab with its
+    // own reason and reads nothing of objects
+    O.seen.ops.clear();
+    const views = await O.go("/workspace/ontology/object-type/loan/object-views", /Object views are not enabled|No object selected|Failed to load object view/u);
+    await O.page.waitForTimeout(2000);
+    const viewReads = [...O.seen.ops].filter((op) => /^(ObjectsQuery|ObjectViewTabQuery|PinnedObjectQuery|ObjectFromUrlParamQuery|FullViewQuery|ObjectRidQuery)$/u.test(op));
+    ok("an object type's Object views tab is disabled with the reference's own reason, \"Object views are not enabled\" (the Hypervisor keeps no object views), and reads nothing of objects",
+      /Object views are not enabled/u.test(views) && !/No object selected|Failed to load object view/u.test(views) && viewReads.length === 0,
+      `${after(views, "Object views are not", 30)} · object reads ${viewReads.join(",") || "none"}`);
+
+    // Ontology configuration → Proceed to migration: the assistant finds nothing it may move into project permissions
+    await O.go("/workspace/ontology/home/advanced", /Proceed to migration/u);
+    await O.page.getByText("Proceed to migration").first().click({ timeout: 8000 }).catch(() => {});
+    await O.waitText(/Ontology projects migration assistant/u, 10);
+    await O.page.getByText("Select resources to migrate", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    const recommended = await O.waitText(/No project with recommendations|Failed to load Ontology entities/u, 15);
+    await O.page.getByText("Individual resources").first().click({ timeout: 8000 }).catch(() => {});
+    const individual = await O.waitText(/Could not find any object types|Loan/u, 10);
+    const continueButton = O.page.getByRole("button", { name: /Continue migrating/u }).first();
+    const continueDisabled = (await continueButton.getAttribute("aria-disabled").catch(() => null)) === "true" || await continueButton.isDisabled().catch(() => false);
+    ok("Proceed to migration opens the reference's migration assistant, which finds nothing it may move into project permissions: no project with recommendations, no migratable resource, Continue migrating 0 resources disabled — the Hypervisor keeps no project permissions for ontology resources",
+      O.page.url().endsWith("/workspace/ontology/project-permission-migration") && /Recommended projects 0/u.test(recommended) && /No project with recommendations/u.test(recommended)
+        && /Migratable resources only .*Could not find any object types/u.test(individual) && /Continue migrating 0 resources/u.test(individual) && continueDisabled && !/Failed to load Ontology entities/u.test(recommended + individual),
+      `${after(recommended, "Recommended projects", 40)} · ${after(individual, "Migratable resources only", 70)} · continue ${continueDisabled ? "disabled" : "ENABLED"}`);
+
+    const personGaps = [M.seen, ...ownerSeen, O.seen];
+    const allowedGql = (m) => /is not bound in the Hypervisor adapter yet/u.test(m);
+    ok("the permission, edit, save, New, object view and migration pages reach no mirror beyond the reference's chrome, answer no read with the serve's HTML page, and every gap they meet is named",
+      personGaps.every((s) => [...s.passthrough].every((p) => CHROME.has(p)) && s.unnamed.size === 0 && s.html.size === 0 && [...s.gql].every(allowedGql) && s.pageErrors.every(allowedGql)),
+      personGaps.map((s, i) => `${i ? "owner" : "member"}: passthrough ${[...s.passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · unnamed ${[...s.unnamed].join(",") || "none"} · html ${[...s.html].join(",") || "none"} · gql ${[...s.gql].filter((m) => !allowedGql(m)).slice(0, 2).join(" | ") || "named only"} · page ${s.pageErrors.filter((m) => !allowedGql(m)).slice(0, 1).join("") || "none"}`).join(" ‖ "));
+    await M.page.context().close(); await O.page.context().close();
 
     // ---- degraded: the daemon stopped — each page shows its own error, never an empty ontology -----------------------
     daemon.kill("SIGTERM");

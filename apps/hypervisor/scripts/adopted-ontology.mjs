@@ -37,6 +37,9 @@ export function ontologyModelsOf(domainOntologies, ownerRef, familyOf) {
     });
     return {
       history: (Array.isArray(d.history) ? d.history : []).filter((h) => h && Number(h.revision) > 0),
+      // whether the caller may change this ontology, as the daemon reads it for them on every read (its owner, or an
+      // administrator of its organization: the rule its PATCH, DELETE and apply routes enforce) — never inferred here
+      mayChange: d.caller_may_change === true,
       rid: ontologyRidOfFamily(family), family, draftId: d.id, displayName: d.domain || family, description: d.description || "",
       revision: Number(d.revision) || 1, version: draftVersionOf(d.id, Number(d.revision) || 1),
       updatedAt: d.updated_at || d.created_at || null, objectTypes,
@@ -59,13 +62,21 @@ export const FEATURE_CONFIGURATIONS = {
 };
 // POST /ontology-metadata/api/organization/getSettings/user — usage metrics are not kept; proposals are not enabled.
 export const userSettingsOf = (organizationRid) => ({ organization: organizationRid, usage: { usageEnabled: false }, proposals: { enabledStatus: { type: "disabled", disabled: {} } } });
-// GET /ontology-metadata/api/permissions/ontology/<rid> — the Ontology Manager's writes are not bound yet, so nothing is
-// offered that would be refused (an ODK draft is edited in ODK).
+// GET /ontology-metadata/api/permissions/ontology/<rid> — nothing is offered to a caller who may not change the ontology.
 export const ONTOLOGY_PERMISSIONS = {
   canCreateObjectTypes: false, canCreateLinkTypes: false, canCreateActionTypes: false, canUseNotificationsWithActionType: false,
   canCreateRuleSets: false, canCreateWorkflows: false, canCreateSharedPropertyTypes: false, canCreateInterfaceTypes: false,
   canCreateTypeGroups: false, canUpdateOntology: false, canDeleteOntology: false,
 };
+// …and to one who may (its owner, or an administrator of its organization: the daemon's `caller_may_change`), adding an
+// object, link or action type — each is a change to the ODK model, which the daemon lets exactly them make. Nothing else is
+// offered: the model keeps no shared properties, groups, interfaces, rule sets or workflows, and the ontology's settings and
+// its deletion are not changed from here. (The reference saves a new type only with a backing datasource, so its own save
+// stays disabled — "Backing datasource is missing" — until a type's materialized set can back it.)
+export const ontologyPermissionsOf = (model) => ({
+  ...ONTOLOGY_PERMISSIONS,
+  canCreateObjectTypes: model?.mayChange === true, canCreateLinkTypes: model?.mayChange === true, canCreateActionTypes: model?.mayChange === true,
+});
 // POST /ontology-metadata/api/ontology/ontology/load/<rid>/summary — the ontology's counts (no platform maximums apply).
 export function summaryOf(model) {
   const m = model || { objectTypes: [], linkTypes: [], actionTypes: [] };
@@ -94,7 +105,8 @@ export const ONTOLOGY_GRAPHQL_OPERATIONS = new Set([
   "ObjectTypeMetadataPanelQuery", "RolesSectionContentQuery", "ObjectTypeMonitorRulesQuery", "AutomationsTabQuery",
   "ObjectTypeObjectsCountQuery", "ObjectTypeDependentsQuery", "ObjectTypeArchiveStatusQuery",
   "LinkTypeRedirectQuery", "LinkTypeStorageStatusQuery", "SelectedObjectTypeQuery", "ObjectTypeSearch", "ObjectTypeQuicksearch",
-  "IndividualRoleGrantsEditorQuery",
+  "IndividualRoleGrantsEditorQuery", "GetAllMarkingPermissions", "IsResourceBranchProtectedByRidQuery",
+  "ObjectTypesAndLinkTypesWithDatasourcesQuery", "ActionTypesRecommendationsQuery", "SharedPropertiesRecommendationsQuery", "InterfacesRecommendationsQuery",
 ]);
 // An object type as the pickers select it: its title, icon and status (a draft's types are experimental), its primary
 // key, and no datasource, group or storage; it is not editable here.
@@ -289,6 +301,40 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
       const hit = linkTypeHitOf(ctx.models, variables?.rid);
       return { ...root, linkType: hit ? { __typename: "LinkType", _id: cid(`LinkType:${hit.l.rid}`), rid: hit.l.rid, storage: null } : null };
     }
+    // Ontology configuration → Proceed to migration: the project-permission migration assistant reads the ontology's object,
+    // action and link types with their datasources, projects and who may move them into project permissions. An ODK type
+    // is filed in no project and backed by no datasource, and the Hypervisor keeps no project permissions for ontology
+    // resources to move one into (an ontology is changed by its owner or an administrator of its organization), so no
+    // resource may be migrated by anyone: canUpdatePermissions is false for every one, and nothing is recommended. The
+    // model keeps no shared properties or interfaces (cut O7).
+    case "ObjectTypesAndLinkTypesWithDatasourcesQuery": case "ActionTypesRecommendationsQuery": case "SharedPropertiesRecommendationsQuery": case "InterfacesRecommendationsQuery": {
+      if (!model) return { ...root, ontology: null };
+      const meta = (r) => ({ __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${r}`), rid: r, projectRid: null, project: null,
+        parent: ctx.owner ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${namespaceRidOf(ctx.owner)}`), rid: namespaceRidOf(ctx.owner) } : null });
+      const perms = (r) => ({ __typename: "EntityPermissions", _id: cid(`migration-perm:${r}`), canEdit: model.mayChange === true, canUpdatePermissions: false });
+      const pageOf = (typename, values) => ({ __typename: typename, values, nextPageToken: null, totalNumberOfResults: values.length });
+      const node = { ...ontologyNode(model) };
+      if (name === "ObjectTypesAndLinkTypesWithDatasourcesQuery") node.objectTypesV2 = pageOf("ObjectTypeVersionPage", model.objectTypes.map((o) => ({ __typename: "ObjectTypeVersion", _id: cid(`migration-otv:${o.rid}`),
+        objectType: { __typename: "ObjectType", _id: cid(`ObjectType:${o.rid}`), rid: o.rid, metadata: meta(o.rid), permissions: { ...perms(o.rid), __typename: "ObjectTypePermissions" }, owningPackage: null,
+          latest: { __typename: "ObjectTypeVersion", _id: cid(`ObjectTypeVersion:${o.rid}`), dataSources: [], linksIncludingLinksToObjectTypesWithoutSearchableDatasources: [] } } })));
+      if (name === "ActionTypesRecommendationsQuery") node.actionTypes = pageOf("ActionTypeVersionPage", model.actionTypes.map((a) => ({ __typename: "ActionTypeVersion", _id: cid(`migration-atv:${a.rid}`),
+        affectedObjectTypes: model.objectTypes.filter((o) => o.id === a.applies_to).map((o) => ({ __typename: "ObjectType", _id: cid(`ObjectType:${o.rid}`), rid: o.rid })), affectedLinkTypes: [],
+        actionType: { __typename: "ActionType", _id: cid(`ActionType:${a.rid}`), rid: a.rid, metadata: meta(a.rid), permissions: { ...perms(a.rid), __typename: "ActionTypePermissions" }, owningPackage: null } })));
+      if (name === "SharedPropertiesRecommendationsQuery") node.sharedProperties = pageOf("SharedObjectTypePropertyVersionPage", []);
+      if (name === "InterfacesRecommendationsQuery") node.interfaces = pageOf("OntologyInterfaceVersionPage", []);
+      return { ...root, ontology: node };
+    }
+    // Review changes validates an edit against the caller's markings: the Hypervisor keeps no marking categories, and its one
+    // organization (the owner tenant) is the caller's, its marking theirs to use (cut O7)
+    case "GetAllMarkingPermissions": return { ...root, markingCategories: [], organizations: ctx.owner ? [organizationNodeOf(ctx.owner)] : [] };
+    // …and whether each edited entity sits in a protected project: none is filed in a project (its parent is the namespace),
+    // and nothing is protected
+    case "IsResourceBranchProtectedByRidQuery": {
+      const r = String(variables?.rid || "");
+      const ours = (ctx.models || []).some((mm) => mm.rid === r || mm.objectTypes.some((o) => o.rid === r) || mm.linkTypes.some((l) => l.rid === r) || mm.actionTypes.some((a) => a.rid === r));
+      return { ...root, resourceMetadata: ours ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${r}`), rid: r, projectRid: null, project: null, isProtected: false,
+        parent: ctx.owner ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${namespaceRidOf(ctx.owner)}`), rid: namespaceRidOf(ctx.owner) } : null } : null };
+    }
     default: return null;
   }
 }
@@ -370,11 +416,14 @@ export function entityMetadataLoadOf(request, models) {
   const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
   return { objectTypes: (request?.objectTypes || []).filter((r) => ours.has(r.objectTypeRid)).map((r) => ({ objectTypeRid: r.objectTypeRid, objectTypeEntityMetadata: entityMetadataOf() })) };
 }
-// PUT /ontology-metadata/api/permissions/objectTypes — the caller sees their types; the Ontology Manager edits nothing yet
+// PUT /ontology-metadata/api/permissions/objectTypes — the caller sees their types, and edits one exactly when the daemon
+// reads them as one who may change its ontology (`caller_may_change`); anyone else reads the reference's own "You do not
+// have edit permissions". Deleting a type, datasources and roles are not offered (none is bound here).
+const mayChangeOf = (models, has) => (models || []).find(has)?.mayChange === true;
 export function objectTypePermissionsOf(request, models) {
   const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
   return { objectTypePermissions: Object.fromEntries((request?.objectTypeRids || []).filter((r) => ours.has(r)).map((r) => [r, {
-    canView: true, canEdit: false, canDelete: false, canAddDatasources: false, canUpdateRoles: false, canApplyRestrictedSchemaMigrations: false,
+    canView: true, canEdit: mayChangeOf(models, (m) => m.objectTypes.some((o) => o.rid === r)), canDelete: false, canAddDatasources: false, canUpdateRoles: false, canApplyRestrictedSchemaMigrations: false,
     datasourcePermissions: {}, propertySecurityGroupPermissions: {}, isEditRestrictedByDatasources: false, packageRid: null, permissionModel: { type: "roles", roles: {} },
   }])) };
 }
@@ -410,11 +459,12 @@ export function actionTypeEntityOf(model, a) {
     ontologyRid: model.rid, ontologyVersion: model.version, resolvedBranch: { type: "default", default: { rid: branchRidOf(model) } },
   };
 }
-// PUT /ontology-metadata/api/permissions/actionTypes — the caller sees their action types; none is edited here
+// PUT /ontology-metadata/api/permissions/actionTypes — the caller sees their action types, and edits one as they may its
+// ontology (the daemon's `caller_may_change`)
 export function actionTypePermissionsOf(request, models) {
   const ours = new Set((models || []).flatMap((m) => m.actionTypes.map((a) => a.rid)));
   return { actionTypePermissions: Object.fromEntries((request?.actionTypeRids || []).filter((r) => ours.has(r)).map((r) => [r, {
-    canView: true, canEdit: false, canUseNotifications: false, canUpdateRoles: false, hasRolesApplied: false,
+    canView: true, canEdit: mayChangeOf(models, (m) => m.actionTypes.some((a) => a.rid === r)), canUseNotifications: false, canUpdateRoles: false, hasRolesApplied: false,
     permissionModel: { type: "roles", roles: {} }, packageRid: null, canOverrideNotificationRedaction: false,
   }])) };
 }
@@ -533,6 +583,18 @@ export function allActionTypesOf(model, request) {
   const from = Math.max(0, Number(request?.pageToken) || 0), size = Math.max(1, Number(request?.pageSizeLimit) || 500);
   return { actionTypes: model.actionTypes.slice(from, from + size).map((a) => actionTypeEntityOf(model, a).actionType), nextPageToken: from + size < model.actionTypes.length ? String(from + size) : null };
 }
+// ---- Object views (cut O7). An object view is a per-type view module the reference builds in its object view editor and
+// previews over the type's indexed objects. The Hypervisor keeps no object views and has no object view editor; an ODK type's
+// instances, once materialized, are read through the daemon's object-instance search, never through a view. The reference
+// decides the tab from the platform's page environment — the applications it names — and disables it, with its own reason
+// ("Object views are not enabled"), when no object view editor is named. That environment is the recorded tenant's; the
+// Ontology Manager's page is served naming no object view editor, so the tab says so instead of spinning over reads of
+// objects that no view can show. Nothing else in the environment is changed.
+const OBJECT_VIEW_EDITOR_ROUTE = [/&quot;object-view-editor&quot;:&quot;[^&"]*&quot;,/gu, /,&quot;object-view-editor&quot;:&quot;[^&"]*&quot;/gu, /"object-view-editor":"[^"]*",/gu, /,"object-view-editor":"[^"]*"/gu];
+export function ontologyPageOf(html) {
+  if (typeof html !== "string") return html;
+  return OBJECT_VIEW_EDITOR_ROUTE.reduce((out, re) => out.replace(re, ""), html);
+}
 // POST /objects-data-funnel/api/view/currentV4 — the object database views of the caller's types: none (an ODK type
 // is indexed in no object database)
 export function objectViewsOf(request, models) {
@@ -556,10 +618,11 @@ export function compassRolesOf(request, models) {
   const ours = new Set((models || []).flatMap((m) => [m.rid, ...m.objectTypes.map((o) => o.rid), ...m.linkTypes.map((l) => l.rid), ...m.actionTypes.map((a) => a.rid)]));
   return { resourceRolesResultMap: Object.fromEntries((request?.rids || []).filter((r) => ours.has(r)).map((r) => [r, { grants: [], disableInheritedPermissionsForPrincipals: [], disableInheritedPermissions: false, disableInheritedPermissionsType: null }])) };
 }
-// PUT /ontology-metadata/api/permissions/linkTypes — the caller sees their link types; none is edited here
+// PUT /ontology-metadata/api/permissions/linkTypes — the caller sees their link types, and edits one as they may its
+// ontology (the daemon's `caller_may_change`)
 export function linkTypePermissionsOf(request, models) {
   return { linkTypePermissions: Object.fromEntries((request?.linkTypeRids || []).filter((r) => linkTypeHitOf(models, r)).map((r) => [r, {
-    canView: true, canEdit: false, canDelete: false, canAddDatasources: false, canUpdateRoles: false,
+    canView: true, canEdit: linkTypeHitOf(models, r)?.model?.mayChange === true, canDelete: false, canAddDatasources: false, canUpdateRoles: false,
     datasourcePermissions: {}, isEditRestrictedByDatasources: false, packageRid: null, permissionModel: { type: "roles", roles: {} },
   }])) };
 }
@@ -850,6 +913,22 @@ export const PROPOSAL_REFUSALS = Object.freeze({
   signedOut: { status: 403, code: "Hypervisor:OntologyProposalSignInRequired", message: "Sign in to decide a proposal. Nothing was changed." },
   notFound: { status: 404, code: "Hypervisor:OntologyProposalNotFound", message: "No proposal on your ontologies has this id. Nothing was changed." },
 });
+// ---- Saving an edit (cut O7). Whoever may change an ontology (the daemon's `caller_may_change`) edits its types here, and the
+// reference's Review changes validates the edit; its save (Save to ontology…, and a branch's save) writes one modification
+// batch. That write is not bound: an ODK ontology changes only by an ODK patch at its current revision (its owner, or an
+// administrator of its organization) or by applying a proposal, and a type the reference saves must be backed by a
+// datasource — which an ODK type has only when materialized. So the save is refused by name and nothing is written. (An
+// object or link type's own save stays disabled before this: its review lists "Backing datasource is missing".)
+export const ONTOLOGY_SAVE_PATHS = [/^\/ontology-metadata\/api\/ontology\/ontology\/modify$/u, /^\/ontology-metadata\/api\/ontology\/v2\/modify$/u,
+  /^\/ontology-metadata\/api\/ontology\/approvals\/experimental\/ontology\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/modifyBranch$/u];
+export const ONTOLOGY_SAVE_REFUSAL = Object.freeze({ status: 409, code: "Hypervisor:OntologyEditNotBound",
+  message: "Saving from the Ontology Manager is not bound yet: an ODK ontology changes only by an ODK patch at its current revision (by its owner or an administrator of its organization) or by applying a proposal, and this save is neither. Nothing was changed." });
+// GET /language-model-service/api/config/v1/enabled — an editable page offers language-model assists (generated descriptions
+// and the like) when this reads true; none is bound on this surface, so it reads false (passed through, it answered the
+// recorded tenant's true)
+export const LANGUAGE_MODEL_ENABLED_PATH = "/language-model-service/api/config/v1/enabled";
+export const LANGUAGE_MODEL_ENABLED = false;
+export const ontologySaveRefusalOf = (method, pathname) => (method === "POST" && ONTOLOGY_SAVE_PATHS.some((re) => re.test(pathname)) ? ONTOLOGY_SAVE_REFUSAL : null);
 export const proposalRefusalBodyOf = (refusal) => ({ errorCode: refusal.status === 404 ? "NOT_FOUND" : refusal.status === 403 ? "PERMISSION_DENIED" : "CONFLICT", errorName: refusal.code, errorInstanceId: "", parameters: { message: refusal.message }, message: refusal.message });
 // ---- a proposal as the reference's OntologyChangeProposal (GraphQL: the Proposals section's rows, a proposal's page). Its
 // branch is the proposal's own change set on its ontology; it names no Foundry (global) branch and no datasource branch. The

@@ -10983,12 +10983,16 @@ async function handleEstateRequest(req, res, body) {
       // a Data Connection write the Hypervisor refuses, in the reference's error shape, named
       const dataConnectionRefusal = (status, errorName, message) => sendO(status, { errorCode: ({ 403: "PERMISSION_DENIED", 404: "NOT_FOUND", 409: "CONFLICT" })[status] || (status >= 500 ? "INTERNAL" : "INVALID_ARGUMENT"), errorName, errorInstanceId: "", parameters: { message } });
       const ontologyRidIn = (p) => (p.match(/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}/u) || [])[0] || null;
+      // an edit's save is refused by name (cut O7): nothing is written
+      const ontologySave = onOntologySurface() && ONTOLOGY.ontologySaveRefusalOf(req.method, pathname);
+      if (ontologySave) return sendO(ontologySave.status, ONTOLOGY.proposalRefusalBodyOf(ontologySave));
       if (pathname === "/ontology-metadata/api/ontology/featureConfigurations" && req.method === "GET") return sendO(200, ONTOLOGY.FEATURE_CONFIGURATIONS);
       if (pathname === "/ontology-metadata/api/organization/getSettings/user" && req.method === "POST") {
         const { owner } = await ontologyModels();
         return sendO(200, ONTOLOGY.userSettingsOf(owner ? `ri.multipass..organization.${PIPELINE.uuidOf(owner)}` : null));
       }
-      if (/^\/ontology-metadata\/api\/permissions\/ontology\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}$/u.test(pathname) && req.method === "GET") return sendO(200, ONTOLOGY.ONTOLOGY_PERMISSIONS);
+      // what the caller may create in an ontology follows the daemon's reading of whether they may change it (cut O7)
+      if (/^\/ontology-metadata\/api\/permissions\/ontology\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}$/u.test(pathname) && req.method === "GET") return sendO(200, ONTOLOGY.ontologyPermissionsOf(ONTOLOGY.modelOf((await ontologyModels()).models, ontologyRidIn(pathname))));
       if (/^\/ontology-metadata\/api\/ontology\/ontology\/load\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/summary$/u.test(pathname) && req.method === "POST") {
         const { models } = await ontologyModels();
         return sendO(200, ONTOLOGY.summaryOf(ONTOLOGY.modelOf(models, ontologyRidIn(pathname))));
@@ -11257,6 +11261,8 @@ async function handleEstateRequest(req, res, body) {
       // installed-application metadata and the command palette's application commands: the Hypervisor registers none
       // (passed through, both answered with the recorded tenant's applications)
       if (onOntologySurface() && pathname === "/workspace/api/ams/metadataV2" && req.method === "GET") return sendO(200, { applicationMetadata: [] });
+      // the Ontology Manager's language-model assists (an editable page's generate buttons) are not bound (cut O7)
+      if (onOntologySurface() && pathname === ONTOLOGY.LANGUAGE_MODEL_ENABLED_PATH && req.method === "GET") return sendO(200, ONTOLOGY.LANGUAGE_MODEL_ENABLED);
       if (onOntologySurface() && pathname === "/workspace/api/commands/load" && req.method === "GET") return sendO(200, { config: [] });
       if (onOntologySurface() && pathname === "/compass/api/roles" && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
@@ -11355,6 +11361,8 @@ async function handleEstateRequest(req, res, body) {
           // slot, an adopted app drops the reference's own global sidebar — the shell is the navigation.
           // Opened on its own it keeps it (nothing else would navigate).
           html = html.replace("</head>", `${ADOPTED_EMBED_TAG}</head>`);
+          // the Ontology Manager's page environment names no object view editor: the Hypervisor keeps no object views (cut O7)
+          if (seedSlug === "schema") html = ONTOLOGY.ontologyPageOf(html);
           // The adopted product surface (Automate) never shows the reference's global sidebar: at top
           // level OUR rail stands in its 230px column (routes to our surfaces, the caller's own account
           // chip); framed by the shell, neither shows.
