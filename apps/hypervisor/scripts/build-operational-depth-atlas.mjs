@@ -39,6 +39,13 @@ const ATLAS_PATH = join(APP, "application-operational-depth.json");
 // adjudicated rows deny methods on an existing path and therefore carry the three exact facts the
 // named-gap gate can compare to the router. This table is keyed by the immutable audit row rather
 // than inferred from its English claim.
+//
+// 2026-09-29 (R-240, red gates): "sources:0" (PATCH/PUT — edit a declared source) is CLOSED in the
+// committed atlas. 5e6c1f728 (R-241 Data Connection D3) registered PATCH on the item route, so the
+// entry left `missing_authority_contracts` and the route joined `existing_daemon.actions`. The
+// table keeps the raw audit row's adjudication because it describes that point-in-time row: a
+// --rebuild-from-raw would restore the denial, and check:named-gap-truth goes red on
+// M033_EXPLICIT_DENIALS until the rebuilt row is re-adjudicated. That is the intended fail-closed.
 const DENIES_BY_MISSING_AUTHORITY_ROW = {
   "sources:0": [
     { method: "PATCH", route: "/v1/hypervisor/data-sources/:id" },

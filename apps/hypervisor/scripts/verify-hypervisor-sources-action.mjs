@@ -108,7 +108,10 @@ async function run() {
     const recordId = (successUrl.match(/[?&]record=(ds_[a-f0-9]+)/) || [])[1] || "";
     ok("declare → PRG redirect carrying acted/receipt/record + the banner anchor + the NEW RECORD SELECTED", /acted=declare/.test(successUrl) && /receipt=agentgres/.test(successUrl) && !!recordId && successUrl.includes(`dataSource=${recordId}`) && successUrl.includes("#ap-result"), successUrl.slice(0, 140));
     ok("success banner renders the durable dsr_ receipt in place", (await pg.locator("#ap-result").textContent()).includes("agentgres://data-source-receipt/") && (await pg.locator("#ap-result").isVisible()));
-    ok("the declared record renders selected with its semantic panel + per-record disabled mutations naming EXACT missing routes", html.includes(marker) && html.includes("PATCH /v1/hypervisor/data-sources/:id does not exist") && html.includes("DELETE /v1/hypervisor/data-sources/:id does not exist") && html.includes("No connection-test authority exists"));
+    // 2026-09-29 (R-240, red gates): 5e6c1f728 registered PATCH /v1/hypervisor/data-sources/:id, so this
+    // assertion stopped pinning the chip that said PATCH does not exist (check:named-gap-truth caught
+    // the surface saying it) — Edit source is now a link into Data Connection's Connection settings.
+    ok("the declared record renders selected with its semantic panel, Edit source opening Data Connection (its PATCH route is served), and per-record disabled mutations naming EXACT missing routes", html.includes(marker) && html.includes('<a class="src-selact" href="/workspace/data-ingestion-app/sources"') && !html.includes("PATCH /v1/hypervisor/data-sources/:id does not exist") && html.includes("DELETE /v1/hypervisor/data-sources/:id does not exist") && html.includes("No connection-test authority exists"));
     const rec = (await fetch(`${daemonUrl}/v1/hypervisor/data-sources/${recordId}`).then((r) => r.json())).data_source;
     const bannerReceipt = decodeURIComponent((successUrl.match(/receipt=([^&#]+)/) || [])[1] || "");
     ok("daemon round-trip: the record exists with the EXACT receipt the banner showed (receipt_refs[0])", rec && rec.name === marker && rec.receipt_refs[0] === bannerReceipt, bannerReceipt.slice(0, 60));

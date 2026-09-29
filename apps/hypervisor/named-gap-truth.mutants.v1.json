@@ -12,7 +12,7 @@
     {
       "id": "m033-denial-names-served-method",
       "anchor_file": "apps/hypervisor/application-operational-depth.json",
-      "find": "\"method\": \"PATCH\"",
+      "find": "\"method\": \"DELETE\"",
       "replace": "\"method\": \"GET\"",
       "red_on": "M033_EXPLICIT_DENIALS"
     },
