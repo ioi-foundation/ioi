@@ -104,12 +104,15 @@ export function requestsOf({ governance = [], challenges = [], inboxItems = [], 
         ["Requested by", nameOf(dir, c.requester_ref)], ["Intent", intent], ["Scopes", scopes.join(", ")], ["Target scope", c.target_scope],
         ["Policy", pre.policy_preimage?.domain], ["Policy hash", c.policy_hash], ["Request hash", c.request_hash], ["Audience", c.audience],
         ["Approval ref", c.approval_ref], ["Expires", when(c.expires_at_ms)],
+        ["Closed", status === "CLOSED" && c.state === "pending" ? `expired at ${when(c.expires_at_ms)} with no decision; re-running the effect parks it again` : null],
         ["Decided", decided ? `${decided.decision} by ${nameOf(dir, decided.decided_by) || "—"} at ${decided.decided_at || "—"}${decided.reason ? ` — ${decided.reason}` : ""}` : null],
-        ["Grant", c.grant_ref], ["Consumed by", c.consumed_by],
+        ["Grant", c.grant_ref], ["Consumed", c.consumed_at], ["Consumed by", c.consumed_by],
       ]),
       status, creatorRef: c.requester_ref || null, created_at: c.created_at || null, updated_at: c.last_parked_at || c.created_at || null,
       reviewers: operator ? [meId] : [], reviewedBy: decided?.decided_by ? [userOf(decided.decided_by)] : [],
       decidedBy: decided?.decided_by || null, decidedAt: decided?.decided_at || null, decision: decided?.decision || null,
+      // an approved effect completes when its one-use grant is consumed (the requester's retry ran it once)
+      completedAt: status === "APPROVED_AND_COMPLETED" ? c.consumed_at || decided?.decided_at || null : null,
       policy: { met: status === "APPROVED" || status === "APPROVED_AND_COMPLETED" }, dir, record: c,
     });
   }
@@ -129,18 +132,21 @@ export function requestsOf({ governance = [], challenges = [], inboxItems = [], 
       status, creatorRef: a.created_by_principal_ref || null, created_at: a.created_at || null, updated_at: a.updated_at || a.created_at || null,
       reviewers: [meId], reviewedBy: a.reviewer_ref ? [userOf(a.reviewer_ref)] : [],
       decidedBy: a.reviewer_ref || null, decidedAt: a.decided_at || null, decision: a.status === "pending" ? null : a.status,
+      completedAt: status === "APPROVED_AND_COMPLETED" ? a.decided_at || null : null,
       policy: { met: status === "APPROVED_AND_COMPLETED" }, dir, record: a,
     });
   }
+  // (the daemon's inbox lists only PENDING tool calls: a decided one leaves the inbox, so no other status is shown here)
   for (const t of inboxItems || []) {
     if (t?.source_plane !== "thread_approval" || !t.approval_id) continue;
     const id = `${t.thread_id}/${t.approval_id}`;
     out.push({
       kind: "thread_approval", id, rid: requestRidOf("thread_approval", id),
       title: `Approve a tool call in ${t.subject_ref || t.thread_id || "a run"}`,
-      description: lines([["Asks", t.reason || "the operator's approval of a tool call inside a run"], ["Run", t.run_id], ["Thread", t.thread_id], ["Approval", t.approval_id], ["Lease", t.lease_status], ["Receipts", (t.receipt_refs || []).join(", ")]]),
-      status: "PENDING_APPROVAL", creatorRef: null, created_at: t.created_at || null, updated_at: t.updated_at || t.created_at || null,
-      reviewers: operator ? [meId] : [], reviewedBy: [], decidedBy: null, decidedAt: null, decision: null, policy: { met: false }, dir, record: t,
+      description: lines([["Asks", t.reason || "the operator's approval of a tool call inside a run"], ["Requested by", nameOf(dir, t.requester_ref)], ["Run", t.run_id], ["Thread", t.thread_id],
+        ["Approval", t.approval_id], ["Lease", t.lease_status], ["Receipts", (t.receipt_refs || []).join(", ")], ["Decided with", t.decide?.route ? `${t.decide.method || "POST"} ${t.decide.route}, under a wallet grant for this lease` : null]]),
+      status: "PENDING_APPROVAL", creatorRef: t.requester_ref || null, created_at: t.created_at || null, updated_at: t.updated_at || t.created_at || null,
+      reviewers: operator ? [meId] : [], reviewedBy: [], decidedBy: null, decidedAt: null, decision: null, completedAt: null, policy: { met: false }, dir, record: t,
     });
   }
   return out;
@@ -191,7 +197,9 @@ export function minimalOf(r) {
 export function fullOf(r) {
   const creator = userOf(r.creatorRef);
   const history = [{ type: "creationEntry", creationEntry: { time: r.created_at, creator } }];
-  if (r.decidedAt) history.push(r.status === "DISAPPROVED_AND_CLOSED" ? { type: "rejectedEntry", rejectedEntry: { time: r.decidedAt, user: userOf(r.decidedBy) } } : { type: "completedEntry", completedEntry: { time: r.decidedAt, user: userOf(r.decidedBy) } });
+  // an approval not yet run is a review, not a completion (the reference's history marks only creation and the end)
+  if (r.status === "DISAPPROVED_AND_CLOSED" && r.decidedAt) history.push({ type: "rejectedEntry", rejectedEntry: { time: r.decidedAt, user: userOf(r.decidedBy) } });
+  if (r.status === "APPROVED_AND_COMPLETED" && r.completedAt) history.push({ type: "completedEntry", completedEntry: { time: r.completedAt, user: userOf(r.decidedBy) } });
   return { ...minimalOf(r), taskRequestRid: r.rid, description: r.description, creator, contributors: creator ? [creator] : [], history,
     versionMetadata: [{ version: 0, createdBy: creator, createdAt: r.created_at }],
     subtasks: [{ type: KINDS[r.kind].subtaskType, id: subRequestRidOf(r.kind, r.id), version: String(r.record?.revision || 1), policies: [{ rid: policyRidOf(r.kind), version: 1 }], reviews: [], approvalStatus: subStatusOf(r.status) }] };
@@ -294,7 +302,7 @@ export function approvalsGraphqlFacts(name, variables, ctx) {
 // prints a 409's message; a GraphQL error's message is the app's toast). Nothing is written by a refusal.
 export const WRITE_REFUSALS = {
   approveChallenge: { status: 409, code: "Hypervisor:ApprovalsApproveNeedsPassphrase", message: "Approving mints a grant, and only the operator passphrase opens the sealed approver key that signs it. This page has no passphrase field and holds no key: approve on the Hypervisor's own approval card for the run that asked, which takes the passphrase and hands it to the daemon. Nothing was approved." },
-  toolCall: { status: 409, code: "Hypervisor:ApprovalsToolCallDecidedOnRun", message: "A tool call waiting inside a run is decided on that run's approval card. Nothing was decided here." },
+  toolCall: { status: 409, code: "Hypervisor:ApprovalsToolCallNeedsGrant", message: "Deciding a tool call waiting inside a run takes a wallet-signed grant for exactly its approval lease — the daemon's decision on a run's approval admits nothing else — and this page has no passphrase field and holds no key. The run's own client decides it with that grant. Nothing was decided here." },
   rejectGovernance: { status: 409, code: "Hypervisor:ApprovalsRejectionReasonNotKept", message: "The governance plane's rejection records no reason, so the reason typed here would be lost: reject this request on the Hypervisor's governance approvals page. Nothing was rejected." },
   changesRequested: { status: 409, code: "Hypervisor:ApprovalsNoChangesRequested", message: "A Hypervisor request is approved or rejected; it has no changes-requested state. Nothing was changed." },
   decided: { status: 409, code: "Hypervisor:ApprovalsAlreadyDecided", message: "This request is already decided. Nothing was changed." },

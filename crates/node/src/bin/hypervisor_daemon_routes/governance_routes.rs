@@ -1114,6 +1114,8 @@ pub(crate) async fn handle_approvals_inbox(State(st): State<Arc<DaemonState>>) -
             "subject_ref": entry.get("run_id").and_then(Value::as_str).filter(|value| !value.is_empty()).map(str::to_string).unwrap_or_else(|| thread_id.to_string()),
             "reason": entry.get("reason"),
             "status": "pending",
+            "requester_ref": entry.get("requester_ref"),
+            "created_at": entry.get("created_at"),
             "lease_status": entry.get("lease_status"),
             "receipt_refs": entry.get("receipt_refs"),
             "decide": {

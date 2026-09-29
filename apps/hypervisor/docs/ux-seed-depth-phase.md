@@ -584,12 +584,32 @@ assertion in its verifier.
       REST write are refused by name.
     - *Named gaps:* the reviewer task card (the reference draws one only for its own request types), Edit, Request changes
       (the same review as Reject), the access facets, Control Panel's redirecting task ids, the inbox's other pending planes
-      (improvement and memory proposals, marketplace reviews), the shared sidebar entry. *Open:* a challenge's Approved,
-      Completed and expired statuses, and a thread approval — mapped and unit-tested, not driven.
+      (improvement and memory proposals, marketplace reviews), the shared sidebar entry. *Open (A1):* a challenge's
+      Approved, Completed and expired statuses, and a thread approval — mapped and unit-tested, not driven (bound in A2).
     - *Mirror.* The captured index was build 6.517.0 while the tenant runs 6.545.0; it was refreshed, and every chunk the
       current runtime can load (1,240 JS and CSS files, plus the harvest's 273 assets) was fed by plain GETs through the
       owner's browser. The harvest's own asset list named an older build's chunks, so feeding only those left the landing
       crashing on missing chunks.
+  - A2: drive the statuses a decision and time reach, and a tool call waiting inside a run. Done 2026-09-28:
+    `check:adopted-approvals` 21/21; seed depth 77 = 33 bound / 6 refused / 38 named gaps / 0 open. The two open rows became
+    five: a challenge Approved, Completed and Closed, a thread approval, and its decisions.
+    - *Approved and Completed.* The operator approves a parked effect with the passphrase on the daemon's decision route
+      (what the approval card relays; the sealed authority mints one one-use grant): the page reads Approved, with the
+      decision and the grant in its record. The requester's retry consumes the grant at admission: Completed, and a replay
+      under the same approval is refused (`approval_ref_consumed`). The reference page still takes no passphrase, so its
+      own Approve on a parked effect stays refused by name.
+    - *Closed.* A pending challenge expires a day after its latest park. `IOI_HYPERVISOR_AUTHORITY_CHALLENGE_TTL_MS` lets
+      an isolated stack SHORTEN that window (never lengthen it; unset, zero or unparseable keeps the day). The verifier
+      restarts its daemon on the same data with a 15 s window, parks a new effect and leaves it undecided: the daemon
+      refuses a decision on it (410 `challenge_expired`), its inbox drops it, and the page reads Closed with the expiry in
+      its record.
+    - *A tool call waiting inside a run.* The daemon parks a thread approval only through `POST /v1/threads/:id/approvals`
+      (the route a run's client calls to ask mid-run; the Rust run loop parks none itself), so the fixture asks there on
+      a real run. The inbox row now carries who asked (the actor the daemon resolved) and when; before, the page read
+      "Created by an unknown user on Dec 31, 1969". Its decisions are refused by name with a true reason: the daemon's
+      decision on a run's approval admits only under a wallet-signed grant for its exact lease, which no Hypervisor page
+      mints (a grantless decision is refused by the daemon too). The earlier refusal pointed at "that run's approval card",
+      which does not exist for a thread approval.
 
 ## Gate
 

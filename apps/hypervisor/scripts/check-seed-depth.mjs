@@ -128,7 +128,14 @@ const PINS = {
   // named; a failed run (needs a grant to drive) and New / Duplicate / Save (undriven) open. The splash row's proof text
   // (stale since D3, so this gate was red) now cites the assertion. 30 → 41.
   "data-connection": { total: 41, bound: 21, refused: 3, named_gap: 11, open: 6 },
-  // 2026-09-28 (R-241, Approvals A1): first census — 74 flow states: the 60 harvested (the inbox's quick filters, the type,
+  // 2026-09-28 (R-241, Approvals A2): the two open rows become five, all driven live by check:adopted-approvals over daemon
+  // truth. A challenge Approved (the operator's passphrase on the daemon's decision route mints one grant), Completed (the
+  // requester's retry consumes it; a replay is refused) and Closed (a restarted daemon with a shortened pending window —
+  // IOI_HYPERVISOR_AUTHORITY_CHALLENGE_TTL_MS, which can only shorten it — lets an ask expire undecided): bound. A thread
+  // approval parked on a real run through the daemon's thread-approval route, listed with who asked and when (the inbox row
+  // now carries both) and its page: bound. Its decisions: refused by name (they take a wallet grant for the exact lease;
+  // the refusal no longer points at a run card that does not exist). 74 → 77; bound 29 → 33, refused 5 → 6, open 2 → 0.
+  // Before that, 2026-09-28 (R-241, Approvals A1): first census — 74 flow states: the 60 harvested (the inbox's quick filters, the type,
   // status, creator and sort menus, search, the eight request types and their facets, a request's page, invite reviewers,
   // edit, a reviewer task, a comment; the Compass request-access and New project dialogs the harvest walked to make its
   // example) plus 14 found by driving the adopted app (the governance request's page, each decision, the fence, the stopped
@@ -138,7 +145,7 @@ const PINS = {
   // facets, Control Panel's redirecting task ids, the 20 Compass dialog states, Edit, the reviewer task card, Request
   // changes, the inbox's other planes, the sidebar); 2 open (a challenge's Approved / Completed / Closed statuses, a
   // thread approval — both mapped and unit-tested, neither driven).
-  approvals: { total: 74, bound: 29, refused: 5, named_gap: 38, open: 2 },
+  approvals: { total: 77, bound: 33, refused: 6, named_gap: 38, open: 0 },
 };
 
 const results = [];

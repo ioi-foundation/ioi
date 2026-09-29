@@ -14,6 +14,16 @@
 //     request is the governance plane's own transition, receipted; every other write is refused by name and writes nothing;
 //   - no read reaches the mirror but the reference's chrome, an unbound read is a named 501, never the serve's HTML;
 //   - with the daemon stopped, the inbox shows its error, never an empty inbox.
+// Approvals A2 drives the statuses a decision and time reach, and a tool call waiting inside a run:
+//   - a thread approval is parked on a real run through the daemon's own thread-approval route (the route a run's client
+//     calls to ask mid-run); it is listed with who asked and when, its page is its record, and its decisions are refused
+//     by name (deciding one takes a wallet grant for its exact lease — the daemon's own decision refuses a grantless one);
+//   - the operator approves a parked effect with the passphrase on the daemon's decision route (what the approval card
+//     relays; the sealed authority mints one grant): the page reads Approved; the requester's retry consumes the grant
+//     once: Completed;
+//   - the daemon restarts on the same data with its pending window shortened (IOI_HYPERVISOR_AUTHORITY_CHALLENGE_TTL_MS,
+//     which can only shorten it) and a new effect is parked and left undecided past its expiry: the daemon refuses a
+//     decision on it and drops it from its inbox, and the page reads Closed.
 //
 // Exit: 0 pass · 1 fail · 2 blocked (no daemon or authority binary, or the local mirror cannot boot the reference app).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon (the authority: IOI_WALLET_AUTHORITY_BINARY)
@@ -40,6 +50,8 @@ const CHROME = new Set(["GET /multipass/api/sessions/definitions/current", "GET 
   "POST /documentation/api/v2/release-notes/paginationV2", "GET /aip-assist/api/chat/checkAvailability", "GET /workspace/api/lifecycleStatusByApplication", "POST /log-receiver/api/beacon"]);
 // unique per run: the passphrase seals this run's authority keys and appears nowhere the adopted app can reach
 const OPERATOR_PASS = `adopted-approvals-${randomBytes(12).toString("hex")}`;
+// the shortened pending window of the restarted daemon (the Closed state): long enough to park, short enough to wait out
+const SHORT_TTL_MS = 15000;
 
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
@@ -49,29 +61,45 @@ const waitFor = async (url, ms = 60000) => { const end = Date.now() + ms; while 
 
 let authority = null, plane = null, serve = null;
 const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-approvals-authority-"));
+// the daemon's data dir is this verifier's (not the plane helper's): the daemon restarts on it for the Closed state
+const planeDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-approvals-plane-"));
+
+// the serve names no authority binary or state dir: it holds no key
+async function startServe(daemonUrl) {
+  const servePort = await freePort();
+  const url = `http://127.0.0.1:${servePort}`;
+  const child = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
+    cwd: APP,
+    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: daemonUrl, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: MIRROR },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  child.stdout.on("data", () => {}); child.stderr.on("data", () => {});
+  await waitFor(`${url}/__ioi/login`);
+  return { child, url };
+}
+const stopServe = async (child) => {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const gone = new Promise((r) => child.once("exit", r));
+  try { child.kill("SIGTERM"); } catch { /* gone */ }
+  await Promise.race([gone, sleep(5000)]);
+};
 
 async function run() {
   if (!fs.existsSync(DAEMON_BINARY) || !fs.existsSync(process.env.IOI_WALLET_AUTHORITY_BINARY || AUTHORITY_BINARY)) { console.log(`BLOCKED: no daemon (${DAEMON_BINARY}) or authority binary`); process.exit(2); }
   if (!(await fetch(`${MIRROR}${BASE}/`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local mirror (${MIRROR}) does not boot ${BASE}/`); process.exit(2); }
   delete process.env[OPERATOR_PASS_ENV];
   authority = await startLocalAuthority({ stateDir, principalRef: "domain://adopted-approvals", operatorPass: OPERATOR_PASS, log: () => {} });
-  plane = await startIsolatedPlane({ baseEnv: sanitizedVerifierBaseEnv(process.env), env: { ...authority.daemonEnv, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:9/v1", IOI_WALLET_TEST_SIGNER: "" } });
+  const DAEMON_ENV = { ...authority.daemonEnv, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:9/v1", IOI_WALLET_TEST_SIGNER: "" };
+  plane = await startIsolatedPlane({ dataDir: planeDir, baseEnv: sanitizedVerifierBaseEnv(process.env), env: DAEMON_ENV });
   if (!plane) { console.log("BLOCKED: the isolated daemon did not start"); process.exit(2); }
-  const DAEMON = plane.daemonUrl;
-  const session = await isolatedOperatorSession(plane);
-  const COOKIE = `ioi_session=${session}`;
+  let DAEMON = plane.daemonUrl;
+  let session = await isolatedOperatorSession(plane);
+  let COOKIE = `ioi_session=${session}`;
+  // (the default cookie is read at each call: it follows the session across the daemon's restart)
   const d = (method, route, body, cookie = COOKIE) => fetch(`${DAEMON}${route}`, { method, headers: { cookie, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(900000) })
     .then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
-  // the serve names no authority binary or state dir: it holds no key
-  const servePort = await freePort();
-  const SERVE = `http://127.0.0.1:${servePort}`;
-  serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
-    cwd: APP,
-    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: MIRROR },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  serve.stdout.on("data", () => {}); serve.stderr.on("data", () => {});
-  await waitFor(`${SERVE}/__ioi/login`);
+  let SERVE;
+  ({ child: serve, url: SERVE } = await startServe(DAEMON));
 
   // ---- the fixture: two effects parked through the live authority, and governance requests in three statuses ----------
   const me = (await d("GET", "/v1/hypervisor/auth/whoami")).j.principal || {};
@@ -81,7 +109,8 @@ async function run() {
   for (let i = 0; i < 60 && !(await d("GET", `/v1/hypervisor/environments/${encodeURIComponent(envId)}`)).j.environment?.status?.workspace_root; i++) await sleep(500);
   const sessionRef = "session:adopted-approvals";
   await d("POST", "/v1/hypervisor/sessions", { session_ref: sessionRef, project_ref: "project:adopted-approvals", environment_id: envId });
-  const execute = (intent) => d("POST", `/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/execute`, { intent, lane: "native_local" });
+  // (a retry names the approval the operator gave; the daemon derives the same hashes from the same intent and lane)
+  const execute = (intent, approvalRef) => d("POST", `/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/execute`, { intent, lane: "native_local", ...(approvalRef ? { approval_ref: approvalRef } : {}) });
   const parkedA = await execute("create a file named APPROVED.md");
   const parkedB = await execute("delete the build cache");
   const cA = parkedA.j.approval_challenge?.challenge_id, cB = parkedB.j.approval_challenge?.challenge_id;
@@ -101,6 +130,20 @@ async function run() {
     parkedA.status === 403 && parkedA.j.reason === "execution_authority_required" && A0.state === "pending" && B0.state === "pending" && cA !== cB && A0.requester_ref === me.principal_ref
       && g1.status === "pending" && g2.id && g3.id && g4.created_by_principal_ref && g4.created_by_principal_ref !== me.principal_ref,
     `execute ${parkedA.status} ${parkedA.j.reason} · challenges ${A0.state}/${B0.state} · governance ${[g1, g2, g3, g4].map((g) => g.id ? "ok" : "MISSING").join(",")}`);
+  // a tool call waiting inside a run: a thread working in the session's workspace, a run of it, and the approval the run's
+  // client asks for through the daemon's thread-approval route (the one ingress a run's ask has; it resolves who asked)
+  const workspaceRoot = (await d("GET", `/v1/hypervisor/environments/${encodeURIComponent(envId)}`)).j.environment?.status?.workspace_root;
+  const thread = await d("POST", "/v1/threads", { options: { local: { cwd: workspaceRoot } } });
+  const threadId = thread.j.thread_id, agentId = thread.j.agent_id;
+  const runRec = await d("POST", `/v1/agents/${encodeURIComponent(agentId)}/runs`, { prompt: "write the release notes" });
+  const runId = runRec.j.id || runRec.j.run_id;
+  const APPROVAL_ID = "approval_write_release_notes";
+  const asked = await d("POST", `/v1/threads/${encodeURIComponent(threadId)}/approvals`, { approval_id: APPROVAL_ID, run_id: runId, action: "tool.exec", scope: "thread", reason: "write RELEASE.md in the workspace", receipt_refs: [`receipt://adopted-approvals/tool-call/${runId}`] });
+  const toolCall = async () => ((await d("GET", "/v1/hypervisor/governance/approvals-inbox")).j.items || []).find((i) => i.source_plane === "thread_approval" && i.approval_id === APPROVAL_ID) || null;
+  const T0 = await toolCall();
+  ok("PRECONDITION: a tool call waits inside a run — the daemon's approvals inbox lists a pending thread approval on the run, with the operator as who asked and when",
+    thread.status === 200 && runRec.status === 200 && asked.status === 200 && T0?.status === "pending" && T0.run_id === runId && T0.thread_id === threadId && T0.requester_ref === me.principal_ref && !!T0.created_at,
+    `thread ${thread.status} · run ${runRec.status} ${runId} · ask ${asked.status} · inbox ${T0 ? `${T0.status} by ${T0.requester_ref} at ${T0.created_at}` : "no row"}`);
 
   const { chromium } = await import(path.join(ROOT, "node_modules", "playwright", "index.mjs"));
   const browser = await chromium.launch();
@@ -128,7 +171,8 @@ async function run() {
     const settle = async (until, n = 20) => { let t = ""; for (let i = 0; i < n; i++) { await pg.waitForTimeout(600); t = await text(); if (until.test(t)) break; } return t; };
     const after = (t, marker, n = 200) => (t.includes(marker) ? t.slice(t.indexOf(marker), t.indexOf(marker) + n) : `(no "${marker}")`);
     // a list has loaded when its skeleton is gone and it shows the expected number of rows (each "Created by … on <date>")
-    const rowsIn = (t, marker) => (/Placeholder User/u.test(t) ? -1 : (after(t, marker, 4000).match(/ on [A-Z][a-z]{2} \d{1,2}, \d{4}/gu) || []).length);
+    // (the reference's row skeleton — "Placeholder User", or its dummy access-request preview — is a list still loading)
+    const rowsIn = (t, marker) => (/Placeholder User|This is a long justification that we want to fill/u.test(t) ? -1 : (after(t, marker, 4000).match(/ on [A-Z][a-z]{2} \d{1,2}, \d{4}/gu) || []).length);
     const waitRows = async (marker, n, must = [], tries = 30) => { let t = ""; for (let i = 0; i < tries; i++) { await pg.waitForTimeout(600); t = await text(); if (rowsIn(t, marker) === n && must.every((m) => after(t, marker, 4000).includes(m))) break; } return after(t, marker, 4000); };
     const waitAnyRows = async (marker) => { for (let i = 0; i < 30; i++) { await pg.waitForTimeout(600); if (rowsIn(await text(), marker) > 0) return; } };
     // the inbox with every request listed (the app keeps its filters in local storage across visits)
@@ -148,62 +192,62 @@ async function run() {
       return { href, t: await settle(until || /Justification|cannot be found|error/iu, 25) };
     };
     const TITLE = { A: `Approve session-execute on ${sessionRef}`, g1: "spend_increase — authority-action://spend", g2: "connector_attach — connector:conn_github",
-      g3: "lease_extend — lease_import", g4: "domain_app_publish — authority-action://publish-payments-console" };
+      g3: "lease_extend — lease_import", g4: "domain_app_publish — authority-action://publish-payments-console", T: `Approve a tool call in ${runId}` };
     const MY_NAME = ISOLATED_OPERATOR.name;
 
     // ---- the inbox -----------------------------------------------------------------------------------------------------
     await visit(`${BASE}/`, /Your inbox\(\d+\)|Failed to load requests/u);
-    const list = await waitRows("Your inbox(", 4);
+    const list = await waitRows("Your inbox(", 5, [TITLE.T, TITLE.g1, TITLE.g4]);
     const c0 = counts(await text());
-    ok("Your inbox is what waits on the operator, over daemon truth: the parked effects and the open governance requests, each under its title, requester and status, with the quick filters counted",
-      /^Your inbox\(4\)/u.test(list) && (list.match(new RegExp(TITLE.A.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "gu")) || []).length === 2 && list.includes(TITLE.g1) && list.includes(TITLE.g4)
-        && !list.includes(TITLE.g2) && !list.includes(TITLE.g3) && (list.match(/Pending approval/gu) || []).length === 4 && list.includes(`Created by ${MY_NAME}`) && list.includes("Created by Mo Member")
-        && JSON.stringify(c0) === JSON.stringify([4, 3, 4]),
+    ok("Your inbox is what waits on the operator, over daemon truth: the parked effects, the open governance requests and the tool call waiting inside a run, each under its title, requester and status, with the quick filters counted",
+      /^Your inbox\(5\)/u.test(list) && (list.match(new RegExp(TITLE.A.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "gu")) || []).length === 2 && list.includes(TITLE.g1) && list.includes(TITLE.g4) && list.includes(TITLE.T)
+        && !list.includes(TITLE.g2) && !list.includes(TITLE.g3) && (list.match(/Pending approval/gu) || []).length === 5 && list.includes(`Created by ${MY_NAME}`) && list.includes("Created by Mo Member")
+        && JSON.stringify(c0) === JSON.stringify([5, 4, 5]),
       `${list.slice(0, 260)} · counts ${JSON.stringify(c0)}`);
 
     // ---- the filters -----------------------------------------------------------------------------------------------------
     await pg.getByText("Created by you", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    const mine = await waitRows("Created by you(", 3);
+    const mine = await waitRows("Created by you(", 4);
     await pg.getByText("All requests", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    await waitRows("All requests(", 4);
+    await waitRows("All requests(", 5);
     await pg.getByRole("button", { name: "Clear", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    const everything = await waitRows("All requests(", 6, [TITLE.g1, TITLE.g2, TITLE.g3, TITLE.g4]);
+    const everything = await waitRows("All requests(", 7, [TITLE.g1, TITLE.g2, TITLE.g3, TITLE.g4, TITLE.T]);
     await pg.getByText("Select status", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
     await pg.waitForTimeout(800);
     await pg.locator(".bp6-popover .bp6-menu-item").filter({ hasText: /^Closed$/u }).first().click({ timeout: 8000 }).catch(() => {});
     const closed = await waitRows("All requests(", 2, [TITLE.g2, TITLE.g3]);
     await pg.keyboard.press("Escape").catch(() => {});
     ok("the filters sift the inbox over daemon truth: Created by you is what the operator asked, All requests with no status lists every request, and the Closed group only the decided ones",
-      /^Created by you\(3\)/u.test(mine) && !mine.includes(TITLE.g4) && /^All requests\(6\)/u.test(everything) && [TITLE.g1, TITLE.g2, TITLE.g3, TITLE.g4].every((x) => everything.includes(x))
+      /^Created by you\(4\)/u.test(mine) && !mine.includes(TITLE.g4) && mine.includes(TITLE.T) && /^All requests\(7\)/u.test(everything) && [TITLE.g1, TITLE.g2, TITLE.g3, TITLE.g4, TITLE.T].every((x) => everything.includes(x))
         && everything.includes("Completed") && everything.includes("Rejected and closed") && /^All requests\(2\)/u.test(closed) && closed.includes(TITLE.g2) && closed.includes(TITLE.g3) && !closed.includes(TITLE.g1),
-      `mine ${rowsIn(mine, "Created by you(")} rows${mine.includes(TITLE.g4) ? " (WITH the member's)" : ""} · all ${rowsIn(everything, "All requests(")} rows, missing ${[TITLE.g1, TITLE.g2, TITLE.g3, TITLE.g4].filter((x) => !everything.includes(x)).join(",") || "none"} · closed ${rowsIn(closed, "All requests(")} rows${closed.includes(TITLE.g1) ? " (WITH an open one)" : ""}: ${closed.slice(0, 160)}`);
+      `mine ${rowsIn(mine, "Created by you(")} rows${mine.includes(TITLE.g4) ? " (WITH the member's)" : ""} · all ${rowsIn(everything, "All requests(")} rows, missing ${[TITLE.g1, TITLE.g2, TITLE.g3, TITLE.g4, TITLE.T].filter((x) => !everything.includes(x)).join(",") || "none"} · closed ${rowsIn(closed, "All requests(")} rows${closed.includes(TITLE.g1) ? " (WITH an open one)" : ""}: ${closed.slice(0, 160)}`);
     await pg.getByRole("button", { name: "Clear", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    await waitRows("All requests(", 6);
+    await waitRows("All requests(", 7);
     await pg.getByText("Type", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
     await pg.waitForTimeout(800);
     await pg.locator(".bp6-popover .bp6-menu-item").filter({ hasText: /^Ontology proposals$/u }).first().click({ timeout: 8000 }).catch(() => {});
     const ontology = after(await settle(/No requests found/u), "All requests(", 200);
     // several types together (the menu stays open): Ontology proposals and Access requests list the union — every request
     await pg.locator(".bp6-popover .bp6-menu-item").filter({ hasText: /^Access requests$/u }).first().click({ timeout: 8000 }).catch(() => {});
-    const union = (await waitRows("All requests(", 6)).slice(0, 40);
+    const union = (await waitRows("All requests(", 7)).slice(0, 40);
     await pg.keyboard.press("Escape").catch(() => {});
     await pg.getByRole("button", { name: "Clear", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    await waitRows("All requests(", 6);
+    await waitRows("All requests(", 7);
     await pg.locator("input[placeholder^='Search for requests']").first().fill("spend").catch(() => {});
     const searched = await waitRows("All requests(", 1);
     await pg.locator("input[placeholder^='Search for requests']").first().fill("").catch(() => {});
-    await waitRows("All requests(", 6);
+    await waitRows("All requests(", 7);
     await pg.getByText("Sort: Recently created", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
     await pg.waitForTimeout(600);
     await pg.getByText("Sort: Oldest created", { exact: true }).last().click({ timeout: 8000 }).catch(() => {});
     const oldest = after(await settle(/Sort: Oldest created/u), "Sort: Oldest created", 400);
     ok("a reference request type with no Hypervisor counterpart lists none and several types together list the union, search sifts by title, and Oldest created reorders — the oldest parked effect first",
-      /^All requests\(0\) Sort: Recently created No requests found\./u.test(ontology) && /^All requests\(6\)/u.test(union) && /^All requests\(1\)/u.test(searched) && searched.includes(TITLE.g1)
+      /^All requests\(0\) Sort: Recently created No requests found\./u.test(ontology) && /^All requests\(7\)/u.test(union) && /^All requests\(1\)/u.test(searched) && searched.includes(TITLE.g1)
         && oldest.replace("Sort: Oldest created ", "").startsWith(TITLE.A),
       `${ontology.slice(0, 80)} · union ${union} · ${searched.slice(0, 80)} · ${oldest.slice(0, 120)}`);
     // the Created by picker offers the principals the daemon names, and picking one sifts to what they asked
     await pg.getByRole("button", { name: "Clear", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    await waitRows("All requests(", 6);
+    await waitRows("All requests(", 7);
     await pg.getByText("Select user", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
     await pg.locator(".bp6-popover input").first().fill("Mo").catch(() => {});
     const offered = await settle(/Search results \(\d+\)/u, 10);
@@ -236,7 +280,14 @@ async function run() {
       card.includes(ISOLATED_OPERATOR.email) && /Pending approval/u.test(pageG.t) && pageG.t.includes("Asks: raise the model spend ceiling for the nightly eval") && pageG.t.includes(`Requested by: ${MY_NAME}`)
         && pageG.t.includes("Subject: authority-action://spend") && pageG.t.includes("Required authority: authority://spend") && pageG.t.includes("Would call: POST /v1/hypervisor/limits") && pageG.t.includes(`Record: ${g1.ref}`),
       after(pageG.t, "Justification:", 260));
-    ok("no read reached the mirror beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation or page on the inbox and a request's page failed",
+    await inboxAll();
+    const pageT = await openRequest(TITLE.T);
+    ok("a tool call waiting inside a run is listed and its page is its record: what it asks, who asked and when, the run and the thread, the approval and its lease — the daemon's pending thread approval",
+      /\/task\/ri\.approvals\.main\.task-request\.[0-9a-f-]{36}$/u.test(pageT.href || "") && /Pending approval/u.test(pageT.t) && pageT.t.includes(`Created by ${MY_NAME} on `) && !/unknown user|Dec 31, 1969/u.test(pageT.t)
+        && pageT.t.includes("Asks: write RELEASE.md in the workspace") && pageT.t.includes(`Requested by: ${MY_NAME}`) && pageT.t.includes(`Run: ${runId}`) && pageT.t.includes(`Thread: ${threadId}`)
+        && pageT.t.includes(`Approval: ${APPROVAL_ID}`) && pageT.t.includes(`Lease: ${T0.lease_status}`) && T0.lease_status === "pending",
+      `${(pageT.href || "(no link)").replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(pageT.t, "Pending approval", 80)} · ${after(pageT.t, "Justification:", 260)}`);
+    ok("no read reached the mirror beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation or page on the inbox and a request's page (a parked effect's, a governance request's, a tool call's) failed",
       [...passthrough].every((p) => CHROME.has(p)) && unnamed.size === 0 && htmlAnswers.size === 0 && fenced.size === 0 && gqlErrors.size === 0 && pageErrors.length === 0,
       `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · fenced ${[...fenced].join(",") || "none"} · unnamed ${[...unnamed].join(",") || "none"} · html ${[...htmlAnswers].join(",") || "none"} · gql ${[...gqlErrors].slice(0, 2).join(" | ") || "none"} · page ${pageErrors.slice(0, 1).join("") || "none"}`);
 
@@ -282,6 +333,27 @@ async function run() {
       !!g1Page.href && G1.status === "approved" && G1.reviewer_ref === me.principal_ref && (G1.receipt_refs || []).length === 1 && /Completed/u.test(approved) && /Request has been completed/u.test(approved),
       `daemon ${G1.status} by ${G1.reviewer_ref} · ${(G1.receipt_refs || []).length} receipt · page ${/Completed/u.test(approved) ? "Completed" : "NOT completed"}`);
 
+    // ---- a tool call's decisions: refused by name (they take a wallet grant for the exact lease) --------------------------
+    refusals.length = 0;
+    const ridT = pageT.href.split("/").pop();
+    await visit(`${BASE}/task/${ridT}`, /Justification/u);
+    await pg.getByRole("button", { name: "Approve", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    const toastT = await settle(/wallet-signed grant for exactly its approval lease/u);
+    await visit(`${BASE}/task/${ridT}`, /Justification/u);
+    await pg.getByRole("button", { name: "Reject", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.getByText("Reject and Close", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.locator(".bp6-dialog input.bp6-input").first().fill("not this tool call").catch(() => {});
+    await pg.getByRole("button", { name: "Reject and close", exact: true }).last().click({ timeout: 8000 }).catch(() => {});
+    for (let i = 0; i < 10 && refusals.filter((x) => x === "Hypervisor:ApprovalsToolCallNeedsGrant").length < 2; i++) await pg.waitForTimeout(500);
+    const T1 = await toolCall();
+    // why: the daemon's own decision on a run's approval admits only under a wallet grant for its lease — a grantless one is refused there too
+    const grantless = await d("POST", `/v1/threads/${encodeURIComponent(threadId)}/approvals/${APPROVAL_ID}/decision`, { decision: "approve", run_id: runId, reason: "no grant" });
+    const T2 = await toolCall();
+    ok("a tool call's decisions are refused by name — deciding one takes a wallet-signed grant for its exact lease, which this page cannot mint, and the daemon's own decision refuses a grantless approve too — and it stays pending in the daemon's approvals",
+      refusals.filter((x) => x === "Hypervisor:ApprovalsToolCallNeedsGrant").length >= 2 && /The run's own client decides it with that grant/u.test(toastT) && /Pending approval/u.test(toastT)
+        && T1?.status === "pending" && grantless.status >= 400 && T2?.status === "pending" && T2.lease_status === "pending",
+      `${refusals.join(",") || "no refusal"} · daemon's grantless decision ${grantless.status} · daemon ${T1?.status}/${T2?.status} lease ${T2?.lease_status}`);
+
     // ---- every other write, refused by name ---------------------------------------------------------------------------
     refusals.length = 0;
     await inboxAll();
@@ -323,6 +395,57 @@ async function run() {
     ok("the fence holds: an approvals, Control Panel, directory or checkpoint read the adopted layer does not bind is a named 501 (Hypervisor:ApprovalsReadNotBound) — never the recorded tenant's answer or the serve's HTML",
       probes.every((x) => x.status === 501 && x.j.errorName === "Hypervisor:ApprovalsReadNotBound" && !x.pass), probes.map((x) => `${x.status} ${x.j.errorName || "?"}`).join(" · "));
 
+    // ---- Approved: the operator's approval, with the passphrase, on the daemon's decision route ------------------------
+    // (what the Hypervisor's approval card relays: the daemon runs the sealed authority's approve for the record's own
+    // coordinates, the passphrase in that child's environment only; this page has no field for it)
+    const approvedA = await d("POST", `/v1/hypervisor/authority/challenges/${idA}/decision`, { decision: "approve", reason: "run this effect once", operator_passphrase: OPERATOR_PASS });
+    const A3 = await challenge(idA);
+    const pageApproved = await visit(`${BASE}/task/${ridA}`, /Justification/u);
+    ok("a parked effect the operator approved (the passphrase opening the sealed approver key on the daemon's decision route) reads Approved: one one-use grant minted for exactly its hashes, not yet run — the decision and the grant in its record",
+      approvedA.status === 200 && approvedA.j.state === "approved" && approvedA.j.approval_ref === `wallet-approval-challenge://${idA}` && A3.state === "approved" && !!A3.grant_ref
+        && A3.decision?.decision === "approve" && A3.decision?.decided_by === me.principal_ref && A3.consumed_by === null
+        && /\bApproved\b/u.test(pageApproved) && !/\bCompleted\b/u.test(pageApproved) && pageApproved.includes(`Decided: approve by ${MY_NAME}`) && pageApproved.includes(`Grant: ${A3.grant_ref}`),
+      `decision ${approvedA.status} ${approvedA.j.state || JSON.stringify(approvedA.j.error || {}).slice(0, 140)} · daemon ${A3.state} grant ${A3.grant_ref} · page ${after(pageApproved, "Approve session-execute", 90)} · ${after(pageApproved, "Decided:", 90)}`);
+
+    // ---- Completed: the requester's retry consumes the grant once -------------------------------------------------------
+    const intentA = recA.published_preimage?.request_preimage?.intent;
+    const retried = await execute(intentA, approvedA.j.approval_ref);
+    const A4 = await challenge(idA);
+    const replay = await execute(intentA, approvedA.j.approval_ref);
+    const pageDone = await visit(`${BASE}/task/${ridA}`, /Justification/u);
+    ok("an approved effect the requester's retry ran reads Completed: its one-use grant consumed by the run's admission (a replay under the same approval is refused), and the consumption in its record",
+      A4.state === "consumed" && String(A4.consumed_by || "").startsWith("authority-admission-intents/") && replay.status === 403 && replay.j.reason === "approval_ref_consumed"
+        && /\bCompleted\b/u.test(pageDone) && /Request has been completed/u.test(pageDone) && pageDone.includes(`Consumed by: ${A4.consumed_by}`),
+      `retry ${retried.status} ${retried.j.decision || retried.j.reason || ""} · daemon ${A4.state} by ${A4.consumed_by} · replay ${replay.status}/${replay.j.reason} · page ${after(pageDone, "Approve session-execute", 90)}`);
+
+    // ---- Closed: the daemon restarts on the same data with its pending window shortened, and an ask expires undecided ----
+    await stopServe(serve);
+    await plane.stop();
+    plane = await startIsolatedPlane({ dataDir: planeDir, baseEnv: sanitizedVerifierBaseEnv(process.env), env: { ...DAEMON_ENV, IOI_HYPERVISOR_AUTHORITY_CHALLENGE_TTL_MS: String(SHORT_TTL_MS) } });
+    DAEMON = plane.daemonUrl;
+    session = await isolatedOperatorSession(plane);
+    COOKIE = `ioi_session=${session}`;
+    ({ child: serve, url: SERVE } = await startServe(DAEMON));
+    const serveUp = await waitFor(`${SERVE}/__ioi/login`, 30000);
+    await ctx.addCookies([{ name: "ioi_session", value: session, url: SERVE }]);
+    const parkedC = await execute("archive the old build logs");
+    const cC = parkedC.j.approval_challenge?.challenge_id;
+    const C0 = cC ? await challenge(cC) : {};
+    while (Number(C0.expires_at_ms) && Date.now() <= Number(C0.expires_at_ms) + 1000) await sleep(500);
+    await inboxAll();
+    // every request, now with the third parked effect: A (Completed), B (Rejected and closed), C, the four governance requests, the tool call
+    const listAfter = await waitRows("All requests(", 8, [TITLE.A, TITLE.T]);
+    const hrefsA = await pg.evaluate((x) => [...document.querySelectorAll("a")].filter((a) => a.innerText.trim() === x).map((a) => a.getAttribute("href")), TITLE.A);
+    const ridC = hrefsA.map((h) => h.split("/").pop()).find((r) => r !== ridA && r !== ridB) || null;
+    const pageC = ridC ? await visit(`${BASE}/task/${ridC}`, /Justification/u) : "";
+    const late = cC ? await d("POST", `/v1/hypervisor/authority/challenges/${cC}/decision`, { decision: "deny", reason: "too late" }) : { status: 0, j: {} };
+    const C1 = cC ? await challenge(cC) : {};
+    const inboxC = ((await d("GET", "/v1/hypervisor/governance/approvals-inbox")).j.items || []).some((i) => i.challenge_id === cC);
+    ok("a parked effect nobody decided reads Closed once it expires: on a daemon whose pending window is shortened (it can only be shortened), the challenge passes its expiry undecided — the daemon refuses a decision on it (410 challenge_expired) and its inbox drops it — with the expiry in its record",
+      parkedC.status === 403 && C0.state === "pending" && Number(C0.expires_at_ms) - Date.parse(C0.created_at) <= SHORT_TTL_MS + 2000 && late.status === 410 && late.j.error?.code === "challenge_expired"
+        && C1.state === "pending" && C1.decision === null && !inboxC && /\bClosed\b/u.test(pageC) && pageC.includes("Closed: expired at") && !/Pending approval/u.test(pageC),
+      `serve ${serveUp ? "up" : "DOWN"} · list ${rowsIn(listAfter, "All requests(")} rows, ${hrefsA.length} effect links${ridC ? "" : ` (${listAfter.slice(0, 200)})`} · park ${parkedC.status} ${parkedC.j.reason || ""} · window ${Number(C0.expires_at_ms) - Date.parse(C0.created_at)} ms · late decision ${late.status} ${late.j.error?.code || ""} · daemon ${C1.state} · inbox ${inboxC ? "STILL lists it" : "dropped"} · page ${after(pageC, "Approve session-execute", 80)} · ${after(pageC, "Closed:", 90)}`);
+
     // ---- degraded: the daemon stopped ---------------------------------------------------------------------------------
     await plane.stop();
     plane = null;
@@ -339,6 +462,7 @@ async function cleanup() {
   try { await plane?.stop(); } catch { /* gone */ }
   try { await authority?.stop(); } catch { /* gone */ }
   try { fs.rmSync(stateDir, { recursive: true, force: true }); } catch { /* keep */ }
+  try { fs.rmSync(planeDir, { recursive: true, force: true }); } catch { /* keep */ }
 }
 
 run().then(async () => {

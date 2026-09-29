@@ -57,6 +57,20 @@ pub(crate) const AUTHORITY_STATE_DIR_ENV: &str = "IOI_HYPERVISOR_LOCAL_AUTHORITY
 const OPERATOR_PASS_ENV: &str = "IOI_AUTHORITY_OPERATOR_PASS";
 /// A pending challenge stays decidable this long after its latest park.
 const CHALLENGE_TTL_MS: u64 = 24 * 60 * 60 * 1_000;
+/// An isolated stack may SHORTEN the pending window (a verifier drives a challenge's expiry without
+/// waiting a day). It narrows only: a value above the default, zero or unparseable leaves the default.
+const CHALLENGE_TTL_ENV: &str = "IOI_HYPERVISOR_AUTHORITY_CHALLENGE_TTL_MS";
+
+fn challenge_ttl_from(raw: Option<&str>) -> u64 {
+    raw.and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .map(|value| value.min(CHALLENGE_TTL_MS))
+        .unwrap_or(CHALLENGE_TTL_MS)
+}
+
+fn challenge_ttl_ms() -> u64 {
+    challenge_ttl_from(std::env::var(CHALLENGE_TTL_ENV).ok().as_deref())
+}
 /// A claim that never settled (the daemon died mid-consumption) may be re-claimed after this long.
 const STALE_CLAIM_MS: u64 = 30 * 60 * 1_000;
 const DEFAULT_APPROVE_TIMEOUT_MS: u64 = 1_200_000;
@@ -261,7 +275,7 @@ pub(crate) fn park_challenge(data_dir: &str, request: ParkRequest<'_>) -> Option
             }
             if state_of(&record) == "pending" {
                 record["last_parked_at"] = json!(iso_now());
-                record["expires_at_ms"] = json!(now.saturating_add(CHALLENGE_TTL_MS));
+                record["expires_at_ms"] = json!(now.saturating_add(challenge_ttl_ms()));
                 if record.get("requester_ref").is_none_or(Value::is_null) {
                     record["requester_ref"] = json!(request.requester_ref);
                 }
@@ -285,7 +299,7 @@ pub(crate) fn park_challenge(data_dir: &str, request: ParkRequest<'_>) -> Option
                 "requester_ref": request.requester_ref,
                 "created_at": iso_now(),
                 "last_parked_at": iso_now(),
-                "expires_at_ms": now.saturating_add(CHALLENGE_TTL_MS),
+                "expires_at_ms": now.saturating_add(challenge_ttl_ms()),
                 "decision": Value::Null,
                 "grant": Value::Null,
                 "grant_ref": Value::Null,
@@ -1188,6 +1202,29 @@ mod tests {
             challenge_id_from_ref(&approval_ref_for(&a)),
             Some(a.as_str())
         );
+    }
+
+    #[test]
+    fn the_pending_window_can_only_be_shortened() {
+        assert_eq!(challenge_ttl_from(None), CHALLENGE_TTL_MS, "unset: a day");
+        assert_eq!(
+            challenge_ttl_from(Some("8000")),
+            8_000,
+            "an isolated stack shortens it"
+        );
+        assert_eq!(challenge_ttl_from(Some(" 8000 ")), 8_000);
+        assert_eq!(
+            challenge_ttl_from(Some(&(CHALLENGE_TTL_MS * 7).to_string())),
+            CHALLENGE_TTL_MS,
+            "never lengthened past the default"
+        );
+        for raw in ["0", "-5", "", "a day", "1e9"] {
+            assert_eq!(
+                challenge_ttl_from(Some(raw)),
+                CHALLENGE_TTL_MS,
+                "{raw:?} leaves the default"
+            );
+        }
     }
 
     #[test]

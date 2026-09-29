@@ -281,12 +281,16 @@ pub(crate) fn pending_thread_approvals(st: &DaemonState) -> (Vec<Value>, Vec<Val
                         continue;
                     }
                     // Slim row: identity + decision-relevant state only; the full
-                    // request stays behind the thread's own read surface.
+                    // request stays behind the thread's own read surface. Who asked (the
+                    // actor the daemon resolved when the approval was requested) and when
+                    // come from the request record itself.
                     pending.push(json!({
                         "thread_id": entry.get("thread_id"),
                         "run_id": entry.get("run_id"),
                         "approval_id": entry.get("approval_id"),
                         "status": entry.get("status"),
+                        "requester_ref": entry.pointer("/approval_request/authority/actor_ref"),
+                        "created_at": entry.pointer("/approval_request/created_at"),
                         "reason": entry.get("reason"),
                         "request_event_id": entry.get("request_event_id"),
                         "lease_id": entry.get("lease_id"),

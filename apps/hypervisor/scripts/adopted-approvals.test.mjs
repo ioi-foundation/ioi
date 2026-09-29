@@ -22,9 +22,10 @@ const gov = (id, status, extra = {}) => ({ id, ref: `approval-request://${id}`, 
   created_at: "2026-09-28T09:00:00Z", updated_at: "2026-09-28T09:00:00Z", receipt_refs: status === "pending" ? [] : ["agentgres://governance-approval-transition-receipt/atr_1"], ...extra });
 const fixture = () => ({
   challenges: [challenge("wac_pending", "pending"), challenge("wac_denied", "denied", { decision: { decision: "deny", decided_by: "user://op", decided_at: "2026-09-28T10:30:00Z", reason: "not now" }, created_at: "2026-09-28T08:00:00Z" }),
-    challenge("wac_expired", "pending", { expires_at_ms: NOW - 1, created_at: "2026-09-27T08:00:00Z" }), challenge("wac_consumed", "consumed", { decision: { decision: "approve", decided_by: "user://op", decided_at: "2026-09-28T07:00:00Z" }, consumed_by: "authority-admission-intents/x", created_at: "2026-09-28T06:00:00Z" })],
+    challenge("wac_expired", "pending", { expires_at_ms: NOW - 1, created_at: "2026-09-27T08:00:00Z" }), challenge("wac_consumed", "consumed", { decision: { decision: "approve", decided_by: "user://op", decided_at: "2026-09-28T07:00:00Z" }, consumed_by: "authority-admission-intents/x", consumed_at: "2026-09-28T07:30:00Z", created_at: "2026-09-28T06:00:00Z" })],
   governance: [gov("appr_pending", "pending"), gov("appr_approved", "approved"), gov("appr_rejected", "rejected"), gov("appr_theirs", "pending", { created_by_principal_ref: "user://member", created_at: "2026-09-28T11:00:00Z" })],
-  inboxItems: [{ source_plane: "thread_approval", thread_id: "th_1", approval_id: "ap_1", run_id: "run_1", subject_ref: "run_1", reason: "write to /etc", status: "pending", created_at: "2026-09-28T11:45:00Z" },
+  inboxItems: [{ source_plane: "thread_approval", thread_id: "th_1", approval_id: "ap_1", run_id: "run_1", subject_ref: "run_1", reason: "write to /etc", status: "pending", requester_ref: "user://op", created_at: "2026-09-28T11:45:00Z",
+    lease_status: "pending", decide: { route: "/v1/threads/th_1/approvals/ap_1/decision", method: "POST" } },
     { source_plane: "wallet_approval_challenge", challenge_id: "wac_pending" }, { source_plane: "improvement_proposal", item_ref: "imp://x" }],
   nowMs: NOW,
 });
@@ -72,7 +73,7 @@ const countsRequest = (me) => ({ globalFilters: [TYPES, NOT_PIPELINE], subFilter
 
 test("the counts: Your inbox is what waits on the caller, Created by you what they asked, All requests everything", () => {
   const rows = AX.requestsOf({ ...fixture(), principal: operator });
-  assert.deepEqual(AX.countsOf(countsRequest(OP), rows), { totalCount: 9, subCounts: { all: 9, myRequests: 7, reviewRequests: 4 } });
+  assert.deepEqual(AX.countsOf(countsRequest(OP), rows), { totalCount: 9, subCounts: { all: 9, myRequests: 8, reviewRequests: 4 } }, "the tool call the operator's run asked for is theirs");
   const asMember = AX.requestsOf({ ...fixture(), principal: member });
   assert.deepEqual(AX.countsOf(countsRequest(MEMBER), asMember).subCounts, { all: 9, myRequests: 1, reviewRequests: 2 }, "a member's inbox holds only the governance requests they may decide");
 });
@@ -105,6 +106,13 @@ test("a request by its rid: minimal and full reads over its record, and an unkno
   const full = AX.fullOf(r);
   assert.equal(full.creator, OP);
   assert.deepEqual(full.history.map((h) => h.type), ["creationEntry", "rejectedEntry"]);
+  const consumed = AX.fullOf(rows.find((x) => x.id === "wac_consumed"));
+  assert.deepEqual(consumed.history.map((h) => [h.type, h.completedEntry?.time || h.creationEntry?.time]), [["creationEntry", "2026-09-28T06:00:00Z"], ["completedEntry", "2026-09-28T07:30:00Z"]], "an effect completes when its grant is consumed");
+  const approvedOnly = AX.requestsOf({ ...fixture(), challenges: [challenge("wac_approved", "approved", { decision: { decision: "approve", decided_by: "user://op", decided_at: "2026-09-28T11:00:00Z" }, grant_ref: "grant://g1" })], principal: operator })
+    .find((x) => x.id === "wac_approved");
+  assert.deepEqual(AX.fullOf(approvedOnly).history.map((h) => h.type), ["creationEntry"], "an approval not yet run is a review, not a completion");
+  assert.match(approvedOnly.description, /Decided: approve by Ada Operator at 2026-09-28T11:00:00Z/u);
+  assert.match(approvedOnly.description, /Grant: grant:\/\/g1/u);
   assert.equal(AX.rowByRid(rows, "ri.approvals.main.task-request.00000000-0000-0000-0000-000000000000"), null);
   assert.equal(AX.NOT_FOUND("x").errorName, "Approvals:TaskRequestNotFound");
 });
@@ -178,6 +186,25 @@ test("Close, reviewers and comments: Close on an open request is refused, on one
   const body = AX.refusalBodyOf(AX.WRITE_REFUSALS.comment);
   assert.deepEqual([body.errorCode, body.errorName], ["CONFLICT", "Hypervisor:ApprovalsCommentsNotKept"]);
   assert.deepEqual(AX.commentCountsOf({ resources: [{ rid: "ri.a", locator: "ri.b" }] }), { responses: { "ri.a": { rid: "ri.a", locatorCounts: { "ri.b": 0 }, totalCount: null } } });
+});
+
+test("an expired ask says so in its record, and a tool call's page names who asked, its run and the route that decides it under a grant", () => {
+  const rows = AX.requestsOf({ ...fixture(), principal: operator });
+  const expired = rows.find((x) => x.id === "wac_expired");
+  assert.equal(expired.status, "CLOSED");
+  assert.match(expired.description, new RegExp(`Closed: expired at ${new Date(NOW - 1).toISOString()} with no decision; re-running the effect parks it again`, "u"));
+  assert.doesNotMatch(rows.find((x) => x.id === "wac_pending").description, /Closed:/u, "an open ask is not closed");
+  const tool = rows.find((x) => x.kind === "thread_approval");
+  assert.deepEqual([tool.creatorRef, tool.created_at, tool.status], ["user://op", "2026-09-28T11:45:00Z", "PENDING_APPROVAL"]);
+  assert.match(tool.description, /Requested by: Ada Operator/u);
+  assert.match(tool.description, /Run: run_1\nThread: th_1\nApproval: ap_1\nLease: pending/u);
+  assert.match(tool.description, /Decided with: POST \/v1\/threads\/th_1\/approvals\/ap_1\/decision, under a wallet grant for this lease/u);
+  assert.equal(AX.searchOf({ filters: [{ type: "createdBy", createdBy: { userIds: [OP] } }, { type: "title", title: { contains: "tool call" } }] }, rows).totalCount, 1, "Created by names the tool call's requester");
+  const unknownAsker = AX.requestsOf({ ...fixture(), inboxItems: [{ source_plane: "thread_approval", thread_id: "th_2", approval_id: "ap_2" }], principal: operator }).find((x) => x.kind === "thread_approval");
+  assert.equal(unknownAsker.creatorRef, null, "a row the daemon names no requester for names none");
+  assert.match(AX.WRITE_REFUSALS.toolCall.message, /wallet-signed grant for exactly its approval lease/u);
+  assert.match(AX.WRITE_REFUSALS.toolCall.message, /Nothing was decided here/u);
+  assert.doesNotMatch(AX.WRITE_REFUSALS.toolCall.message, /approval card/u, "no card decides a tool call: the refusal points nowhere false");
 });
 
 test("principals: the directory names requesters and deciders; the picker and the lookup offer only principals the daemon knows", () => {
