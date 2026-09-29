@@ -82,7 +82,18 @@ const PINS = {
   // 2026-09-27 (R-241, Sessions cut 1): first rows — rename, auto-stop, Goal mode and the page's own port sync
   // refused by name; services and tasks named (absent planes); logs bound in the adapter but not yet live-asserted.
   sessions: { total: 24, bound: 12, refused: 7, named_gap: 5, open: 0 },
-  // 2026-09-28 (R-241, Ontology Manager O7): four open rows over the daemon's `caller_may_change` (the ODK list and get now say
+  // 2026-09-29 (R-241, Ontology Manager O8): 65 → 79, open 1 → 0. A type is backed by its materialized object set: check:adopted-ontology
+  // now runs its own sealed authority and takes one materializing run of the loan type through it (lease and sealed session by the
+  // daemon's parked challenges, the source contact by the operator's approve act for the exact hashes the daemon refused). Bound
+  // (live, over the set): the type's Datasources (its sync's dataset, each property from its mapping's source field) and Index status
+  // (Indexed); Save to ontology on the materialized type, which is the daemon's ODK patch at the expected revision (one receipted
+  // revision, the type UPDATED); Object Explorer's keyword search, its Object types tab, a result's object view, New exploration and
+  // its filter, the catalog's object counts, the Explorations panel and lists (none kept — they had read "Failed to load lists."),
+  // and an object read with the daemon stopped. Refused by name: a save carrying what an ODK model does not keep. Named: the
+  // datasource card's catalog details, the Ontology Manager's header count, an unmaterialized type's save (still the reference's
+  // "Backing datasource is missing"), usage, autosaved tabs, following links, the Actions menu. Re-reasoned (still named):
+  // observability, object views, materializations, New. The open row (object search) is gone: 9 rows it became are bound.
+  // Before that, 2026-09-28 (R-241, Ontology Manager O7): four open rows over the daemon's `caller_may_change` (the ODK list and get now say
   // per read whether the caller may change an ontology: its owner or an administrator of its organization). Editing splits
   // in four — who may edit (a member reads the reference's own "You do not have edit permissions", the owner gets the
   // editable page) and the owner's Review changes bound; an object type's save named (the reference's "Backing datasource is
@@ -113,7 +124,7 @@ const PINS = {
   // gaps (what an ODK model does not hold, in the reference's own empty states; Cleanup's usage read); 8 open (Functions
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
-  "ontology-manager": { total: 65, bound: 31, refused: 8, named_gap: 25, open: 1 },
+  "ontology-manager": { total: 79, bound: 42, refused: 9, named_gap: 28, open: 0 },
   // 2026-09-29 (R-241, Data Connection D8): 60 → 63. The schedule editor's chunk (51877) reached the mirror, and the open
   // row splits in three, driven by check:adopted-data-connection over daemon truth: choosing "On a schedule" renders the
   // reference's schedule editor, each cron expression it composes checked by the daemon's own cron parser (the automation

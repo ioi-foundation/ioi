@@ -490,6 +490,48 @@ assertion in its verifier.
       the empty section, the branch switcher and the Create branch dialog were captured, so the populated proposal and
       its page were not harvested and no tenant write was made. The page's answer shapes follow the reference's own
       documents and bundle in the mirror; harvest the example proposal when the owner signs in again.
+  - O8: a type backed by its materialized object set. Done 2026-09-29. Harvested read-only first (Object Explorer's search and a
+    New exploration, 11 states, `.artifacts/live-tenant-atlas/r241-explorer-search/`; traffic `tools/traffic/explorer-search-flow/`).
+    - *The backing.* A materialized object set names its `ontology_ref` and `object_type_id` (from its run's lease plan), so an ODK
+      type is backed by the caller's sets for it (the daemon's set list is caller-scoped). Each lease plan — Data Connection's sync —
+      is one backing datasource: its dataset is the sync's own output dataset (the rid Data Connection already names), holding the
+      plan's newest set, and each property is mapped from the source field its connector mapping names. The type's objects are held
+      in the set store, which is its object store in the reference's vocabulary: entity metadata, the object database view
+      (`currentV4`) and the index status (Indexed, from the runs that registered the sets). A backed type's primary key is the
+      property its mapping keys objects by. A type no set materializes keeps the reference's own "Backing datasource is missing".
+    - *Saving.* With a backing, the reference's Review changes enables Save to ontology. Its `v2/modify` (naming the version the edit
+      was made on) is answered by the daemon's PATCH of the ODK ontology at that revision, under the caller's session: one receipted
+      revision records the type UPDATED, and the page reloads it through the version diff (`v2/<rid>/diff`, from the revisions'
+      recorded changes). Only what an ODK model keeps is carried (names, plural name, descriptions, title property, a type change on
+      an unmapped property, an added property, an unmapped property removed); anything else in the batch — another person's save,
+      a new or deleted type, a changed primary key, API name, status or render hint, a re-pointed datasource or object store,
+      links, actions and the rest — is refused by name (`Hypervisor:OntologyEditNotBound`), and nothing is written.
+    - *Object Explorer.* The object-set service's reads (`objectSets/objects/top`, `aggregate`, `objectSets/objectTypes`,
+      `objectSets/temporary`) are evaluated over the sets' rows: base, filtered, unioned, intersected, subtracted and static sets;
+      exact, keyword, has-property, range and boolean filters; counts, min/max/sum/average, distinct counts, and buckets by type,
+      exact value, fixed-width number and date. A construct not evaluated is refused by name, never answered as an empty set.
+      Keyword search (typeahead, the Objects results and their type filter, the preview panel, the Object types tab), a result's
+      object view (the reference's default view: its properties), New exploration (its charts and Results table) and its filter,
+      the catalog's counts, and the Explorations panel and lists (none kept; they had read "Failed to load lists.") all read the
+      set. Named: autosaved tabs, following links (an ODK link names no join property, and the explorer's object layer threw on the
+      empty mapping, so no link is offered there), the Actions menu, usage.
+    - *Driven.* `check:adopted-ontology` runs its own sealed authority and takes one materializing run through it: the lease and
+      the sealed session through the daemon's parked challenges and the operator's passphrase; the source contact — the execute,
+      which parks no challenge — through the operator's own approve act for the exact hashes the daemon refused. Findings: the
+      execute's refusal carries no parked challenge (so the product's approval card cannot take a sync's run to a set: the
+      operator's CLI is the only path today, a daemon gap); the authority's chain launcher rebuilds its node binaries whenever the
+      shared tree is dirty and failed hashing another helper's vanished untracked file (`IOI_NODE_BINARY_DIR` pinned to the warm
+      test-node build avoids both).
+    - *Mirror.* The explorer's object pages load the reference's current build. The mirror's `/workspace/hubble/` index is the
+      previous build (runtime `699a765a…`), which asks for chunks the mirror never received (keyword search 47025 `1c37b515…`, and
+      the exploration's `58cf5367…`, `3e7be72e…`, `f15fc039…`, `bc8cdc43…`, `16564c7d…`, `0abc0b62…`, `817fa007…`); every chunk of
+      the current build is in the mirror already (the harvest fed them). Refreshing the index to the current build — its entry
+      scripts `d660bf8c…`, `042c578f…`, `2e764643…` (runtime) and `1ed61c51…` in place of `f6552408…`, `2ff85eb5…`, `699a765a…`,
+      `5140236…` — is what lets those pages boot; until then they show "Something went wrong when trying to load this component".
+      The Explorer assertions below were measured through a local read-through proxy serving that index (the shared mirror was not
+      changed).
+    - `check:adopted-ontology` 49/49 (was 37), `adopted-ontology.test` 20/20, `test:adopted-seeds` 128/128; seed depth 79 = 42 bound
+      / 9 refused / 28 named gaps / 0 open (ledger CCLII). No Rust changed.
 
 ### Data Connection — harvest and the adoption path (2026-09-28)
 

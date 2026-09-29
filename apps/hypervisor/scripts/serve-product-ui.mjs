@@ -275,6 +275,9 @@ const ONTOLOGY_FENCED = /^\/(ontology-metadata|phonograph2|object-set-service|fo
 // answers every unknown path with its index page — an app reads it as a malformed answer, "Failed to load").
 // Object Explorer (/workspace/hubble, O4) reads the same ontology, so it is the same surface: the same fence.
 const ONTOLOGY_SURFACE_REFERER = /\/workspace\/(?:ontology|hubble)(?:[/?#]|$)|\/__apps\/(?:schema|explorer)(?:[/?#]|$)/u;
+// Object Explorer's temporary object sets (cut O8): the caller's own object-set expression, kept by rid for an hour so the app
+// can page through it. Not truth: every read of one evaluates it over the daemon's materialized sets again.
+const TEMPORARY_OBJECT_SETS = new Map();
 const SERVICE_API_PATH = /^\/[a-z][a-z0-9-]*\/api\//u;
 // THE DATA CONNECTION FENCE (R-241 Data Connection, cut D1): the adopted Data Connection app (/workspace/data-ingestion-app)
 // reads sources, syncs, schedules, datasets and example installs from these services; one that is not bound is a named gap,
@@ -9322,6 +9325,8 @@ async function handleEstateRequest(req, res, body) {
       // from Automate's: a recipe family is held in the owner's recipe registry, never in a project).
       const onPipelineSurface = () => /\/workspace\/builder(?:[/?#]|$)|\/__apps\/pipeline(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
       const onOntologySurface = () => ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
+      // Object Explorer's own pages (the same surface and fence; a few answers differ: it follows links to linked objects, cut O8)
+      const onExplorerSurface = () => /\/workspace\/hubble(?:[/?#]|$)|\/__apps\/explorer(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
       const onDataConnectionSurface = () => DATA_CONNECTION_SURFACE_REFERER.test(String(req.headers.referer || ""));
       const onApprovalsSurface = () => APPROVALS_SURFACE_REFERER.test(String(req.headers.referer || ""));
       // The adopted Approvals app's requests (R-241 Approvals A1, adopted-approvals.mjs): the daemon's parked wallet challenges,
@@ -9394,12 +9399,16 @@ async function handleEstateRequest(req, res, body) {
         ]);
         return DATA_CONNECTION.callerSyncsOf(plans, runs, mine, (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) || null, projects);
       };
-      const ontologyModels = async () => {
+      // Each type carries its backing (cut O8): the caller's materialized object sets that materialize it (the daemon's list is
+      // caller-scoped). Read once per request.
+      let ontologyModelsRead = null;
+      const ontologyModels = () => (ontologyModelsRead ||= (async () => {
         const who = await planeRead("/v1/hypervisor/auth/whoami");
         const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
         const drafts = await planeRead("/v1/hypervisor/odk/domain-ontologies").then((j) => j.ontologies || []);
-        return { owner, models: owner ? ONTOLOGY.ontologyModelsOf(drafts, owner, ontologyRevisionFamilyOf) : [] };
-      };
+        const sets = owner && who.authenticated !== false ? await planeRead("/v1/hypervisor/odk/materialized-object-sets").then((j) => j.materialized_object_sets || []) : [];
+        return { owner, principalRef: who.principal?.principal_ref || null, models: owner ? ONTOLOGY.ontologyModelsOf(drafts, owner, ontologyRevisionFamilyOf, sets) : [] };
+      })());
       // The caller's ODK ontology proposals (R-241 cut O6), on their ontologies only (the plane's list is not caller-scoped).
       // A plane that does not answer is the section's own error, never "No proposals".
       const ontologyProposals = async () => {
@@ -9485,8 +9494,9 @@ async function handleEstateRequest(req, res, body) {
           const { owner, models } = await ontologyModels();
           return { data: answerAdoptedDocument(query, ONTOLOGY.valueTypeFacts(name, variables || {}, { models, namespaceRid: owner ? ONTOLOGY.namespaceRidOf(owner) : null }), null, name) };
         }
-        // an object type the caller opened is kept in their Recently viewed (the daemon's preference plane)
-        if (name === "RegisterObjectTypeAsRecent") {
+        // an object type the caller opened is kept in their Recently viewed (the daemon's preference plane) — opened in the Ontology
+        // Manager, or explored in Object Explorer (its MarkObjectTypeViewed, cut O8)
+        if (name === "RegisterObjectTypeAsRecent" || (name === "MarkObjectTypeViewed" && onOntologySurface())) {
           const { models } = await ontologyModels();
           const rid = String(variables?.rid || "");
           if (!ONTOLOGY.objectTypeOf(models, { rid })) return { data: { view: null } };
@@ -9531,7 +9541,7 @@ async function handleEstateRequest(req, res, body) {
         // Object Explorer's catalog, search, recents and shortcuts (on the ontology surface only: other adopted apps send
         // some of the same operation names)
         if (ONTOLOGY.EXPLORER_GRAPHQL_OPERATIONS.has(name) && query && onOntologySurface()) {
-          const { models } = await ontologyModels();
+          const { models, owner } = await ontologyModels();
           let userId = null, recents = [];
           if (/^(Recent|CurrentUser)/u.test(name)) {
             const principalRef = (await planeRead("/v1/hypervisor/auth/whoami")).principal?.principal_ref || null;
@@ -9541,7 +9551,7 @@ async function handleEstateRequest(req, res, body) {
               recents = (await planeRead("/v1/hypervisor/preferences").then((j) => j.preferences || [])).find((x) => x.preference_id === id)?.value?.recents || [];
             }
           }
-          return { data: answerAdoptedDocument(query, ONTOLOGY.explorerGraphqlFacts(name, variables || {}, { models, userId, recents }), null, name) };
+          return { data: answerAdoptedDocument(query, ONTOLOGY.explorerGraphqlFacts(name, variables || {}, { models, userId, recents, owner }), null, name) };
         }
         // The Ontology Manager's proposals (cut O6): a proposal's request and its page, over the caller's ODK proposals (on the
         // ontology surface only: the Approvals app answers some of the same operation names over its own asks)
@@ -10988,6 +10998,23 @@ async function handleEstateRequest(req, res, body) {
       // an edit's save is refused by name (cut O7): nothing is written
       const ontologySave = onOntologySurface() && ONTOLOGY.ontologySaveRefusalOf(req.method, pathname);
       if (ontologySave) return sendO(ontologySave.status, ONTOLOGY.proposalRefusalBodyOf(ontologySave));
+      // a backed object type's edit saves as the daemon's ODK patch at the expected revision, under the caller's session (cut O8);
+      // anything the model does not keep is refused by name, and the daemon's own refusal (stale, not the owner) is shown
+      if (onOntologySurface() && req.method === "POST" && pathname === ONTOLOGY.ONTOLOGY_MODIFY_V2) {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const ontologyRid = new URL(req.url, "http://x").searchParams.get("ontologyRid") || "";
+        const { models } = await ontologyModels();
+        const step = ONTOLOGY.ontologySaveStepOf(asked, models, ontologyRid);
+        if (step.refusal) return sendO(step.refusal.status, ONTOLOGY.proposalRefusalBodyOf(step.refusal));
+        const r = await daemonFetch(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(step.draftId)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(step.body) }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || !r.ok || j.ok === false) {
+          const code = j.error?.code || j.code || "OntologyPatchRefused";
+          const message = `The daemon refused the save: ${j.error?.message || j.message || (r ? `it answered ${r.status}` : "it did not answer")}. Nothing was changed.`;
+          return sendO(r && r.status === 409 ? 409 : r && r.status === 403 ? 403 : 409, ONTOLOGY.proposalRefusalBodyOf({ status: r?.status === 403 ? 403 : 409, code: `Hypervisor:${code}`, message }));
+        }
+        return sendO(200, ONTOLOGY.ontologySaveAnswerOf(ONTOLOGY.modelOf(models, ontologyRid), Number(j.ontology?.revision) || step.body.expected_revision + 1, step.types));
+      }
       if (pathname === "/ontology-metadata/api/ontology/featureConfigurations" && req.method === "GET") return sendO(200, ONTOLOGY.FEATURE_CONFIGURATIONS);
       if (pathname === "/ontology-metadata/api/organization/getSettings/user" && req.method === "POST") {
         const { owner } = await ontologyModels();
@@ -11023,7 +11050,9 @@ async function handleEstateRequest(req, res, body) {
       if (/^\/ontology-metadata\/api\/ontology\/linkTypesForObjectTypes(V2)?$/u.test(pathname) && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();
-        return sendO(200, ONTOLOGY.linkTypesForObjectTypesOf(asked, models));
+        // Object Explorer follows a link to its linked objects by the property that joins them, which an ODK link does not name
+        // (cut O8): there, each type is answered with no traversable link types
+        return sendO(200, ONTOLOGY.linkTypesForObjectTypesOf(asked, models, { traversableOnly: onExplorerSurface() }));
       }
       if (pathname === "/ontology-metadata/api/entityMetadata/load" && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
@@ -11074,6 +11103,12 @@ async function handleEstateRequest(req, res, body) {
         const { owner } = await ontologyModels();
         const orgRid = owner ? `ri.multipass..organization.${PIPELINE.uuidOf(owner)}` : null;
         return sendO(200, orgRid ? { [orgRid]: { organizationRid: orgRid, displayName: ONTOLOGY.namespaceNameOf(owner), description: null, markingId: null, host: null, deleted: false, deletionContextRid: null } } : {});
+      }
+      // what changed between two of a draft's versions (the reference reloads it after a save, cut O8)
+      if (onOntologySurface() && /^\/ontology-metadata\/api\/ontology\/v2\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/diff$/u.test(pathname) && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const diff = ONTOLOGY.ontologyDiffOf(ONTOLOGY.modelOf((await ontologyModels()).models, ontologyRidIn(pathname)), asked);
+        if (diff) return sendO(200, diff);
       }
       if (/^\/ontology-metadata\/api\/ontology\/v2\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/modification\/history$/u.test(pathname) && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
@@ -11322,11 +11357,16 @@ async function handleEstateRequest(req, res, body) {
         return sendO(200, ONTOLOGY.compassRolesOf(asked, models));
       }
       if (onOntologySurface() && pathname === "/compass/api/batch/resources" && req.method === "POST") {
-        const { owner } = await ontologyModels();
+        const { owner, models } = await ontologyModels();
         let asked = []; try { asked = JSON.parse(body.toString() || "[]"); } catch { /* none */ }
         const who = await planeRead("/v1/hypervisor/auth/whoami");
         const ns = owner ? ONTOLOGY.namespaceResourceOf(owner, PIPELINE.uuidOf(who.principal?.principal_ref || "")) : null;
-        return sendO(200, Object.fromEntries((Array.isArray(asked) ? asked : []).filter((r) => ns && r === ns.rid).map((r) => [r, ns])));
+        const out = Object.fromEntries((Array.isArray(asked) ? asked : []).filter((r) => ns && r === ns.rid).map((r) => [r, ns]));
+        // a backed type's datasource is its sync's output dataset (cut O8): named as Data Connection names it, from the caller's syncs
+        const backing = new Set(models.flatMap((m) => m.objectTypes.flatMap((o) => (o.backing?.datasources || []).map((d) => d.datasetRid))));
+        const wanted = (Array.isArray(asked) ? asked : []).filter((r) => backing.has(r));
+        if (wanted.length) Object.assign(out, DATA_CONNECTION.compassSourceResources(wanted, [], owner, await callerSyncs().catch(() => []), await callerProjectRows()));
+        return sendO(200, out);
       }
       if (onOntologySurface() && /^\/compass\/api\/resources\/ri\.compass\.main\.folder\.[0-9a-f-]{36}$/u.test(pathname) && req.method === "GET") {
         const { owner } = await ontologyModels();
@@ -11352,12 +11392,69 @@ async function handleEstateRequest(req, res, body) {
         const { models } = await ontologyModels();
         return sendO(200, ONTOLOGY.objectTypePoliciesOf(asked, models));
       }
-      // an object type's object-database views: it is indexed in none
+      // an object type's object-database views: a materialized type's is its set store (cut O8); an unmaterialized one is indexed in none
       if (onOntologySurface() && pathname === "/objects-data-funnel/api/view/currentV4" && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();
         return sendO(200, ONTOLOGY.objectViewsOf(asked, models));
       }
+      // Objects (cut O8): the object-set service's reads, evaluated over the caller's materialized objects (adopted-ontology.mjs)
+      if (onOntologySurface() && /^\/object-set-service\/api\/(objectSets\/(objects\/top\/(initial|next)|temporary|temp|objectTypes)|aggregate)$/u.test(pathname) && ["PUT", "POST"].includes(req.method)) {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models, principalRef } = await ontologyModels();
+        const now = Date.now();
+        for (const [k, v] of TEMPORARY_OBJECT_SETS) if (v.expiresAt < now) TEMPORARY_OBJECT_SETS.delete(k);
+        const temporary = new Map([...TEMPORARY_OBJECT_SETS].filter(([, v]) => v.principalRef === principalRef).map(([k, v]) => [k, v.expression]));
+        const ctx = { models, temporary };
+        try {
+          if (/\/objectSets\/(temporary|temp)$/u.test(pathname)) {
+            ONTOLOGY.evaluateObjectSet(asked.objectSet, ctx); // a construct not evaluated is refused before it is kept
+            const objectSetRid = ONTOLOGY.temporaryObjectSetRidOf(principalRef, asked.objectSet);
+            TEMPORARY_OBJECT_SETS.set(objectSetRid, { expression: asked.objectSet, principalRef, expiresAt: now + 3600000 });
+            return sendO(200, { objectSetRid });
+          }
+          if (pathname.endsWith("/objectTypes")) return sendO(200, ONTOLOGY.objectSetObjectTypesOf(asked, ctx));
+          if (pathname.endsWith("/aggregate")) return sendO(200, ONTOLOGY.aggregateOf(asked, ctx));
+          return sendO(200, ONTOLOGY.objectsPageOf(asked, ctx));
+        } catch (e) {
+          if (!(e instanceof ONTOLOGY.ObjectSetNotBound)) throw e;
+          return sendO(501, ONTOLOGY.objectSetRefusalBodyOf(e, req.method, pathname));
+        }
+      }
+      // the caller's saved explorations and lists: none is kept (cut O8; any other Compass search stays a named gap)
+      if (onOntologySurface() && pathname === "/foundry-search/api/compass/v2/search" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const none = ONTOLOGY.savedObjectSetSearchOf(asked);
+        if (none) return sendO(200, none);
+      }
+      // which of the caller's types a keyword search spans (cut O8)
+      if (onOntologySurface() && pathname === "/ontology-metadata/api/ontology/search/v0/searchObjectTypes" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        try { return sendO(200, ONTOLOGY.searchObjectTypesOf(asked, (await ontologyModels()).models)); }
+        catch (e) { if (!(e instanceof ONTOLOGY.ObjectSetNotBound)) throw e; return sendO(501, ONTOLOGY.objectSetRefusalBodyOf(e, req.method, pathname)); }
+      }
+      // an exploration's saved layouts and the caller's table preferences: none is kept (cut O8), so the reference's defaults apply
+      if (onExplorerSurface() && /^\/hubble-server\/api\/explorations\/configurations\/get\/ri\.ontology\.main\.object-type\.[0-9a-f-]{36}$/u.test(pathname) && req.method === "POST") {
+        const { models } = await ontologyModels();
+        if (ONTOLOGY.objectTypeOf(models, { rid: pathname.split("/").pop() })) return sendO(200, ONTOLOGY.EXPLORATION_CONFIG_NONE);
+      }
+      if (onExplorerSurface() && /^\/hubble-server\/api\/user-preferences\/v2(\/global)?$/u.test(pathname) && req.method === "GET") return sendO(200, ONTOLOGY.TABLE_PREFERENCES_NONE);
+      // a backing dataset's schema (cut O8): the source fields a backed type's materialized sets map, from those sets
+      if (onOntologySurface() && /^\/foundry-metadata\/api\/schemas\/datasets\/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}\/branches\/master$/u.test(pathname) && req.method === "GET") {
+        const schema = ONTOLOGY.datasetSchemaOf((await ontologyModels()).models, pathname.split("/")[5]);
+        if (schema) return sendO(200, schema);
+      }
+      // an object view's editor permissions (no one: none is kept) and the graphs an object is in (none), cut O8
+      if (onExplorerSurface() && pathname === "/hubble-server/api/object-views/v8/configuration/has-permissions" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        return sendO(200, ONTOLOGY.objectViewPermissionsOf(asked, (await ontologyModels()).models));
+      }
+      if (onExplorerSurface() && /^\/opus-server\/api\/graph\/v2\/pointer\/object\/ri\.phonograph2-objects\.main\.object\.v4\.[\w.-]+$/u.test(pathname) && req.method === "GET") {
+        const { models } = await ontologyModels();
+        if (ONTOLOGY.objectUniverseOf(models).some((e) => e.o.rid === pathname.split("/").pop())) return sendO(200, ONTOLOGY.GRAPH_POINTERS_NONE);
+      }
+      // the Workshop workspaces an exploration may open objects in: the Hypervisor keeps none
+      if (onExplorerSurface() && pathname === "/carbon-server/api/configuration/config-for-carbon-sessionV2" && req.method === "GET") return sendO(200, ONTOLOGY.CARBON_SESSION_NONE);
       if (onDataConnectionSurface() && (DATA_CONNECTION_FENCED.test(pathname) || (dataConnectionServiceRead && !MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref)))) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
         res.writeHead(501, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:DataConnectionReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Data Connection yet: a named gap, and nothing recorded is served in its place` } }));

@@ -22,7 +22,9 @@ const BASE_TYPE = {
 export const baseTypeOf = (valueType) => BASE_TYPE[String(valueType || "string").toLowerCase()] || BASE_TYPE.string;
 
 // The caller's ontologies: one per ODK domain ontology (its family, as the Pipeline Builder names it), with its model.
-export function ontologyModelsOf(domainOntologies, ownerRef, familyOf) {
+// `sets` are the caller's materialized object sets (the daemon's caller-scoped GET /v1/hypervisor/odk/materialized-object-sets):
+// each object type carries the ones that materialize it as its backing (cut O8, backingOf below).
+export function ontologyModelsOf(domainOntologies, ownerRef, familyOf, sets = []) {
   return (domainOntologies || []).map((d) => {
     const family = familyOf(d.id, ownerRef)?.family;
     if (!family) return null;
@@ -33,14 +35,19 @@ export function ontologyModelsOf(domainOntologies, ownerRef, familyOf) {
     const objectTypes = list(model.object_types).map((ot) => {
       const properties = list(ot.properties).map((p) => ({ ...p, base: baseOf(p.value_type), rid: rid("property", `${family}/${ot.id}/${p.id}`) }));
       const title = properties.find((p) => p.id === ot.title_property) || properties[0] || null;
-      return { ...ot, rid: rid("object-type", `${family}/${ot.id}`), properties, titleRid: title?.rid || null, primaryKey: title?.id || null };
+      const typed = { ...ot, rid: rid("object-type", `${family}/${ot.id}`), properties, titleRid: title?.rid || null, primaryKey: title?.id || null };
+      const backing = backingOf(d, typed, sets);
+      // a backed type's primary key is the property its objects are keyed by (its connector mapping's key); an unbacked
+      // type's stays its title property, as before
+      return { ...typed, ...(backing.keyProperty ? { primaryKey: backing.keyProperty } : {}), backing };
     });
     return {
+      ref: d.ref || null,
       history: (Array.isArray(d.history) ? d.history : []).filter((h) => h && Number(h.revision) > 0),
       // whether the caller may change this ontology, as the daemon reads it for them on every read (its owner, or an
       // administrator of its organization: the rule its PATCH, DELETE and apply routes enforce) — never inferred here
       mayChange: d.caller_may_change === true,
-      rid: ontologyRidOfFamily(family), family, draftId: d.id, displayName: d.domain || family, description: d.description || "",
+      rid: ontologyRidOfFamily(family), family, draftId: d.id, displayName: d.domain || family, description: d.description || "", canonical: model,
       revision: Number(d.revision) || 1, version: draftVersionOf(d.id, Number(d.revision) || 1),
       updatedAt: d.updated_at || d.created_at || null, objectTypes,
       actionTypes: list(model.action_types).map((a) => ({ ...a, rid: `ri.actions.main.action-type.${uuidOf(`${family}/action/${a.id}`)}` })),
@@ -49,6 +56,49 @@ export function ontologyModelsOf(domainOntologies, ownerRef, familyOf) {
     };
   }).filter(Boolean);
 }
+// ---- A type's backing (cut O8). An ODK type is backed by the materialized object sets that materialize it: the sets the daemon
+// registered, under a held lease and an opened sealed session, for a projection of this ontology's type (each names its
+// `ontology_ref` and `object_type_id`, from its run's lease plan). They are the caller's (the daemon's list is caller-scoped:
+// the ontology's owner, or whoever sees the source a set came from). Each lease plan — Data Connection's sync — is one backing
+// datasource: its dataset is the sync's own output dataset (the same rid Data Connection names), whose contents are its newest
+// set (every materializing run registers a new one); the type's objects are its datasources' objects by key, the newest
+// registration of a key winning. A type no set materializes has no backing (the reference's own "Backing datasource is missing"
+// stays true).
+const EMPTY_BACKING = Object.freeze({ datasources: [], objects: [], keyProperty: null });
+export function backingOf(d, ot, sets) {
+  const refs = new Set([d?.ref, d?.id, d?.id ? `ontology://${d.id}` : null].filter(Boolean));
+  const mine = (Array.isArray(sets) ? sets : []).filter((s) => s && s.object_type_id === ot.id && refs.has(String(s.ontology_ref || "")) && Array.isArray(s.objects));
+  if (!mine.length) return EMPTY_BACKING;
+  const newest = new Map();
+  for (const s of mine) {
+    const k = String(s.capability_lease_plan_ref || s.ontology_projection_id || s.id).replace(/^capability-lease-plan:\/\//u, "");
+    const cur = newest.get(k);
+    if (!cur || String(s.registered_at || "") > String(cur.registered_at || "")) newest.set(k, s);
+  }
+  const declared = new Set(ot.properties.map((p) => p.id));
+  const datasources = [...newest.entries()].sort((a, b) => String(a[1].registered_at || "").localeCompare(String(b[1].registered_at || ""))).map(([projection, s]) => {
+    // the source field each property is mapped from (the set's own provenance, per object)
+    const mapping = {};
+    for (const o of s.objects) for (const [pid, field] of Object.entries(o?.provenance?.mapped_from || {})) if (declared.has(pid) && typeof field === "string") mapping[pid] = field;
+    // (the plan's id: Data Connection's sync, whose output dataset rid is `lease-plan-dataset:<plan id>` — syncDatasetRidOf)
+    return { planId: projection, projection: s.ontology_projection_id || null, set: s, rid: `ri.ontology.main.datasource.${uuidOf(`lease-plan-datasource:${projection}`)}`, datasetRid: `ri.foundry.main.dataset.${uuidOf(`lease-plan-dataset:${projection}`)}`,
+      mapping, count: s.objects.length, registeredAt: s.registered_at || null, setRef: s.ref || null, runRef: s.materializing_run_ref || null };
+  });
+  const byKey = new Map();
+  for (const ds of datasources) for (const o of ds.set.objects) {
+    const key = String(o?.object_key ?? "");
+    if (!key) continue;
+    const cur = byKey.get(key);
+    if (!cur || String(ds.registeredAt || "") >= String(cur.registeredAt || "")) byKey.set(key, { key, title: String(o.title ?? key), props: o.properties && typeof o.properties === "object" ? o.properties : {}, datasource: ds.rid, setRef: ds.setRef, runRef: ds.runRef, registeredAt: ds.registeredAt });
+  }
+  const objects = [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key)).map((o) => ({ ...o, rid: objectRidOf(ot, o.key) }));
+  // the key property: the declared property every object's key is the value of (its mapping's key); the title only if nothing else is
+  const keyed = ot.properties.filter((p) => objects.every((o) => o.props[p.id] !== undefined && String(o.props[p.id]) === o.key));
+  const keyProperty = (keyed.find((p) => p.id !== ot.title_property) || keyed[0] || null)?.id || null;
+  return { datasources, objects, keyProperty };
+}
+// an object's rid: its type's and its key (reversible: a set that names an object by rid finds it again)
+export const objectRidOf = (ot, key) => `ri.phonograph2-objects.main.object.v4.${String(ot.rid).split(".").pop()}.${Buffer.from(String(key)).toString("base64url")}`;
 // The version the app loads an ontology at. A draft's is its own revision (the reference's versions read
 // "<ordinal>-<uuid tail>"); it is a version of the draft, never a published revision.
 export const apiNameOfOntology = (model) => String(String(model?.family || "").split("/").pop() || model?.displayName || "ontology").toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "") || "ontology";
@@ -231,10 +281,10 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
       const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
       return { ...root, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, dependents: { __typename: "ResourceMetadataPage", values: [] } } : null };
     }
-    // how many objects a type has: no per-type count is kept (none is indexed here), so it is unknown, never zero
+    // how many objects a type has: the caller's materialized objects of it (cut O8; none for a type no set materializes)
     case "ObjectTypeObjectsCountQuery": {
       const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
-      return { ...root, defaultOrGlobalBranch: { __typename: "DefaultGlobalBranch", _id: cid("branch:default"), objectType: hit ? { __typename: "ObjectTypeBranch", _id: cid(`otb:${hit.ot.rid}`), objectCount: null } : null } };
+      return { ...root, defaultOrGlobalBranch: { __typename: "DefaultGlobalBranch", _id: cid("branch:default"), objectType: hit ? { __typename: "ObjectTypeBranch", _id: cid(`otb:${hit.ot.rid}`), objectCount: (hit.ot.backing?.objects || []).length } : null } };
     }
     // no resource depends on a type, and it has no storage to archive
     case "ObjectTypeDependentsQuery": case "ObjectTypeArchiveStatusQuery": {
@@ -370,16 +420,20 @@ export function valueTypeFacts(name, variables, ctx) {
 export const VALUE_TYPE_OPERATIONS = new Set(["CanCreateValueTypesQuery", "SearchAllValueTypesQuery"]);
 
 // ---- Entities (POST /ontology-metadata/api/ontology/ontology/bulkLoadEntities). An ODK draft's types are EXPERIMENTAL
-// (a draft is not a published revision); no object type is backed by a datasource here (none is bound to one), and
-// none is stored in an object database, so its storage metadata says so.
+// (a draft is not a published revision). A type is backed by a datasource, and stored in an object store, exactly when its
+// materialized sets back it (cut O8: datasourcesOfType, entityMetadataOf); otherwise its storage metadata says it is stored
+// nowhere. (The GraphQL metadata panel's `dataSources` stays empty: its shape was never recorded.)
 const DRAFT_STATUS = { type: "experimental", experimental: {} };
 const ICON = { type: "blueprint", blueprint: { color: "#5F6B7C", locator: "cube" } };
 export const branchRidOf = (model) => `ri.ontology.main.branch.${uuidOf(`branch:${model.family}`)}`;
+export const renderHintsOf = (p) => (baseTypeOf(p.base).type === "string" ? [{ kind: "render_hint", name: "SELECTABLE" }] : []);
 export function propertyTypeOf(p) {
   return {
     rid: p.rid, id: p.id, apiName: camel(p.name || p.id), sharedPropertyTypeApiName: null,
-    displayMetadata: { description: null, displayName: p.name || p.id, visibility: "NORMAL" },
-    indexedForSearch: true, ruleSetBinding: null, baseFormatter: null, type: baseTypeOf(p.base), typeClasses: [], status: DRAFT_STATUS,
+    displayMetadata: { description: p.description || null, displayName: p.name || p.id, visibility: "NORMAL" },
+    // a string property's values are matched and bucketed exactly (Object Explorer's filters and histograms over materialized
+    // objects, cut O8): the reference's own SELECTABLE render hint, which its editor sets on every exact-matching string
+    indexedForSearch: true, ruleSetBinding: null, baseFormatter: null, type: baseTypeOf(p.base), typeClasses: renderHintsOf(p), status: DRAFT_STATUS,
     inlineAction: null, dataConstraints: null, sharedPropertyTypeRid: null, valueType: null,
   };
 }
@@ -394,16 +448,47 @@ export function objectTypeEntityOf(model, ot) {
       apiName: pascal(ot.name || ot.id), status: DRAFT_STATUS, redacted: null,
       implementsInterfaces: [], implementsInterfaces2: [], allImplementsInterfaces: {}, typeGroups: [], editPolicies: null,
     },
-    ontologyRid: model.rid, ontologyVersion: model.version, datasources: [],
-    entityMetadata: entityMetadataOf(),
+    ontologyRid: model.rid, ontologyVersion: model.version, datasources: datasourcesOfType(ot),
+    entityMetadata: entityMetadataOf(ot),
     resolvedBranch: { type: "default", default: { rid: branchRidOf(model) } },
     schemaMigrations: { schemaTransitions: [], schemaVersion: 1 },
   };
 }
-// An object type's storage metadata: stored nowhere yet (no object database, no patches, no edits history).
-export function entityMetadataOf() {
+// A backed type's datasources (cut O8): one per projection that materializes it — a dataset datasource whose dataset is that
+// projection's materialized sets (its newest the current contents) and whose property mapping is each property's source field.
+// An unbacked type has none.
+export function datasourcesOfType(ot) {
+  return (ot?.backing?.datasources || []).map((ds) => ({
+    rid: ds.rid,
+    datasource: { type: "dataset", dataset: { branchId: "master", datasetRid: ds.datasetRid, writebackDatasetRid: null,
+      propertyMapping: Object.fromEntries(ot.properties.filter((p) => ds.mapping[p.id]).map((p) => [p.rid, ds.mapping[p.id]])) } },
+    editsConfiguration: { onlyAllowPrivilegedEdits: false }, redacted: null, dataSecurity: null,
+  }));
+}
+// GET /foundry-metadata/api/schemas/datasets/<dataset rid>/branches/master — a backing dataset's schema: the source fields its
+// properties are mapped from, typed by the property each backs, at its newest set (its current transaction). Null when the
+// dataset is not one of the caller's backing datasets.
+const FIELD_TYPE = { string: "STRING", integer: "INTEGER", long: "LONG", double: "DOUBLE", boolean: "BOOLEAN", date: "DATE", timestamp: "TIMESTAMP" };
+export function datasetSchemaOf(models, datasetRid) {
+  for (const m of models || []) for (const ot of m.objectTypes) for (const ds of ot.backing?.datasources || []) {
+    if (ds.datasetRid !== datasetRid) continue;
+    const fields = ot.properties.filter((p) => ds.mapping[p.id]).map((p) => ({ type: FIELD_TYPE[String(p.base || "string").toLowerCase()] || "STRING", name: ds.mapping[p.id], nullable: null,
+      userDefinedTypeClass: null, customMetadata: {}, arraySubtype: null, precision: null, scale: null, mapKeyType: null, mapValueType: null, subSchemas: null }));
+    return { branchId: "master", transactionRid: `ri.foundry.main.transaction.${uuidOf(`odk-set-transaction:${ds.setRef}`)}`, versionId: uuidOf(`odk-set-version:${ds.setRef}`),
+      schema: { fieldSchemaList: fields, primaryKey: null, dataFrameReaderClass: null, customMetadata: {} }, attribution: null };
+  }
+  return null;
+}
+// the object store a backed type's objects are held and searched in: the daemon's materialized-set store, in the reference's
+// vocabulary its object storage (V2) — the only store its reads know — so the type's data "is available"
+export const OBJECT_STORE_DB = Object.freeze({ type: "highbury", cluster: "ri.highbury.main.cluster.1" });
+export const objectIndexRidOf = (ot) => `ri.highbury.main.index.${uuidOf(`odk-object-index:${ot.rid}`)}`;
+// An object type's storage metadata: an unbacked type is stored nowhere (no object database, no patches, no edits history); a
+// backed one (cut O8) is held in the object store its materialized sets are (above).
+export function entityMetadataOf(ot = null) {
+  const backed = (ot?.backing?.datasources || []).length > 0;
   return {
-    entityConfig: { objectDbTypeConfigs: {} }, arePatchesEnabled: false,
+    entityConfig: { objectDbTypeConfigs: backed ? { [OBJECT_STORE_DB.type]: { objectDbConfigs: { [OBJECT_STORE_DB.cluster]: { configValue: "{}" } } } } : {} }, arePatchesEnabled: false,
     targetStorageBackend: { type: "objectStorageV2", objectStorageV2: { migrationConfiguration: null, editsHistoryImportConfiguration: null, archiveState: null } },
     redacted: null, actionLogRequirednessMetadata: null, diffEdits: false, gothamMapping: null, provenance: null,
     editsResolutionStrategies: { strategies: {} }, aliases: [], editsHistory: { type: "none", none: {} }, objectTypeIndexingSettings: null,
@@ -414,7 +499,7 @@ export function entityMetadataOf() {
 // POST /ontology-metadata/api/entityMetadata/load — for the caller's object types only
 export function entityMetadataLoadOf(request, models) {
   const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
-  return { objectTypes: (request?.objectTypes || []).filter((r) => ours.has(r.objectTypeRid)).map((r) => ({ objectTypeRid: r.objectTypeRid, objectTypeEntityMetadata: entityMetadataOf() })) };
+  return { objectTypes: (request?.objectTypes || []).filter((r) => ours.has(r.objectTypeRid)).map((r) => ({ objectTypeRid: r.objectTypeRid, objectTypeEntityMetadata: entityMetadataOf(objectTypeOf(models, { rid: r.objectTypeRid })?.ot) })) };
 }
 // PUT /ontology-metadata/api/permissions/objectTypes — the caller sees their types, and edits one exactly when the daemon
 // reads them as one who may change its ontology (`caller_may_change`); anyone else reads the reference's own "You do not
@@ -558,13 +643,17 @@ export function linkTypeHitOf(models, linkTypeRid, linkTypeId = null) {
   }
   return null;
 }
-// POST /ontology-metadata/api/ontology/linkTypesForObjectTypes(V2) — each requested object type's link types
-export function linkTypesForObjectTypesOf(request, models) {
+// POST /ontology-metadata/api/ontology/linkTypesForObjectTypes(V2) — each requested object type's link types. Object Explorer
+// (`traversableOnly`, cut O8) follows a link to the linked objects through the property that joins the two types (the one
+// side's primary key → the many side's property; exactly one entry, or its object layer throws "Property mapping has more
+// than one entry" and the page crashes). An ODK link names its endpoints and never that property, so no ODK link can be
+// followed there: each type is answered with none. The Ontology Manager still lists them (its link pages read the endpoints).
+export function linkTypesForObjectTypesOf(request, models, { traversableOnly = false } = {}) {
   const out = {};
   for (const otRid of Object.keys(request?.objectTypeVersions || {})) {
     const hit = (models || []).map((mm) => ({ mm, ot: mm.objectTypes.find((o) => o.rid === otRid) })).find((x) => x.ot);
     if (!hit) continue;
-    out[otRid] = hit.mm.linkTypes.filter((l) => [endpointOf(l, "from"), endpointOf(l, "to")].includes(hit.ot.id)).map((l) => linkTypeOf(hit.mm, l)).filter(Boolean);
+    out[otRid] = traversableOnly ? [] : hit.mm.linkTypes.filter((l) => [endpointOf(l, "from"), endpointOf(l, "to")].includes(hit.ot.id)).map((l) => linkTypeOf(hit.mm, l)).filter(Boolean);
   }
   return { linkTypes: out };
 }
@@ -597,15 +686,41 @@ export function ontologyPageOf(html) {
 }
 // POST /objects-data-funnel/api/view/currentV4 — the object database views of the caller's types: none (an ODK type
 // is indexed in no object database)
+// … and (cut O8) a backed type's one view: its objects in the object store (its materialized sets), at the ontology's version, as a
+// batch index whose base version is the newest registration among its datasources
 export function objectViewsOf(request, models) {
-  const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
-  return { snapshotId: null, views: (request?.objectTypes || []).filter((l) => ours.has(l?.rid)).map((l) => ({ locator: { rid: l.rid, ref: l.ref ?? null }, resolved: { views: [], ref: null, forkView: null } })) };
+  return { snapshotId: null, views: (request?.objectTypes || []).map((l) => ({ l, hit: objectTypeOf(models, { rid: l?.rid }) })).filter((x) => x.hit).map(({ l, hit }) => {
+    const ds = hit.ot.backing?.datasources || [];
+    const views = ds.length ? [{ rid: objectIndexRidOf(hit.ot), dbType: OBJECT_STORE_DB.type, dbRid: OBJECT_STORE_DB.cluster, ontologyVersion: hit.model.version,
+      status: { type: "batch", batch: { baseVersion: `${uuidOf(`odk-object-index-version:${ds.map((d) => d.setRef).join(",")}`)}`, patchOffset: 0 } } }] : [];
+    return { locator: { rid: l.rid, ref: l.ref ?? null }, resolved: { views, ref: null, forkView: null } };
+  }) };
 }
-// POST /objects-data-funnel/api/status/object-type — a type's indexing status: no pipeline indexes it (an ODK type is
-// indexed in no object database), and it is not archived. Null for a type that is not the caller's.
+// POST /objects-data-funnel/api/status/object-type — a type's indexing status, and it is not archived. An unbacked ODK type is
+// indexed by no pipeline. A backed one (cut O8) is indexed by its materializing runs: each datasource's last run registered its
+// newest set (a run that registered a set succeeded — a failed run registers none), which the object store holds at the
+// ontology's version, up to date; no patches or direct writes exist. Null for a type that is not the caller's.
+const jobOfRun = (runRef) => `ri.foundry.main.job.${uuidOf(`materializing-run-job:${String(runRef || "").replace(/^materializing-run:\/\//u, "")}`)}`;
 export function objectTypeFunnelStatusOf(request, models) {
-  const ours = (models || []).some((m) => m.objectTypes.some((o) => o.rid === request?.objectType));
-  return ours ? { isMigratingFunnelStorageSystem: null, resolvedRef: null, activePipeline: null, replacementPipeline: null, invalidDefinition: null, archiveStatus: { type: "active", active: {} }, activePipelineHasPatches: false } : null;
+  const hit = objectTypeOf(models, { rid: request?.objectType });
+  if (!hit) return null;
+  const ds = hit.ot.backing?.datasources || [];
+  const base = { isMigratingFunnelStorageSystem: null, resolvedRef: null, activePipeline: null, replacementPipeline: null, invalidDefinition: null, archiveStatus: { type: "active", active: {} }, activePipelineHasPatches: false };
+  if (!ds.length) return base;
+  const jobHistory = (d) => { const run = { job: jobOfRun(d.runRef), startedAt: d.set?.source_contact?.at || d.registeredAt, finishedAt: d.registeredAt, error: null, failureReason: null, profile: { type: "small", small: {} } };
+    return { last: run, lastSuccessful: run, firstFailed: null, lastFailed: null, status: { type: "upToDate", upToDate: {} }, retryCount: null, platformFailuresStreakLength: 0 }; };
+  const newest = [...ds].sort((a, b) => String(b.registeredAt || "").localeCompare(String(a.registeredAt || "")))[0];
+  const baseVersion = uuidOf(`odk-object-index-version:${ds.map((d) => d.setRef).join(",")}`);
+  return { ...base, activePipeline: { type: "batch", batch: {
+    pipelineId: { type: "batch", batch: uuidOf(`odk-object-pipeline:${hit.ot.rid}`) }, ontologyVersion: hit.model.version,
+    current: { data: { baseVersion, provenance: Object.fromEntries(ds.map((d) => [d.rid, `ri.foundry.main.transaction.${uuidOf(`odk-set-transaction:${d.setRef}`)}`])) } }, upcoming: null,
+    datasources: Object.fromEntries(ds.map((d) => [d.rid, jobHistory(d)])),
+    datasourceReferences: Object.fromEntries(ds.map((d) => [d.rid, { type: "dataset", dataset: { rid: d.datasetRid, branch: "master" } }])),
+    page: jobHistory(newest),
+    objectDbs: [{ type: OBJECT_STORE_DB.type, rid: OBJECT_STORE_DB.cluster, bootstrapped: "COMPLETE", current: { jobHistory: jobHistory(newest), ontologyVersion: hit.model.version,
+      activeBaseVersion: { type: "materialized", materialized: { baseVersion, locator: objectIndexRidOf(hit.ot), materializedAt: newest.registeredAt, repairing: null } }, upcomingBaseVersion: null }, replacement: null }],
+    hasPatches: false, patchedPropertiesV2: [], patchedProperties: [], latestPatchCommittedAt: null, latestDirectWriteCommittedAt: null, schemaVersion: 1, failureDetails: [], storageSystem: "ALTA", directSourceTelemetry: null,
+  } } };
 }
 // POST /objects-data-funnel/api/view/policiesV3 — the row and property policies of the caller's types: none (no granular
 // policy restricts who sees a type's objects or properties; there are no objects)
@@ -626,12 +741,12 @@ export function linkTypePermissionsOf(request, models) {
     datasourcePermissions: {}, isEditRestrictedByDatasources: false, packageRid: null, permissionModel: { type: "roles", roles: {} },
   }])) };
 }
-// POST /ontology-metadata/api/ontology/ontology/load/datasources — no type is backed by a datasource (an ODK model holds
-// no object instances and no join tables), so each of the caller's requested types has none
+// POST /ontology-metadata/api/ontology/ontology/load/datasources — each of the caller's requested types with its datasources: a
+// backed type's materialized sets (cut O8, datasourcesOfType), none for a type no set materializes. An ODK link keeps no join
+// table, so a many-to-many link type has none.
 export function datasourcesOf(request, models) {
-  const ourTypes = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
   return {
-    objectTypes: Object.fromEntries(Object.keys(request?.objectTypes || {}).filter((r) => ourTypes.has(r)).map((r) => [r, []])),
+    objectTypes: Object.fromEntries(Object.keys(request?.objectTypes || {}).map((r) => [r, objectTypeOf(models, { rid: r })]).filter(([, hit]) => hit).map(([r, hit]) => [r, datasourcesOfType(hit.ot)])),
     manyToManyLinkTypes: Object.fromEntries(Object.keys(request?.manyToManyLinkTypes || {}).filter((r) => linkTypeHitOf(models, r)).map((r) => [r, []])),
   };
 }
@@ -659,24 +774,334 @@ export function schemaMigrationsOf(request, models) {
 }
 export const SCHEMA_MIGRATION_PAGE = { migrationPageItems: [], schemaVersion: 1, nextPageToken: null };
 
+// ---- Objects (cut O8): the object-set service's reads over the caller's materialized objects. The reference reads objects
+// by OBJECT SET — an expression (a type's objects, filtered, unioned, intersected, subtracted, or named by rid) that the service
+// evaluates for a page of objects, an aggregate (counts, histograms, min/max), or the types it spans. Each is evaluated here over
+// the objects of the caller's backed types (backingOf: the daemon's materialized sets) and nothing else; a construct this layer
+// does not evaluate is refused by name (Hypervisor:OntologyReadNotBound), never answered as an empty set.
+export class ObjectSetNotBound extends Error {
+  constructor(what) { super(`${what} is not evaluated over the Hypervisor's materialized objects yet: a named gap, and no object is invented in its place`); this.what = what; }
+}
+// a property value in the reference's typed form (by the property's base type); undefined when the object has none
+export function typedValueOf(base, v) {
+  if (v === null || v === undefined) return undefined;
+  switch (String(base || "string").toLowerCase()) {
+    case "integer": return { type: "integer", integer: Number(v) };
+    case "long": return { type: "long", long: String(v) };
+    case "double": return { type: "double", double: Number(v) };
+    case "boolean": return { type: "boolean", boolean: v === true || v === "true" };
+    case "timestamp": { const ms = typeof v === "number" ? v : Date.parse(v); return Number.isFinite(ms) ? { type: "timestamp", timestamp: ms } : { type: "string", string: String(v) }; }
+    case "date": return { type: "date", date: String(v) };
+    default: return { type: "string", string: typeof v === "string" ? v : JSON.stringify(v) };
+  }
+}
+// every backed object of the caller's, with its type and ontology
+export function objectUniverseOf(models) {
+  return (models || []).flatMap((model) => model.objectTypes.flatMap((ot) => (ot.backing?.objects || []).map((o) => ({ model, ot, o }))));
+}
+const propOf = (ot, propertyId) => ot.properties.find((p) => p.id === propertyId || p.rid === propertyId || camel(p.name || p.id) === propertyId) || null;
+const valueOf = (e, propertyId) => { const p = propOf(e.ot, propertyId); return p ? e.o.props[p.id] : undefined; };
+const comparable = (e, propertyId) => {
+  const p = propOf(e.ot, propertyId), v = p ? e.o.props[p.id] : undefined;
+  if (v === null || v === undefined) return null;
+  if (p && ["date", "timestamp"].includes(String(p.base))) { const ms = typeof v === "number" ? v : Date.parse(v); return Number.isFinite(ms) ? ms : null; }
+  return typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : Number.isFinite(Number(v)) && String(v).trim() !== "" && p && ["integer", "long", "double"].includes(String(p.base)) ? Number(v) : v;
+};
+const words = (s) => String(s ?? "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+// the properties a filter's property set names (every property when it names all of them)
+const propertySetOf = (ot, set) => {
+  const ids = set?.propertyWhitelist?.properties || set?.selected?.propertySelection?.propertyId?.propertyIds || null;
+  return Array.isArray(ids) ? ot.properties.filter((p) => ids.includes(p.id) || ids.includes(p.rid)) : ot.properties;
+};
+export function objectMatches(filter, e) {
+  const f = filter || {};
+  switch (f.type) {
+    case "and": return (f.and?.filters || []).every((x) => objectMatches(x, e));
+    case "or": return (f.or?.filters || []).some((x) => objectMatches(x, e));
+    case "not": return !objectMatches(f.not?.filter, e);
+    case "hasProperty": { const v = valueOf(e, f.hasProperty?.propertyId); return v !== null && v !== undefined && v !== ""; }
+    case "exactMatch": { const v = valueOf(e, f.exactMatch?.propertyId); return v !== null && v !== undefined && (f.exactMatch?.terms || []).some((t) => String(t) === String(v)); }
+    // every word of the query begins a word of some property in the set (the reference's keyword match over the properties
+    // it names); a fuzzy match is not evaluated
+    case "multiMatch": {
+      if (f.multiMatch?.fuzzy === true) throw new ObjectSetNotBound("a fuzzy keyword filter");
+      const want = words(f.multiMatch?.query);
+      const have = propertySetOf(e.ot, f.multiMatch?.propertySet).flatMap((p) => words(e.o.props[p.id]));
+      return want.every((w) => have.some((h) => h.startsWith(w)));
+    }
+    case "range": {
+      const r = f.range || {}, v = comparable(e, r.propertyId);
+      if (v === null) return false;
+      const cmp = (x) => { const n = typeof v === "number" ? (Number.isFinite(Number(x)) ? Number(x) : Date.parse(x)) : x; return v < n ? -1 : v > n ? 1 : 0; };
+      return (r.lt === undefined || r.lt === null || cmp(r.lt) < 0) && (r.lte === undefined || r.lte === null || cmp(r.lte) <= 0)
+        && (r.gt === undefined || r.gt === null || cmp(r.gt) > 0) && (r.gte === undefined || r.gte === null || cmp(r.gte) >= 0);
+    }
+    default: throw new ObjectSetNotBound(`an object filter of type ${JSON.stringify(f.type ?? null)}`);
+  }
+}
+// temporary object sets (the reference registers one to page through a set): the caller's own expression, kept by rid for
+// this serve's lifetime only — it is the caller's query, not truth, and evaluates over the daemon's sets on every read
+export const temporaryObjectSetRidOf = (principalRef, expression) => `ri.object-set.main.temporary-object-set.${uuidOf(`temporary-object-set:${principalRef || "anonymous"}:${canon(expression)}`)}`;
+// → the set's entries (each { model, ot, o }), deduplicated by object rid, in key order
+export function evaluateObjectSet(os, ctx) {
+  const universe = ctx.universe || objectUniverseOf(ctx.models);
+  const byRid = new Map(universe.map((e) => [e.o.rid, e]));
+  const uniq = (list) => { const seen = new Set(); return list.filter((e) => (seen.has(e.o.rid) ? false : (seen.add(e.o.rid), true))); };
+  const walk = (x, depth = 0) => {
+    if (depth > 32) throw new ObjectSetNotBound("an object set nested this deeply");
+    switch (x?.type) {
+      case "base": { const id = x.base?.objectTypeId, r = x.base?.objectTypeRid; return universe.filter((e) => (id && e.ot.id === id) || (r && e.ot.rid === r)); }
+      case "filtered": return walk(x.filtered?.objectSet, depth + 1).filter((e) => objectMatches(x.filtered?.filter, e));
+      case "unioned": return uniq((x.unioned?.objectSets || []).flatMap((s) => walk(s, depth + 1)));
+      case "intersected": { const parts = (x.intersected?.objectSets || []).map((s) => new Set(walk(s, depth + 1).map((e) => e.o.rid))); return parts.length ? universe.filter((e) => parts.every((p) => p.has(e.o.rid))) : []; }
+      case "subtracted": { const [head, ...rest] = x.subtracted?.objectSets || []; const gone = new Set(rest.flatMap((s) => walk(s, depth + 1)).map((e) => e.o.rid)); return head ? walk(head, depth + 1).filter((e) => !gone.has(e.o.rid)) : []; }
+      case "static": return uniq((x.static?.objectRids || []).map((r) => byRid.get(r)).filter(Boolean));
+      case "staticV2": return uniq((x.staticV2?.objectIdentifiers || []).map((i) => (i?.objectRid ? byRid.get(i.objectRid) : null)).filter(Boolean));
+      case "referenced": case "reference": {
+        const r = x.referenced?.objectSetRid || x.reference?.objectSetRid || x[x.type]?.rid;
+        const kept = ctx.temporary?.get(r);
+        if (!kept) throw new ObjectSetNotBound("a saved or expired object set");
+        return walk(kept, depth + 1);
+      }
+      default: throw new ObjectSetNotBound(`an object set of type ${JSON.stringify(x?.type ?? null)}`);
+    }
+  };
+  return walk(os).sort((a, b) => a.ot.rid.localeCompare(b.ot.rid) || a.o.key.localeCompare(b.o.key));
+}
+// the types an object set spans (whether or not it holds objects): the types its bases name, among the caller's
+export function objectSetTypesOf(os, models) {
+  const ids = new Set(), rids = new Set();
+  const visit = (x) => { if (!x || typeof x !== "object") return; if (x.type === "base") { if (x.base?.objectTypeId) ids.add(x.base.objectTypeId); if (x.base?.objectTypeRid) rids.add(x.base.objectTypeRid); } for (const v of Object.values(x)) if (v && typeof v === "object") visit(v); };
+  visit(os);
+  for (const r of JSON.stringify(os || {}).match(/ri\.phonograph2-objects\.main\.object\.v4\.[0-9a-f-]{36}/gu) || []) rids.add(`ri.ontology.main.object-type.${r.split(".").pop()}`);
+  return (models || []).flatMap((m) => m.objectTypes.filter((ot) => ids.has(ot.id) || rids.has(ot.rid)).map((ot) => ({ model: m, ot })));
+}
+const objectSetEntitiesOf = (types) => ({ linkTypeRids: [], objectTypeRids: types.map((t) => t.ot.rid), interfaceTypeRids: [],
+  objectTypeMetadata: Object.fromEntries(types.map((t) => [t.ot.rid, { objectTypeId: t.ot.id, properties: Object.fromEntries(t.ot.properties.map((p) => [p.rid, { propertyId: p.id }])) }])) });
+// an object on the wire: its rid, type, primary key, title and the asked properties (typed)
+export function objectWireOf(e, propertySet) {
+  const selectedIds = propertySet?.propertyWhitelist?.properties || propertySet?.selected?.propertySelection?.propertyId?.propertyIds || null;
+  const props = {};
+  for (const p of e.ot.properties) {
+    if (Array.isArray(selectedIds) && !selectedIds.includes(p.id) && !selectedIds.includes(p.rid)) continue;
+    const tv = typedValueOf(p.base, e.o.props[p.id]);
+    if (tv) props[p.rid] = tv;
+  }
+  const pk = e.ot.properties.find((p) => p.id === e.ot.primaryKey);
+  return { objectRid: e.o.rid, objectTypeRid: e.ot.rid, primaryKey: pk ? { [pk.rid]: typedValueOf(pk.base, e.o.props[pk.id] ?? e.o.key) } : {}, title: e.o.title, properties: props,
+    runtimeDerivedProperties: {}, score: null, version: { type: "v1", v1: Buffer.from(`${e.o.setRef || ""}#${e.o.key}`).toString("base64").slice(-24) } };
+}
+// PUT /object-set-service/api/objectSets/objects/top/initial (and /top/next): a page of the set's objects, in the asked order
+export function objectsPageOf(request, ctx) {
+  const all = evaluateObjectSet(request?.objectSet, ctx);
+  const ordering = request?.resultOrdering || {};
+  if (ordering.type === "propertyValue") {
+    const keys = ordering.propertyValue?.propertyOrdering || [];
+    all.sort((a, b) => { for (const k of keys) { const x = comparable(a, k.propertyId), y = comparable(b, k.propertyId); if (x === y) continue; const s = x === null ? 1 : y === null ? -1 : x < y ? -1 : 1; return String(k.direction || "ASC").toUpperCase().startsWith("DESC") ? -s : s; } return 0; });
+  } else if (!["relevancy", "unspecified", undefined].includes(ordering.type)) throw new ObjectSetNotBound(`an object ordering of type ${JSON.stringify(ordering.type)}`);
+  const from = Math.max(0, Number(request?.pageToken) || 0), size = Math.max(1, Math.min(10000, Number(request?.pageSize) || 50));
+  const page = all.slice(from, from + size);
+  return { results: page.map((e) => objectWireOf(e, request?.propertySet)), interfaceViews: {}, interfaceViewsV2: {}, nextPageToken: from + size < all.length ? String(from + size) : null, totalResults: all.length,
+    objectSetEntities: request?.responseOptions?.includeObjectSetEntities ? objectSetEntitiesOf(objectSetTypesOf(request?.objectSet, ctx.models)) : null, usageCost: null, securities: [], objectLoadingFailures: null };
+}
+// PUT /object-set-service/api/objectSets/objectTypes — the types an object set spans
+export function objectSetObjectTypesOf(request, ctx) {
+  const types = objectSetTypesOf(request?.objectSet, ctx.models);
+  evaluateObjectSet(request?.objectSet, ctx); // (a construct not evaluated is refused, as for its objects)
+  return { objectTypeIds: types.map((t) => t.ot.id), objectTypeRids: types.map((t) => t.ot.rid) };
+}
+// PUT /object-set-service/api/aggregate — the set's metrics (count, min, max, sum, average, distinct count) and buckets (by
+// type, by a property's exact values, by fixed-width numeric ranges, by date intervals)
+const bucketKeyOfNumber = (n) => (Number.isInteger(n) ? `${n}.0` : String(n));
+function metricOf(spec, entries) {
+  const kind = spec?.type, body = spec?.[kind] || {};
+  const values = () => entries.map((e) => comparable(e, body.propertyId)).filter((v) => typeof v === "number");
+  switch (kind) {
+    case "count": return entries.length;
+    case "max": { const v = values(); return v.length ? Math.max(...v) : null; }
+    case "min": { const v = values(); return v.length ? Math.min(...v) : null; }
+    case "sum": return values().reduce((s, v) => s + v, 0);
+    case "avg": case "average": { const v = values(); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; }
+    case "approximateCardinality": case "cardinality": case "exactCardinality": return new Set(entries.map((e) => valueOf(e, body.propertyId)).filter((v) => v !== null && v !== undefined).map(String)).size;
+    default: throw new ObjectSetNotBound(`an aggregate metric of type ${JSON.stringify(kind ?? null)}`);
+  }
+}
+const metricsOf = (metrics, entries) => Object.fromEntries(Object.entries(metrics || {}).map(([name, spec]) => [name, metricOf(spec, entries)]));
+function bucketsOf(dimension, entries) {
+  const out = new Map(), nulls = [];
+  const put = (key, e) => { if (!out.has(key)) out.set(key, []); out.get(key).push(e); };
+  if (dimension?.type === "objectType") { for (const e of entries) put(e.ot.id, e); return { out, nulls }; }
+  if (dimension?.type !== "propertyValue") throw new ObjectSetNotBound(`an aggregate dimension of type ${JSON.stringify(dimension?.type ?? null)}`);
+  const { propertyId, bucketing } = dimension.propertyValue || {};
+  for (const e of entries) {
+    const raw = valueOf(e, propertyId), v = comparable(e, propertyId);
+    if (raw === null || raw === undefined || raw === "") { nulls.push(e); continue; }
+    switch (bucketing?.type) {
+      case "exactValue": put(String(raw), e); break;
+      case "numeric": {
+        const w = Number(bucketing.numeric?.fixedWidth?.bucketWidth);
+        if (bucketing.numeric?.type !== "fixedWidth" || !(w > 0) || typeof v !== "number") throw new ObjectSetNotBound("a numeric bucketing that is not a fixed width over a number");
+        put(bucketKeyOfNumber(Math.floor(v / w) * w), e); break;
+      }
+      case "date": {
+        const unit = String(bucketing.date?.interval?.unit || "DAY").toUpperCase(), n = Math.max(1, Number(bucketing.date?.interval?.value) || 1), d = new Date(typeof v === "number" ? v : Date.parse(raw));
+        if (Number.isNaN(d.getTime())) { nulls.push(e); break; }
+        const y = d.getUTCFullYear(), m = d.getUTCMonth(), day = d.getUTCDate();
+        const start = unit === "YEAR" ? Date.UTC(y - (y % n), 0, 1) : unit === "QUARTER" ? Date.UTC(y, m - (m % (3 * n)), 1) : unit === "MONTH" ? Date.UTC(y, m - (m % n), 1)
+          : unit === "WEEK" ? Date.UTC(y, m, day - ((d.getUTCDay() + 6) % 7)) : unit === "DAY" ? Date.UTC(y, m, day) : null;
+        if (start === null) throw new ObjectSetNotBound(`a date bucketing by ${unit}`);
+        put(new Date(start).toISOString(), e); break;
+      }
+      default: throw new ObjectSetNotBound(`a property bucketing of type ${JSON.stringify(bucketing?.type ?? null)}`);
+    }
+  }
+  return { out, nulls, bucketing };
+}
+function subAggregationOf(spec, entries) {
+  if (spec?.type !== "metrics") throw new ObjectSetNotBound(`an aggregation of type ${JSON.stringify(spec?.type ?? null)}`);
+  const m = spec.metrics || {};
+  const { out, nulls, bucketing } = bucketsOf(m.dimension, entries);
+  const exact = bucketing?.exactValue || {};
+  const excluded = new Set((exact.valueFilter?.type === "excludeValues" ? exact.valueFilter.excludeValues?.values : []) || []);
+  if (nulls.length && typeof exact.defaultValue === "string") { out.set(exact.defaultValue, nulls.splice(0)); }
+  let buckets = [...out.entries()].filter(([k]) => !excluded.has(k)).map(([key, es]) => ({ key, metrics: metricsOf(m.metrics, es), subAggregations: Object.fromEntries(Object.entries(m.subAggregations || {}).map(([n, s]) => [n, subAggregationOf(s, es)])), _n: es.length }));
+  const order = (m.ordering || []).find((o) => o?.type === "valueOrdering")?.valueOrdering;
+  buckets.sort((a, b) => {
+    if (order) { const x = a.metrics[order.metricName] ?? 0, y = b.metrics[order.metricName] ?? 0; if (x !== y) return String(order.direction).toUpperCase().startsWith("DESC") ? y - x : x - y; }
+    const nx = Number(a.key), ny = Number(b.key);
+    return Number.isFinite(nx) && Number.isFinite(ny) ? nx - ny : String(a.key).localeCompare(String(b.key));
+  });
+  const max = Number(exact.maxBuckets || m.dimension?.objectType?.bucketing?.maxBuckets) || Infinity;
+  const kept = buckets.slice(0, max), other = buckets.slice(max).reduce((s, b) => s + b._n, 0);
+  return { itemsInOtherBuckets: other, resultAccuracy: { type: "accurate", accurate: {} }, buckets: kept.map(({ _n, ...b }) => b),
+    nullValueBucket: nulls.length ? { key: null, metrics: metricsOf(m.metrics, nulls), subAggregations: {} } : null };
+}
+export function aggregateOf(request, ctx) {
+  const entries = evaluateObjectSet(request?.objectSet, ctx);
+  const a = request?.aggregation || {};
+  return { result: { metrics: metricsOf(a.metrics, entries), subAggregations: Object.fromEntries(Object.entries(a.subAggregations || {}).map(([n, s]) => [n, subAggregationOf(s, entries)])) },
+    objectSetEntities: request?.responseOptions?.includeObjectSetEntities ? objectSetEntitiesOf(objectSetTypesOf(request?.objectSet, ctx.models)) : null, usageCost: null };
+}
+// POST /hubble-server/api/explorations/configurations/get/<type rid> — an exploration's saved layouts: none is kept for any type
+// (no exploration or layout is saved here), so the reference lays the exploration out by its own defaults
+export const EXPLORATION_CONFIG_NONE = Object.freeze({ explorationConfig: { layoutToUse: null, userLayout: null, globalLayout: null, contextSpecificLayout: null, layoutsPerWorkspace: {} } });
+// GET /hubble-server/api/user-preferences/v2 (and /global) — the caller's table preferences: none is kept
+export const TABLE_PREFERENCES_NONE = Object.freeze({ version: "1.2.0", tablePreferences: [], versionMetadata: null });
+// POST /hubble-server/api/object-views/v8/configuration/has-permissions — who may edit or publish a type's object view: no one
+// (no object view is kept and there is no object view editor), for the caller's types
+export function objectViewPermissionsOf(request, models) {
+  const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.id)));
+  const of = (ids) => Object.fromEntries((Array.isArray(ids) ? ids : []).filter((id) => ours.has(id)).map((id) => [id, false]));
+  return { hasEditPermission: of(request?.hasEditPermission), hasPublishPermission: of(request?.hasPublishPermission) };
+}
+export const defaultObjectViewRidOf = (ot) => `ri.hubble-server.main.object-view.${uuidOf(`odk-default-object-view:${ot.rid}`)}`;
+// GET /opus-server/api/graph/v2/pointer/object/<object rid> — the graphs an object is in: none is kept
+export const GRAPH_POINTERS_NONE = Object.freeze({ graphPointers: [], nextPageToken: null });
+// GET /carbon-server/api/configuration/config-for-carbon-sessionV2 — the Workshop workspaces objects may be opened in: none
+export const CARBON_SESSION_NONE = Object.freeze({ defaultWorkspace: null, allAvailableWorkspaces: [], displayMetadata: null });
+// POST /ontology-metadata/api/ontology/search/v0/searchObjectTypes — the caller's types a clause names (status, visibility, and
+// their and/or/not), each in its load envelope. A draft's types are EXPERIMENTAL, of NORMAL visibility.
+function typeClauseMatches(c, mm, ot) {
+  switch (c?.type) {
+    case "and": return (c.and || []).every((x) => typeClauseMatches(x, mm, ot));
+    case "or": return (c.or || []).some((x) => typeClauseMatches(x, mm, ot));
+    case "not": return !typeClauseMatches(c.not, mm, ot);
+    case "status": return String(c.status || "").toUpperCase() === "EXPERIMENTAL";
+    case "visibility": return String(c.visibility || "").toUpperCase() === "NORMAL";
+    case undefined: return true;
+    default: throw new ObjectSetNotBound(`an object type search clause of type ${JSON.stringify(c.type)}`);
+  }
+}
+export function searchObjectTypesOf(request, models) {
+  const want = new Set(request?.ontologyRids || []), excluded = new Set(request?.excludedObjectTypeRids || []), only = new Set(request?.includedObjectTypeRids || []);
+  const hits = (models || []).filter((mm) => !want.size || want.has(mm.rid)).flatMap((mm) => mm.objectTypes.filter((ot) => !excluded.has(ot.rid) && (!only.size || only.has(ot.rid)) && typeClauseMatches(request?.clause, mm, ot)).map((ot) => objectTypeEntityOf(mm, ot)));
+  const size = Math.max(1, Number(request?.pageSizeLimit) || 250), from = Math.max(0, Number(request?.pageToken) || 0);
+  return { objectTypes: hits.slice(from, from + size), totalResults: hits.length, nextPageToken: from + size < hits.length ? String(from + size) : null };
+}
+// POST /foundry-search/api/compass/v2/search for the caller's saved explorations and lists (object-set service, versioned object
+// sets — dynamic explorations and static lists): none is kept, in the reference's own empty answer (recorded by the O8 harvest). Any
+// other Compass search is not answered here (it stays a named gap).
+export function savedObjectSetSearchOf(request) {
+  const clauses = request?.query?.filter?.and;
+  const service = (Array.isArray(clauses) ? clauses : []).find((c) => c?.type === "service")?.service?.equals;
+  const type = (Array.isArray(clauses) ? clauses : []).find((c) => c?.type === "resourceType")?.resourceType?.equals;
+  if (service !== "object-set" || type !== "versioned-object-set" || request?.fetchFields !== "RIDS") return null;
+  return { results: { type: "resourceRidSearchResult", resourceRidSearchResult: [] }, nextPageToken: null };
+}
+// the answer for a refused object-set read (the fence's named-gap shape)
+export const objectSetRefusalBodyOf = (e, method, pathname) => ({ errorCode: "INTERNAL", errorName: "Hypervisor:OntologyReadNotBound", errorInstanceId: "",
+  parameters: { message: `${method} ${pathname}: ${e?.message || "an object set construct is not evaluated here"}` } });
+
 // ---- Object Explorer (/workspace/hubble, cut O4): the same ontology truth, as the explorer's catalog, search, recents
-// and shortcuts read it. An ODK type holds no instances and no usage is kept, so its object count and its users are
-// unknown (null), never zero; no favorites, saved explorations or type groups are kept, so each lists none.
+// and shortcuts read it. A type's object count is its materialized objects (cut O8; none when no set materializes it); no
+// usage is kept, so its users are unknown (null); no favorites, saved explorations or type groups are kept, so each lists none.
 export const EXPLORER_GRAPHQL_OPERATIONS = new Set([
   "AllObjectTypesQuery", "ObjectTypesQuery", "ObjectTypeResultsQuery", "OntologiesQuery", "CurrentUserQuery",
   "RecentObjectTypesQuery", "RecentsQuery", "FavoritesQuery", "FavoriteSavedExplorationsQuery", "FavoriteTypeGroupsQuery",
   "SavedExplorationsListQuery", "TypeGroupResultsQuery", "TypeGroupsQuery", "ObjectTypeSemanticSearchUnavailableReasonQuery",
   "YourExplorationsQuery", "GetObjectTypeDependents",
+  // an exploration over a type and its objects (cut O8)
+  "ObjectsQuery", "PreviewObjectQuery", "ObjectTypePreviewQuery", "SelectedObjectQuery", "ObjectPropertyRendererQuery",
+  // …and its keyword search (cut O8)
+  "ObjectTypeCountQuery", "ObjectTypeUsageMetricsQuery", "FavoritedObjectsQuery", "SemanticObjectTypeResultsQuery", "ObjectTypesWithGroupsQuery",
+  // …and an object's full view (cut O8)
+  "ObjectViewFullVersionQuery", "ResolveObjectViewRidQuery", "ProminentPropertiesQuery", "ObjectViewCorePropertiesTableQuery", "ObjectLinkTypesQuery",
 ]);
+// ---- an object as the GraphQL object layer reads it (cut O8): an ObjectBranch with its title, type, primary key and properties
+function objectPropertyNodeOf(ot, p, v) {
+  const base = pascal(p.base || "string");
+  return { __typename: `ObjectProperty_${base}`, __implements: ["ObjectProperty", "ObjectPrimaryKey"],
+    propertyV2: { __typename: "ObjectTypeProperty", _id: cid(`ObjectTypeProperty:${p.rid}`), rid: p.rid,
+      latest: { __typename: "ObjectTypePropertyVersion", _id: cid(`ObjectTypePropertyVersion:${p.rid}`), displayName: p.name || p.id, apiName: camel(p.name || p.id), typeClasses: [],
+        objectTypeProperty: { __typename: "ObjectTypeProperty", _id: cid(`ObjectTypeProperty:${p.rid}`), rid: p.rid } } },
+    value: objectPropertyValueNodeOf(p.base, v) };
+}
+// a property value as the object layer types it (no formatting or style is kept for a property: the reference's defaults apply)
+function objectPropertyValueNodeOf(baseType, v) {
+  if (v === null || v === undefined) return { __typename: "ObjectPropertyValue_Null", __implements: ["ObjectPropertyValue"], style: null };
+  const base = pascal(baseType || "string");
+  const node = { __typename: `ObjectPropertyValue_${base}`, __implements: ["ObjectPropertyValue", "ObjectArrayPropertyValue", "ObjectStructPropertyValue"], style: null, formatting: null };
+  switch (String(baseType || "string").toLowerCase()) {
+    case "long": return { ...node, value: String(v), valueV2: String(v) };
+    case "integer": case "double": return { ...node, value: Number(v) };
+    case "boolean": return { ...node, value: v === true || v === "true", formattedValue: String(v === true || v === "true") };
+    case "timestamp": { const ms = typeof v === "number" ? v : Date.parse(v); return { ...node, value: Number.isFinite(ms) ? new Date(ms).toISOString() : String(v) }; }
+    default: return { ...node, value: typeof v === "object" ? JSON.stringify(v) : v };
+  }
+}
+export function objectBranchNodeOf(mm, ot, o) {
+  const pk = ot.properties.find((p) => p.id === ot.primaryKey) || null;
+  return { __typename: "ObjectBranch", _id: cid(`ObjectBranch:${o.rid}`), rid: o.rid, title: o.title,
+    type: { __typename: "ObjectType", _id: cid(`ObjectType:${ot.rid}`), rid: ot.rid,
+      latest: { ...explorerShallowVersionOf(ot), objectType: { __typename: "ObjectType", _id: cid(`ObjectType:${ot.rid}`), rid: ot.rid, id: ot.id } } },
+    primaryKey: pk ? objectPropertyNodeOf(ot, pk, o.props[pk.id] ?? o.key) : null,
+    properties: ot.properties.filter((p) => o.props[p.id] !== undefined && o.props[p.id] !== null).map((p) => objectPropertyNodeOf(ot, p, o.props[p.id])),
+    iconProperties: [] };
+}
+// a type's preview (the exploration's header and its About panel): its properties, object count, where it is filed (its
+// ontology's namespace; no project, no package), what depends on it (nothing) and no object storage the reference keeps
+function explorerTypePreviewOf(mm, ot, owner) {
+  const version = explorerVersionOf(mm, ot);
+  const nsRid = owner ? namespaceRidOf(owner) : null, nsName = owner ? namespaceNameOf(owner) : null;
+  version.objectType = { ...explorerObjectTypeOf(mm, ot, explorerShallowVersionOf(ot)), storage: null, owningPackage: null,
+    dependents: { __typename: "OntologyDependentPage", values: [] },
+    ontology: { ...ontologyNode(mm), displayName: mm.displayName, description: mm.description || null },
+    metadata: { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${ot.rid}`), rid: ot.rid, project: null,
+      parent: nsRid ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${nsRid}`), rid: nsRid, alias: nsName, name: nsName, openUrl: null, collections: [], status: null, trashedStatus: "NOT_TRASHED",
+        type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-namespace" }, permissions: { __typename: "ResourceMetadataPermissions", _id: cid(`perm:${nsRid}`), canOpenLink: false } } : null } };
+  return version;
+}
 const explorerShallowVersionOf = (ot) => ({
   __typename: "ObjectTypeVersion", _id: cid(`ObjectTypeVersion:${ot.rid}`), displayName: ot.name || ot.id, apiName: pascal(ot.name || ot.id),
-  description: ot.description || null, visibility: "NORMAL", status: { __typename: "ObjectTypeStatus_Experimental" },
+  // (a string, never null: the explorer's type preview trims it)
+  description: ot.description || "", visibility: "NORMAL", status: { __typename: "ObjectTypeStatus_Experimental" },
   iconV2: { __typename: "BlueprintIcon", color: ICON.blueprint.color, locator: ICON.blueprint.locator },
 });
 function explorerObjectTypeOf(mm, ot, latest) {
   return {
     // an object type is a Favorite (the interface the explorer's shortcuts spread their fragments on)
-    __typename: "ObjectType", __implements: ["Favorite"], _id: cid(`ObjectType:${ot.rid}`), rid: ot.rid, id: ot.id, favorited: false, objectCount: null,
+    // its object count: the caller's materialized objects of it (cut O8; none for a type no set materializes)
+    __typename: "ObjectType", __implements: ["Favorite"], _id: cid(`ObjectType:${ot.rid}`), rid: ot.rid, id: ot.id, favorited: false, objectCount: (ot.backing?.objects || []).length,
     permissions: { __typename: "ObjectTypePermissions", canViewData: true }, usage: { __typename: "ObjectTypeUsage", uniqueUsersCount: null },
     ontology: { ...ontologyNode(mm), displayName: mm.displayName }, latest: latest || explorerShallowVersionOf(ot),
   };
@@ -746,7 +1171,63 @@ export function explorerGraphqlFacts(name, variables, ctx) {
       return { ...root, objectTypeV2: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, dependents: { __typename: "ResourceMetadataPage", values: [] } } : null };
     }
     case "TypeGroupResultsQuery": case "TypeGroupsQuery": return { ...root, objectTypeGroups: { __typename: "ObjectTypeGroupPage", values: [], nextPageToken: null } };
-    case "ObjectTypeSemanticSearchUnavailableReasonQuery": return { ...root, objectTypeSemanticSearchUnavailableReason: null };
+    // no semantic index is kept over the caller's types (the reference treats any reason as "unavailable" and searches by name)
+    case "ObjectTypeSemanticSearchUnavailableReasonQuery": return { ...root, objectTypeSemanticSearchUnavailableReason: "NOT_AVAILABLE" };
+    case "SemanticObjectTypeResultsQuery": return { ...root, objectTypesV2: { __typename: "ObjectTypeVersionPage", values: [] } };
+    // how many of the caller's types a keyword names (the search's Object types tab), and a type's object count (its
+    // materialized objects) beside no usage (none is kept)
+    case "ObjectTypeCountQuery": return { ...root, objectTypesV2: { __typename: "ObjectTypeVersionPage", totalNumberOfResults: types.length } };
+    // the groups of the types a keyword names (the Object types tab's group filter): no type groups are kept
+    case "ObjectTypesWithGroupsQuery": return { ...root, objectTypesV2: { __typename: "ObjectTypeVersionPage", nextPageToken: null, values: types.map(({ ot }) => ({ __typename: "ObjectTypeVersion", _id: cid(`ObjectTypeVersion:${ot.rid}`), groups: [] })) } };
+    case "ObjectTypeUsageMetricsQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.rid });
+      return { ...root, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, objectCount: (hit.ot.backing?.objects || []).length, usage: { __typename: "ObjectTypeUsage", uniqueUsersCount: null } } : null };
+    }
+    // no favorite objects are kept
+    case "FavoritedObjectsQuery": return { ...root, favorites: [] };
+    // an object's full view: no object view is kept for any type (the Hypervisor has no object view editor), published or saved
+    case "ObjectViewFullVersionQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, defaultOrGlobalBranch: { __typename: "DefaultGlobalBranch", _id: cid("branch:default"), objectType: hit ? { __typename: "ObjectTypeBranch", _id: cid(`otb:${hit.ot.rid}`), objectViewConfiguration: null } : null } };
+    }
+    // the view an object opens in: the reference's default (core) view of a type — its object's properties — under the type's one
+    // default view id; nothing is saved or published for it (above), so the reference lays it out by its own defaults
+    case "ResolveObjectViewRidQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, globalBranch: null, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid,
+        objectViewConfiguration: { __typename: "ObjectViewConfiguration", _id: cid(`ObjectViewConfiguration:${hit.ot.rid}`), rid: defaultObjectViewRidOf(hit.ot) } } : null };
+    }
+    // a type's objects, a page at a time, whose title or primary key holds the search term (cut O8): the caller's materialized
+    // objects of it
+    case "ObjectsQuery": {
+      const hit = objectTypeOf(ctx.models, variables?.objectTypeIdentifier || {});
+      const term = String(variables?.searchTerm || "").trim().toLowerCase();
+      const all = hit ? (hit.ot.backing?.objects || []).filter((o) => !term || o.title.toLowerCase().includes(term) || o.key.toLowerCase().includes(term)) : [];
+      const from = Math.max(0, Number(variables?.pageToken) || 0), size = Math.max(1, Number(variables?.pageSize) || 30);
+      return { ...root, defaultOrGlobalBranch: { __typename: "DefaultGlobalBranch", _id: cid("branch:default"), objectType: hit ? { __typename: "ObjectTypeBranch", _id: cid(`otb:${hit.ot.rid}`),
+        objectsV3: { __typename: "ObjectBranchPage", nextPageToken: from + size < all.length ? String(from + size) : null, values: all.slice(from, from + size).map((o) => objectBranchNodeOf(hit.model, hit.ot, o)) } } : null } };
+    }
+    // the object an exploration previews first: none is pinned (no object view is kept), so its first object
+    case "PreviewObjectQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, objectTypeV2: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, objectViewConfiguration: null,
+        objects: { __typename: "ObjectPage", values: (hit.ot.backing?.objects || []).slice(0, 1).map((o) => ({ __typename: "Object", _id: cid(`Object:${o.rid}`), rid: o.rid })) } } : null };
+    }
+    // one object (the exploration's selected object and its property panel; the object view's properties and links): the caller's
+    // materialized object with this rid. No property is marked prominent (the view's header lists none), none is hidden, and an
+    // ODK link cannot be followed to linked objects (it names no join property), so the view lists no link types.
+    case "SelectedObjectQuery": case "ObjectPropertyRendererQuery": case "ProminentPropertiesQuery": case "ObjectViewCorePropertiesTableQuery": case "ObjectLinkTypesQuery": {
+      const e = objectUniverseOf(ctx.models).find((x) => x.o.rid === variables?.objectRid);
+      let object = e ? objectBranchNodeOf(e.model, e.ot, e.o) : null;
+      if (object && name === "ProminentPropertiesQuery") object = { ...object, properties: [] };
+      if (object && name === "ObjectViewCorePropertiesTableQuery") object = { ...object, type: { ...object.type, latest: { ...explorerVersionOf(e.model, e.ot), propertiesV2: explorerVersionOf(e.model, e.ot).propertiesV2.map((p) => ({ ...p, visibility: "NORMAL" })) } } };
+      if (object && name === "ObjectLinkTypesQuery") object = { ...object, type: { ...object.type, latest: { ...explorerShallowVersionOf(e.ot), objectType: { __typename: "ObjectType", _id: cid(`ObjectType:${e.ot.rid}`), rid: e.ot.rid, id: e.ot.id }, linksIncludingLinksToObjectTypesWithoutSearchableDatasources: [] } } };
+      return { ...root, defaultOrGlobalBranch: { __typename: "DefaultGlobalBranch", _id: cid("branch:default"), object } };
+    }
+    case "ObjectTypePreviewQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, latest: explorerTypePreviewOf(hit.model, hit.ot, ctx.owner) } : null };
+    }
     default: return null;
   }
 }
@@ -904,8 +1385,8 @@ export function proposalTaskOf(r) {
 // Writes on a proposal the Hypervisor refuses, each by name (the reference's error shape).
 export const PROPOSAL_REFUSALS = Object.freeze({
   approvalsWrite: { status: 409, code: "Hypervisor:OntologyProposalWriteRefused", message: "An ODK ontology proposal is decided through the daemon's proposal plane only: merging applies it and closing withdraws it. Nothing else on it (reviewers, comments, edits to the request) is kept, so nothing was changed." },
-  createBranch: { status: 409, code: "Hypervisor:OntologyBranchNotKept", message: "The Hypervisor keeps no ontology branches. An ODK proposal is created with its change set in one step (the daemon refuses an empty proposal), and the Ontology Manager's edits are not bound yet, so there is nothing to stage on a branch. Nothing was created." },
-  openOnBranch: { status: 409, code: "Hypervisor:OntologyBranchNotKept", message: "The Hypervisor keeps no ontology branches, so a proposal's edits cannot be opened for editing on one (and the Ontology Manager's edits are not bound yet). Review the change set on the proposal's page, then approve it to apply it or close it to withdraw it." },
+  createBranch: { status: 409, code: "Hypervisor:OntologyBranchNotKept", message: "The Hypervisor keeps no ontology branches. An ODK proposal is created with its change set in one step (the daemon refuses an empty proposal), and a materialized object type's edit saves straight to the ontology as an ODK patch, so there is nothing to stage on a branch. Nothing was created." },
+  openOnBranch: { status: 409, code: "Hypervisor:OntologyBranchNotKept", message: "The Hypervisor keeps no ontology branches, so a proposal's edits cannot be opened for editing on one. Review the change set on the proposal's page, then approve it to apply it or close it to withdraw it." },
   review: { status: 409, code: "Hypervisor:OntologyProposalRejectionNotKept", message: "An ODK proposal is applied or withdrawn; the daemon keeps no rejection or change request on it. Close the proposal to withdraw it. Nothing was changed." },
   reviewers: { status: 409, code: "Hypervisor:OntologyProposalReviewersNotKept", message: "An ODK proposal names no reviewers: its ontology's owner, or an administrator of its organization, applies it. Nothing was changed." },
   editRequest: { status: 409, code: "Hypervisor:OntologyProposalNotEditable", message: "An ODK proposal's title and rationale are fixed when it is proposed; the daemon has no route to change them. Nothing was changed." },
@@ -913,22 +1394,151 @@ export const PROPOSAL_REFUSALS = Object.freeze({
   signedOut: { status: 403, code: "Hypervisor:OntologyProposalSignInRequired", message: "Sign in to decide a proposal. Nothing was changed." },
   notFound: { status: 404, code: "Hypervisor:OntologyProposalNotFound", message: "No proposal on your ontologies has this id. Nothing was changed." },
 });
-// ---- Saving an edit (cut O7). Whoever may change an ontology (the daemon's `caller_may_change`) edits its types here, and the
+// ---- Saving an edit (cut O7, O8). Whoever may change an ontology (the daemon's `caller_may_change`) edits its types here, and the
 // reference's Review changes validates the edit; its save (Save to ontology…, and a branch's save) writes one modification
-// batch. That write is not bound: an ODK ontology changes only by an ODK patch at its current revision (its owner, or an
-// administrator of its organization) or by applying a proposal, and a type the reference saves must be backed by a
-// datasource — which an ODK type has only when materialized. So the save is refused by name and nothing is written. (An
-// object or link type's own save stays disabled before this: its review lists "Backing datasource is missing".)
+// batch. Save to ontology (v2/modify) is answered below (cut O8): a materialized object type's edit becomes the daemon's ODK patch
+// at the expected revision, and everything else in it is refused by name. A branch save and the legacy modify stay refused here
+// (no ontology branch is kept). An unmaterialized object or link type's own save stays disabled before this: the reference's
+// review lists "Backing datasource is missing".
 export const ONTOLOGY_SAVE_PATHS = [/^\/ontology-metadata\/api\/ontology\/ontology\/modify$/u, /^\/ontology-metadata\/api\/ontology\/v2\/modify$/u,
   /^\/ontology-metadata\/api\/ontology\/approvals\/experimental\/ontology\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/modifyBranch$/u];
 export const ONTOLOGY_SAVE_REFUSAL = Object.freeze({ status: 409, code: "Hypervisor:OntologyEditNotBound",
-  message: "Saving from the Ontology Manager is not bound yet: an ODK ontology changes only by an ODK patch at its current revision (by its owner or an administrator of its organization) or by applying a proposal, and this save is neither. Nothing was changed." });
+  message: "This save is not bound: an ODK ontology changes only by an ODK patch at its current revision (Save to ontology on a materialized object type, by its owner or an administrator of its organization) or by applying a proposal, and a branch save or the legacy modify is neither. Nothing was changed." });
 // GET /language-model-service/api/config/v1/enabled — an editable page offers language-model assists (generated descriptions
 // and the like) when this reads true; none is bound on this surface, so it reads false (passed through, it answered the
 // recorded tenant's true)
 export const LANGUAGE_MODEL_ENABLED_PATH = "/language-model-service/api/config/v1/enabled";
 export const LANGUAGE_MODEL_ENABLED = false;
-export const ontologySaveRefusalOf = (method, pathname) => (method === "POST" && ONTOLOGY_SAVE_PATHS.some((re) => re.test(pathname)) ? ONTOLOGY_SAVE_REFUSAL : null);
+export const ontologySaveRefusalOf = (method, pathname) => (method === "POST" && ONTOLOGY_SAVE_PATHS.some((re) => re.test(pathname)) && pathname !== ONTOLOGY_MODIFY_V2 ? ONTOLOGY_SAVE_REFUSAL : null);
+// ---- Saving an object type's edit as an ODK patch (cut O8). Once a type is backed (its materialized sets are its datasource and
+// object store), the reference's own validation lets Review changes save it: one POST …/ontology/v2/modify?ontologyRid=<rid> naming
+// the ontology version it was made on (expectedOntologyVersion). It is answered by the daemon's PATCH of that ODK ontology at the
+// matching revision (expected_revision), under the caller's session — the daemon checks who may change it (its owner, or an
+// administrator of its organization) and refuses a stale revision; nothing is signed or written here. Only what an ODK model keeps
+// is carried: a type's name, plural name, description and title property, and its properties' names, descriptions and (for a
+// property no mapping reads) base types, added properties, and removed properties no mapping reads. Anything else in the batch —
+// a new or deleted type, a changed primary key, API name, icon, status, render hint or visibility, the backing datasource or object
+// store, links, actions, shared properties, interfaces, groups, workflows or schema migrations — is refused by name, and nothing
+// is written.
+export const ONTOLOGY_MODIFY_V2 = "/ontology-metadata/api/ontology/v2/modify";
+const saveRefusal = (message) => ({ refusal: { status: 409, code: "Hypervisor:OntologyEditNotBound", message: `${message} Nothing was changed.` } });
+const sameJson = (a, b) => canon(a ?? null) === canon(b ?? null);
+const EMPTY_OK = (v) => v === undefined || v === null || v === false || (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length);
+const SAVE_KEYS = new Set(["objectTypes", "objectTypeDatasources", "objectTypeEntityMetadata", "expectedOntologyVersion", "useRoles"]);
+const BASE_OF_TYPE = { string: "string", integer: "integer", long: "long", double: "double", boolean: "boolean", date: "date", timestamp: "timestamp" };
+export const revisionOfVersion = (model, version) => {
+  const m = /^([0-9a-f]{8})-(.+)$/u.exec(String(version || ""));
+  if (!m || m[2] !== uuidOf(`draft:${model.draftId}`).slice(9)) return null;
+  return parseInt(m[1], 16) || null;
+};
+// → { refusal } | { draftId, body (the daemon PATCH), types (the ids it updates) }
+export function ontologySaveStepOf(request, models, ontologyRid) {
+  const model = modelOf(models, ontologyRid);
+  if (!model) return saveRefusal("This ontology is not one of yours.");
+  if (!model.mayChange) return saveRefusal("Only this ontology's owner, or an administrator of its organization, may change it (the daemon's rule).");
+  const r = request && typeof request === "object" ? request : {};
+  const extra = Object.keys(r).filter((k) => !SAVE_KEYS.has(k) && !EMPTY_OK(r[k]));
+  if (extra.length) return saveRefusal(`Only a materialized object type's edits are saved from here: this save also changes ${extra.join(", ")}, and an ODK action or link type (or anything else) changes by an ODK patch or a proposal, not from the Ontology Manager yet.`);
+  if (r.useRoles === true) return saveRefusal("The Hypervisor keeps no ontology roles.");
+  const expected = revisionOfVersion(model, r.expectedOntologyVersion);
+  if (!expected) return saveRefusal("This save names no version of this ontology.");
+  const canonical = JSON.parse(JSON.stringify(model.canonical || {}));
+  const objectTypes = Array.isArray(canonical.object_types) ? canonical.object_types : [];
+  const edits = Object.entries(r.objectTypes || {});
+  if (!edits.length) return saveRefusal("This save changes no object type.");
+  for (const [id, op] of edits) {
+    const typed = model.objectTypes.find((o) => o.id === id);
+    const raw = objectTypes.find((o) => o.id === id);
+    if (op?.type !== "update" || !typed || !raw) return saveRefusal(op?.type === "create" ? "A new object type must be backed by a datasource, and an ODK type is backed only once a materializing run registers its objects, so none is created from here." : `Object type ${id} is ${op?.type === "delete" ? "not deleted from here" : "not one of this ontology's"}.`);
+    if (!(typed.backing?.datasources || []).length) return saveRefusal(`Object type ${typed.name || id} has no backing datasource: it is saved from here once materialized.`);
+    // the backing and the object store are what they read now (checked first: the rest of the batch is diffed against them)
+    const sources = r.objectTypeDatasources?.[id];
+    if (sources !== undefined) {
+      const ours = datasourcesOfType(typed);
+      const same = Array.isArray(sources) && sources.length === ours.length && sources.every((x) => {
+        const o = ours.find((d) => d.rid === x?.update?.rid), def = x?.update?.objectTypeDatasourceDefinition;
+        const ds = def?.[def?.type];
+        if (x?.type !== "update" || !o || !ds || ds.datasetRid !== o.datasource.dataset.datasetRid) return false;
+        const cols = Object.fromEntries(Object.entries(ds.propertyMapping || {}).map(([pid, m]) => [pid, m?.column ?? m]));
+        const want = Object.fromEntries(typed.properties.filter((p) => o.datasource.dataset.propertyMapping[p.rid]).map((p) => [p.id, o.datasource.dataset.propertyMapping[p.rid]]));
+        return sameJson(cols, want);
+      });
+      if (!same) return saveRefusal("A backed type's datasource is its materialized sets, from its connector mapping; it changes by a new mapping and a materializing run, not here.");
+    }
+    const meta = r.objectTypeEntityMetadata?.[id];
+    if (meta !== undefined && (!sameJson(Object.keys(meta?.entityConfig?.objectDbTypeConfigs || {}), [OBJECT_STORE_DB.type]) || meta?.arePatchesEnabled === true || (meta?.editsHistory && meta.editsHistory.type !== "none") || !EMPTY_OK(meta?.aliases)))
+      return saveRefusal("A backed type's objects are held where its materialized sets are; object edits, patches, edit history and aliases are not kept.");
+    const next = op.update?.objectType || {};
+    const dm = next.displayMetadata || {};
+    // what the model does not keep must be what the type already reads
+    if (next.id !== id) return saveRefusal("An object type's id is not changed.");
+    if (!sameJson(next.primaryKeys, [typed.primaryKey])) return saveRefusal("A backed type's primary key is the property its connector mapping keys objects by; it is not changed here.");
+    if (!sameJson(dm.icon, ICON) || String(dm.visibility || "NORMAL") !== "NORMAL" || (dm.groupDisplayName ?? null) !== null) return saveRefusal("An ODK type keeps no icon, visibility or group name.");
+    if (!sameJson(next.status, DRAFT_STATUS)) return saveRefusal("An ODK draft's types are experimental; a status is not set here.");
+    if (!EMPTY_OK(next.implementsInterfaces) || !EMPTY_OK(next.implementsInterfaces2) || !EMPTY_OK(next.sharedPropertyTypes) || !EMPTY_OK(next.typeGroups)) return saveRefusal("An ODK model keeps no interfaces, shared properties or type groups.");
+    if (Object.entries(next.traits || {}).some(([k, v]) => !(k === "workflowObjectTypeTraits" ? EMPTY_OK(v) : v === null || v === undefined))) return saveRefusal("An ODK type keeps no traits (events, time series, action logs).");
+    const newName = String(dm.displayName ?? typed.name ?? id).trim();
+    if (!newName) return saveRefusal("An object type needs a name.");
+    if (next.apiName !== undefined && next.apiName !== pascal(typed.name || id) && next.apiName !== pascal(newName)) return saveRefusal("An ODK type's API name is its name's; it is not set separately.");
+    for (const [rid, pid] of Object.entries(op.update?.propertyTypeIdMappings?.existingPropertyTypeRenames || {})) {
+      const p = typed.properties.find((x) => x.rid === rid);
+      if (p && p.id !== pid) return saveRefusal(`Property ${p.name || p.id}'s id is the key its values are stored by; it is not renamed.`);
+    }
+    const mapped = new Set((typed.backing?.datasources || []).flatMap((d) => Object.keys(d.mapping || {})));
+    const props = next.propertyTypes && typeof next.propertyTypes === "object" ? next.propertyTypes : {};
+    const rawProps = Array.isArray(raw.properties) ? raw.properties : [];
+    const nextProps = [];
+    for (const [pid, np] of Object.entries(props)) {
+      const cur = typed.properties.find((x) => x.id === pid);
+      const pdm = np?.displayMetadata || {};
+      const base = BASE_OF_TYPE[String(np?.type?.type || "")];
+      if (!base) return saveRefusal(`Property ${pid}'s type (${np?.type?.type}) is not an ODK base type.`);
+      if (String(pdm.visibility || "NORMAL") !== "NORMAL" || np?.baseFormatter || np?.ruleSetBinding || np?.valueType || np?.sharedPropertyTypeRid || np?.dataConstraints || np?.inlineAction) return saveRefusal(`Property ${pid} sets what an ODK property does not keep (visibility, formatting, rules, value or shared types, constraints, inline actions).`);
+      if (np?.status && !sameJson(np.status, DRAFT_STATUS)) return saveRefusal(`Property ${pid}'s status is not set here.`);
+      if (!sameJson((np?.typeClasses || []).filter((c) => c), renderHintsOf({ base }))) return saveRefusal(`Property ${pid}'s render hints are not kept (a string property is always selectable here).`);
+      const name = String(pdm.displayName ?? cur?.name ?? pid).trim();
+      if (np?.apiName !== undefined && np.apiName !== camel(cur?.name || pid) && np.apiName !== camel(name)) return saveRefusal(`Property ${pid}'s API name is its name's; it is not set separately.`);
+      const rawP = rawProps.find((x) => x.id === pid);
+      if (cur) {
+        if (base !== baseTypeOf(cur.base).type && mapped.has(pid)) return saveRefusal(`Property ${cur.name || pid} is read by the type's connector mapping; its type changes there, not here.`);
+        const entry = { ...rawP, name, ...(base !== baseTypeOf(cur.base).type ? { value_type: base } : {}) };
+        if (pdm.description) entry.description = String(pdm.description); else delete entry.description;
+        nextProps.push(entry);
+      } else {
+        if (!/^[a-z][a-z0-9_]*$/u.test(pid)) return saveRefusal(`A new property's id (${pid}) must be lowercase letters, digits and underscores, starting with a letter.`);
+        nextProps.push({ id: pid, name, value_type: base, ...(pdm.description ? { description: String(pdm.description) } : {}) });
+      }
+    }
+    for (const p of typed.properties) if (!props[p.id] && mapped.has(p.id)) return saveRefusal(`Property ${p.name || p.id} is read by the type's connector mapping; it is not removed here.`);
+    const title = next.titlePropertyTypeId ?? raw.title_property;
+    if (title && !nextProps.some((x) => x.id === title)) return saveRefusal("The title property must be one of the type's properties.");
+    const updated = { ...raw, name: newName, properties: nextProps, ...(title ? { title_property: title } : {}) };
+    if (dm.description) updated.description = String(dm.description); else delete updated.description;
+    if (dm.pluralDisplayName && dm.pluralDisplayName !== newName) updated.plural_name = String(dm.pluralDisplayName); else delete updated.plural_name;
+    objectTypes.splice(objectTypes.indexOf(raw), 1, updated);
+  }
+  for (const k of Object.keys(r.objectTypeDatasources || {})) if (!r.objectTypes?.[k]) return saveRefusal("A datasource is saved only with its type's edit.");
+  for (const k of Object.keys(r.objectTypeEntityMetadata || {})) if (!r.objectTypes?.[k]) return saveRefusal("Object storage is saved only with its type's edit.");
+  return { draftId: model.draftId, types: edits.map(([id]) => id), body: { expected_revision: expected, canonical_object_model: { ...canonical, object_types: objectTypes } } };
+}
+// the save's answer: the ontology at the revision the patch produced, and the rids of the types it updated
+export function ontologySaveAnswerOf(model, revision, types) {
+  // (nothing is created by an update: the reference reads its created-entity maps, and reloads what the new version changed)
+  void types;
+  return { ontologyRid: model.rid, ontologyVersion: draftVersionOf(model.draftId, revision), createdObjectTypes: {}, createdLinkTypes: {}, createdActionTypes: [], createdTypeGroups: {},
+    createdSharedPropertyTypes: {}, createdInterfaceTypes: {}, createdRuleSets: {}, createdWorkflows: {} };
+}
+// POST /ontology-metadata/api/ontology/v2/<ontology rid>/diff — what changed between two of the draft's versions: the types each
+// revision after the base recorded (ODK keeps each revision's changes), keyed by the rids the app knows. A version that is not one
+// of this draft's is refused by name.
+export function ontologyDiffOf(model, request) {
+  const base = revisionOfVersion(model, request?.baseOntologyVersion), next = revisionOfVersion(model, request?.newOntologyVersion);
+  if (!model || !base || !next) return null;
+  const merged = {};
+  for (const h of [...model.history].filter((x) => Number(x.revision) > base && Number(x.revision) <= next).sort((a, b) => Number(a.revision) - Number(b.revision)))
+    for (const [kind, changes] of Object.entries(h.affected || {})) merged[kind] = { ...(merged[kind] || {}), ...changes };
+  return { diff: affectedOf(model, merged) };
+}
 export const proposalRefusalBodyOf = (refusal) => ({ errorCode: refusal.status === 404 ? "NOT_FOUND" : refusal.status === 403 ? "PERMISSION_DENIED" : "CONFLICT", errorName: refusal.code, errorInstanceId: "", parameters: { message: refusal.message }, message: refusal.message });
 // ---- a proposal as the reference's OntologyChangeProposal (GraphQL: the Proposals section's rows, a proposal's page). Its
 // branch is the proposal's own change set on its ontology; it names no Foundry (global) branch and no datasource branch. The

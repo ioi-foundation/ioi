@@ -6,6 +6,7 @@ import { answerDocument } from "./adopted-graphql.mjs";
 import * as ONTOLOGY from "./adopted-ontology.mjs";
 import { ontologyRidOfFamily } from "./adopted-pipeline.mjs";
 import { principalUserId as principalUserIdOf } from "./adopted-automate.mjs";
+import { syncDatasetRidOf } from "./adopted-data-connection.mjs";
 
 const familyOf = (id, owner) => ({ family: `ontology://${owner.replace("org://", "")}/${id}` });
 const drafts = [{ id: "ont_1", domain: "Loans", description: "Loan book", canonical_object_model: {
@@ -68,7 +69,10 @@ test("what the pages offer follows the daemon's reading of the caller (caller_ma
 
 test("an edit's save is refused by name and writes nothing; any other write path is not caught here", () => {
   const rid = "ri.ontology.main.ontology.00000000-0000-0000-0000-00000000000a";
-  for (const path of ["/ontology-metadata/api/ontology/ontology/modify", "/ontology-metadata/api/ontology/v2/modify", `/ontology-metadata/api/ontology/approvals/experimental/ontology/${rid}/modifyBranch`]) {
+  // (v2/modify — the Review changes save — is answered by ontologySaveStepOf since cut O8: a backed type's edit becomes the daemon's
+  // ODK patch, and everything else in it is refused by name there)
+  assert.equal(ONTOLOGY.ontologySaveRefusalOf("POST", "/ontology-metadata/api/ontology/v2/modify"), null);
+  for (const path of ["/ontology-metadata/api/ontology/ontology/modify", `/ontology-metadata/api/ontology/approvals/experimental/ontology/${rid}/modifyBranch`]) {
     const refusal = ONTOLOGY.ontologySaveRefusalOf("POST", path);
     assert.equal(refusal?.code, "Hypervisor:OntologyEditNotBound", path);
     assert.equal(ONTOLOGY.proposalRefusalBodyOf(refusal).errorName, "Hypervisor:OntologyEditNotBound");
@@ -263,4 +267,161 @@ test("a proposal's decisions: approving or merging is the daemon's apply, closin
   assert.equal(step("ResolveCombinedBranchRidBranchQuery", rows[0]).refusal.code, "Hypervisor:OntologyBranchNotKept");
   assert.equal(step("ReviewApprovalSubRequests", rows[0], { reviewType: "APPROVE" }, null).refusal.code, "Hypervisor:OntologyProposalSignInRequired");
   assert.equal(step("CloseProposal", null).refusal.code, "Hypervisor:OntologyProposalNotFound");
+});
+
+// ---- cut O8: a type backed by its materialized object sets, its objects read by object set, and a backed type's save --------
+const O8_OWNER = "org://local";
+const o8Draft = { ...drafts[0], ref: "ontology://ont_1", revision: 2, caller_may_change: true, history: [{ revision: 1, op: "created" }, { revision: 2, op: "patched", affected: { object_types: { loan: "UPDATED" } } }] };
+const o8Set = (id, planRef, at, objects, extra = {}) => ({ id, ref: `materialized-object-set://${id}`, ontology_ref: "ontology://ont_1", object_type_id: "loan", capability_lease_plan_ref: planRef,
+  materializing_run_ref: `materializing-run://run_${id}`, ontology_projection_id: "proj_1", registered_at: at, objects, ...extra });
+const o8Obj = (key, title, amount) => ({ object_key: key, title, object_type_id: "loan", properties: { loan_id: key, title, amount }, provenance: { mapped_from: { loan_id: "id", title: "disp", amount: "amt" } } });
+const o8Sets = [
+  o8Set("s1", "capability-lease-plan://clp_1", "2026-09-29T10:00:00Z", [o8Obj("L-1", "First Loan", 1250.5), o8Obj("L-2", "Second Loan", 90000)]),
+  // a later run of the same plan: its newest set is the datasource's contents
+  o8Set("s2", "capability-lease-plan://clp_1", "2026-09-29T11:00:00Z", [o8Obj("L-1", "First Loan", 1250.5), o8Obj("L-2", "Second Loan", 90000), o8Obj("L-3", "Third Loan", 42)]),
+  // a set of another ontology's type: it backs nothing here
+  { ...o8Set("s3", "capability-lease-plan://clp_2", "2026-09-29T12:00:00Z", [o8Obj("X", "x", 1)]), ontology_ref: "ontology://ont_other" },
+];
+const o8Models = (sets = o8Sets) => ONTOLOGY.ontologyModelsOf([o8Draft], O8_OWNER, familyOf, sets);
+
+test("O8: a type is backed by the materialized sets of its ontology and type — one datasource per lease plan (its sync's dataset), its newest set the contents; an unmaterialized type has none", () => {
+  const [m] = o8Models();
+  const loan = m.objectTypes.find((o) => o.id === "loan"), borrower = m.objectTypes.find((o) => o.id === "borrower");
+  assert.equal(loan.backing.datasources.length, 1, "two runs of one plan are one datasource");
+  assert.equal(loan.backing.datasources[0].setRef, "materialized-object-set://s2", "its newest set");
+  assert.equal(loan.backing.datasources[0].datasetRid, syncDatasetRidOf("clp_1"), "its dataset is Data Connection's own for the sync (the lease plan)");
+  assert.deepEqual(loan.backing.objects.map((o) => o.key), ["L-1", "L-2", "L-3"]);
+  assert.equal(loan.primaryKey, "loan_id", "a backed type's primary key is the property its objects are keyed by (not its title)");
+  assert.deepEqual(loan.backing.datasources[0].mapping, { loan_id: "id", title: "disp", amount: "amt" });
+  assert.deepEqual(borrower.backing.datasources, [], "a set of another type, or of another ontology's, backs nothing here");
+  assert.equal(borrower.primaryKey, "name", "an unbacked type keeps its title property as its key");
+  const entity = ONTOLOGY.objectTypeEntityOf(m, loan);
+  assert.equal(entity.datasources.length, 1);
+  assert.equal(entity.datasources[0].datasource.type, "dataset");
+  assert.deepEqual(Object.values(entity.datasources[0].datasource.dataset.propertyMapping).sort(), ["amt", "disp", "id"]);
+  assert.deepEqual(Object.keys(entity.entityMetadata.entityConfig.objectDbTypeConfigs), ["highbury"], "its objects are held in the object store");
+  assert.deepEqual(ONTOLOGY.objectTypeEntityOf(m, borrower).datasources, [], "the reference's own 'Backing datasource is missing' stays true");
+  assert.deepEqual(ONTOLOGY.objectTypeEntityOf(m, borrower).entityMetadata.entityConfig.objectDbTypeConfigs, {});
+  const views = ONTOLOGY.objectViewsOf({ objectTypes: [{ rid: loan.rid }, { rid: borrower.rid }] }, [m]).views;
+  assert.equal(views[0].resolved.views.length, 1); assert.equal(views[1].resolved.views.length, 0);
+  assert.equal(ONTOLOGY.objectTypeFunnelStatusOf({ objectType: loan.rid }, [m]).activePipeline.batch.objectDbs[0].bootstrapped, "COMPLETE");
+  assert.equal(ONTOLOGY.objectTypeFunnelStatusOf({ objectType: borrower.rid }, [m]).activePipeline, null);
+  const loaded = ONTOLOGY.datasourcesOf({ objectTypes: { [loan.rid]: "v", [borrower.rid]: "v" } }, [m]);
+  assert.equal(loaded.objectTypes[loan.rid].length, 1); assert.deepEqual(loaded.objectTypes[borrower.rid], []);
+  const schema = ONTOLOGY.datasetSchemaOf([m], loan.backing.datasources[0].datasetRid);
+  assert.deepEqual(schema.schema.fieldSchemaList.map((f) => `${f.name}:${f.type}`), ["id:STRING", "disp:STRING", "amt:DOUBLE"]);
+  assert.equal(ONTOLOGY.datasetSchemaOf([m], "ri.foundry.main.dataset.00000000-0000-0000-0000-000000000000"), null);
+});
+
+test("O8: object sets evaluate over the materialized objects — keyword and exact filters, union, subtraction, static rids, temporary sets; an unknown construct is refused by name, never an empty set", () => {
+  const models = o8Models();
+  const ctx = { models, temporary: new Map() };
+  const base = { type: "base", base: { objectTypeId: "loan" } };
+  const keys = (os) => ONTOLOGY.evaluateObjectSet(os, ctx).map((e) => e.o.key);
+  assert.deepEqual(keys(base), ["L-1", "L-2", "L-3"]);
+  assert.deepEqual(keys({ type: "filtered", filtered: { objectSet: base, filter: { type: "multiMatch", multiMatch: { query: "sec", fuzzy: false, propertySet: { type: "allProperties", allProperties: {} } } } } }), ["L-2"], "a keyword begins a word");
+  assert.deepEqual(keys({ type: "filtered", filtered: { objectSet: base, filter: { type: "exactMatch", exactMatch: { propertyId: "title", terms: ["Third Loan"] } } } }), ["L-3"]);
+  assert.deepEqual(keys({ type: "filtered", filtered: { objectSet: base, filter: { type: "exactMatch", exactMatch: { propertyId: "title", terms: ["loan"] } } } }), [], "an exact match is exact");
+  const loanWord = { type: "filtered", filtered: { objectSet: base, filter: { type: "multiMatch", multiMatch: { query: "loan", fuzzy: false, propertySet: { type: "propertyWhitelist", propertyWhitelist: { properties: ["title"] } } } } } };
+  assert.deepEqual(keys({ type: "subtracted", subtracted: { objectSets: [base, loanWord] } }), [], "the reference's 'other matches' set");
+  assert.deepEqual(keys({ type: "filtered", filtered: { objectSet: base, filter: { type: "not", not: { filter: { type: "hasProperty", hasProperty: { propertyId: "amount" } } } } } }), []);
+  const rid = ONTOLOGY.evaluateObjectSet(base, ctx)[1].o.rid;
+  assert.deepEqual(keys({ type: "static", static: { objectRids: [rid] } }), ["L-2"]);
+  assert.deepEqual(keys({ type: "staticV2", staticV2: { objectIdentifiers: [{ objectRid: rid, type: "objectRid" }] } }), ["L-2"]);
+  const t = ONTOLOGY.temporaryObjectSetRidOf("principal://a", base);
+  ctx.temporary.set(t, base);
+  assert.deepEqual(keys({ type: "referenced", referenced: { objectSetRid: t } }), ["L-1", "L-2", "L-3"]);
+  assert.throws(() => keys({ type: "searchAround", searchAround: {} }), ONTOLOGY.ObjectSetNotBound);
+  assert.throws(() => keys({ type: "referenced", referenced: { objectSetRid: "ri.object-set.main.versioned-object-set.x" } }), ONTOLOGY.ObjectSetNotBound, "a saved object set is not kept");
+  assert.throws(() => keys({ type: "filtered", filtered: { objectSet: base, filter: { type: "geoBoundingBox" } } }), ONTOLOGY.ObjectSetNotBound);
+});
+
+test("O8: a page of objects, their aggregates and the types a set spans are the materialized objects' own", () => {
+  const models = o8Models(); const ctx = { models, temporary: new Map() };
+  const base = { type: "base", base: { objectTypeId: "loan" } };
+  const page = ONTOLOGY.objectsPageOf({ objectSet: base, pageSize: 2, responseOptions: { includeObjectSetEntities: true } }, ctx);
+  assert.equal(page.totalResults, 3); assert.equal(page.results.length, 2); assert.equal(page.nextPageToken, "2");
+  const loan = models[0].objectTypes[0];
+  const title = loan.properties.find((p) => p.id === "title"), amount = loan.properties.find((p) => p.id === "amount");
+  assert.deepEqual(page.results[0].properties[amount.rid], { type: "double", double: 1250.5 });
+  assert.deepEqual(Object.values(page.results[0].primaryKey), [{ type: "string", string: "L-1" }]);
+  assert.equal(page.objectSetEntities.objectTypeRids[0], loan.rid);
+  const next = ONTOLOGY.objectsPageOf({ objectSet: base, pageSize: 2, pageToken: "2" }, ctx);
+  assert.deepEqual(next.results.map((r) => r.title), ["Third Loan"]); assert.equal(next.nextPageToken, null);
+  const desc = ONTOLOGY.objectsPageOf({ objectSet: base, pageSize: 5, resultOrdering: { type: "propertyValue", propertyValue: { propertyOrdering: [{ propertyId: "amount", direction: "DESC" }] } } }, ctx);
+  assert.deepEqual(desc.results.map((r) => r.title), ["Second Loan", "First Loan", "Third Loan"]);
+  assert.deepEqual(ONTOLOGY.objectsPageOf({ objectSet: base, pageSize: 5, propertySet: { type: "selected", selected: { propertySelection: { propertyId: { propertyIds: ["title"] } } } } }, ctx).results[0].properties, { [title.rid]: { type: "string", string: "First Loan" } });
+  const agg = ONTOLOGY.aggregateOf({ objectSet: base, aggregation: { metrics: { c: { type: "count", count: {} }, hi: { type: "max", max: { propertyId: "amount" } }, lo: { type: "min", min: { propertyId: "amount" } } },
+    subAggregations: {
+      byType: { type: "metrics", metrics: { dimension: { type: "objectType", objectType: { bucketing: { maxBuckets: 1 } } }, metrics: { n: { type: "count", count: {} } }, ordering: [], subAggregations: {} } },
+      byTitle: { type: "metrics", metrics: { dimension: { type: "propertyValue", propertyValue: { propertyId: "title", bucketing: { type: "exactValue", exactValue: { maxBuckets: 2, valueFilter: { type: "excludeValues", excludeValues: { values: [] } } } } } }, metrics: { n: { type: "count", count: {} } }, ordering: [{ type: "valueOrdering", valueOrdering: { direction: "DESCENDING", metricName: "n" } }], subAggregations: {} } },
+      byAmount: { type: "metrics", metrics: { dimension: { type: "propertyValue", propertyValue: { propertyId: "amount", bucketing: { type: "numeric", numeric: { type: "fixedWidth", fixedWidth: { bucketWidth: 1000, excludeEmptyBuckets: true } } } } }, metrics: { n: { type: "count", count: {} } }, ordering: [], subAggregations: {} } },
+    } } }, ctx).result;
+  assert.deepEqual([agg.metrics.c, agg.metrics.hi, agg.metrics.lo], [3, 90000, 42]);
+  assert.deepEqual(agg.subAggregations.byType.buckets.map((b) => [b.key, b.metrics.n]), [["loan", 3]]);
+  assert.equal(agg.subAggregations.byTitle.buckets.length, 2); assert.equal(agg.subAggregations.byTitle.itemsInOtherBuckets, 1);
+  assert.deepEqual(agg.subAggregations.byAmount.buckets.map((b) => [b.key, b.metrics.n]), [["0.0", 1], ["1000.0", 1], ["90000.0", 1]]);
+  assert.deepEqual(ONTOLOGY.objectSetObjectTypesOf({ objectSet: base }, ctx), { objectTypeIds: ["loan"], objectTypeRids: [loan.rid] });
+  // no backing: a type's base set holds nothing (not a refusal: the type exists and has no materialized objects)
+  assert.equal(ONTOLOGY.objectsPageOf({ objectSet: { type: "base", base: { objectTypeId: "borrower" } } }, ctx).totalResults, 0);
+});
+
+test("O8: Object Explorer's reads — the type search, counts, an object and its view — answer over the materialized objects; no link can be followed and no object view is kept", () => {
+  const models = o8Models();
+  const loan = models[0].objectTypes[0];
+  const found = ONTOLOGY.searchObjectTypesOf({ clause: { type: "and", and: [{ type: "status", status: "EXPERIMENTAL" }, { type: "visibility", visibility: "NORMAL" }] }, pageSizeLimit: 250 }, models);
+  assert.equal(found.totalResults, 2);
+  assert.equal(ONTOLOGY.searchObjectTypesOf({ clause: { type: "and", and: [{ type: "status", status: "ACTIVE" }, { type: "visibility", visibility: "NORMAL" }] } }, models).totalResults, 0, "a draft's types are experimental");
+  const facts = (name, variables) => ONTOLOGY.explorerGraphqlFacts(name, variables, { models, owner: O8_OWNER });
+  assert.equal(facts("ObjectTypeUsageMetricsQuery", { rid: loan.rid }).objectType.objectCount, 3);
+  assert.equal(facts("ObjectTypeCountQuery", { filter: { clauses: [{ objectTypeDisplayNameContains: "loa" }] } }).objectTypesV2.totalNumberOfResults, 1);
+  const objects = facts("ObjectsQuery", { objectTypeIdentifier: { rid: loan.rid }, pageSize: 30, searchTerm: "third" }).defaultOrGlobalBranch.objectType.objectsV3.values;
+  assert.deepEqual(objects.map((o) => o.title), ["Third Loan"]);
+  const rid = objects[0].rid;
+  const table = facts("ObjectViewCorePropertiesTableQuery", { objectRid: rid }).defaultOrGlobalBranch.object;
+  assert.deepEqual(table.properties.map((p) => p.value.value), ["L-3", "Third Loan", 42]);
+  assert.deepEqual(facts("ProminentPropertiesQuery", { objectRid: rid }).defaultOrGlobalBranch.object.properties, [], "no property is marked prominent");
+  assert.deepEqual(facts("ObjectLinkTypesQuery", { objectRid: rid }).defaultOrGlobalBranch.object.type.latest.linksIncludingLinksToObjectTypesWithoutSearchableDatasources, []);
+  assert.equal(facts("ObjectViewFullVersionQuery", { objectTypeRid: loan.rid }).defaultOrGlobalBranch.objectType.objectViewConfiguration, null, "no object view is saved or published");
+  assert.match(facts("ResolveObjectViewRidQuery", { objectTypeRid: loan.rid }).objectType.objectViewConfiguration.rid, /^ri\.hubble-server\.main\.object-view\./u, "the reference's default view");
+  assert.deepEqual(ONTOLOGY.linkTypesForObjectTypesOf({ objectTypeVersions: { [loan.rid]: "v" } }, models, { traversableOnly: true }).linkTypes[loan.rid], []);
+  assert.deepEqual(ONTOLOGY.objectViewPermissionsOf({ hasEditPermission: ["loan"], hasPublishPermission: ["loan", "nope"] }, models), { hasEditPermission: { loan: false }, hasPublishPermission: { loan: false } });
+  assert.equal(facts("ObjectTypeSemanticSearchUnavailableReasonQuery", {}).objectTypeSemanticSearchUnavailableReason !== null, true, "no semantic index is kept");
+});
+
+test("O8: a backed type's edit saves as the daemon's ODK patch at the expected revision; what an ODK model does not keep is refused by name", () => {
+  const models = o8Models();
+  const [m] = models; const loan = m.objectTypes[0];
+  const props = Object.fromEntries(loan.properties.map((p) => [p.id, { displayMetadata: { displayName: p.name, description: null, visibility: "NORMAL" }, id: p.id, apiName: ONTOLOGY.camel(p.name), type: ONTOLOGY.baseTypeOf(p.base), typeClasses: ONTOLOGY.renderHintsOf(p), status: { type: "experimental", experimental: {} } }]));
+  const edit = (patch = {}, top = {}) => ({ expectedOntologyVersion: m.version, objectTypes: { loan: { type: "update", update: { objectType: { displayMetadata: { description: "A loan on the book", displayName: "Loan", groupDisplayName: null, icon: { type: "blueprint", blueprint: { color: "#5F6B7C", locator: "cube" } }, pluralDisplayName: "Loan", visibility: "NORMAL" },
+    id: "loan", apiName: "Loan", primaryKeys: ["loan_id"], propertyTypes: props, status: { type: "experimental", experimental: {} }, titlePropertyTypeId: "title", traits: { workflowObjectTypeTraits: {} }, implementsInterfaces: [], implementsInterfaces2: [], sharedPropertyTypes: {}, typeGroups: [], ...patch } } } }, ...top });
+  const ok = ONTOLOGY.ontologySaveStepOf(edit(), models, m.rid);
+  assert.equal(ok.refusal, undefined, JSON.stringify(ok.refusal));
+  assert.equal(ok.draftId, "ont_1"); assert.equal(ok.body.expected_revision, 2);
+  const saved = ok.body.canonical_object_model.object_types.find((o) => o.id === "loan");
+  assert.equal(saved.description, "A loan on the book"); assert.equal(saved.title_property, "title");
+  assert.deepEqual(saved.properties.map((p) => p.value_type), ["string", "string", "money"], "an unchanged property keeps its declared value type");
+  assert.deepEqual(ok.body.canonical_object_model.object_types.find((o) => o.id === "borrower"), drafts[0].canonical_object_model.object_types[1], "another type is untouched");
+  const renamed = ONTOLOGY.ontologySaveStepOf(edit({ propertyTypes: { ...props, title: { ...props.title, displayMetadata: { displayName: "Name", description: "What it is called", visibility: "NORMAL" } }, note: { displayMetadata: { displayName: "Note", visibility: "NORMAL" }, type: { type: "string", string: {} }, typeClasses: [{ kind: "render_hint", name: "SELECTABLE" }] } } }), models, m.rid);
+  const t = renamed.body.canonical_object_model.object_types.find((o) => o.id === "loan");
+  assert.deepEqual(t.properties.map((p) => `${p.id}:${p.name}`), ["loan_id:Loan Id", "title:Name", "amount:Amount", "note:Note"], "a renamed and an added property");
+  assert.equal(t.properties.find((p) => p.id === "title").description, "What it is called");
+  const refused = (r) => ONTOLOGY.ontologySaveStepOf(r, models, m.rid).refusal?.code;
+  assert.equal(refused(edit({ primaryKeys: ["title"] })), "Hypervisor:OntologyEditNotBound", "the key its mapping keys by");
+  assert.equal(refused(edit({ propertyTypes: { ...props, amount: { ...props.amount, type: { type: "string", string: {} } } } })), "Hypervisor:OntologyEditNotBound", "a mapped property's type");
+  assert.equal(refused(edit({ propertyTypes: { loan_id: props.loan_id, amount: props.amount } })), "Hypervisor:OntologyEditNotBound", "removing a mapped property");
+  assert.equal(refused(edit({ status: { type: "active", active: {} } })), "Hypervisor:OntologyEditNotBound");
+  assert.equal(refused(edit({}, { actionTypesToUpdate: { x: {} } })), "Hypervisor:OntologyEditNotBound", "only object types are saved here");
+  assert.equal(refused(edit({}, { objectTypeDatasources: { loan: [{ type: "update", update: { rid: "x", objectTypeDatasourceDefinition: { type: "datasetV2", datasetV2: { datasetRid: "ri.foundry.main.dataset.x", propertyMapping: {} } } } }] } })), "Hypervisor:OntologyEditNotBound", "the backing is its materialized sets");
+  assert.equal(refused({ ...edit(), objectTypes: { newtype: { type: "create", create: {} } } }), "Hypervisor:OntologyEditNotBound", "a new type needs a backing datasource");
+  assert.equal(refused({ ...edit(), expectedOntologyVersion: "00000002-deadbeef" }), "Hypervisor:OntologyEditNotBound", "a version that is not this draft's");
+  const unbacked = ONTOLOGY.ontologyModelsOf([o8Draft], O8_OWNER, familyOf, []);
+  assert.match(ONTOLOGY.ontologySaveStepOf(edit(), unbacked, m.rid).refusal.message, /no backing datasource/u);
+  const member = ONTOLOGY.ontologyModelsOf([{ ...o8Draft, caller_may_change: false }], O8_OWNER, familyOf, o8Sets);
+  assert.match(ONTOLOGY.ontologySaveStepOf(edit(), member, m.rid).refusal.message, /owner, or an administrator/u);
+  // the save's answer and the diff the reference reloads after it
+  assert.deepEqual(ONTOLOGY.ontologySaveAnswerOf(m, 3, ["loan"]).createdActionTypes, []);
+  const diff = ONTOLOGY.ontologyDiffOf(m, { baseOntologyVersion: ONTOLOGY.draftVersionOf("ont_1", 1), newOntologyVersion: m.version });
+  assert.deepEqual(Object.values(diff.diff.affectedObjectTypes), ["UPDATED"]);
+  assert.equal(ONTOLOGY.ontologyDiffOf(m, { baseOntologyVersion: "x", newOntologyVersion: m.version }), null);
 });

@@ -18,19 +18,30 @@
 //   - no read reaches the mirror but the reference's chrome, an unbound read is a named gap (never the serve's HTML
 //     page), and a GraphQL batch on the surface is answered by the adopted layer (it had returned a recorded tenant
 //     module);
-//   - with the daemon stopped, each page shows its error rather than an empty ontology.
+//   - with the daemon stopped, each page shows its error rather than an empty ontology;
+//   - (cut O8) a type backed by its materialized object set: the stack runs a sealed local authority of its own, and one
+//     materializing run of the loan type is taken through it (its lease and sealed session by the daemon's parked challenges and
+//     the operator's passphrase, its source contact by the operator's own approve act for the exact hashes the daemon refused),
+//     so the daemon registers a set of the rows a local source served. The Ontology Manager then reads the set as the type's
+//     backing datasource and object store (Datasources, Index status), and its edit saves as the daemon's ODK patch at the
+//     expected revision (anything else in a save is refused by name). Object Explorer's keyword search, a result's object view
+//     and an exploration show exactly the set's rows.
 //
-// Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, or the local mirror cannot boot the reference app).
-//   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
-//   node apps/hypervisor/scripts/verify-hypervisor-adopted-ontology.mjs
+// Exit: 0 pass · 1 fail · 2 blocked (no daemon or authority binary, or the local mirror cannot boot the reference app).
+//   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon (the authority: IOI_WALLET_AUTHORITY_BINARY)
+//   node apps/hypervisor/scripts/verify-hypervisor-adopted-ontology.mjs   (the authority starts a chain: allow several minutes)
 
 import { spawn } from "node:child_process";
+import http from "node:http";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { startLocalAuthority, approveGrant, DEFAULT_BINARY as AUTHORITY_BINARY, OPERATOR_PASS_ENV } from "./lib/wallet-network-local-authority.mjs";
+import { sanitizedVerifierBaseEnv } from "./lib/isolated-daemon.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
@@ -47,27 +58,35 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const freePort = () => new Promise((r) => { const s = net.createServer(); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => r(p)); }); });
 const waitFor = async (url, ms = 60000) => { const end = Date.now() + ms; while (Date.now() < end) { try { const r = await fetch(url); if (r.status < 500) return true; } catch { /* not yet */ } await sleep(300); } return false; };
 
-let daemon = null, serve = null;
+let daemon = null, serve = null, authority = null, rowServer = null;
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-ontology-"));
+const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-ontology-authority-"));
+// unique per run: the passphrase seals this run's authority keys and appears nowhere the adopted app can reach
+const OPERATOR_PASS = `adopted-ontology-${randomBytes(12).toString("hex")}`;
 
 async function run() {
-  if (!fs.existsSync(BIN)) { console.log(`BLOCKED: no daemon binary at ${BIN}`); process.exit(2); }
+  if (!fs.existsSync(BIN) || !fs.existsSync(process.env.IOI_WALLET_AUTHORITY_BINARY || AUTHORITY_BINARY)) { console.log(`BLOCKED: no daemon (${BIN}) or authority binary`); process.exit(2); }
   if (!(await fetch(`${MIRROR}/workspace/ontology/`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local mirror (${MIRROR}) does not boot /workspace/ontology/`); process.exit(2); }
+  // (cut O8) the stack's own sealed deployment authority: a materializing run obtains its lease, opens its sealed session and
+  // contacts its source only with grants it mints (the serve names no authority binary or state dir: it holds no key)
+  delete process.env[OPERATOR_PASS_ENV];
+  authority = await startLocalAuthority({ stateDir, principalRef: "domain://adopted-ontology", operatorPass: OPERATOR_PASS, log: () => {} })
+    .catch((e) => { console.log(`BLOCKED: the local authority never became ready: ${String(e.message).split("\n")[0]}`); try { fs.rmSync(stateDir, { recursive: true, force: true }); fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* keep */ } process.exit(2); });
   const daemonPort = await freePort();
   const DAEMON = `http://127.0.0.1:${daemonPort}`;
   let log = "";
-  daemon = spawn(BIN, [], { cwd: ROOT, env: { ...process.env, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`, IOI_HYPERVISOR_DATA_DIR: dataDir, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:1/v1" }, stdio: ["ignore", "pipe", "pipe"] });
+  daemon = spawn(BIN, [], { cwd: ROOT, env: { ...sanitizedVerifierBaseEnv(process.env), ...authority.daemonEnv, IOI_WALLET_TEST_SIGNER: "", IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`, IOI_HYPERVISOR_DATA_DIR: dataDir, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:1/v1" }, stdio: ["ignore", "pipe", "pipe"] });
   daemon.stdout.on("data", (c) => (log += c)); daemon.stderr.on("data", (c) => (log += c));
   await waitFor(`${DAEMON}/healthz`);
   const token = log.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1);
   const boot = await (await fetch(`${DAEMON}/v1/hypervisor/auth/bootstrap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, password: "adopted-ontology-bootstrap-v1", email: "ontology@ioi.local" }) })).json();
   const COOKIE = `ioi_session=${boot.session_token}`;
-  const d = (method, route, body) => fetch(`${DAEMON}${route}`, { method, headers: { cookie: COOKIE, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
+  const d = (method, route, body) => fetch(`${DAEMON}${route}`, { method, headers: { cookie: COOKIE, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(900000) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
   const servePort = await freePort();
   const SERVE = `http://127.0.0.1:${servePort}`;
   serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
     cwd: APP,
-    env: { ...process.env, PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: MIRROR },
+    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: MIRROR },
     stdio: ["ignore", "pipe", "pipe"],
   });
   await waitFor(`${SERVE}/__ioi/login`);
@@ -434,7 +453,8 @@ async function run() {
     const refusedSave = await O.waitText(/Hypervisor:OntologyEditNotBound/u, 15);
     const afterActionSave = await ontologyNow();
     ok("an action type's edit (it needs no datasource) reaches Save changes, and the save is refused by name (Hypervisor:OntologyEditNotBound): the daemon's ontology keeps its revision and the action type its description",
-      /Failed to save changes to the ontology/u.test(refusedSave) && /Hypervisor:OntologyEditNotBound/u.test(refusedSave) && /Saving from the Ontology Manager is not bound yet/u.test(refusedSave)
+      // (since cut O8 the save is answered by the ODK-patch step, which saves only a materialized object type's edits)
+      /Failed to save changes to the ontology/u.test(refusedSave) && /Hypervisor:OntologyEditNotBound/u.test(refusedSave) && /Only a materialized object type's edits are saved from here/u.test(refusedSave)
         && afterActionSave.revision === ownerNow.revision && !afterActionSave.canonical_object_model?.action_types?.find((a) => a.id === "approve")?.description,
       `${after(refusedSave, "Failed to save changes", 110)} · revision ${ownerNow.revision} → ${afterActionSave.revision}`);
 
@@ -491,6 +511,194 @@ async function run() {
       personGaps.map((s, i) => `${i ? "owner" : "member"}: passthrough ${[...s.passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · unnamed ${[...s.unnamed].join(",") || "none"} · html ${[...s.html].join(",") || "none"} · gql ${[...s.gql].filter((m) => !allowedGql(m)).slice(0, 2).join(" | ") || "named only"} · page ${s.pageErrors.filter((m) => !allowedGql(m)).slice(0, 1).join("") || "none"}`).join(" ‖ "));
     await M.page.context().close(); await O.page.context().close();
 
+
+    // ---- cut O8: a type backed by its materialized object set -------------------------------------------------------------
+    // One materializing run of the loan type through the stack's own sealed authority. The source is a local server that
+    // answers the sealed bearer only. The lease and the sealed session are each granted through the daemon's parked challenge
+    // and the operator's passphrase; the source contact (the execute, which parks no challenge) through the operator's own
+    // approve act for the exact hashes the daemon refused — the authority's CLI, the operator's act (the serve holds no key).
+    const BEARER = `adopted-ontology-${randomBytes(8).toString("hex")}`;
+    const sourceRows = [{ id: "L-1", disp: "First Loan", amt: 1250.5 }, { id: "L-2", disp: "Second Loan", amt: 90000 }, { id: "L-3", disp: "Third Loan", amt: 42 }];
+    let sourceHits = 0;
+    rowServer = http.createServer((req, res) => { sourceHits++; if (req.headers.authorization !== `Bearer ${BEARER}`) { res.writeHead(401); return res.end(); } res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(sourceRows)); });
+    await new Promise((r) => rowServer.listen(0, "127.0.0.1", r));
+    const origin = `http://127.0.0.1:${rowServer.address().port}`;
+    const ontO8 = await ontologyNow();
+    const k8 = (t) => `adopted-ontology-o8-${t}-${process.pid}`;
+    const src = await d("POST", "/v1/hypervisor/data-sources", { name: "Loan book API", kind: "rest_api", endpoint: `${origin}/rows`, credential_posture: "wallet_credential_lease" });
+    const sourceId = src.j.data_source?.source_id;
+    const mapping = await d("POST", "/v1/hypervisor/odk/connector-mappings", { owner_ref: owner, idempotency_key: k8("mapping"), name: "loans-map", data_source_id: sourceId, ontology_ref: ontO8.ref, object_type_id: "loan",
+      key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" }, title_mapping: { source_field: "disp", property_id: "title", source_type: "string" }, field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }] });
+    const mappingId = mapping.j.connector_mapping?.id;
+    const view8 = await d("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: mappingId, name: "loans-gate", authority_subjects: ["agent://materializer"], allowed_operations: ["read", "transform"], purpose: "loan book", property_scope: ["loan_id", "title", "amount"], retention_posture: "bounded" });
+    const viewId = view8.j.policy_bound_data_view?.id;
+    const transform = await d("POST", "/v1/hypervisor/odk/transformation-runs", { owner_ref: owner, idempotency_key: k8("transform"), connector_mapping_id: mappingId, policy_view_id: viewId, name: "loans-transform" });
+    const transformId = transform.j.transformation_run?.id;
+    await d("POST", `/v1/hypervisor/odk/transformation-runs/${transformId}/dry-run`);
+    const projection = await d("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: mappingId, policy_view_id: viewId, name: "loans-explorer", visible_properties: ["loan_id", "title", "amount"] });
+    const plan = await d("POST", "/v1/hypervisor/odk/capability-lease-plans", { data_source_id: sourceId, connector_mapping_id: mappingId, policy_view_id: viewId, transformation_run_id: transformId, ontology_projection_id: projection.j.ontology_projection?.id, name: "Loan import", subject: "agent://materializer", ttl_seconds: 1800 });
+    const planId = plan.j.capability_lease_plan?.id;
+    const connector = await d("POST", "/v1/hypervisor/connectors", { service: "adopted-ontology-o8", base_url: origin, name: "Loan book connector" });
+    const connectorId = connector.j.connector?.connector_id || connector.j.connector_id;
+    const credential = await d("POST", `/v1/hypervisor/connectors/${connectorId}/credential`, { token: BEARER });
+    const decided = [];
+    const decide = async (first) => {
+      const id = first.j.approval_challenge?.challenge_id;
+      if (first.status !== 403 || !id) return null;
+      const r = await d("POST", `/v1/hypervisor/authority/challenges/${id}/decision`, { decision: "approve", reason: "adopted Ontology Manager verifier (O8)", operator_passphrase: OPERATOR_PASS });
+      decided.push(r.status);
+      return r.status === 200 ? r.j.approval_ref : null;
+    };
+    const run8 = (await d("POST", "/v1/hypervisor/odk/materializing-runs", { capability_lease_plan_id: planId, name: "loans-run-1" })).j.materializing_run?.id;
+    const lease1 = await d("POST", `/v1/hypervisor/odk/materializing-runs/${run8}/acquire-lease`, {});
+    const lease2 = await d("POST", `/v1/hypervisor/odk/materializing-runs/${run8}/acquire-lease`, { wallet_approval_grant: { approval_ref: await decide(lease1) } });
+    const session8 = (await d("POST", "/v1/hypervisor/odk/connector-sessions", { materializing_run_id: run8, connector_id: connectorId, name: "loans-session" })).j.connector_session?.id;
+    const open1 = await d("POST", `/v1/hypervisor/odk/connector-sessions/${session8}/open`, {});
+    const open2 = await d("POST", `/v1/hypervisor/odk/connector-sessions/${session8}/open`, { wallet_approval_grant: { approval_ref: await decide(open1) } });
+    const ask = await d("POST", `/v1/hypervisor/odk/materializing-runs/${run8}/execute`, { connector_session_id: session8, limit: 10 });
+    const audience = lease1.j.approval?.audience || lease1.j.approval_challenge?.audience || lease1.j.error?.approval?.audience || null;
+    const minted = ask.status === 403 && ask.j.approval?.policy_hash && audience
+      ? approveGrant({ stateDir, operatorPass: OPERATOR_PASS, policyHash: ask.j.approval.policy_hash, requestHash: ask.j.approval.request_hash, audience, targetScope: "scope:hypervisor.live-route.materializing-run-execute", reason: "adopted Ontology Manager verifier (O8): the source contact" })
+      : { ok: false, grant: null, stderr: `no execute hashes (${ask.status} ${ask.j.error?.code || ""}) or audience (${audience})` };
+    const executed = minted.grant ? await d("POST", `/v1/hypervisor/odk/materializing-runs/${run8}/execute`, { connector_session_id: session8, limit: 10, wallet_approval_grant: minted.grant }) : { status: 0, j: {} };
+    const theSet = ((await d("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || []).find((x) => x.ref && x.ref === executed.j.materialized_object_set?.ref) || null;
+    const setRows = (theSet?.objects || []).map((o) => `${o.object_key}:${o.title}:${o.properties?.amount}`).sort();
+    ok("PRECONDITION (O8): one materializing run of the loan type through the stack's sealed authority — lease and sealed session by the daemon's parked challenges and the operator's passphrase, the source contact by the operator's approve act for the hashes the daemon refused — registers a set of exactly the source's rows, bound to the ontology and type",
+      mapping.status < 300 && plan.status === 201 && credential.status === 200 && lease2.status === 200 && open2.status === 200 && decided.length === 2 && decided.every((x) => x === 200)
+        && ask.status === 403 && ask.j.error?.code === "execution_authority_required" && executed.status === 200 && executed.j.materializing_run?.status === "executed"
+        && theSet?.ontology_ref === ontO8.ref && theSet?.object_type_id === "loan" && JSON.stringify(setRows) === JSON.stringify(sourceRows.map((r) => `${r.id}:${r.disp}:${r.amt}`).sort()) && sourceHits === 1,
+      `plan ${plan.status} · lease ${lease1.status}→${lease2.status} · session ${open1.status}→${open2.status} · decisions ${decided.join(",")} · execute ${ask.status} ${ask.j.error?.code || ""} → ${executed.status} ${executed.j.materializing_run?.status || executed.j.error?.code || (minted.stderr || "").slice(-160)} · set ${theSet?.id || "none"} ${setRows.join(" ")} · source hits ${sourceHits}`);
+
+    // the Ontology Manager reads the set as the type's backing datasource and object store; the type's edit then saves as the
+    // daemon's ODK patch at the expected revision
+    const P = await personPage(boot.session_token);
+    const dsTab = await P.go("/workspace/ontology/object-type/loan/datasources", /Backing datasource/u);
+    const dsCard = await P.waitText(/Replace|No datasource selected/u, 12);
+    const loanOverview = await P.go("/workspace/ontology/object-type/loan/overview", /Index status (Indexed|Running)/u);
+    const borrowerDs = await P.go("/workspace/ontology/object-type/borrower/datasources", /No datasource selected|Backing datasource/u);
+    // (daemon truth: the datasource the pages load is the sync's own dataset — Data Connection's rid for the lease plan — mapping each
+    // property from the source field its connector mapping names)
+    const entities = await fetch(`${SERVE}/ontology-metadata/api/ontology/ontology/bulkLoadEntities`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}/workspace/ontology/object-type/loan/overview` },
+      body: JSON.stringify({ objectTypes: [{ identifier: { objectTypeId: "loan", type: "objectTypeId" } }, { identifier: { objectTypeId: "borrower", type: "objectTypeId" } }] }) }).then((r) => r.json()).catch(() => ({}));
+    const [loanEntity, borrowerEntity] = ["loan", "borrower"].map((id) => (entities.objectTypes || []).find((e) => e.objectType?.id === id) || {});
+    const { syncDatasetRidOf } = await import(path.join(HERE, "adopted-data-connection.mjs"));
+    const served = loanEntity.datasources?.[0]?.datasource?.dataset || {};
+    ok("the Ontology Manager reads a materialized type's set as its backing datasource — its sync's own dataset, each property mapped from the source field its connector mapping names — and its object store (Index status Indexed); a type no set materializes keeps the reference's own \"No datasource selected\"",
+      /Backing datasource/u.test(dsTab) && /Replace/u.test(dsCard) && !/No datasource selected/u.test(dsCard) && /Index status Indexed/u.test(loanOverview) && /No datasource selected/u.test(borrowerDs)
+        && loanEntity.datasources?.length === 1 && served.datasetRid === syncDatasetRidOf(planId) && JSON.stringify(Object.values(served.propertyMapping || {}).sort()) === JSON.stringify(["amt", "disp", "id"])
+        && Object.keys(loanEntity.entityMetadata?.entityConfig?.objectDbTypeConfigs || {}).length === 1 && (borrowerEntity.datasources || [null]).length === 0,
+      `${after(dsCard, "Backing datasource", 60)} · ${after(loanOverview, "Index status", 22)} · served ${served.datasetRid === syncDatasetRidOf(planId) ? "the sync's dataset" : served.datasetRid} ${JSON.stringify(served.propertyMapping ? Object.values(served.propertyMapping) : null)} · borrower: ${after(borrowerDs, "No datasource", 22)}`);
+
+    const beforeSave = await ontologyNow();
+    await P.go("/workspace/ontology/object-type/loan/overview", /Last edited/u);
+    await P.page.waitForTimeout(1500);
+    await P.page.getByText(/^A loan on the book/u).first().click({ timeout: 8000 }).catch(() => {});
+    await P.page.waitForTimeout(500);
+    await P.page.keyboard.press("Control+A");
+    await P.page.keyboard.type("A loan held on the book");
+    await P.page.keyboard.press("Enter");
+    await P.waitText(/1 edit/u, 8);
+    await P.page.getByRole("button", { name: "Save", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    const review8 = await P.waitText(/Save to ontology/u, 20);
+    await P.page.waitForTimeout(2000);
+    const saveBtn = P.page.getByRole("button", { name: /Save to ontology/u }).first();
+    const saveEnabled = !((await saveBtn.getAttribute("aria-disabled").catch(() => null)) === "true" || await saveBtn.isDisabled().catch(() => true));
+    const reviewText = await P.read();
+    await saveBtn.click({ timeout: 8000 }).catch(() => {});
+    await P.waitText(/Save changes to Ontology/u, 8);
+    await P.page.getByRole("button", { name: "Save changes", exact: true }).click({ timeout: 8000 }).catch(() => {});
+    const saved8 = await P.waitText(/Successfully reloaded latest Ontology|Failed to save/u, 20);
+    const afterSave = await ontologyNow();
+    const savedLoan = afterSave.canonical_object_model?.object_types?.find((o) => o.id === "loan") || {};
+    const lastHistory = (afterSave.history || []).at(-1) || {};
+    ok("a materialized type's edit reaches Save to ontology (enabled: no \"Backing datasource is missing\") and saves as the daemon's ODK patch at the revision it was made on: one receipted revision records the type UPDATED, and the page reloads it",
+      saveEnabled && !/Backing datasource is missing/u.test(reviewText) && /Successfully reloaded latest Ontology/u.test(saved8)
+        && afterSave.revision === beforeSave.revision + 1 && /^A loan held on the book/u.test(savedLoan.description || "") && lastHistory.affected?.object_types?.loan === "UPDATED" && /^agentgres:\/\/odk-ontology-receipt\//u.test(lastHistory.receipt_ref || ""),
+      `${after(review8, "Description", 60)} · Save to ontology ${saveEnabled ? "enabled" : "DISABLED"} · ${after(saved8, "Successfully", 40)} · revision ${beforeSave.revision} → ${afterSave.revision} · ${JSON.stringify(lastHistory.affected || null)}`);
+
+    // what a save may not carry is refused by name, and the daemon is untouched: the member (not the owner), a changed backing
+    const loadAll = await fetch(`${SERVE}/ontology-metadata/api/ontology/v2/load/all`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}/workspace/ontology/home/discover` }, body: "{}" }).then((r) => r.json()).catch(() => ({}));
+    const ontRid = Object.keys(loadAll.ontologies || {})[0] || "";
+    const modify = (cookie, body) => fetch(`${SERVE}/ontology-metadata/api/ontology/v2/modify?ontologyRid=${encodeURIComponent(ontRid)}`, { method: "POST", headers: { cookie, "content-type": "application/json", referer: `${SERVE}/workspace/ontology/object-type/loan/overview` }, body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
+    const version = ONT.draftVersionOf(afterSave.id, afterSave.revision);
+    const saveBody = (patch = {}, top = {}) => ({ expectedOntologyVersion: version, objectTypes: { loan: { type: "update", update: { objectType: { id: "loan", primaryKeys: ["loan_id"], displayMetadata: { displayName: "Loan", description: "The member's edit", icon: { type: "blueprint", blueprint: { color: "#5F6B7C", locator: "cube" } }, visibility: "NORMAL", groupDisplayName: null, pluralDisplayName: "Loan" }, status: { type: "experimental", experimental: {} }, propertyTypes: {}, ...patch } } } }, ...top });
+    const byMember = await modify(MEMBER_COOKIE, saveBody());
+    const newBacking = await modify(COOKIE, saveBody({}, { objectTypeDatasources: { loan: [{ type: "update", update: { rid: "ri.ontology.main.datasource.00000000-0000-0000-0000-000000000000", objectTypeDatasourceDefinition: { type: "datasetV2", datasetV2: { datasetRid: "ri.foundry.main.dataset.00000000-0000-0000-0000-000000000000", propertyMapping: {} } } } }] } }));
+    const untouched8 = await ontologyNow();
+    ok("a save the model cannot carry is refused by name and writes nothing: the member's (only its owner or an administrator of its organization may change it) and one that re-points the backing datasource (a materialized type's backing is its connector mapping's)",
+      byMember.status === 409 && byMember.j.errorName === "Hypervisor:OntologyEditNotBound" && /owner, or an administrator/u.test(byMember.j.parameters?.message || "")
+        && newBacking.status === 409 && newBacking.j.errorName === "Hypervisor:OntologyEditNotBound" && /materialized sets/u.test(newBacking.j.parameters?.message || "") && untouched8.revision === afterSave.revision,
+      `member ${byMember.status} ${(byMember.j.parameters?.message || "").slice(0, 70)} · backing ${newBacking.status} ${(newBacking.j.parameters?.message || "").slice(0, 70)} · revision ${afterSave.revision} → ${untouched8.revision}`);
+
+    // Object Explorer: its keyword search, a result's object view and an exploration over the loan type show exactly the set's
+    // rows. (Its object pages load the reference's current build; the local mirror's /workspace/hubble index must be that build.)
+    const X = await personPage(boot.session_token);
+    const catalog8 = await X.go("/workspace/hubble/", /2 of 3|3 of 3/u);
+    await X.page.getByPlaceholder(/Search for objects/u).first().click({ timeout: 8000 }).catch(() => {});
+    await X.page.keyboard.type("loan", { delay: 50 });
+    await X.page.waitForTimeout(2500);
+    await X.page.keyboard.press("Enter");
+    const keyword = await X.waitText(/objects? matching “loan”.*Object type details.*Loan Id|Something went wrong when trying to load|No results/u, 30);
+    const titles = ["First Loan", "Second Loan", "Third Loan"];
+    ok("Object Explorer's keyword search over the caller's objects lists exactly the materialized set's rows — the loan type's three objects, the type filter's count, and the first result's properties in the preview panel",
+      /3 objects matching “loan”/u.test(keyword) && /Loan 3/u.test(after(keyword, "Filter results by type", 60)) && titles.every((t) => keyword.includes(t))
+        && ["Loan Id L-1", "Title First Loan", "Amount 1250.5"].every((v) => after(keyword, "Object type details", 200).includes(v)) && !/Something went wrong when trying to load/u.test(keyword),
+      /Something went wrong when trying to load/u.test(keyword) ? `the local mirror's /workspace/hubble index loads a build whose object pages it lacks (refresh it to the harvested build): ${after(keyword, "Something went wrong", 80)}` : `${after(keyword, "objects matching", 150)} · ${after(keyword, "Object type details", 90)}`);
+    await X.page.getByText("Second Loan", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    const objectView = await X.waitText(/Properties .*Linked objects|Failed to load/u, 20);
+    // (the properties in the order the type now lists them)
+    const viewProps = objectView.slice(objectView.indexOf("Properties"), objectView.indexOf("Linked objects"));
+    ok("a search result opens its object view — the reference's default view of the object: its properties from the set (Loan Id L-2, Title Second Loan, Amount 90000), and no links it could follow (an ODK link names no join property)",
+      ["Loan Id L-2", "Title Second Loan", "Amount 90000"].every((v) => viewProps.includes(v)) && /Object has no links configured/u.test(objectView) && !/Failed to load/u.test(after(objectView, "Second Loan", 200)),
+      after(objectView, "Properties", 120));
+    await X.go("/workspace/hubble/", /2 of 3|3 of 3/u);
+    await X.page.getByText("Loan", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await X.waitText(/Results \d+ Results/u, 20);
+    await X.page.getByRole("tab", { name: /Results/u }).first().click({ timeout: 8000 }).catch(() => {});
+    // (each row holds its object's key, title and amount, in whichever column order the type lists its properties; waited for
+    // until the cells have loaded)
+    const rowIn = (t, title, next) => { const table = t.slice(t.indexOf("TITLE")); return table.slice(table.indexOf(title), next ? table.indexOf(next) : table.indexOf(title) + 60); };
+    let exploration = "";
+    for (let i = 0; i < 25; i++) { await X.page.waitForTimeout(800); exploration = await X.read(); if (/TITLE /u.test(exploration) && !/Loading/u.test(rowIn(exploration, "First Loan", "Third Loan") + rowIn(exploration, "Third Loan"))) break; }
+    const rowOf = (title, next) => rowIn(exploration, title, next);
+    ok("New exploration over the loan type reads its objects from the set: 3 results, and the Results table's rows are the set's rows (key, title, amount)",
+      /Results 3 Results/u.test(exploration) && ["L-1", "1,250.5"].every((v) => rowOf("First Loan", "Second Loan").includes(v)) && ["L-2", "90,000"].every((v) => rowOf("Second Loan", "Third Loan").includes(v))
+        && ["L-3", "42"].every((v) => rowOf("Third Loan").includes(v)),
+      after(exploration, "TITLE", 180));
+    // a filter from the exploration's own charts (a value of Title clicked, then Apply filter) narrows it over the set's rows
+    await X.page.getByRole("tab", { name: /Explore/u }).first().click({ timeout: 8000 }).catch(() => {});
+    const charts = await X.waitText(/Loan Id Experimental L-1 1 L-2 1 L-3 1/u, 15);
+    await X.page.getByText("Second Loan", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await X.waitText(/Apply filter|Keeping Loan matching/u, 8);
+    await X.page.getByRole("button", { name: /Apply filter/u }).first().click({ timeout: 8000 }).catch(() => {});
+    const filtered = await X.waitText(/Title is Second Loan Clear .*Results 1 Results/u, 15);
+    ok("the exploration's charts are the set's values (Loan Id, Title, Amount), and a value clicked and applied as a filter narrows it to the matching objects (Title is Second Loan: 1 result)",
+      /Loan Id Experimental L-1 1 L-2 1 L-3 1/u.test(charts) && /Title Experimental First Loan 1 Second Loan 1 Third Loan 1/u.test(charts) && /Title is Second Loan Clear/u.test(filtered) && /Results 1 Results/u.test(filtered),
+      `${after(charts, "Loan Id Experimental", 40)} · ${after(filtered, "Title is", 60)}`);
+    // the search's Object types tab, the Explorations panel and the landing's lists: the caller's types, and no saved exploration
+    // or list (none is kept — the reference's own empty answers)
+    const landing8 = await X.go("/workspace/hubble/", /2 of 3|3 of 3/u);
+    await X.page.getByPlaceholder(/Search for objects/u).first().click({ timeout: 8000 }).catch(() => {});
+    await X.page.keyboard.type("loan", { delay: 50 });
+    await X.page.waitForTimeout(2500);
+    await X.page.keyboard.press("Enter");
+    await X.waitText(/objects? matching/u, 20);
+    await X.page.getByRole("tab", { name: /Object types/u }).first().click({ timeout: 8000 }).catch(() => {});
+    const typesTab = await X.waitText(/1 object type matching “loan” Name Groups Applications Users Objects Loan/u, 20);
+    await X.page.getByRole("button", { name: /Explorations/u }).first().click({ timeout: 8000 }).catch(() => {});
+    const panel = await X.waitText(/SELECT AN EXPLORATION TO OPEN .*(No saved|No explorations|Failed)/u, 12);
+    ok("the search's Object types tab lists the matching type with its object count and no groups; the Explorations panel and the landing's lists find no saved exploration or list (none is kept) — never \"Failed to load\"",
+      /1 object type matching “loan”/u.test(typesTab) && /Loan .*\b3\b/u.test(after(typesTab, "Name Groups Applications Users Objects", 80)) && /Filter results by group No results found/u.test(typesTab)
+        && /SELECT AN EXPLORATION TO OPEN/u.test(panel) && !/Failed/u.test(after(panel, "SELECT AN EXPLORATION TO OPEN", 160)) && !/Failed to load lists/u.test(landing8),
+      `${after(typesTab, "1 object type matching", 110)} · ${after(panel, "SELECT AN EXPLORATION TO OPEN", 120)} · lists: ${/Failed to load lists/u.test(landing8) ? "Failed to load lists" : after(landing8, "Object set catalog", 90)}`);
+    ok("the catalog counts each type's objects from its sets (the loan type 3, the others none)",
+      /Loan 3/u.test(after(catalog8, "DESCRIPTION", 160)), after(catalog8, "DESCRIPTION", 160));
+    const o8Gaps = [P.seen, X.seen];
+    ok("the backed type's pages and Explorer's object pages reach no mirror beyond the reference's chrome, answer no read with the serve's HTML page, and every gap they meet is named",
+      o8Gaps.every((x) => [...x.passthrough].every((p) => CHROME.has(p)) && x.unnamed.size === 0 && x.html.size === 0 && [...x.gql].every(allowedGql)),
+      o8Gaps.map((x, i) => `${i ? "explorer" : "manager"}: passthrough ${[...x.passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · unnamed ${[...x.unnamed].join(",") || "none"} · html ${[...x.html].join(",") || "none"} · gql ${[...x.gql].filter((m) => !allowedGql(m)).slice(0, 2).join(" | ") || "named only"}`).join(" ‖ "));
+    await P.page.context().close(); await X.page.context().close();
+
     // ---- degraded: the daemon stopped — each page shows its own error, never an empty ontology -----------------------
     daemon.kill("SIGTERM");
     for (let i = 0; i < 30 && daemon.exitCode === null && daemon.signalCode === null; i++) await sleep(200);
@@ -501,6 +709,11 @@ async function run() {
       /Failed to load discover page/u.test(downDiscover) && /Something went wrong while loading results from the ontology/u.test(downTypes) && /Failed to load object type/u.test(downType)
         && !/Could not find any object types/u.test(downTypes),
       `${after(downDiscover, "Failed to load discover", 40)} · ${after(downTypes, "Something went wrong", 40)} · ${after(downType, "Failed to load object", 30)}`);
+    // (cut O8) an object read with the daemon stopped fails — never an empty object set
+    const downObjects = await fetch(`${SERVE}/object-set-service/api/objectSets/objects/top/initial`, { method: "PUT", headers: { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}/workspace/hubble/` }, body: JSON.stringify({ objectSet: { type: "base", base: { objectTypeId: "loan" } }, pageSize: 20 }) })
+      .then(async (r) => ({ status: r.status, text: await r.text() })).catch((e) => ({ status: 0, text: String(e) }));
+    ok("with the daemon stopped, an object read fails rather than answering an empty object set",
+      downObjects.status >= 500 && !/"results":\[\]/u.test(downObjects.text) && !/"totalResults":0/u.test(downObjects.text), `${downObjects.status} ${downObjects.text.slice(0, 100)}`);
     const downProposals = await visit("/workspace/ontology/home/proposals", /Sort: Recently created .{8,}|No proposals/u);
     const downProposal = await visit(pagePath, /did not answer|cannot be found|1 task/u);
     ok("with the daemon stopped, the Proposals section and a proposal's page show their error — never \"No proposals\" or a proposal that is not there",
@@ -512,17 +725,22 @@ async function run() {
   }
 }
 
-function cleanup() {
+async function cleanup() {
   try { serve?.kill("SIGTERM"); } catch { /* gone */ }
   try { daemon?.kill("SIGTERM"); } catch { /* gone */ }
+  try { rowServer?.close(); } catch { /* gone */ }
+  try { await authority?.stop(); } catch { /* gone */ }
   try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* keep */ }
+  try { fs.rmSync(stateDir, { recursive: true, force: true }); } catch { /* keep */ }
 }
+// a run killed from outside (a timeout's SIGTERM, ^C) stops the stack and the authority's chain first
+for (const signal of ["SIGTERM", "SIGINT"]) process.once(signal, () => { cleanup().finally(() => process.exit(128 + (signal === "SIGTERM" ? 15 : 2))); });
 
-run().then(() => {
+run().then(async () => {
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   emitVerifierCensus({ verifierId: "adopted-ontology", sourceUrl: import.meta.url, results });
-  cleanup();
+  await cleanup();
   process.exit(fails.length ? 1 : 0);
-}).catch((e) => { console.error(e); cleanup(); process.exit(1); });
+}).catch(async (e) => { console.error(e); await cleanup(); process.exit(1); });
