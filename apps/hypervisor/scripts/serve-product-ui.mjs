@@ -47,8 +47,9 @@ import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { renderSplashLanding } from "./splash-landing-grammar.mjs";
-import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, standingLeaseRecorderMode, STANDING_LEASE_CUSTODY_TIER_UNRULED } from "./lib/wallet-authority.mjs";
-import { PROVIDER_APPROVAL_KIND, projectProviderChallenge, renderProviderFacetsCard } from "./lib/approval-card-facets.mjs";
+import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, standingLeaseRecorderMode, STANDING_LEASE_CUSTODY_TIER_UNRULED, operatorDecisionFrom, relayChallengeDecision } from "./lib/wallet-authority.mjs";
+import { PROVIDER_APPROVAL_KIND, projectProviderChallenge, renderProviderFacetsCard, operatorPassphraseField } from "./lib/approval-card-facets.mjs";
+import * as CHALLENGE_PAGE from "./authority-challenge-page.mjs";
 import { relayEditorEffect } from "./lib/editor-challenge-relay.mjs";
 import { handleSystemGenesisSurfaces, handleSystemWorkspace, SYSTEM_WORKSPACE_LANE } from "./system-genesis-surfaces.mjs";
 import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal, renderRouteLedgerPage } from "./v2-route-shell.mjs";
@@ -476,6 +477,11 @@ function internallyOwnedManagedRoute(req, pathname) {
   const exactRunCacheRead = /^\/__ioi\/agent-runs\/[^/]+\/(?:timeline|conversation(?:\/history|\/live)?)$/.test(pathname);
   const exactEnvironmentRunRead = /^\/__ioi\/env-latest-run\/[^/]+$/.test(pathname);
   const exactRunPublish = /^\/__ioi\/run-publish\/[^/]+$/.test(pathname);
+  // A parked effect's approval page (R-240): every read and write it makes is a daemon route that authenticates the
+  // caller itself — a challenge is shown only to a signed-in session, and decided only by the operator — and it
+  // aggregates nothing the daemon would not answer that caller directly.
+  const exactChallengePage = pathname === CHALLENGE_PAGE.CHALLENGE_PAGE_PREFIX || CHALLENGE_PAGE.CHALLENGE_PAGE_ROUTE.test(pathname);
+  const exactChallengeDecision = CHALLENGE_PAGE.CHALLENGE_DECISION_PAGE_ROUTE.test(pathname);
   return pathname === "/__ioi/login" ||
     pathname === "/__ioi/bootstrap" ||
     pathname.startsWith("/__ioi/login/sso/") ||
@@ -487,9 +493,10 @@ function internallyOwnedManagedRoute(req, pathname) {
       pathname === "/__ioi/run-replay" ||
       pathname === "/__ioi/work-ledger" ||
       exactRunCacheRead ||
-      exactEnvironmentRunRead
+      exactEnvironmentRunRead ||
+      exactChallengePage
     )) ||
-    (method === "POST" && exactRunPublish);
+    (method === "POST" && (exactRunPublish || exactChallengeDecision));
 }
 async function unreboundInternalSurfaceAdmission(req) {
   const headers = daemonRequestHeaders(req);
@@ -1599,7 +1606,7 @@ function renderAwaitingApprovals(pendingRuns, returnTo) {
       <div class="meta"><b>Exact commitments</b>: policy <code style="font-size:10.5px">${CX_ESC(p.policy_hash || "")}</code> · request <code style="font-size:10.5px">${CX_ESC(p.request_hash || "")}</code></div>
       <div class="meta">Requested ${CX_ESC(p.requested_at || run.updatedAt || "")} · <a href="/__ioi/run-timeline/env/${enc(run.envId || "")}" target="_blank" rel="noopener">timeline ↗</a></div>
       <div style="margin-top:10px;display:flex;gap:8px">
-        <form method="post" action="/__ioi/runs/${enc(run.id)}/approve"><input type="hidden" name="return_to" value="${CX_ESC(returnTo)}">${p.passphrase_required ? `<input type="password" name="operator_passphrase" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase style="background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:5px 8px;font-size:12px"> ` : ""}<button class="act" type="submit">Approve and run</button></form>
+        <form method="post" action="/__ioi/runs/${enc(run.id)}/approve"><input type="hidden" name="return_to" value="${CX_ESC(returnTo)}">${p.passphrase_required ? `${operatorPassphraseField({ style: "background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:5px 8px;font-size:12px" })} ` : ""}<button class="act" type="submit">Approve and run</button></form>
         <form method="post" action="/__ioi/runs/${enc(run.id)}/deny"><input type="hidden" name="return_to" value="${CX_ESC(returnTo)}"><input name="reason" placeholder="reason (optional)" style="background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:5px 8px;font-size:12px"> <button class="act ghost" type="submit">Deny</button></form>
       </div></div></div>`;
   }).join("");
@@ -15406,22 +15413,15 @@ async function handleEstateRequest(req, res, body) {
         }
         const runId = decodeURIComponent(decisionMatch[1]);
         const decision = decisionMatch[2];
-        const isForm = String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
-        let reason = "";
-        let returnTo = "/work/sessions";
         // G5 / W0.2 part 2: the passphrase the operator typed on the card is relayed to the daemon
         // (which opens the sealed approver key inside the deployment authority for this one grant).
-        // It lives in this request only: never logged, never on a run, never echoed back.
-        let operatorPassphrase = "";
-        if (isForm) {
-          const form = new URLSearchParams(body.toString("utf8"));
-          reason = form.get("reason") || "";
-          operatorPassphrase = form.get("operator_passphrase") || "";
-          const wanted = form.get("return_to") || "";
-          if (/^\/[a-zA-Z0-9_\-./]*$/u.test(wanted)) returnTo = wanted;
-        } else {
-          try { const parsed = JSON.parse(body.toString() || "{}"); reason = parsed.reason || ""; operatorPassphrase = typeof parsed.operator_passphrase === "string" ? parsed.operator_passphrase : ""; } catch { /* no reason */ }
-        }
+        // It lives in this request only: never logged, never on a run, never echoed back. Every approval
+        // surface reads it through the one parser (lib/wallet-authority.mjs operatorDecisionFrom).
+        const decisionBody = operatorDecisionFrom(body, req.headers["content-type"]);
+        const { isForm, reason } = decisionBody;
+        const returnTo = decisionBody.returnTo || "/work/sessions";
+        let operatorPassphrase = decisionBody.operatorPassphrase;
+        decisionBody.operatorPassphrase = "";
         const result = await decideRunApproval({ runId, decision, reason, operatorPassphrase, daemonHeaders: cacheAdmission.headers });
         operatorPassphrase = "";
         if (isForm) {
@@ -15433,6 +15433,60 @@ async function handleEstateRequest(req, res, body) {
         }
         res.writeHead(result.status || (result.ok ? 200 : 409), { "Content-Type": "application/json", "Cache-Control": "no-cache" });
         res.end(JSON.stringify(result));
+        return;
+      }
+    }
+    // ---- A parked effect's own approval page (R-240, parked-effect approval page; authority-challenge-page.mjs).
+    // GET /__ioi/authority/challenges — every parked challenge; GET …/:id — one, from daemon truth, with the operator's
+    // Approve (passphrase) and Deny (reason) forms; POST …/:id/approve|deny — the decision, relayed to the daemon's decision
+    // route through the approval cards' own relay on the caller's session. The UI server holds no key and keeps nothing the
+    // operator types; the daemon decides who may decide, and a refusal is rendered in the daemon's own words.
+    {
+      const listPage = pathname === CHALLENGE_PAGE.CHALLENGE_PAGE_PREFIX && req.method === "GET";
+      const pageMatch = req.method === "GET" ? pathname.match(CHALLENGE_PAGE.CHALLENGE_PAGE_ROUTE) : null;
+      const decideMatch = req.method === "POST" ? pathname.match(CHALLENGE_PAGE.CHALLENGE_DECISION_PAGE_ROUTE) : null;
+      if (listPage || pageMatch || decideMatch) {
+        const idOf = (raw) => { try { return decodeURIComponent(raw); } catch { return raw; } };
+        const id = pageMatch ? idOf(pageMatch[1]) : decideMatch ? idOf(decideMatch[1]) : null;
+        const pageHeaders = daemonRequestHeaders(req);
+        // the challenge (or the list) and who is asking; the directory names requesters when the caller may read it
+        const readTruth = async () => {
+          const [challengeRead, whoRead] = await Promise.all([
+            readDaemonJsonProjection(id ? `/v1/hypervisor/authority/challenges/${encodeURIComponent(id)}` : "/v1/hypervisor/authority/challenges", pageHeaders),
+            readDaemonJsonProjection("/v1/hypervisor/auth/whoami", pageHeaders),
+          ]);
+          const who = whoRead.ok ? whoRead.body : null;
+          const principals = who?.authenticated === true
+            ? await readDaemonJsonProjection("/v1/hypervisor/principals", pageHeaders).then((r) => (r.ok && Array.isArray(r.body?.principals) ? r.body.principals : []))
+            : [];
+          return { read: challengeRead, who, principals };
+        };
+        const sendPage = (rendered) => {
+          res.writeHead(rendered.status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(automationsShell(rendered.title, rendered.inner));
+        };
+        if (listPage) { sendPage(CHALLENGE_PAGE.renderChallengeList(await readTruth())); return; }
+        const passphraseField = operatorPassphraseField({ style: "background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:5px 8px;font-size:12px" });
+        if (pageMatch) { sendPage(CHALLENGE_PAGE.renderChallengePage({ id, ...(await readTruth()), passphraseField })); return; }
+        const decision = decideMatch[2] === "approve" ? "approve" : "deny";
+        const decisionBody = operatorDecisionFrom(body, req.headers["content-type"]);
+        let operatorPassphrase = decision === "approve" ? decisionBody.operatorPassphrase : "";
+        decisionBody.operatorPassphrase = "";
+        const relayed = await relayChallengeDecision({
+          challengeId: id, decision, reason: decisionBody.reason, operatorPassphrase,
+          transport: (method, route, payload) => daemonFetch(route, { req, method, headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
+            .then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })),
+        });
+        operatorPassphrase = "";
+        if (!decisionBody.isForm) {
+          res.writeHead(relayed.status || (relayed.ok ? 200 : 409), { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify({ ...relayed, challenge_id: id, decision }));
+          return;
+        }
+        // decided: back to the page, which reads the new state from the daemon (never a claim of this handler's own)
+        if (relayed.ok) { res.writeHead(303, { Location: CHALLENGE_PAGE.challengePagePath(id), "Cache-Control": "no-store" }); res.end(); return; }
+        const refusal = { decision, status: relayed.status || 409, code: relayed.error?.code || "refused", message: relayed.error?.message || "" };
+        sendPage(CHALLENGE_PAGE.renderChallengePage({ id, ...(await readTruth()), refusal, passphraseField }));
         return;
       }
     }

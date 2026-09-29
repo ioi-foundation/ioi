@@ -9,8 +9,9 @@
 //   - Your inbox is what waits on the operator (the parked effects and the open governance requests), counted; Created by
 //     you and All requests sift; a status group, a reference type with no Hypervisor counterpart, search and sort sift;
 //   - a request's page is its record: a challenge's intent, scope, policy and hashes; a governance request's ask;
-//   - Approve on a parked effect is refused by name, saying where approving happens (the page has no passphrase field and the UI
-//     server holds no key); Reject and close is the daemon's own deny, with the typed reason; Approve on a governance
+//   - Approve on a parked effect is refused by name, naming that effect's own approval page (/__ioi/authority/challenges/<id>,
+//     which takes the passphrase; this page has none and the UI server holds no key) — and the link opens that very
+//     challenge's page; Reject and close is the daemon's own deny, with the typed reason; Approve on a governance
 //     request is the governance plane's own transition, receipted; every other write is refused by name and writes nothing;
 //   - no read reaches the mirror but the reference's chrome, an unbound read is a named 501, never the serve's HTML;
 //   - with the daemon stopped, the inbox shows its error, never an empty inbox.
@@ -18,8 +19,8 @@
 //   - a thread approval is parked on a real run through the daemon's own thread-approval route (the route a run's client
 //     calls to ask mid-run); it is listed with who asked and when, its page is its record, and its decisions are refused
 //     by name (deciding one takes a wallet grant for its exact lease — the daemon's own decision refuses a grantless one);
-//   - the operator approves a parked effect with the passphrase on the daemon's decision route (what the approval card
-//     relays; the sealed authority mints one grant): the page reads Approved; the requester's retry consumes the grant
+//   - the operator approves a parked effect with the passphrase on the daemon's decision route (what the effect's approval
+//     page relays; the sealed authority mints one grant): the page reads Approved; the requester's retry consumes the grant
 //     once: Completed;
 //   - the daemon restarts on the same data with its pending window shortened (IOI_HYPERVISOR_AUTHORITY_CHALLENGE_TTL_MS,
 //     which can only shorten it) and a new effect is parked and left undecided past its expiry: the daemon refuses a
@@ -303,12 +304,16 @@ async function run() {
     await visit(`${BASE}/task/${ridA}`, /Justification/u);
     refusals.length = 0;
     await pg.getByRole("button", { name: "Approve", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    const toast = await settle(/no Hypervisor page approves any other parked effect yet/u);
+    const toast = await settle(/Approve it on the Hypervisor's approval page for this parked effect/u);
     const A1 = await challenge(idA);
-    ok("Approve on a parked effect is refused by name, saying where approving happens — the page has no passphrase field and holds no key; a run the Hypervisor started has its own approval card, and no page approves any other parked effect yet — and the challenge stays pending on the daemon, with no decision and no grant",
-      refusals.includes("Hypervisor:ApprovalsApproveNeedsPassphrase") && /A run the Hypervisor started shows its own approval card.*no Hypervisor page approves any other parked effect yet/u.test(toast) && /Pending approval/u.test(toast)
+    // the refusal names THIS challenge's own approval page, and that page is it, with the operator's passphrase form
+    const pageLink = `/__ioi/authority/challenges/${idA}`;
+    const linked = await fetch(`${SERVE}${pageLink}`, { headers: { cookie: COOKIE } }).then(async (r) => ({ status: r.status, html: await r.text() })).catch(() => ({ status: 0, html: "" }));
+    ok("Approve on a parked effect is refused by name, naming that effect's own approval page — this page has no passphrase field and holds no key; the named page (/__ioi/authority/challenges/<id>) is that very challenge's, with the operator's passphrase form — and the challenge stays pending on the daemon, with no decision and no grant",
+      refusals.includes("Hypervisor:ApprovalsApproveNeedsPassphrase") && toast.includes(`hands it to the daemon: ${pageLink} (open it in the Hypervisor)`) && /Pending approval/u.test(toast)
+        && linked.status === 200 && linked.html.includes(`data-ioi-challenge="${idA}"`) && linked.html.includes('data-ioi-challenge-state="pending"') && linked.html.includes('data-ioi-challenge-decision="approve"') && linked.html.includes("data-ioi-operator-passphrase")
         && A1.state === "pending" && A1.decision === null && A1.grant_ref === null,
-      `${refusals.join(",") || "no refusal"} · daemon ${A1.state} decision ${JSON.stringify(A1.decision)} grant ${A1.grant_ref}`);
+      `${refusals.join(",") || "no refusal"} · toast ${toast.includes(pageLink) ? "names the page" : "NO page link"} · linked page ${linked.status}${linked.html.includes(`data-ioi-challenge="${idA}"`) ? " (this challenge)" : " (NOT this challenge)"} · daemon ${A1.state} decision ${JSON.stringify(A1.decision)} grant ${A1.grant_ref}`);
     // Reject and close on the other parked effect: the daemon's deny, with the typed reason
     const ridB = (await (async () => { await inboxAll(); return pg.evaluate((x) => [...document.querySelectorAll("a")].filter((a) => a.innerText.trim() === x).map((a) => a.getAttribute("href")), TITLE.A); })()).map((h) => h.split("/").pop()).find((r) => r !== ridA);
     await visit(`${BASE}/task/${ridB}`, /Justification/u);
@@ -396,8 +401,9 @@ async function run() {
       probes.every((x) => x.status === 501 && x.j.errorName === "Hypervisor:ApprovalsReadNotBound" && !x.pass), probes.map((x) => `${x.status} ${x.j.errorName || "?"}`).join(" · "));
 
     // ---- Approved: the operator's approval, with the passphrase, on the daemon's decision route ------------------------
-    // (what the Hypervisor's approval card relays: the daemon runs the sealed authority's approve for the record's own
-    // coordinates, the passphrase in that child's environment only; this page has no field for it)
+    // (what the effect's approval page relays — check:authority-challenge-page drives that page's form: the daemon runs the
+    // sealed authority's approve for the record's own coordinates, the passphrase in that child's environment only; this
+    // page has no field for it)
     const approvedA = await d("POST", `/v1/hypervisor/authority/challenges/${idA}/decision`, { decision: "approve", reason: "run this effect once", operator_passphrase: OPERATOR_PASS });
     const A3 = await challenge(idA);
     const pageApproved = await visit(`${BASE}/task/${ridA}`, /Justification/u);

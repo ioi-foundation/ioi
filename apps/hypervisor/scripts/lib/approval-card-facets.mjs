@@ -128,6 +128,13 @@ export function projectProviderChallenge(challenge) {
 // Every rendered facet value is the preimage's raw bytes for that member (HTML-escaped for the page,
 // unescaped byte-for-byte by the oracle). A projection with findings renders a REFUSAL with no
 // approve form: a challenge that cannot be shown as the bytes that will execute cannot be signed here.
+// The ONE operator-passphrase field every approval form renders (the run card, this provider card, and a parked
+// effect's own page): a password input the browser never autofills, posted to the serve once and relayed to the
+// daemon (lib/wallet-authority.mjs relayChallengeDecision); nothing stores it. `style` is the caller's inline look.
+export function operatorPassphraseField({ style = "" } = {}) {
+  return `<input type="password" name="operator_passphrase" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase${style ? ` style="${escHtml(style)}"` : ""}>`;
+}
+
 // `passphraseRequired` (G5): the daemon decides the approval with the deployment authority's sealed
 // approver key, so the approve form carries the operator passphrase field (type=password, never
 // stored); the page itself holds no key.
@@ -138,7 +145,7 @@ export function renderProviderFacetsCard(projection, { approveUrl = null, denyUr
     return `<div class="card" data-ioi-provider-approval-refused="${enc(codes)}"><div class="main"><div class="name">This operation cannot be signed here<span class="pill warn">not byte-derived</span></div><div class="meta">The challenge could not be shown as the exact bytes that would execute: <code>${enc(codes)}</code>. Nothing to approve.</div></div></div>`;
   }
   const rows = projection.facets.map((f) => `<dt>${enc(f.key)}</dt><dd data-ioi-facet="${enc(f.key)}"><code style="font-size:11px;white-space:pre-wrap;word-break:break-all">${enc(f.raw)}</code></dd>`).join("");
-  const forms = approveUrl ? `<div style="margin-top:10px;display:flex;gap:8px"><form method="post" action="${enc(approveUrl)}"><input type="hidden" name="return_to" value="${enc(returnTo)}">${passphraseRequired ? `<input type="password" name="operator_passphrase" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase> ` : ""}<button class="act" type="submit">Approve exactly this</button></form>${denyUrl ? `<form method="post" action="${enc(denyUrl)}"><input type="hidden" name="return_to" value="${enc(returnTo)}"><button class="act ghost" type="submit">Deny</button></form>` : ""}</div>` : "";
+  const forms = approveUrl ? `<div style="margin-top:10px;display:flex;gap:8px"><form method="post" action="${enc(approveUrl)}"><input type="hidden" name="return_to" value="${enc(returnTo)}">${passphraseRequired ? `${operatorPassphraseField()} ` : ""}<button class="act" type="submit">Approve exactly this</button></form>${denyUrl ? `<form method="post" action="${enc(denyUrl)}"><input type="hidden" name="return_to" value="${enc(returnTo)}"><button class="act ghost" type="submit">Deny</button></form>` : ""}</div>` : "";
   return `<div class="card" data-ioi-provider-approval="${enc(projection.request_hash)}"><div class="main">
       <div class="name">Approve this provider operation?<span class="pill warn">awaiting your approval</span></div>
       <div class="meta"><b>What will execute</b> — every signed fact, as the daemon hashed it (${projection.preimage_bytes} bytes, <code data-ioi-request-preimage-sha256>${enc(projection.preimage_sha256)}</code>):</div>

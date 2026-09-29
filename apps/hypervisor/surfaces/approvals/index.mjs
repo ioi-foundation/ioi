@@ -95,6 +95,8 @@ function crossPlaneBand(inbox, degraded, esc) {
     improvement_change: "/__ioi/improvement/changes",
     thread_approval: "/__ioi/sessions",
     memory_promotion: "/__ioi/vertex",
+    // a parked effect (a wallet challenge): each is approved with the operator passphrase, or denied, on its own page
+    wallet_approval_challenge: "/__ioi/authority/challenges",
   };
   const chips = inbox.planes.map((pl) => {
     const key = pl.plane || pl.source_plane || "";

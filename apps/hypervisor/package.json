@@ -98,6 +98,8 @@
     "check:adopted-data-connection": "node scripts/verify-hypervisor-adopted-data-connection.mjs",
     "check:adopted-data-connection-runs": "node scripts/verify-hypervisor-adopted-data-connection-runs.mjs",
     "check:adopted-approvals": "node scripts/verify-hypervisor-adopted-approvals.mjs",
+    "check:authority-challenge-page": "node scripts/verify-hypervisor-authority-challenge-page.mjs",
+    "test:authority-challenge-page": "node --test scripts/authority-challenge-page.test.mjs",
     "check:sessions-shell": "node scripts/verify-hypervisor-sessions-shell.mjs",
     "check:adopted-dead-controls": "node scripts/verify-hypervisor-adopted-dead-controls.mjs",
     "check:ontology-surface-invariant-11": "node scripts/verify-hypervisor-ontology-surface-invariant-11.mjs",

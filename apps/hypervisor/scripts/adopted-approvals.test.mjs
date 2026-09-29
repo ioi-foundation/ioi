@@ -132,7 +132,7 @@ test("a challenge's page is its record: what it asks, who asked, its hashes and 
   assert.deepEqual([a.created.user.id, a.created.user.fullName], [OP, "Ada Operator"]);
   assert.equal(a.permissions.canEditMetadata, false, "nothing about a request is edited here");
   const sub = a.latestVersion.subRequests[0];
-  assert.deepEqual([sub.status, sub.permissions.canFullyApprove, sub.reviews.length], ["PENDING", true, 0], "the operator may decide it (the decision itself is the approval card's)");
+  assert.deepEqual([sub.status, sub.permissions.canFullyApprove, sub.reviews.length], ["PENDING", true, 0], "the operator may decide it (approving itself is the effect's own approval page's)");
   assert.equal(sub.applicablePolicies[0].policyApprovalRequirementsMet, false);
   assert.deepEqual(a.invocationBlockers, ["NOT_APPROVED"]);
   const asMember = AX.requestsOf({ ...fixture(), principal: member });
@@ -152,15 +152,18 @@ test("a decided request shows its decision as the reviewer's review", () => {
   assert.deepEqual(approved.latestVersion.subRequests[0].reviews.map((v) => v.reviewType), ["APPROVE"]);
 });
 
-test("a decision is the daemon's own step or a refusal by name: Approve on a parked effect needs the passphrase (refused toward the approval card); its Reject is the daemon's deny with the typed reason; a governance Approve is the plane's transition and its Reject is refused (no reason kept)", () => {
+test("a decision is the daemon's own step or a refusal by name: Approve on a parked effect needs the passphrase (refused toward that effect's own approval page); its Reject is the daemon's deny with the typed reason; a governance Approve is the plane's transition and its Reject is refused (no reason kept)", () => {
   const rows = AX.requestsOf({ ...fixture(), principal: operator });
   const row = (id) => rows.find((x) => x.id === id);
   const review = (id, reviewType, reason) => AX.mutationStepOf("ReviewSubRequests", row(id), { rid: row(id).rid, reviewType, reason });
-  assert.equal(review("wac_pending", "APPROVE").refusal, AX.WRITE_REFUSALS.approveChallenge);
-  assert.match(AX.WRITE_REFUSALS.approveChallenge.message, /operator passphrase/u);
-  assert.match(AX.WRITE_REFUSALS.approveChallenge.message, /Nothing was approved/u);
-  // the card exists only for a run the Hypervisor started: the refusal says so, and names the gap for every other parked effect
-  assert.match(AX.WRITE_REFUSALS.approveChallenge.message, /A run the Hypervisor started shows its own approval card.*no Hypervisor page approves any other parked effect yet/u);
+  const approve = review("wac_pending", "APPROVE").refusal;
+  assert.deepEqual([approve.status, approve.code], [409, AX.WRITE_REFUSALS.approveChallenge.code], "refused by name, as a 409 whose message the app prints");
+  assert.match(approve.message, /operator passphrase/u);
+  assert.match(approve.message, /Nothing was approved/u);
+  // whoever parked the effect, its own approval page takes the passphrase: the refusal names that page for THIS challenge
+  assert.match(approve.message, /Approve it on the Hypervisor's approval page for this parked effect, which takes the passphrase and hands it to the daemon: \/__ioi\/authority\/challenges\/wac_pending \(open it in the Hypervisor\)/u);
+  assert.doesNotMatch(approve.message, /<its id>|no Hypervisor page approves/u, "the link is filled in, and the retired gap is not claimed");
+  assert.equal(review("wac_expired", "APPROVE").refusal, AX.WRITE_REFUSALS.decided, "an expired ask is not approved anywhere: it is closed");
   assert.deepEqual(review("wac_pending", "DISAPPROVE", "not this effect").daemon, { method: "POST", route: "/v1/hypervisor/authority/challenges/wac_pending/decision", body: { decision: "deny", reason: "not this effect" } });
   assert.ok(!("operator_passphrase" in review("wac_pending", "DISAPPROVE", "x").daemon.body), "a denial carries no passphrase: the UI server holds none");
   assert.equal(review("wac_pending", "DISAPPROVE", "y".repeat(900)).daemon.body.reason.length, 400, "the reason is bounded as the daemon bounds it");

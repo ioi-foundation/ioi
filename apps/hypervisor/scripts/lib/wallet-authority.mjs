@@ -52,6 +52,30 @@ export function parkedChallengeOf(body) {
 }
 
 /**
+ * The operator's decision as an approval form posts it to the serve: a browser form (urlencoded) or a JSON call, carrying
+ * `reason`, `operator_passphrase` and, on a form, a same-origin `return_to` path. Every approval surface reads it here (the
+ * run card and a parked effect's own page), so the passphrase is taken from exactly one place. The request buffer is
+ * zeroed once read: the passphrase then lives only in the returned value, which the caller hands to
+ * relayChallengeDecision and drops. Nothing here logs or keeps it.
+ */
+export function operatorDecisionFrom(body, contentType = "") {
+  const isForm = String(contentType || "").includes("application/x-www-form-urlencoded");
+  const text = Buffer.isBuffer(body) ? body.toString("utf8") : String(body ?? "");
+  let reason = "", operatorPassphrase = "", returnTo = "";
+  if (isForm) {
+    const form = new URLSearchParams(text);
+    reason = form.get("reason") || "";
+    operatorPassphrase = form.get("operator_passphrase") || "";
+    const wanted = form.get("return_to") || "";
+    if (/^\/[a-zA-Z0-9_\-./]*$/u.test(wanted)) returnTo = wanted;
+  } else {
+    try { const parsed = JSON.parse(text || "{}"); reason = typeof parsed.reason === "string" ? parsed.reason : ""; operatorPassphrase = typeof parsed.operator_passphrase === "string" ? parsed.operator_passphrase : ""; } catch { /* no reason */ }
+  }
+  if (Buffer.isBuffer(body)) body.fill(0);
+  return { isForm, reason, operatorPassphrase, returnTo };
+}
+
+/**
  * Relay the operator's decision on one parked challenge to the daemon. `transport(method, path,
  * payload, headers)` answers `{ status, body }`; `headers` are the caller's bounded daemon identity
  * headers. Returns `{ ok, status, approval_ref, grant_ref, expires_at_ms }` or `{ ok:false, status,
