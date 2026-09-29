@@ -82,13 +82,13 @@ const LIVE = self("live");
 export const PINNED = Object.freeze({
   surfaces_probed: 28, // M7 retired Contour and Notepad as terminal absences; ADR 0056 M5 retired the Missions root; M6a merged Model Studio, Insight and Map into their owners; M6b the Packages Marketplace mode into the listings port; M6c moved Artifacts into a Packages tab (a state, below)
   states_probed: 5, // ADR 0056 M6c: the Packages Artifacts tab
-  lanes_probed: 14, // R-240 (14 since ADR 0056 P3 added /ontology/functions): the canonical lanes the registry never listed (derived from the route table; see THE CANONICAL LANES in the live leg)
+  lanes_probed: 15, // R-240 (14 since ADR 0056 P3 added /ontology/functions; 15 since ADR 0056 P6, be13a2ab7, added /operations/telemetry — re-pinned 2026-09-29, a lane the route table gained is probed the day it lands): the canonical lanes the registry never listed (derived from the route table; see THE CANONICAL LANES in the live leg)
   dead: 0,
   click_failed: 0,
   bad_landing: 0,
   dead_anchor: 0,
   slow_landing: 0,
-  reference_lane: 15, // ADR 0056 M5: the retired Missions page carried two reference-lane links; M6b: the listings page's capture link had been counted twice (the Marketplace-mode row was probed at its canonical route, which transferred to listings)
+  reference_lane: 9, // ADR 0056 M5: the retired Missions page carried two reference-lane links; M6b: the listings page's capture link had been counted twice (the Marketplace-mode row was probed at its canonical route, which transferred to listings). RE-PINNED 15 → 9 on 2026-09-29 (R-240, verifier hygiene): the 15 were measured while this gate's serve read the OWNER's populated :8765; since 54fb6a22f it reads a daemon it started, which holds no records, and six reference links render only over records — Schema's "Ontology Manager ↗" (/__apps/schema), the Solution Designer's selected-ontology footer (/__apps/machinery, /__apps/workshop, and its /__apps/designer proxy lane — the footer is inside `selected ? … : empty state`), and Machinery's definitions footer (/__apps/workshop, /__apps/module). Link by link against the 2026-09-28 owner-daemon run; the nine that remain are each surface's own /__apps/<slug> chrome link, identical signed in and signed out. Nothing was lost: measured, a fresh stack seeded with exactly one ontology and one state-machine definition renders all six again.
   raw_capture_href: 0,
 });
 
@@ -185,6 +185,12 @@ export function pureFindings(lib) {
   expect("checkbox/exercise", lib.exerciseFor({ tag: "INPUT", type: "checkbox" }), "toggle");
   expect("search/exercise", lib.exerciseFor({ tag: "INPUT", type: "search" }), "type");
   expect("textarea/exercise", lib.exerciseFor({ tag: "TEXTAREA" }), "type");
+  // A NUMBER FIELD IS TYPED A NUMBER (R-240, verifier hygiene, 2026-09-29): it is a field and is typed into like one, but
+  // never "zq" — Playwright refuses letters there, and Functions' number input read click_failed for the census's mistake.
+  expect("number/exercise", lib.exerciseFor({ tag: "INPUT", type: "number" }), "type");
+  expect("number/value-is-a-number", /^-?\d+(\.\d+)?$/u.test(String(lib.typedValueFor("number"))), true);
+  expect("text/value", lib.typedValueFor("text"), "zq");
+  expect("untyped-input/value", lib.typedValueFor(""), "zq");
 
   // EACH SIGNAL ALONE IS ENOUGH — a check that honoured only some would call a working control dead.
   for (const s of lib.SIGNALS) expect(`signal/${s}`, lib.exerciseVerdict({ tag: "BUTTON" }, { signals: { ...NONE.signals, [s]: true } }).verdict, "alive");
@@ -215,6 +221,14 @@ export function pureFindings(lib) {
   expect("landing/200", L({ abs: `${SERVE}/__ioi/pipeline`, status: 200, ms: 300 }), "alive");
   expect("landing/404", L({ abs: `${SERVE}/__ioi/nope`, status: 404, ms: 20 }), "bad_landing");
   expect("landing/refused", L({ abs: "http://127.0.0.1:1/x", status: null, failure: "ECONNREFUSED" }), "bad_landing");
+  // THE SIGN-IN WALL LANDS (R-240, verifier hygiene, 2026-09-29) — the signed-out census's one bad landing was the
+  // Approvals chip into the parked-effects page, which answers a signed-out session 401 WITH the product's sign-in link:
+  // where the shipped product sends every signed-out visit. Only that: a bare 401, and a 403 offering sign-in, stay bad.
+  expect("landing/sign-in-wall", L({ abs: `${SERVE}/__ioi/authority/challenges`, status: 401, ms: 40, signInOffered: true }), "alive");
+  expect("landing/bare-401", L({ abs: `${SERVE}/__ioi/authority/challenges`, status: 401, ms: 40, signInOffered: false }), "bad_landing");
+  expect("landing/403-offering-sign-in", L({ abs: `${SERVE}/__ioi/nope`, status: 403, ms: 40, signInOffered: true }), "bad_landing");
+  expect("sign-in/offered", lib.offersSignIn('<div data-ioi-challenge-signed-out>… <a href="/__ioi/login?next=%2F__ioi%2Fauthority%2Fchallenges">Sign in</a></div>'), true);
+  expect("sign-in/not-offered", lib.offersSignIn('<a href="/__ioi/loginx">x</a> <a href="https://idp.example/login?next=1">y</a> Sign in'), false);
   expect("landing/slow", L({ abs: `${SERVE}/__ioi/environments`, status: 200, ms: 21809 }), "slow_landing");
   expect("landing/just-under", L({ abs: `${SERVE}/__ioi/environments`, status: 200, ms: lib.SLOW_LANDING_MS }), "alive");
   expect("fragment/missing", lib.landingVerdict({ exercise: "fragment", href: "#nope", fragmentTargetExists: false }, SERVE).verdict, "dead_anchor");
@@ -264,6 +278,7 @@ export function pureFindings(lib) {
   const O = "http://127.0.0.1:4173";
   expect("popup-landing/not-found", lib.popupLandingVerdict({ url: `${O}/docs/foundry/approvals/overview/`, status: 200, text: "4 0 4 IOI looked everywhere. This page doesn't exist. Back to dashboard" }, O)?.verdict, "bad_landing");
   expect("popup-landing/refused", lib.popupLandingVerdict({ url: `${O}/x`, status: 404, text: "Not found" }, O)?.verdict, "bad_landing");
+  expect("popup-landing/blank", lib.popupLandingVerdict({ url: `${O}/docs/x`, status: 200, text: "   " }, O)?.verdict, "bad_landing");
   expect("popup-landing/help", lib.popupLandingVerdict({ url: `${O}/__ioi/help?topic=docs%2Ffoundry%2Fapprovals%2Foverview`, status: 200, text: "Help approvals › overview This documentation is not published for this deployment." }, O), null);
   expect("popup-landing/elsewhere", lib.popupLandingVerdict({ url: "https://example.com/", status: 404, text: "" }, O), null);
   // A FIELD'S OWN ECHO IS NOT A SIGNAL — typing into a contenteditable moves page text by the typed words alone.
@@ -327,6 +342,10 @@ export function sourceFindings({ gate, lib }) {
   if (!/blocked\.length > 0/u.test(gate)) f.push("a refused write is no longer counted as the network having fired, so a control that tried to act would read as dead");
   // THIS GATE STARTS ITS OWN SERVE.
   if (!/spawn\(process\.execPath, \[SERVE_SRC\]/u.test(gate)) f.push("the LIVE leg no longer starts its own serve");
+  // A NUMBER FIELD IS TYPED A NUMBER, and A 401 IS READ for the sign-in wall (R-240, verifier hygiene, 2026-09-29) — in
+  // both legs, because the surfaces leg and the shell leg each type into fields.
+  if ((gate.match(/await loc\.fill\(LIB\.typedValueFor\(/gu) || []).length < 2) f.push("a LIVE leg types a fixed string into every field again, so a number field reads click_failed for the census's own mistake");
+  if (!/LIB\.offersSignIn\(/u.test(gate)) f.push("the LIVE leg no longer reads a 401's body, so the sign-in wall reads as a broken link");
   // AND ITS SERVE READS A DAEMON THIS GATE STARTED (R-240, verifier auth sweep, 2026-09-29): handed no URL, the serve read the
   // owner's :8765 — as nobody, once that daemon's reads became caller-scoped.
   if (!/own = await gateDaemon\(\)/u.test(gate) || !/\.\.\.own\.serveEnv/u.test(gate)) f.push("the LIVE leg's serve no longer reads a daemon this gate started, so it falls back to the owner's :8765");
@@ -461,7 +480,9 @@ async function liveLeg() {
       let row;
       try {
         const r = await context.request.get(abs, { timeout: 60000, maxRedirects: 5, failOnStatusCode: false });
-        row = { status: r.status(), failure: null, ms: Date.now() - t0 };
+        // A 401 is read, not just counted: a page that offers the product's sign-in is the sign-in wall (LIB.landingVerdict).
+        const signInOffered = r.status() === 401 ? LIB.offersSignIn(await r.text().catch(() => "")) : false;
+        row = { status: r.status(), failure: null, ms: Date.now() - t0, signInOffered };
       } catch (e) { row = { status: null, failure: String(e.message).split("\n")[0].slice(0, 120), ms: Date.now() - t0 }; }
       landings.set(abs, row);
       return row;
@@ -610,7 +631,7 @@ async function liveLeg() {
             if (next === undefined) error = "select offers no alternative option";
             else await loc.selectOption(next, { timeout: 3000 });
           } else if (el.exercise === "type") {
-            await loc.fill("zq", { timeout: 3000 });
+            await loc.fill(LIB.typedValueFor(el.type), { timeout: 3000 });
             await page.waitForTimeout(600);
             await loc.press("Enter", { timeout: 3000, noWaitAfter: true });
           } else if (el.exercise === "date") {
@@ -707,7 +728,7 @@ async function liveLeg() {
           } else if (how === "date") {
             await loc.fill(LIB.dateValueFor(now.type), { timeout: 3000 }); await loc.dispatchEvent("change").catch(() => {});
           } else if (how === "type") {
-            await loc.fill("zq", { timeout: 3000 }); await page.waitForTimeout(500); await loc.press("Enter", { timeout: 3000, noWaitAfter: true });
+            await loc.fill(LIB.typedValueFor(now.type), { timeout: 3000 }); await page.waitForTimeout(500); await loc.press("Enter", { timeout: 3000, noWaitAfter: true });
           } else if (how === "drag") {
             // Dragged 60px along its axis; it is alive if the handle itself moved (a layout change is
             // not visible text, so the at-rest DOM signal would not see it).
@@ -895,9 +916,14 @@ async function mutation() {
   await mutate("SIGNALS — the network signal stops counting, so a refused write reads dead", (t) => t.replace('"url", "dom", "network", "state", "other"', '"url", "dom", "state", "other"'));
   await mutate("FORM — any field is rescued by its form, submit or not", (t) => t.replace("if (field && el.formCanSubmit === true)", "if (field)"));
   await mutate("FORM — no field is ever rescued by its form", (t) => t.replace("if (field && el.formCanSubmit === true)", "if (false)"));
-  await mutate("FORM — a button is rescued by a form too", (t) => t.replace('const field = ["select", "type", "toggle", "date"].includes(exerciseFor(el));', "const field = true;"));
+  // Retargeted 2026-09-29 (R-240, verifier hygiene): the line became `.includes(outcome?.how || exerciseFor(el))` (68a59a438,
+  // the typed-editor exercise) and this mutation matched nothing — dead weight that could never go red.
+  await mutate("FORM — a button is rescued by a form too", (t) => t.replace('const field = ["select", "type", "toggle", "date"].includes(outcome?.how || exerciseFor(el));', "const field = true;"));
   await mutate("EXERCISE — a select is clicked instead of chosen", (t) => t.replace('if (el.tag === "SELECT") return "select";', ""));
-  await mutate("EXERCISE — a text field is clicked instead of typed into", (t) => t.replace('if (el.tag === "TEXTAREA" || (el.tag === "INPUT" && TEXT_TYPES.includes(el.type || ""))) return "type";', ""));
+  // Retargeted 2026-09-29 (R-240, verifier hygiene): the line gained `|| (editableEcho && el.contentEditable === true)`
+  // (68a59a438) and this mutation matched nothing.
+  await mutate("EXERCISE — a text field is clicked instead of typed into", (t) => t.replace('if (el.tag === "TEXTAREA" || (el.tag === "INPUT" && TEXT_TYPES.includes(el.type || "")) || (editableEcho && el.contentEditable === true)) return "type";', ""));
+  await mutate("EXERCISE — a number field is typed letters", (t) => t.replace('return type === "number" ? "7" : "zq";', 'return "zq";'));
   await mutate("EXERCISE — a checkbox is clicked as a button", (t) => t.replace('if (el.tag === "INPUT" && (el.type === "checkbox" || el.type === "radio")) return "toggle";', ""));
   await mutate("EXERCISE — a fragment link is fetched instead of resolved", (t) => t.replace('if (el.href.startsWith("#")) return el.href.length > 1 ? "fragment" : "click";', ""));
   await mutate("POPULATION — declared gaps are judged here too", (t) => t.replace("el.declared === true", "false"));
@@ -908,6 +934,9 @@ async function mutation() {
   await mutate("POPULATION — a hidden input is a control", (t) => t.replace('(el.tag === "INPUT" && el.type !== "hidden")', '(el.tag === "INPUT")'));
   await mutate("LANDING — an error status lands", (t) => t.replace("if (link.status >= 400)", "if (link.status >= 600)"));
   await mutate("LANDING — a refused connection lands", (t) => t.replace("if (link.failure || link.status == null)", "if (false)"));
+  await mutate("SIGN-IN WALL — any 401 lands, sign-in offered or not", (t) => t.replace("if (link.status === 401 && link.signInOffered === true)", "if (link.status === 401)"));
+  await mutate("SIGN-IN WALL — any status offering sign-in lands", (t) => t.replace("if (link.status === 401 && link.signInOffered === true)", "if (link.signInOffered === true)"));
+  await mutate("SIGN-IN WALL — any anchor ending in login counts as the product's sign-in", (t) => t.replace('export const SIGN_IN_HREF = /href="(?:\\/__ioi\\/login|\\/login)(?:[?#"])/u;', 'export const SIGN_IN_HREF = /login/u;'));
   await mutate("LANDING — slowness is never measured", (t) => t.replace("if (link.ms > SLOW_LANDING_MS)", "if (false)"));
   await mutate("LANDING — the slow bound is off by one the wrong way", (t) => t.replace("if (link.ms > SLOW_LANDING_MS)", "if (link.ms >= SLOW_LANDING_MS)"));
   await mutate("LANDING — a missing fragment target lands", (t) => t.replace('return link.fragmentTargetExists ? { verdict: "alive"', 'return true ? { verdict: "alive"'));
@@ -924,7 +953,11 @@ async function mutation() {
   await mutate("AT REST — a request heard while nobody touched anything counts as the control's", (t) => t.replace("(m.requestKeys || []).some((k) => !rest.has(k))", "(m.requestKeys || []).length > 0"));
   await mutate("AT REST — an overlay opening does not count as the DOM moving", (t) => t.replace(" || m.overlaysBefore !== m.overlaysAfter", ""));
   await mutate("SPA LANDING — the shell's not-found page lands", (t) => t.replace('if (SPA_NOT_FOUND.test(t)) return { verdict: "bad_landing"', 'if (false) return { verdict: "bad_landing"'));
-  await mutate("SPA LANDING — a blank route lands", (t) => t.replace("if (t.length < SPA_MIN_TEXT)", "if (false)"));
+  // Retargeted 2026-09-29 (R-240, verifier hygiene): popupLandingVerdict (68a59a438) carries the same `if (t.length <
+  // SPA_MIN_TEXT)` FIRST, so this mutation disabled the popup's blank check — which no drill covered — and survived while
+  // the route check it names was never touched. Each check is now planted by its own line, and the popup has its drill.
+  await mutate("SPA LANDING — a blank route lands", (t) => t.replace('if (t.length < SPA_MIN_TEXT) return { verdict: "bad_landing", why: "the route it opened rendered nothing" };', ""));
+  await mutate("POPUP LANDING — a blank tab lands", (t) => t.replace('if (t.length < SPA_MIN_TEXT) return { verdict: "bad_landing", why: `the tab it opened (${u.pathname}) rendered nothing` };', ""));
   await mutate("SELF — every control that moved nothing is excused as pointing where you are", (t) => t.replace("return el?.selfLink === true || el?.current === true;", "return true;"));
   await mutate("DRAG — a resize handle is clicked instead of dragged", (t) => t.replace('if (/^(ew|ns|col|row|e|w|n|s)-resize$/u.test(el.cursor || "")) return "drag";', ""));
   await mutate("SHELL PATH — a serve-rendered page is rendered as a shell route", (t) => t.replace("if (!p.startsWith(\"/\") || SERVE_RENDERED.test(p)) return false;", "if (!p.startsWith(\"/\")) return false;"));

@@ -136,13 +136,24 @@ const LIVE = self("live");
 // are terminal absences and left the registry; each page carried four declared gaps (counted on the pages
 // before they retired: bare spans with no role or tabindex, so each was labelled AND unreachable), and
 // neither carried one with an ordinary cursor — cursor stays 53.
+//
+// 2026-09-29 (R-240, verifier hygiene): labelled 165 → 155, unreachable 131 → 121 — THE MEASUREMENT MOVED, NOT THE
+// ESTATE. Every pin above was taken while this gate's serve read the OWNER's populated :8765; since 7746503e9 it reads a
+// daemon it started (gateDaemon), which holds no records and is identical signed in and signed out. The ten are
+// per-RECORD typed absences — bare `aria-disabled` spans with a not-allowed cursor, rendered once per record that lacks a
+// field (the Packages Artifacts tab's `rgy-dash`: a record with no name, no kind or no status draws one dash each) — which
+// is exactly their signature: labelled and unreachable move together and the cursor count does not. MEASURED, not
+// inferred: this gate's live leg on its own stack counts 155/121 surface by surface, and the same stack seeded with ONE
+// release control (a registry record with no name, no kind and no status) counts 158/124 — three `rgy-dash` cells on
+// the Artifacts tab and nothing else moved. No chrome control was lost; a count over somebody else's records was never
+// reproducible, and the gate does not seed, so the pin is the empty stack's.
 export const PINNED = Object.freeze({
   surfaces_probed: 28, // ADR 0056 M6 merged/ported five surfaces; M7 retired Contour and Notepad as terminal absences
   states_probed: 5, // ADR 0056 M6c: the Packages Artifacts tab
-  labelled: 165,
+  labelled: 155, // 2026-09-29: measured on the gate's own (empty) daemon, not the owner's populated one — see above
   primary_fill: 0,
   cursor_not_disabled: 53,
-  unreachable_control: 131,
+  unreachable_control: 121, // 2026-09-29: the same ten per-record typed absences, each a bare span
   unmarked_gap: 0,
 });
 

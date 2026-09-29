@@ -81,6 +81,13 @@ export function exerciseFor(el, { editableEcho = false } = {}) {
   return "click";
 }
 
+// What a TYPED field is typed (R-240, verifier hygiene, 2026-09-29). A number field is typed a NUMBER: "zq" is not a
+// value it accepts, Playwright refuses to type letters into it, and the census scored Functions' number input
+// click_failed for the census's own mistake. Every other text-entry type takes "zq".
+export function typedValueFor(type) {
+  return type === "number" ? "7" : "zq";
+}
+
 // A value each date-like input type accepts (far enough ahead that it never matches seeded data).
 export function dateValueFor(type) {
   return { date: "2030-01-01", "datetime-local": "2030-01-01T09:00", month: "2030-01", week: "2030-W01", time: "09:00" }[type] || "2030-01-01";
@@ -113,9 +120,20 @@ export function landingVerdict(link, serveOrigin) {
   }
   if (isReferenceLane(link.abs, serveOrigin)) return { verdict: "reference_lane", why: link.status != null ? `answered ${link.status}` : String(link.failure || "no answer") };
   if (link.failure || link.status == null) return { verdict: "bad_landing", why: String(link.failure || "no status").slice(0, 120) };
+  // THE SIGN-IN WALL LANDS (R-240, verifier hygiene, 2026-09-29): a 401 page whose body offers the product's own sign-in
+  // is where a signed-out person is SENT — the shipped product answers every signed-out visit with sign-in — not a
+  // broken link. Only 401, and only with the sign-in link in the answer: a bare 401, a 403, a 404 stay bad landings.
+  if (link.status === 401 && link.signInOffered === true) return { verdict: "alive", why: "status 401 with the product's sign-in offered (the sign-in wall)" };
   if (link.status >= 400) return { verdict: "bad_landing", why: `status ${link.status}` };
   if (link.ms > SLOW_LANDING_MS) return { verdict: "slow_landing", why: `${link.ms}ms > ${SLOW_LANDING_MS}ms` };
   return { verdict: "alive", why: `status ${link.status}` };
+}
+
+// Does a landing's body offer the product's sign-in (an anchor to /__ioi/login or /login)? Judged over bytes the census
+// fetched, so a relying party can re-judge it.
+export const SIGN_IN_HREF = /href="(?:\/__ioi\/login|\/login)(?:[?#"])/u;
+export function offersSignIn(body) {
+  return SIGN_IN_HREF.test(String(body || ""));
 }
 
 // A raw capture-origin href is a hard-coded developer URL in product copy: on any machine without
