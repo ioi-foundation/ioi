@@ -24,7 +24,6 @@ use ioi_types::app::{WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt}
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::Path;
-use std::process::Command;
 use std::time::Duration;
 
 const INSTALL_COMMAND_TIMEOUT: Duration = Duration::from_secs(600);
@@ -174,6 +173,14 @@ pub(super) async fn handle_software_install_execute_plan(
                 ),
             )
         ));
+    }
+
+    if target.source_kind != "editor_extension" {
+        if let Some(already) =
+            install_already_satisfied_after_approval(exec, plan_ref, &target, &resolved_cwd).await
+        {
+            return already;
+        }
     }
 
     let manager = target.manager.clone();
@@ -488,44 +495,44 @@ pub(crate) fn install_already_satisfied_before_approval_for_tool(
         ));
     }
 
-    if target.source_kind == "editor_extension" {
-        return None;
-    }
+    // H22 (W1 survey): the target's verification command is a program the resolver chose, so it
+    // never runs here, before the firewall gate and the approval. Whether a package-manager or
+    // download target is already installed is answered after approval, inside
+    // `handle_software_install_execute_plan`, through the gated terminal driver.
+    None
+}
 
-    let parts = target.verification_command.as_ref()?;
-    let (command, args) = parts.split_first()?;
-    let output = Command::new(command).args(args).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("Stdout:\n{}\nStderr:\n{}", stdout, stderr);
-    let verification = summarize_command_output(&combined);
-
-    let plan = resolved_install_plan_for_target(&request, &target).ok()?;
-    let plan_ref = software_install_plan_ref_for_resolved_plan(&plan);
+/// After approval: an install target that already verifies is reported as already installed and
+/// the installer never runs. The verification runs through the executor's terminal driver, the
+/// same gated path the post-install verification uses.
+async fn install_already_satisfied_after_approval(
+    exec: &ToolExecutor,
+    plan_ref: &str,
+    target: &ResolvedInstallTarget,
+    cwd: &Path,
+) -> Option<ToolExecutionResult> {
+    let verification = verify_install_target(exec, target, Some(cwd)).await.ok()?;
     let verification_event = InstallVerificationEvent {
-        plan_ref: plan_ref.clone(),
+        plan_ref: plan_ref.to_string(),
         status: "verified".to_string(),
         command: target.verification_command.clone().unwrap_or_default(),
         summary: verification.clone(),
     };
     let receipt = InstallFinalReceipt {
-        plan_ref,
+        plan_ref: plan_ref.to_string(),
         status: "already_installed_verified".to_string(),
         display_name: target.display_name.clone(),
         failure_class: None,
         verification: Some(verification_event),
     };
-    Some(install_final_receipt_output(
+    Some(ToolExecutionResult::success(install_final_receipt_output(
         receipt,
         format!(
-            "{} is already installed; verification passed: {}.",
+            "{} is already installed; verification passed: {}; no host mutation was performed.",
             target.display_name,
             compact_resolution_value(&verification)
         ),
-    ))
+    )))
 }
 
 fn install_request_from_tool(tool: &AgentTool) -> Option<SoftwareInstallRequestFrame> {
@@ -1278,6 +1285,26 @@ mod tests {
         assert!(summary.contains("already_available_verified"));
         assert!(summary.contains("install_final_receipt"));
         assert!(!summary.contains("GitHub Copilot"));
+    }
+
+    // H22 (W1 survey §5): before the firewall gate and the approval, the resolved verification
+    // command must not run. `git --version` succeeds on any host that runs these tests, so the
+    // only way this pre-approval check could report the package as already installed is by
+    // spawning it — which it did before the fix.
+    #[test]
+    fn a_package_verification_command_never_runs_before_approval() {
+        let tool = resolve_tool("git", Some("apt-get"));
+        let target = resolve_install_target("git", Some("apt-get")).expect("target");
+        assert_eq!(target.source_kind, "package_manager");
+        assert_eq!(
+            target.verification_command.as_deref(),
+            Some(&["git".to_string(), "--version".to_string()][..])
+        );
+        assert_eq!(
+            install_already_satisfied_before_approval_for_tool(&tool),
+            None,
+            "the verification command ran before the gate and the approval"
+        );
     }
 
     #[test]

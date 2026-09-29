@@ -4,6 +4,11 @@ use std::time::Duration;
 use tokio::sync::OnceCell;
 
 const RUNTIME_LOCALITY_ENV_SEED_KEY: &str = "IOI_SESSION_LOCALITY";
+/// Opt-in for the third-party IP-geolocation lookup (W1 survey §7.8). A lookup sends the host's
+/// public IP to the services below, so it never happens unless the operator sets this to
+/// `1`/`true`/`yes`/`on`. With it off, locality comes from local facts only (the trusted locality
+/// env keys, then the device timezone) or stays unknown.
+pub(crate) const RUNTIME_LOCALITY_IP_LOOKUP_ENV_KEY: &str = "IOI_RUNTIME_LOCALITY_IP_LOOKUP";
 const RUNTIME_LOCALITY_DISCOVERY_URLS: [&str; 3] = [
     "https://ipapi.co/json/",
     "https://ipwho.is/",
@@ -194,6 +199,36 @@ fn cached_device_locality_scope() -> Option<String> {
         .clone()
 }
 
+/// Whether the operator opted in to the third-party IP lookup. Off unless the value is an explicit
+/// yes; an unset, empty or unrecognised value is off.
+fn runtime_locality_ip_lookup_opted_in(raw: Option<&str>) -> bool {
+    matches!(
+        raw.map(|value| value.trim().to_ascii_lowercase())
+            .as_deref(),
+        Some("1" | "true" | "yes" | "on")
+    )
+}
+
+/// The locality seed for a session. The network lookup is reached only when the operator opted
+/// in; otherwise the answer is the local fact (or none), and no request leaves the host.
+async fn resolve_runtime_locality_seed<Lookup, LookupFuture, Local>(
+    ip_lookup_opted_in: bool,
+    lookup: Lookup,
+    local: Local,
+) -> Option<String>
+where
+    Lookup: FnOnce() -> LookupFuture,
+    LookupFuture: std::future::Future<Output = Option<String>>,
+    Local: FnOnce() -> Option<String>,
+{
+    if ip_lookup_opted_in {
+        if let Some(scope) = lookup().await {
+            return Some(scope);
+        }
+    }
+    local()
+}
+
 pub(crate) async fn maybe_seed_runtime_locality_context(goal: &str) {
     if cfg!(test) {
         return;
@@ -201,9 +236,17 @@ pub(crate) async fn maybe_seed_runtime_locality_context(goal: &str) {
     if !query_requires_runtime_locality_scope(goal) || runtime_locality_env_present() {
         return;
     }
-    if let Some(scope) = cached_runtime_locality_scope()
-        .await
-        .or_else(cached_device_locality_scope)
+    let opted_in = runtime_locality_ip_lookup_opted_in(
+        std::env::var(RUNTIME_LOCALITY_IP_LOOKUP_ENV_KEY)
+            .ok()
+            .as_deref(),
+    );
+    if let Some(scope) = resolve_runtime_locality_seed(
+        opted_in,
+        cached_runtime_locality_scope,
+        cached_device_locality_scope,
+    )
+    .await
     {
         std::env::set_var(RUNTIME_LOCALITY_ENV_SEED_KEY, scope);
     }
