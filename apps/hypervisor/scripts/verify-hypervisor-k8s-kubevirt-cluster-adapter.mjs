@@ -10,18 +10,22 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-k8s-kubevirt-cluster-adapter.mjs
 
 import path from "node:path";
-import os from "node:os";
-import { writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DATA = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi", "hypervisor", "data");
-const BUDGET_FILE = path.join(DATA, "resource-budgets", "k8s-verify.json");
+// Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
+// fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
+// 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
+// OWNER's data dir and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh plane is torn down whole.
+const STACK = await verifierStack({ serve: true, fresh: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
+const FIXTURES = verifierFixtureDir("k8s");
 const LIVE_MODE = process.env.IOI_K8S_LIVE === "1";
 const LIVE_KEY = process.env.IOI_K8S_TOKEN || "";
 
@@ -59,9 +63,7 @@ async function archiveOp(body) {
 async function run() {
   const tag = Date.now().toString(16);
   env = `env-k8s-${tag}`;
-  rmSync(BUDGET_FILE, { force: true });
-  const dir = path.join(os.homedir(), ".ioi", "hypervisor", "vast-fixture");
-  mkdirSync(dir, { recursive: true });
+  const dir = FIXTURES.dir;
   const factsFile = path.join(dir, `k8s-facts-${tag}.json`);
   const factsNoKubevirt = path.join(dir, `k8s-facts-nokv-${tag}.json`);
   const facts = {
@@ -356,7 +358,6 @@ async function cleanup() {
   } catch { /* best effort */ }
   if (accountId) await jd("DELETE", `/v1/hypervisor/provider-accounts/${accountId}`);
   if (casBackendId) await jd("DELETE", `/v1/hypervisor/storage-backends/${casBackendId}`);
-  rmSync(BUDGET_FILE, { force: true });
 }
 
 run()
@@ -366,7 +367,7 @@ run()
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`k8s/kubevirt cluster adapter readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_provisioning_not_run)"}`);
-    process.exit(fail ? 1 : 0);
+    FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
   })
   .catch((e) => {
     console.error("verifier crashed:", e);

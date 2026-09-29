@@ -11,19 +11,24 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-akash-depin-adapter.mjs
 
 import path from "node:path";
-import os from "node:os";
-import { writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DATA = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi", "hypervisor", "data");
-const BUDGET_FILE = path.join(DATA, "resource-budgets", "akash-verify.json");
+// Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
+// fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
+// 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
+// OWNER's data dir, delete exposure records out of it, and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh
+// plane is torn down whole.
+const STACK = await verifierStack({ serve: true, fresh: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
+const FIXTURES = verifierFixtureDir("akash");
 const LIVE_MODE = process.env.IOI_AKASH_LIVE === "1";
 const LIVE_KEY = process.env.IOI_AKASH_API_KEY || "";
 
@@ -61,10 +66,8 @@ async function archiveOp(body) {
 async function run() {
   const tag = Date.now().toString(16);
   env = `env-ak-${tag}`;
-  rmSync(BUDGET_FILE, { force: true });
   const fixture = await ensureSshFixture();
-  const dir = path.join(os.homedir(), ".ioi", "hypervisor", "vast-fixture");
-  mkdirSync(dir, { recursive: true });
+  const dir = FIXTURES.dir;
   const bidsFile = path.join(dir, `akash-bids-${tag}.json`);
   // REAL Akash bid shapes: per-provider offers, native uakt/block rates, source-quoted USD.
   // One bid carries NO source-quoted USD — it must be SKIPPED, never converted by the daemon.
@@ -358,15 +361,6 @@ async function cleanup() {
   } catch { /* best effort */ }
   if (accountId) await jd("DELETE", `/v1/hypervisor/provider-accounts/${accountId}`);
   if (casBackendId) await jd("DELETE", `/v1/hypervisor/storage-backends/${casBackendId}`);
-  rmSync(BUDGET_FILE, { force: true });
-  const { readdirSync, readFileSync, rmSync: rm } = await import("node:fs");
-  const dir = path.join(DATA, "provider-spend-exposures");
-  try {
-    for (const f of readdirSync(dir)) {
-      const rec = JSON.parse(readFileSync(path.join(dir, f), "utf8"));
-      if (String(rec.account_ref || "").includes(accountId)) rm(path.join(dir, f), { force: true });
-    }
-  } catch { /* none */ }
 }
 
 run()
@@ -376,7 +370,7 @@ run()
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`akash depin adapter readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_provisioning_not_run)"}`);
-    process.exit(fail ? 1 : 0);
+    FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
   })
   .catch((e) => {
     console.error("verifier crashed:", e);

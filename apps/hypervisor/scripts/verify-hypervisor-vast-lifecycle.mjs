@@ -13,19 +13,23 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-vast-lifecycle.mjs
 
 import path from "node:path";
-import os from "node:os";
-import { writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const DATA = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi", "hypervisor", "data");
-const BUDGET_FILE = path.join(DATA, "resource-budgets", "vast-lifecycle-verify.json");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
+// fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
+// 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
+// OWNER's data dir and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh plane is torn down whole.
+const STACK = await verifierStack({ serve: true, fresh: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
+const FIXTURES = verifierFixtureDir("vast-lifecycle");
 const LIVE_MODE = process.env.IOI_VAST_LIVE === "1";
 const LIVE_KEY = process.env.IOI_VAST_API_KEY || "";
 const LIVE_MAX_HOURLY = parseFloat(process.env.IOI_VAST_MAX_HOURLY || "0.40");
@@ -58,11 +62,9 @@ async function opWithGrant(accountId, o, extra = {}) {
 async function run() {
   const tag = Date.now().toString(16);
   env = `env-vlc-${tag}`;
-  rmSync(BUDGET_FILE, { force: true }); // self-healing: a prior run's budget must not skew gates
   const fixture = await ensureSshFixture();
   const priorPolicy = (await jd("GET", "/v1/hypervisor/placement/venue-policy")).j.policy || {};
-  const offersDir = path.join(os.homedir(), ".ioi", "hypervisor", "vast-fixture");
-  mkdirSync(offersDir, { recursive: true });
+  const offersDir = FIXTURES.dir;
   const offersFile = path.join(offersDir, `lifecycle-offers-${tag}.json`);
   writeFileSync(offersFile, JSON.stringify({ offers: [
     { id: 91001, gpu_name: "RTX 4090", num_gpus: 1, gpu_ram: 24564, dph_total: 0.311, geolocation: "Sweden, SE", reliability2: 0.998, verified: true, inet_down: 900, disk_space: 256 },
@@ -392,7 +394,6 @@ async function cleanup() {
     if (prior.venue !== "run_local") await jd("PUT", "/v1/hypervisor/placement/venue-policy", { venue: "run_local" });
   } catch { /* venue restore best effort */ }
   if (vastAccountId) await jd("DELETE", `/v1/hypervisor/provider-accounts/${vastAccountId}`);
-  rmSync(BUDGET_FILE, { force: true });
 }
 
 run()
@@ -403,7 +404,7 @@ run()
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`vast guarded lifecycle readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? (liveProven ? " (live_execution_proven)" : " (live blocked/incomplete)") : " (live_provisioning_not_run)"}`);
-    process.exit(fail ? 1 : 0);
+    FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
   })
   .catch((e) => {
     console.error("verifier crashed:", e);

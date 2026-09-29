@@ -13,19 +13,25 @@
 // reasons; placement admits only verified accounts).
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-byo-provider-plane.mjs
 
-import { readFileSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { refuseOwnerPath, verifierStack } from "./lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DATA = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi", "hypervisor", "data");
+// Its own isolated daemon + serve on a temp data dir, the operator signed in — never the owner's :8765/:4173 nor
+// anything under ~/.ioi/hypervisor (R-240, verifier hygiene, 2026-09-29). This verifier used to delete
+// resource-budgets/byo-verify-external-spend.json in the OWNER's data dir and "self-heal" by deleting every provider
+// account whose display name began "AWS " or "AKASH " — on the owner's daemon, the owner's own accounts. A fresh plane
+// holds no prior run's records, so there is nothing to sweep; it is torn down whole.
+const STACK = await verifierStack({ serve: true, fresh: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
+const DATA = refuseOwnerPath(STACK.dataDir, "data dir");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -37,23 +43,9 @@ async function jd(method, url, body) {
   return { status: r.status, j: await r.json().catch(() => ({})) };
 }
 
-const BUDGET_FILE = path.join(DATA, "resource-budgets", "byo-verify-external-spend.json");
-async function preClean() {
-  // Self-healing: a crashed prior run must not poison this one — sweep verifier-named accounts
-  // and the verifier's external_spend budget record (the no-budget check needs its absence).
-  const accounts = (await jd("GET", "/v1/hypervisor/provider-accounts")).j.accounts || [];
-  for (const a of accounts) {
-    if (/^(BYO node|BYO unverified|AWS|AKASH) /.test(a.display_name || "")) {
-      await jd("DELETE", `/v1/hypervisor/provider-accounts/${a.account_id}`);
-    }
-  }
-  rmSync(BUDGET_FILE, { force: true });
-}
-
 async function run() {
   const tag = Date.now().toString(16);
   const fixture = await ensureSshFixture();
-  await preClean();
   const SECRET = `SUPERSECRET-AWS-MATERIAL-${tag}`;
   // A distinctive middle line of the ssh private key — the leak-audit needle for sealed material.
   const keyNeedle = fixture.client_key.split("\n").find((l) => l.length > 30 && !l.startsWith("-----")) || "";
@@ -145,7 +137,8 @@ async function run() {
   const sev = snap.j.evidence || {};
   const mats = (await jd("GET", "/v1/hypervisor/provider-materials")).j;
   const mat = (mats.materials || []).find((m) => m.material_ref === sev.restore_material_ref) || {};
-  const custodyBytes = readFileSync(mat.path);
+  // No admitted material (a refused snapshot) reads as a FAIL below, never a crash that hides every later check.
+  const custodyBytes = mat.path ? readFileSync(refuseOwnerPath(mat.path, "custody material")) : Buffer.alloc(0);
   const recomputed = "sha256:" + createHash("sha256").update(custodyBytes).digest("hex");
   ok("snapshot streams material into DAEMON custody with an admitted sha256 state_root",
     snap.j.ok === true && sev.custody === "daemon" && sev.bytes > 0
@@ -169,7 +162,7 @@ async function run() {
   // ── 10. Restore truth = daemon admission: valid hash restores; unknown/corrupt fail closed ──
   const restoreValid = await op("restore", { material_ref: sev.restore_material_ref });
   const restoreUnknown = await op("restore", { material_ref: "provider-material://bogus/none/0" });
-  writeFileSync(mat.path, Buffer.from(`corrupted-bytes-${tag}`));
+  if (mat.path) writeFileSync(refuseOwnerPath(mat.path, "custody material"), Buffer.from(`corrupted-bytes-${tag}`));
   const restoreCorrupt = await op("restore", { material_ref: sev.restore_material_ref });
   ok("restore admits by matching sha256 and fails closed on unknown material",
     restoreValid.j.ok === true && restoreValid.j.evidence?.state_root_verified === sev.state_root
@@ -359,7 +352,6 @@ async function run() {
   await jd("DELETE", `/v1/hypervisor/provider-accounts/${ssh2.account_id}`);
   await jd("DELETE", `/v1/hypervisor/provider-accounts/${aws.account_id}`);
   await jd("DELETE", `/v1/hypervisor/provider-accounts/${acc.account_id}`);
-  rmSync(BUDGET_FILE, { force: true });
   const byoClassAfter = ((await jd("GET", "/v1/hypervisor/environment-classes")).j.environmentClasses || []).find((c) => c.id === "byo-ssh-node") || {};
   const accountsAfter = (await jd("GET", "/v1/hypervisor/provider-accounts")).j.accounts || [];
   ok("cleanup: accounts removed and byo-ssh-node class honestly flips back to disabled",
@@ -372,7 +364,7 @@ run().then(() => {
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`byo provider plane readiness: ${fail ? "FAIL" : "OK"}`);
-  process.exit(fail ? 1 : 0);
+  STACK.stop().finally(() => process.exit(fail ? 1 : 0));
 }).catch((e) => {
   console.error("verifier crashed:", e);
   process.exit(1);

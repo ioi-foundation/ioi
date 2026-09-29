@@ -120,3 +120,73 @@ test("every refusal the stack answers is observed with its status and typed code
   }
   assert.deepEqual(seen, [{ method: "POST", path: "/v1/hypervisor/odk/materializing-runs/mrun_1/acquire-lease", status: 501, described: "HTTP 501 authority_principal_not_configured" }]);
 });
+
+// NEVER THE OWNER'S DATA (R-240, verifier hygiene, 2026-09-29): thirteen provider-adapter verifiers deleted and wrote
+// the owner's ~/.ioi/hypervisor/data/resource-budgets and wrote fixtures under ~/.ioi/hypervisor/vast-fixture.
+test("a path under the owner's Hypervisor home is refused by name — data dir, fixtures, evidence, the home itself", async () => {
+  const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join, relative, sep } = await import("node:path");
+  const { ownerDataRefusal, ownerHypervisorHome, refuseOwnerPath } = await import("./verifier-stack.mjs");
+  const home = mkdtempSync(join(tmpdir(), "ioi-owner-home-test-"));
+  try {
+    const owner = ownerHypervisorHome(home);
+    assert.equal(relative(home, owner).split(sep).join("|"), ".ioi|hypervisor");
+    for (const p of [owner, join(owner, "data"), join(owner, "data", "resource-budgets", "aws-verify.json"), join(owner, "vast-fixture", "offers.json"), join(owner, "ssh-fixture"), join(owner, "data", "..", "evidence"), `${owner}/data/../../hypervisor/data`]) {
+      assert.match(ownerDataRefusal(p, { home }) ?? "", /owner's Hypervisor home/u, p);
+    }
+    // A symlink that lands inside the owner's home is refused too (the kernel resolves it; so does the refusal).
+    mkdirSync(join(owner, "data"), { recursive: true });
+    const link = join(home, "innocent-looking");
+    symlinkSync(join(owner, "data"), link);
+    assert.match(ownerDataRefusal(join(link, "resource-budgets", "x.json"), { home }) ?? "", /owner's Hypervisor home/u);
+    // Neighbours are not the owner's Hypervisor home.
+    for (const p of [join(home, ".ioi", "hypervisor-app-local"), join(home, ".ioi", "authority"), join(home, ".ioi"), join(tmpdir(), "ioi-isolated-plane-abc"), "", null, undefined]) {
+      assert.equal(ownerDataRefusal(p, { home }), null, String(p));
+    }
+    // refuseOwnerPath answers the real home: a path under it throws with the reason, any other returns unchanged.
+    assert.throws(() => refuseOwnerPath(join(ownerHypervisorHome(), "data", "resource-budgets", "aws-verify.json"), "budget"), /refused budget: .*owner's Hypervisor home/u);
+    const mine = join(tmpdir(), "ioi-verifier-mine.json");
+    assert.equal(refuseOwnerPath(mine), mine);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a verifier's fixture dir is its own temp dir: never under the owner's home, names cannot escape it, removed on remove()", async () => {
+  const { existsSync, writeFileSync } = await import("node:fs");
+  const { verifierFixtureDir, ownerDataRefusal } = await import("./verifier-stack.mjs");
+  const fixtures = verifierFixtureDir("aws offers/../x");
+  try {
+    assert.equal(ownerDataRefusal(fixtures.dir), null);
+    assert.match(fixtures.dir, /ioi-verifier-aws-offers-x-/u);
+    const file = fixtures.file("aws-offers-1.json");
+    writeFileSync(file, "{}");
+    assert.ok(existsSync(file));
+    assert.throws(() => fixtures.file("../escape.json"), /outside/u);
+  } finally {
+    fixtures.remove();
+  }
+  assert.equal(existsSync(fixtures.dir), false);
+});
+
+test("an explicit stack whose data dir is the owner's is refused (exit 2) before anything is sent; so is an ssh fixture dir there", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const { join } = await import("node:path");
+  const { ownerHypervisorHome } = await import("./verifier-stack.mjs");
+  const helper = fileURLToPath(new URL("./verifier-stack.mjs", import.meta.url));
+  const run = spawnSync(process.execPath, ["--input-type=module", "-e", `import { verifierStack } from ${JSON.stringify(helper)}; await verifierStack(); console.log("REACHED");`], {
+    // Port 9 answers nothing: were the data-dir refusal missing, the helper would try to sign in there, not refuse.
+    env: { ...process.env, IOI_HYPERVISOR_DAEMON_URL: "http://127.0.0.1:9", IOI_HYPERVISOR_SERVE_URL: "", IOI_HYPERVISOR_DATA_DIR: join(ownerHypervisorHome(), "data") },
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  assert.equal(run.status, 2, run.stderr);
+  assert.match(run.stderr, /BLOCKED: IOI_HYPERVISOR_DATA_DIR: .*owner's Hypervisor home/u);
+  assert.doesNotMatch(run.stdout, /REACHED/u);
+  const fixture = fileURLToPath(new URL("../ensure-ssh-fixture.mjs", import.meta.url));
+  const { sshFixtureDir } = await import(fixture);
+  assert.throws(() => sshFixtureDir({ IOI_SSH_FIXTURE_DIR: join(ownerHypervisorHome(), "ssh-fixture") }), /refused ssh fixture dir: .*owner's Hypervisor home/u);
+  assert.equal(sshFixtureDir({}).startsWith(ownerHypervisorHome()), false);
+});

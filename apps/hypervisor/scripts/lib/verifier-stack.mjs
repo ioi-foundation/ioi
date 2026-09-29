@@ -24,6 +24,17 @@
 //
 // A 401 READS AS A 401. `describeHttp` names the status and the daemon's typed code, so a refused
 // caller is never reported as an unreachable daemon.
+//
+// NEVER THE OWNER'S DATA (R-240, verifier hygiene, 2026-09-29). Thirteen provider-adapter verifiers
+// deleted and wrote `~/.ioi/hypervisor/data/resource-budgets/*-verify.json`, swept exposure records out
+// of the owner's data dir and wrote offer fixtures under `~/.ioi/hypervisor/vast-fixture`. A path under
+// the owner's Hypervisor home (`~/.ioi/hypervisor`, symlinks resolved) is REFUSED by name —
+// `ownerDataRefusal` says why, `refuseOwnerPath` throws, verifierStack exits 2 on an explicit
+// IOI_HYPERVISOR_DATA_DIR there — and a verifier's own fixture files live in `verifierFixtureDir`, a
+// temp dir it removes on exit.
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import {
   ISOLATED_OPERATOR,
   isolatedOperatorSession,
@@ -33,6 +44,77 @@ import {
 // The owner's stack: the daemon, the sign-in-required serve, the development serve.
 export const OWNER_STACK_PORTS = Object.freeze([8765, 36173, 4173]);
 export const ANONYMOUS = "x-ioi-verifier-anonymous";
+
+/** The owner's Hypervisor home: the daemon's data dir, evidence, backups and the fixtures beside them. */
+export function ownerHypervisorHome(home = homedir()) {
+  return resolve(home, ".ioi", "hypervisor");
+}
+
+// The path as the kernel will resolve it: the nearest existing ancestor through realpath, the rest appended
+// (a fixture file the verifier is about to create does not exist yet, and a symlinked tmp or home must not hide it).
+function canonicalPath(p) {
+  let head = resolve(String(p));
+  const tail = [];
+  for (;;) {
+    try {
+      return join(realpathSync(head), ...tail.reverse());
+    } catch {
+      const parent = dirname(head);
+      if (parent === head) return resolve(String(p));
+      tail.push(basename(head));
+      head = parent;
+    }
+  }
+}
+
+/** Why `p` may not be a verifier's path (it lies under the owner's ~/.ioi/hypervisor), or null when it may. */
+export function ownerDataRefusal(p, { home = homedir() } = {}) {
+  if (p === undefined || p === null || p === "") return null;
+  const owner = ownerHypervisorHome(home);
+  const owners = [...new Set([owner, canonicalPath(owner)])];
+  for (const candidate of new Set([resolve(String(p)), canonicalPath(p)])) {
+    for (const root of owners) {
+      if (candidate === root || candidate.startsWith(`${root}${sep}`)) {
+        return `${candidate} is under the owner's Hypervisor home (${root}); a verifier writes only into a data dir and fixture dir it owns`;
+      }
+    }
+  }
+  return null;
+}
+
+/** Throws when `p` lies under the owner's Hypervisor home; returns `p` otherwise (wrap every path a verifier writes). */
+export function refuseOwnerPath(p, what = "path") {
+  const why = ownerDataRefusal(p);
+  if (why) throw new Error(`refused ${what}: ${why}`);
+  return p;
+}
+
+/**
+ * A temp directory for a verifier's own fixture files (offer/bid/facts documents a provider account reads),
+ * never under the owner's ~/.ioi/hypervisor. Removed by remove() and, failing that, when the process exits.
+ * Returns { dir, file(name), remove() } — file() refuses a name that escapes the dir.
+ */
+export function verifierFixtureDir(label = "fixture") {
+  const safe = String(label).replace(/[^a-z0-9-]+/giu, "-").slice(0, 40) || "fixture";
+  const dir = mkdtempSync(join(refuseOwnerPath(tmpdir(), "temp root"), `ioi-verifier-${safe}-`));
+  refuseOwnerPath(dir, "fixture dir");
+  let removed = false;
+  const remove = () => {
+    if (removed) return;
+    removed = true;
+    rmSync(dir, { recursive: true, force: true });
+  };
+  process.on("exit", remove);
+  return {
+    dir,
+    file(name) {
+      const target = resolve(dir, String(name));
+      if (!target.startsWith(`${dir}${sep}`)) throw new Error(`refused fixture file ${JSON.stringify(name)}: outside ${dir}`);
+      return target;
+    },
+    remove,
+  };
+}
 
 /** Why `url` may not be a verifier's target (it names the owner's stack), or null when it may. */
 export function ownerStackRefusal(url) {
@@ -194,12 +276,18 @@ export async function verifierStack({ serve = false, env = {}, serveEnv = null, 
       if (!explicitServe) refuse(`IOI_HYPERVISOR_DAEMON_URL=${daemonUrl} names a stack this verifier did not start; it also reads pages, so name that stack's serve in IOI_HYPERVISOR_SERVE_URL (or unset both and it starts its own)`);
       serveUrl = explicitServe.replace(/\/$/u, "");
     }
-    // Its data dir is only known when named (a verifier that counts receipt files reads it).
+    // Its data dir is only known when named (a verifier that counts receipt files reads it) — and never the owner's
+    // ~/.ioi/hypervisor, whatever port the daemon answers on (R-240, verifier hygiene, 2026-09-29).
     dataDir = process.env.IOI_HYPERVISOR_DATA_DIR || null;
+    const dataWhy = ownerDataRefusal(dataDir);
+    if (dataWhy) refuse(`IOI_HYPERVISOR_DATA_DIR: ${dataWhy}`);
     token = await explicitCaller(daemonUrl);
     if (!token) refuse(`the stack at ${daemonUrl} offers this verifier no caller: set IOI_VERIFIER_SESSION_TOKEN, or unset IOI_HYPERVISOR_DAEMON_URL and it starts its own stack and signs its operator in`);
     mode = "explicit";
   } else {
+    // The isolated plane's data dir is a mkdtemp under the temp root; a temp root inside the owner's home is refused.
+    const tmpWhy = ownerDataRefusal(tmpdir());
+    if (tmpWhy) refuse(`the temp root (TMPDIR): ${tmpWhy}`);
     const plane = await startIsolatedPlane({ serve, env, serveEnv });
     if (!plane) refuse("target/debug/hypervisor-daemon is not built — cargo build -p ioi-node --bin hypervisor-daemon (or IOI_HYPERVISOR_DAEMON_BINARY)");
     ({ daemonUrl, serveUrl, dataDir } = plane);

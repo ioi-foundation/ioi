@@ -12,13 +12,19 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-vast-candidate-adapter.mjs
 
 import path from "node:path";
-import os from "node:os";
-import { writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { writeFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
+// fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
+// 2026-09-29). This verifier used to write its offer fixture under ~/.ioi/hypervisor/vast-fixture and drive the
+// owner's daemon's venue policy; a fresh plane is torn down whole.
+const STACK = await verifierStack({ serve: true, fresh: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
+const FIXTURES = verifierFixtureDir("vast-candidate");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -40,8 +46,7 @@ async function run() {
   const SECRET = `VAST-API-KEY-${tag}`;
   const priorPolicy = (await jd("GET", "/v1/hypervisor/placement/venue-policy")).j.policy || {};
   // Deterministic offer fixture — REAL Vast offer field shapes, explicit fixture marking.
-  const fixtureDir = path.join(os.homedir(), ".ioi", "hypervisor", "vast-fixture");
-  mkdirSync(fixtureDir, { recursive: true });
+  const fixtureDir = FIXTURES.dir;
   const fixtureFile = path.join(fixtureDir, `offers-${tag}.json`);
   writeFileSync(fixtureFile, JSON.stringify({
     fixture: true,
@@ -177,11 +182,13 @@ async function run() {
     && /no fee object minted/i.test(envHtml) && /quote_preflight_only/.test(envHtml));
   const browser = await chromium.launch();
   const page = await browser.newPage();
+  await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   page.on("console", (m) => { if (m.type() === "error" && !/ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED/.test(m.text())) consoleErrors.push(m.text()); });
-  await page.goto(`${SHELL}/`, { waitUntil: "networkidle" });
-  await page.click('[data-testid="create-session-button"]');
+  // The signed-in shell streams (event watch), so the network never goes idle — wait for the document and the control.
+  await page.goto(`${SHELL}/`, { waitUntil: "domcontentloaded" });
+  await page.click('[data-testid="create-session-button"]', { timeout: 30000 });
   // New Session now routes to the composer page; the owned modal opens via Advanced launch.
   await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });
   await page.click("#ioi-ns-advanced");
@@ -215,7 +222,7 @@ run().then(() => {
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`vast candidate adapter readiness: ${fail ? "FAIL" : "OK"}`);
-  process.exit(fail ? 1 : 0);
+  FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
 }).catch((e) => {
   console.error("verifier crashed:", e);
   process.exit(1);

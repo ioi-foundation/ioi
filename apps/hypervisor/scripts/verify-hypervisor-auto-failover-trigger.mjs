@@ -13,15 +13,19 @@
 //   → disarm stops evaluation; no fee objects anywhere.
 
 import path from "node:path";
-import os from "node:os";
-import { writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { ensureSshFixture } from "./ensure-ssh-fixture.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
+import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
 
-const DAEMON = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
-const SHELL = process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173";
-const DATA = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi", "hypervisor", "data");
-const BUDGET_FILE = path.join(DATA, "resource-budgets", "xfa-verify.json");
+// Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
+// fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
+// 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
+// OWNER's data dir and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh plane is torn down whole.
+const STACK = await verifierStack({ serve: true, fresh: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
+const FIXTURES = verifierFixtureDir("xfa");
 
 const results = [];
 const ok = (name, cond, detail = "") => results.push({ name, pass: !!cond, detail });
@@ -53,10 +57,8 @@ let akashId = "", vastId = "", env = "", replacementEnv = "";
 async function run() {
   const tag = Date.now().toString(16);
   env = `env-xfa-${tag}`;
-  rmSync(BUDGET_FILE, { force: true });
   const fixture = await ensureSshFixture();
-  const fdir = path.join(os.homedir(), ".ioi", "hypervisor", "vast-fixture");
-  mkdirSync(fdir, { recursive: true });
+  const fdir = FIXTURES.dir;
   const bidsFile = path.join(fdir, `xfa-bids-${tag}.json`);
   writeFileSync(bidsFile, JSON.stringify({ bids: [
     { provider: "akash1xfaprov4090", region: "us-west", attributes: { tier: "datacenter" },
@@ -205,7 +207,6 @@ async function cleanup() {
       }
     }
   } catch { /* best effort */ }
-  rmSync(BUDGET_FILE, { force: true });
 }
 
 run().then(cleanup, (e) => { console.error(e); return cleanup().then(() => { results.push({ name: `run threw: ${e?.message || e}`, pass: false, detail: "" }); }); }).then(() => {
@@ -216,5 +217,5 @@ run().then(cleanup, (e) => { console.error(e); return cleanup().then(() => { res
   }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`auto-failover trigger readiness: ${fail ? "FAIL" : "OK"}`);
-  process.exit(fail ? 1 : 0);
+  FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
 });

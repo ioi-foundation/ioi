@@ -198,6 +198,7 @@
     "test:system-governed-approval": "node --test scripts/system-governed-approval.test.mjs",
     "test:system-improve-mode": "node --test scripts/system-improve-mode.test.mjs",
     "test:adopted-seeds": "node --test scripts/adopted-automate.test.mjs scripts/adopted-data-connection.test.mjs scripts/adopted-approvals.test.mjs scripts/adopted-ontology.test.mjs scripts/adopted-pipeline.test.mjs scripts/ioi-api-adapter-ports.test.mjs scripts/ioi-api-adapter-sessions.test.mjs",
+    "test:verifier-hygiene": "node --test scripts/lib/verifier-stack.test.mjs scripts/lib/verifier-owner-data-guard.test.mjs",
     "check:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs",
     "mutate:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs --mutation",
     "check:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs",
