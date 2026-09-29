@@ -2170,28 +2170,16 @@ jobs:
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: |
-          product_data_dir=$(mktemp -d)
-          IOI_HYPERVISOR_DATA_DIR="$product_data_dir" target/debug/hypervisor-daemon > /tmp/ioi-product-daemon.log 2>&1 &
-          product_daemon_pid=$!
-          npm run serve:product-ui --workspace=@ioi/hypervisor-app > /tmp/ioi-product-ui.log 2>&1 &
-          product_ui_pid=$!
-          trap 'kill "$product_ui_pid" "$product_daemon_pid" 2>/dev/null || true; rm -r "$product_data_dir"' EXIT
-          for attempt in $(seq 1 60); do
-            curl --fail --silent http://127.0.0.1:4173/__ioi/applications >/dev/null && break
-            if [ "$attempt" -eq 60 ]; then
-              cat /tmp/ioi-product-daemon.log
-              cat /tmp/ioi-product-ui.log
-              exit 1
-            fi
-            sleep 1
-          done
-          # THE LAST MASKING PAIR IN THIS FILE (2026-09-12). Every other multi-gate `run:` block was
-          # split one step per gate; this one cannot be, because both gates drive the daemon and
-          # serve started above and the trap that reaps them is bound to THIS shell. So the masking
-          # is removed without splitting: each gate runs, each failure is remembered, and the step
-          # fails at the end. Under `set -e` the first red aborted the block and check:native-shell
-          # never ran at all — which is how a crash in it stayed invisible while the step was
-          # reported red for the other gate.
+          # NO SHARED DAEMON OR SERVE (R-240, verifier hygiene, 2026-09-29). This step used to start a
+          # daemon on :8765 and a serve on :4173 for both gates. Since the verifier auth sweep
+          # (8d63f5240) each gate starts its own isolated daemon + serve through
+          # apps/hypervisor/scripts/lib/verifier-stack.mjs and signs its operator in — neither reads
+          # :8765/:4173 any more (an explicit URL naming either is refused) — so the pair was started,
+          # waited for and reaped for nobody, and is gone.
+          # THE LAST MASKING PAIR IN THIS FILE (2026-09-12): each gate runs, each failure is remembered,
+          # and the step fails at the end. Under `set -e` the first red aborted the block and
+          # check:native-shell never ran at all — which is how a crash in it stayed invisible while
+          # the step was reported red for the other gate.
           status=0
           npm run check:app-runtime-safety --workspace=@ioi/hypervisor-app || status=1
           npm run check:native-shell --workspace=@ioi/hypervisor-app || status=1
