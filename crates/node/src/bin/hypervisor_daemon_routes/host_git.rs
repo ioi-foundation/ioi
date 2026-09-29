@@ -33,6 +33,13 @@
 //! store through `objects/info/alternates`. Objects are content-addressed data; reading them runs
 //! nothing, and the guest's config, hooks, `url.*.insteadOf` and remote definitions are never read.
 //!
+//! A [`NeutralRepo`] crossing is also neutral toward the OPERATOR (W1 survey §7.3,
+//! [`leased_remote_git`]): it reads no system or global git config, nothing under the operator's
+//! home (`~/.gitconfig`, `~/.git-credentials`, `~/.netrc`, `~/.ssh`), no ssh agent and no askpass
+//! program, and it may not use ssh at all. The only credential it can present is the one the
+//! capability lease resolved for that crossing, handed to that one git process through its own
+//! environment and a credential helper that reads nothing else.
+//!
 //! Residual (recorded, not closed here): the filter-driver enumeration and the command that
 //! follows are two processes, so a guest process still running during that window could add a new
 //! filter name between them. The post-run diff runs after the harness's PID namespace is gone; the
@@ -89,6 +96,9 @@ const REDIRECTING_ENV: &[&str] = &[
 /// config and environment are honoured (credentials, ssh agent, proxies), redirecting `GIT_*`
 /// variables are dropped, hooks and fsmonitor are pinned off, and only real network/file
 /// protocols are allowed (no `ext::`, no remote helpers).
+///
+/// Only the session-create clone ([`clone_depth1`], a read into a fresh workspace) still uses
+/// this profile. A crossing that writes to a remote uses [`leased_remote_git`].
 pub(crate) fn remote_git(cwd: &Path) -> Command {
     let mut command = Command::new("git");
     command.current_dir(cwd);
@@ -105,6 +115,126 @@ pub(crate) fn remote_git(cwd: &Path) -> Command {
         .arg("--no-pager");
     for pinned in REMOTE_PINNED_CONFIG {
         command.arg("-c").arg(pinned);
+    }
+    command
+}
+
+/// The protocols a leased crossing may use. ssh and `git://` are absent on purpose: an ssh
+/// crossing authenticates with the operator's keys or agent, never with a leased credential.
+pub(crate) const LEASED_REMOTE_PROTOCOLS: &str = "file:http:https";
+
+/// The operator environment a leased crossing inherits: where `git` is, the locale, and how the
+/// network is reached (proxies, CA trust). Nothing in this list authenticates.
+const LEASED_REMOTE_INHERITED_ENV: &[&str] = &[
+    "PATH",
+    "LANG",
+    "LC_ALL",
+    "TZ",
+    "http_proxy",
+    "https_proxy",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "no_proxy",
+    "NO_PROXY",
+    "all_proxy",
+    "ALL_PROXY",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "GIT_SSL_CAINFO",
+    "GIT_SSL_CAPATH",
+];
+
+/// The two variables that carry a leased credential into exactly one git process.
+const LEASED_USERNAME_ENV: &str = "IOI_LEASED_GIT_USERNAME";
+const LEASED_SECRET_ENV: &str = "IOI_LEASED_GIT_SECRET";
+
+/// The only credential helper a leased crossing has. It answers `get` from the two variables
+/// above and ignores `store` / `erase`, so the lease is never written anywhere.
+const LEASED_CREDENTIAL_HELPER: &str = "!f() { test \"$1\" = get || exit 0; printf 'username=%s\\npassword=%s\\n' \"$IOI_LEASED_GIT_USERNAME\" \"$IOI_LEASED_GIT_SECRET\"; }; f";
+
+/// A credential a capability lease resolved for one remote crossing. It is never serialized and
+/// its `Debug` form never shows the secret.
+pub(crate) struct LeasedGitCredential {
+    username: String,
+    secret: String,
+}
+
+impl LeasedGitCredential {
+    /// A bearer token (a PAT, an app installation token, an OAuth access token) presented as
+    /// HTTP basic credentials, the way GitHub and GitLab accept one. An empty token is no
+    /// credential.
+    pub(crate) fn access_token(token: &str) -> Option<Self> {
+        let token = token.trim();
+        (!token.is_empty()).then(|| Self {
+            username: "x-access-token".to_owned(),
+            secret: token.to_owned(),
+        })
+    }
+}
+
+impl std::fmt::Debug for LeasedGitCredential {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("LeasedGitCredential")
+            .field("username", &self.username)
+            .field("secret", &"<redacted>")
+            .finish()
+    }
+}
+
+/// A git command for a crossing that must authenticate with a leased credential, or with none:
+/// run from `cwd` (a daemon-owned directory, never a workspace), with a cleared environment,
+/// `HOME` pointed at `cwd`, no system or global config, no askpass, no prompt, no ssh, and a
+/// credential helper list that holds only the lease's helper (or nothing, when `credential` is
+/// `None`). The operator's own credentials can therefore never answer for the crossing.
+pub(crate) fn leased_remote_git(cwd: &Path, credential: Option<&LeasedGitCredential>) -> Command {
+    leased_remote_git_from(cwd, credential, std::env::vars_os())
+}
+
+fn leased_remote_git_from(
+    cwd: &Path,
+    credential: Option<&LeasedGitCredential>,
+    ambient: impl IntoIterator<Item = (std::ffi::OsString, std::ffi::OsString)>,
+) -> Command {
+    let mut command = Command::new("git");
+    command.current_dir(cwd).env_clear();
+    for (key, value) in ambient {
+        if LEASED_REMOTE_INHERITED_ENV
+            .iter()
+            .any(|inherited| key == std::ffi::OsStr::new(inherited))
+        {
+            command.env(key, value);
+        }
+    }
+    if let Some(parent) = cwd.parent() {
+        command.env("GIT_CEILING_DIRECTORIES", parent);
+    }
+    command
+        .env("HOME", cwd)
+        .env("XDG_CONFIG_HOME", cwd)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_ASKPASS", "")
+        .env("SSH_ASKPASS", "")
+        .env("GIT_ALLOW_PROTOCOL", LEASED_REMOTE_PROTOCOLS)
+        .env("GIT_PROTOCOL_FROM_USER", "0")
+        .env("GIT_PAGER", "cat")
+        .arg("--no-pager");
+    for pinned in REMOTE_PINNED_CONFIG {
+        command.arg("-c").arg(pinned);
+    }
+    command
+        .arg("-c")
+        .arg("core.askPass=")
+        .arg("-c")
+        .arg("credential.helper=");
+    if let Some(credential) = credential {
+        command
+            .arg("-c")
+            .arg(format!("credential.helper={LEASED_CREDENTIAL_HELPER}"))
+            .env(LEASED_USERNAME_ENV, &credential.username)
+            .env(LEASED_SECRET_ENV, &credential.secret);
     }
     command
 }
@@ -140,7 +270,7 @@ impl NeutralRepo {
             git_dir: root.join("repo.git"),
             root,
         };
-        let output = remote_git(&repo.root)
+        let output = leased_remote_git(&repo.root, None)
             .args(["init", "--bare", "-q", "--template="])
             .arg(format!("--object-format={object_format}"))
             .arg(&repo.git_dir)
@@ -162,11 +292,27 @@ impl NeutralRepo {
         Ok(repo)
     }
 
-    /// A remote-profile git command against this repository.
+    /// A git command against this repository that presents no credential at all.
     pub(crate) fn git(&self) -> Command {
-        let mut command = remote_git(&self.root);
+        self.git_with(None)
+    }
+
+    /// A git command against this repository whose only credential is `credential`.
+    pub(crate) fn git_with(&self, credential: Option<&LeasedGitCredential>) -> Command {
+        let mut command = leased_remote_git(&self.root, credential);
         command.arg(format!("--git-dir={}", self.git_dir.display()));
         command
+    }
+
+    /// This repository's own object directory: objects written here are daemon-owned, and the
+    /// borrowed workspace store behind `alternates` is never written.
+    pub(crate) fn objects_dir(&self) -> PathBuf {
+        self.git_dir.join("objects")
+    }
+
+    /// A daemon-owned scratch path beside the repository (removed with it).
+    pub(crate) fn scratch_path(&self, name: &str) -> PathBuf {
+        self.root.join(name)
     }
 }
 
@@ -409,6 +555,78 @@ pub(crate) mod test_support {
     pub(crate) fn plain_git_for_tests(dir: &Path, args: &[&str]) {
         plain_git(dir, args)
     }
+
+    /// A loopback smart-HTTP stand-in: every request without credentials gets a Basic challenge,
+    /// every request with them is recorded and refused. It shows exactly which credential a git
+    /// crossing put on the wire.
+    pub(crate) struct AuthCapture {
+        pub(crate) url_base: String,
+        captured: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    }
+
+    impl AuthCapture {
+        pub(crate) fn start() -> Self {
+            use std::io::{Read, Write};
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+            let port = listener.local_addr().expect("addr").port();
+            let captured = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+            let sink = captured.clone();
+            std::thread::spawn(move || {
+                for stream in listener.incoming().take(16) {
+                    let Ok(mut stream) = stream else { continue };
+                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+                    let mut head = Vec::new();
+                    let mut chunk = [0u8; 2048];
+                    while !head.windows(4).any(|window| window == b"\r\n\r\n") {
+                        match stream.read(&mut chunk) {
+                            Ok(0) | Err(_) => break,
+                            Ok(read) => head.extend_from_slice(&chunk[..read]),
+                        }
+                    }
+                    let head = String::from_utf8_lossy(&head).into_owned();
+                    let authorization = head.lines().find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.trim()
+                            .eq_ignore_ascii_case("authorization")
+                            .then(|| value.trim().to_owned())
+                    });
+                    let response = match authorization {
+                        Some(value) => {
+                            sink.lock().expect("capture").push(value);
+                            "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                        }
+                        None => "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"ioi\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    };
+                    let _ = stream.write_all(response.as_bytes());
+                }
+            });
+            Self {
+                url_base: format!("http://127.0.0.1:{port}"),
+                captured,
+            }
+        }
+
+        /// Every Basic credential presented, decoded to `user:password`.
+        pub(crate) fn decoded_basic_credentials(&self) -> Vec<String> {
+            use base64::Engine as _;
+            self.captured
+                .lock()
+                .expect("capture")
+                .iter()
+                .map(|value| {
+                    value
+                        .strip_prefix("Basic ")
+                        .and_then(|encoded| {
+                            base64::engine::general_purpose::STANDARD
+                                .decode(encoded.trim())
+                                .ok()
+                        })
+                        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+                        .unwrap_or_else(|| value.clone())
+                })
+                .collect()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -579,6 +797,148 @@ mod tests {
         assert!(String::from_utf8_lossy(&listed.stdout).starts_with(&head));
         assert!(!repo.outside.join("hijack.git").exists());
         assert!(repo.fired().is_empty(), "fired: {:?}", repo.fired());
+    }
+
+    /// An operator home holding every ambient credential source git consults: a global config
+    /// with a credential helper (which also touches a sentinel), `~/.git-credentials`, `~/.netrc`
+    /// and an askpass program, plus the environment that points at them.
+    struct AmbientOperator {
+        _root: tempfile::TempDir,
+        home: PathBuf,
+        sentinel: PathBuf,
+        env: Vec<(std::ffi::OsString, std::ffi::OsString)>,
+    }
+
+    fn plant_ambient_operator() -> AmbientOperator {
+        let root = tempfile::tempdir().expect("tempdir");
+        let home = root.path().join("home");
+        std::fs::create_dir_all(&home).expect("home");
+        let sentinel = root.path().join("ambient-credential-used");
+        let helper = root.path().join("ambient-helper.sh");
+        std::fs::write(
+            &helper,
+            format!(
+                "#!/bin/sh\ntouch '{}'\necho username=operator\necho password=ambient-operator-secret\n",
+                sentinel.display()
+            ),
+        )
+        .expect("helper");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&helper, std::fs::Permissions::from_mode(0o755))
+                .expect("chmod");
+        }
+        let gitconfig = home.join(".gitconfig");
+        std::fs::write(
+            &gitconfig,
+            format!("[credential]\n\thelper = !{}\n", helper.display()),
+        )
+        .expect("gitconfig");
+        std::fs::write(
+            home.join(".git-credentials"),
+            "https://operator:ambient-store-secret@git.example.test\n",
+        )
+        .expect("store");
+        std::fs::write(
+            home.join(".netrc"),
+            "machine 127.0.0.1 login operator password ambient-netrc-secret\n",
+        )
+        .expect("netrc");
+        let mut env: Vec<(std::ffi::OsString, std::ffi::OsString)> = std::env::vars_os()
+            .filter(|(key, _)| key == "PATH")
+            .collect();
+        for (key, value) in [
+            ("HOME", home.display().to_string()),
+            ("XDG_CONFIG_HOME", home.display().to_string()),
+            ("GIT_CONFIG_GLOBAL", gitconfig.display().to_string()),
+            ("GIT_ASKPASS", helper.display().to_string()),
+            ("SSH_ASKPASS", helper.display().to_string()),
+            ("SSH_AUTH_SOCK", root.path().join("agent.sock").display().to_string()),
+        ] {
+            env.push((key.into(), value.into()));
+        }
+        AmbientOperator {
+            _root: root,
+            home,
+            sentinel,
+            env,
+        }
+    }
+
+    fn ls_remote_over_http(mut command: Command, capture: &AuthCapture) {
+        let _ = command
+            .args(["ls-remote", &format!("{}/org/repo.git", capture.url_base)])
+            .stdin(std::process::Stdio::null())
+            .output()
+            .expect("git ls-remote");
+    }
+
+    #[test]
+    fn host_git_the_ambient_operator_credential_is_live_for_the_old_remote_profile() {
+        // Control for the test below: the planted operator home DOES answer an HTTP crossing that
+        // reads the operator's config and home — which is what the publish push used before W1
+        // survey §7.3.
+        let ambient = plant_ambient_operator();
+        let capture = AuthCapture::start();
+        let cwd = tempfile::tempdir().expect("cwd");
+        let mut command = remote_git(cwd.path());
+        command
+            .env("HOME", &ambient.home)
+            .env("GIT_CONFIG_GLOBAL", ambient.home.join(".gitconfig"));
+        ls_remote_over_http(command, &capture);
+        let presented = capture.decoded_basic_credentials();
+        assert!(
+            presented.iter().any(|credential| credential.contains("ambient")),
+            "the planted operator credential did not answer: {presented:?}"
+        );
+    }
+
+    #[test]
+    fn host_git_a_leased_crossing_presents_only_the_lease_and_never_an_ambient_credential() {
+        let ambient = plant_ambient_operator();
+        let cwd = tempfile::tempdir().expect("cwd");
+        let lease = LeasedGitCredential::access_token("leased-token-value").expect("lease");
+        let capture = AuthCapture::start();
+        ls_remote_over_http(
+            leased_remote_git_from(cwd.path(), Some(&lease), ambient.env.clone()),
+            &capture,
+        );
+        assert_eq!(
+            capture.decoded_basic_credentials(),
+            vec!["x-access-token:leased-token-value".to_string()],
+            "the crossing must present the lease and nothing else"
+        );
+        assert!(!ambient.sentinel.exists(), "the operator's credential helper ran");
+
+        // With no lease there is no credential at all: no helper, no store, no netrc, no prompt.
+        let capture = AuthCapture::start();
+        ls_remote_over_http(
+            leased_remote_git_from(cwd.path(), None, ambient.env.clone()),
+            &capture,
+        );
+        assert!(
+            capture.decoded_basic_credentials().is_empty(),
+            "an unleased crossing presented a credential: {:?}",
+            capture.decoded_basic_credentials()
+        );
+        assert!(!ambient.sentinel.exists(), "the operator's credential helper ran");
+        assert!(!format!("{lease:?}").contains("leased-token-value"));
+    }
+
+    #[test]
+    fn host_git_a_leased_crossing_cannot_use_ssh() {
+        let cwd = tempfile::tempdir().expect("cwd");
+        let output = leased_remote_git(cwd.path(), None)
+            .args(["ls-remote", "ssh://git@127.0.0.1:1/org/repo.git"])
+            .output()
+            .expect("ls-remote");
+        assert!(!output.status.success());
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("transport 'ssh' not allowed"),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     #[test]

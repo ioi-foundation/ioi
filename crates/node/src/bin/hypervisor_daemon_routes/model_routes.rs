@@ -755,13 +755,16 @@ fn route_receipt(
 
 /// Post an agent-run-transcript for an effectful registry op so the transcript plane computes a
 /// tamper-evident state_root and the op surfaces in Run Timeline / Work Ledger. Best-effort; the
-/// outcome (`transcript_recorded`) is reported honestly on the response.
+/// outcome (`transcript_recorded`) is reported honestly on the response. The daemon's own loopback
+/// POST presents the per-boot internal dispatch token: an anonymous control-plane mutation is
+/// refused on loopback too (W1 survey §7.5).
 async fn post_op_transcript(
-    base: &str,
+    st: &DaemonState,
     op: &str,
     route_ref: &str,
     detail: &Value,
 ) -> Option<String> {
+    let base = st.base_url.as_str();
     let run_id = format!("mro_{:x}", nanos());
     let at = iso_now();
     let transcript = json!({
@@ -778,6 +781,10 @@ async fn post_op_transcript(
     let url = format!("{base}/v1/hypervisor/agent-run-transcripts/{run_id}");
     let ok = reqwest::Client::new()
         .post(&url)
+        .header(
+            "x-ioi-internal-dispatch",
+            st.internal_dispatch_token.as_str(),
+        )
         .json(&transcript)
         .timeout(Duration::from_millis(3000))
         .send()
@@ -2315,7 +2322,7 @@ pub(crate) async fn handle_model_route_probe(
             ),
         );
     }
-    let transcript_run = post_op_transcript(&st.base_url, "probe", &route_ref, &availability).await;
+    let transcript_run = post_op_transcript(&st, "probe", &route_ref, &availability).await;
     (
         StatusCode::OK,
         Json(json!({
@@ -2389,7 +2396,7 @@ async fn lifecycle_flip(
                 fresh
             };
             let transcript_run = post_op_transcript(
-                &st.base_url,
+                &st,
                 mutation_kind,
                 &route_ref,
                 &json!({ "new_status": new_status }),
@@ -3165,7 +3172,7 @@ pub(crate) async fn handle_model_route_select_default(
                 fresh
             };
             let transcript_run =
-                post_op_transcript(&st.base_url, "select_default", &route_ref, &json!({})).await;
+                post_op_transcript(&st, "select_default", &route_ref, &json!({})).await;
             (
                 StatusCode::OK,
                 Json(json!({
@@ -3345,7 +3352,7 @@ pub(crate) async fn handle_model_route_bind_session(
                 );
             }
             let transcript_run = post_op_transcript(
-                &st.base_url,
+                &st,
                 "bind_session_route",
                 &route_ref,
                 &json!({ "session_ref": binding["session_ref"], "binding_id": binding_id }),

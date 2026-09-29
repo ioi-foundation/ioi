@@ -230,7 +230,52 @@ pub(crate) trait ScmRemotePort {
 /// `push`) never run inside it at all — they run from a daemon-owned neutral repository that only
 /// borrows the workspace's object store, so the guest's config, hooks, url rewrites and remote
 /// definitions are never read by the process that talks to the remote.
-pub(crate) struct GitProcessScmPort;
+///
+/// W1 survey §7.3: the crossings present only the capability lease's credential (`leased`), or
+/// none — never the operator's git config, `~/.netrc`, credential helpers or ssh agent. And the
+/// frozen revision is prepared into a daemon-owned staging repository, never the workspace: the
+/// preparation reads the workspace's declared files and objects and writes nothing there, so it
+/// can run before the authority gate (the gate binds the revision it produces), and the push
+/// after the gate sends exactly the staged objects.
+pub(crate) struct GitProcessScmPort {
+    credential: Option<super::host_git::LeasedGitCredential>,
+    staged: std::sync::Mutex<Option<StagedRevision>>,
+}
+
+/// A prepared revision and the daemon-owned repository that holds its new objects.
+struct StagedRevision {
+    revision_id: String,
+    repo: super::host_git::NeutralRepo,
+}
+
+impl GitProcessScmPort {
+    /// A port that presents no credential: preparation, and the replay path's remote read.
+    pub(crate) fn unleased() -> Self {
+        Self {
+            credential: None,
+            staged: std::sync::Mutex::new(None),
+        }
+    }
+
+    /// The same port (and its staged revision) after the gate: its crossings present the lease's
+    /// credential and nothing else. A lease with no token keeps presenting none.
+    pub(crate) fn leased(self, token: Option<&str>) -> Self {
+        Self {
+            credential: token.and_then(super::host_git::LeasedGitCredential::access_token),
+            staged: self.staged,
+        }
+    }
+}
+
+/// Whether a destination's transport can carry a leased credential (or needs none). ssh, `git://`
+/// and helper transports authenticate, if at all, with what the operator's host holds, so a
+/// publication to one is refused before any authority is consumed.
+fn remote_transport_is_leasable(remote_url: &str) -> bool {
+    remote_url.starts_with("https://")
+        || remote_url.starts_with("http://")
+        || remote_url.starts_with("file://")
+        || (remote_url.starts_with('/') && !remote_url.contains("::"))
+}
 
 fn git_output(output: std::io::Result<std::process::Output>) -> (bool, String) {
     match output {
@@ -261,19 +306,27 @@ fn remote_ref_name(canonical: &str) -> Option<String> {
     (!path.is_empty()).then(|| format!("refs/heads/{path}"))
 }
 
-fn prepare_git_revision(request: &TargetRevisionPreparationRequest<'_>) -> Result<String, String> {
+/// Build the frozen revision from the declared rows. Every object it creates (blobs, trees, the
+/// commit) and the index it stages through are written into `staging`, a daemon-owned repository
+/// whose `alternates` borrow the workspace's objects; the workspace's object store and work tree
+/// are only read.
+fn prepare_git_revision(
+    request: &TargetRevisionPreparationRequest<'_>,
+    staging: &super::host_git::NeutralRepo,
+) -> Result<String, String> {
     let parent = request
         .base_revision_id
         .strip_prefix("scm-revision:")
         .ok_or_else(|| "the proposal base revision is not canonical".to_owned())?;
     let workspace = request.workspace_root;
-    let staging = format!("{workspace}/.ioi-scm-publication-index");
-    let _ = std::fs::remove_file(&staging);
+    let index = staging.scratch_path("publication-index");
+    let objects = staging.objects_dir();
     let index_env = |args: &[&str]| -> (bool, String) {
         match super::host_git::workspace_git(workspace, args) {
             Ok(mut command) => git_output(
                 command
-                    .env("GIT_INDEX_FILE", &staging)
+                    .env("GIT_INDEX_FILE", &index)
+                    .env("GIT_OBJECT_DIRECTORY", &objects)
                     .env("GIT_AUTHOR_DATE", request.authored_at)
                     .env("GIT_COMMITTER_DATE", request.authored_at)
                     .output(),
@@ -305,13 +358,11 @@ fn prepare_git_revision(request: &TargetRevisionPreparationRequest<'_>) -> Resul
             _ => index_env(&["update-index", "--add", path]),
         };
         if !ok {
-            let _ = std::fs::remove_file(&staging);
             return Err(format!("declared row '{path}' could not be staged ({out})"));
         }
     }
     let (wrote, tree) = index_env(&["write-tree"]);
     if !wrote {
-        let _ = std::fs::remove_file(&staging);
         return Err("the enumerated change set produced no tree".to_owned());
     }
     let tree = tree.trim().to_owned();
@@ -327,7 +378,6 @@ fn prepare_git_revision(request: &TargetRevisionPreparationRequest<'_>) -> Resul
         "-m",
         request.title,
     ]);
-    let _ = std::fs::remove_file(&staging);
     if !committed {
         return Err("the enumerated change set produced no commit".to_owned());
     }
@@ -339,7 +389,18 @@ impl ScmRemotePort for GitProcessScmPort {
         &self,
         request: &TargetRevisionPreparationRequest<'_>,
     ) -> Result<String, String> {
-        prepare_git_revision(request)
+        let (objects, format) = super::host_git::workspace_object_store(request.workspace_root)?;
+        let repo = super::host_git::NeutralRepo::create(&format, Some(&objects))?;
+        let revision_id = prepare_git_revision(request, &repo)?;
+        *self
+            .staged
+            .lock()
+            .map_err(|_| "the publication staging store is poisoned".to_owned())? =
+            Some(StagedRevision {
+                revision_id: revision_id.clone(),
+                repo,
+            });
+        Ok(revision_id)
     }
 
     fn observe_heads(&self, request: &HeadObservationRequest<'_>) -> Result<ObservedHeads, String> {
@@ -353,7 +414,7 @@ impl ScmRemotePort for GitProcessScmPort {
         let observe = |reference: &str| -> Result<Option<String>, String> {
             let (ok, out) = git_output(
                 neutral
-                    .git()
+                    .git_with(self.credential.as_ref())
                     .args(["ls-remote", "--exit-code", request.remote_url, reference])
                     .output(),
             );
@@ -415,29 +476,33 @@ impl ScmRemotePort for GitProcessScmPort {
                 detail: "the prepared intended revision is not canonical".to_owned(),
             };
         };
-        let workspace = request.workspace_root;
         // The lease IS the compare-and-swap: git refuses unless the remote ref
         // still stands at the observed head. Absent that match nothing moves.
         let lease = match request.expected_target_head {
             Some(_) => format!("--force-with-lease={remote_ref}:{parent}"),
             None => format!("--force-with-lease={remote_ref}:"),
         };
-        // Push from a neutral repository that borrows the workspace's objects: the guest's
-        // config (url rewrites, remotes, sshCommand, credential helpers) and hooks never run.
-        let neutral = match super::host_git::workspace_object_store(workspace).and_then(
-            |(objects, format)| super::host_git::NeutralRepo::create(&format, Some(&objects)),
-        ) {
-            Ok(neutral) => neutral,
-            Err(detail) => {
-                return TargetRefAdvanceOutcome::Refused {
-                    refusal_code: REFUSAL_EXPECTED_HEAD_MOVED.to_owned(),
-                    detail: format!("the workspace object store could not be borrowed: {detail}"),
-                };
-            }
+        // Push from the staging repository the preparation wrote: it borrows the workspace's
+        // objects, so the guest's config (url rewrites, remotes, sshCommand, credential helpers)
+        // and hooks never run, and it holds the frozen revision's own objects. A revision this
+        // port did not stage is refused; nothing is re-built from the workspace here.
+        let staged = match self.staged.lock() {
+            Ok(mut slot) => slot.take(),
+            Err(_) => None,
+        };
+        let Some(staged) =
+            staged.filter(|staged| staged.revision_id == request.intended_revision_id)
+        else {
+            return TargetRefAdvanceOutcome::Refused {
+                refusal_code: REFUSAL_CONTENT_DIGEST_MISMATCH.to_owned(),
+                detail: "the intended revision is not staged in this daemon's publication store"
+                    .to_owned(),
+            };
         };
         let (pushed, push_out) = git_output(
-            neutral
-                .git()
+            staged
+                .repo
+                .git_with(self.credential.as_ref())
                 .args([
                     "push",
                     &lease,
@@ -2078,7 +2143,8 @@ fn status_for(code: &str) -> StatusCode {
         | "scm_publication_artifact_invalid"
         | "scm_publication_artifact_ref_conflict"
         | "scm_publication_idempotency_body_conflict"
-        | "scm_publication_gateway_effect_binding_mismatch" => StatusCode::CONFLICT,
+        | "scm_publication_gateway_effect_binding_mismatch"
+        | "scm_publication_remote_transport_unleasable" => StatusCode::CONFLICT,
         "scm_publication_idempotency_key_invalid" => StatusCode::BAD_REQUEST,
         "scm_publication_remote_unobservable" => StatusCode::BAD_GATEWAY,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -2771,6 +2837,17 @@ pub(crate) async fn handle_scm_publish(
         .and_then(Value::as_str)
         .unwrap_or("Hypervisor publication")
         .to_owned();
+    // W1 survey §7.3: the push presents the capability lease's credential and nothing else, so a
+    // destination whose transport cannot carry one (ssh, git://, helpers) is refused here, before
+    // any authority is consumed, rather than pushed with the operator's own keys.
+    if !remote_transport_is_leasable(&remote_url) {
+        return fail(verr(
+            "scm_publication_remote_transport_unleasable",
+            format!(
+                "the admitted destination '{remote_url}' uses a transport that cannot present a leased credential; publish over https (leased credential), http or a local path"
+            ),
+        ));
+    }
     let proposal_files = &source.proposal["files"];
     if let Err(detail) = verify_change_set_against_workspace(&workspace_root, proposal_files) {
         return fail(verr(REFUSAL_CONTENT_DIGEST_MISMATCH, detail));
@@ -2780,19 +2857,22 @@ pub(crate) async fn handle_scm_publish(
         .get("admitted_at")
         .and_then(Value::as_str)
         .unwrap_or("1970-01-01T00:00:00Z");
-    let intended_revision =
-        match GitProcessScmPort.prepare_target_revision(&TargetRevisionPreparationRequest {
-            base_revision_id: source.proposal["base_revision_id"]
-                .as_str()
-                .unwrap_or_default(),
-            files: proposal_files,
-            workspace_root: &workspace_root,
-            title: &title,
-            authored_at,
-        }) {
-            Ok(revision) => revision,
-            Err(detail) => return fail(verr("scm_publication_prepare_failed", detail)),
-        };
+    // The frozen revision is prepared before the gate because the gate binds it (the operation
+    // key and the lease facets carry `intended_revision_id`). The preparation writes only the
+    // port's daemon-owned staging repository — the workspace is read, never written.
+    let port = GitProcessScmPort::unleased();
+    let intended_revision = match port.prepare_target_revision(&TargetRevisionPreparationRequest {
+        base_revision_id: source.proposal["base_revision_id"]
+            .as_str()
+            .unwrap_or_default(),
+        files: proposal_files,
+        workspace_root: &workspace_root,
+        title: &title,
+        authored_at,
+    }) {
+        Ok(revision) => revision,
+        Err(detail) => return fail(verr("scm_publication_prepare_failed", detail)),
+    };
     let identity = match v2_operation_identity(&source, &submission, &title, &intended_revision) {
         Ok(identity) => identity,
         Err(error) => return fail(error),
@@ -2867,12 +2947,19 @@ pub(crate) async fn handle_scm_publish(
         Err(error) => return fail(error),
     }
     // A Prepared record with no terminal sibling is an unclosed dispatch window. Reconcile it from
-    // remote truth without calling either final invoker a second time.
+    // remote truth without calling either final invoker a second time. This runs before the gate
+    // by design (W1 survey §7.3, recorded): the authority it resolves was consumed by the attempt
+    // that wrote Prepared, and a second consumption would strand that claim. It is safe because
+    // it only READS the remote (`ls-remote`; it never advances a ref or opens a review), runs for
+    // a caller already scoped to this environment, binding and proposal, and presents NO
+    // credential — neither a lease (none is issued here) nor the operator's. A remote that
+    // needs a credential to be read reads as unobservable, which settles as a named
+    // reconciliation result, never as success.
     match unresolved_prepared_operation(&state.data_dir, &operation_key) {
         Ok(Some(prepared)) => {
             let report = match reconcile_prepared_operation(
                 &state.data_dir,
-                &GitProcessScmPort,
+                &port,
                 &source,
                 &prepared,
                 &super::iso_now(),
@@ -3168,9 +3255,11 @@ pub(crate) async fn handle_scm_publish(
     };
     authority.final_invocation_claim_ref = Some(claim.reference().to_owned());
     authority.final_invocation_claim_id = Some(claim.claim_id().to_owned());
+    // From here the crossings present the lease's credential, and only it.
+    let port = port.leased(lease.token.as_deref());
     let first_execution = execute_scm_publication_v2(
         &state.data_dir,
-        &GitProcessScmPort,
+        &port,
         &workspace_root,
         &source,
         &submission,
@@ -3190,7 +3279,7 @@ pub(crate) async fn handle_scm_publish(
                 prepared_dispatch_window = true;
                 reconcile_prepared_operation(
                     &state.data_dir,
-                    &GitProcessScmPort,
+                    &port,
                     &source,
                     &prepared,
                     &super::iso_now(),
@@ -4332,5 +4421,190 @@ mod tests {
         );
         assert_eq!(remote_ref_name("scm-ref://acme/hypervisor/heads/"), None);
         assert_eq!(remote_ref_name("refs/heads/main"), None);
+    }
+
+    fn file_listing(root: &std::path::Path) -> Vec<String> {
+        let mut listed = Vec::new();
+        let mut pending = vec![root.to_path_buf()];
+        while let Some(dir) = pending.pop() {
+            for entry in std::fs::read_dir(&dir).expect("read dir").flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    pending.push(path);
+                } else {
+                    listed.push(
+                        path.strip_prefix(root)
+                            .expect("relative")
+                            .display()
+                            .to_string(),
+                    );
+                }
+            }
+        }
+        listed.sort();
+        listed
+    }
+
+    fn hostile_publication_fixture() -> (
+        super::super::host_git::test_support::HostileRepo,
+        String,
+        Value,
+    ) {
+        let repo = super::super::host_git::test_support::HostileRepo::plant();
+        let (ok, head, _) = super::super::host_git::run_workspace_git(
+            repo.workspace.to_str().expect("utf8"),
+            &["rev-parse", "HEAD"],
+        );
+        assert!(ok);
+        let files = json!([
+            { "path": "tracked.txt", "change_kind": "modified" },
+            { "path": "notes.md", "change_kind": "added" },
+        ]);
+        (repo, format!("scm-revision:{}", head.trim()), files)
+    }
+
+    // W1 survey §7.3: `prepare_git_revision` ran before the gate AND wrote the workspace (loose
+    // objects in `.git/objects`, an index file in the work tree). It still runs before the gate —
+    // the gate binds the revision it produces — but now writes only daemon-owned staging.
+    #[test]
+    fn preparing_the_frozen_revision_writes_nothing_into_the_workspace() {
+        let (repo, base, files) = hostile_publication_fixture();
+        let workspace = repo.workspace.to_str().expect("utf8").to_owned();
+        let objects_before = file_listing(&repo.workspace.join(".git").join("objects"));
+        let tree_before = file_listing(&repo.workspace);
+        repo.clear();
+        let port = GitProcessScmPort::unleased();
+        let intended = port
+            .prepare_target_revision(&TargetRevisionPreparationRequest {
+                base_revision_id: &base,
+                files: &files,
+                workspace_root: &workspace,
+                title: "publication",
+                authored_at: "2026-09-28T00:00:00Z",
+            })
+            .expect("prepared");
+        assert_eq!(
+            file_listing(&repo.workspace.join(".git").join("objects")),
+            objects_before,
+            "the preparation wrote objects into the workspace store"
+        );
+        assert_eq!(file_listing(&repo.workspace), tree_before);
+        let commit = intended.strip_prefix("scm-revision:").expect("canonical");
+        assert!(
+            !super::super::host_git::run_workspace_git(&workspace, &["cat-file", "-e", commit]).0,
+            "the frozen revision is in the workspace"
+        );
+        assert!(repo.fired().is_empty(), "fired: {:?}", repo.fired());
+
+        // The same port pushes exactly the staged objects after the gate.
+        super::super::host_git::test_support::plain_git_for_tests(
+            &repo.outside,
+            &["init", "-q", "--bare", "remote.git"],
+        );
+        let remote_url = format!("file://{}", repo.outside.join("remote.git").display());
+        let outcome = port.advance_target_ref(&TargetRefAdvanceRequest {
+            remote_url: &remote_url,
+            target_ref: "scm-ref://acme/hypervisor/heads/published",
+            base_revision_id: &base,
+            expected_target_head: None,
+            files: &files,
+            workspace_root: &workspace,
+            title: "publication",
+            intended_revision_id: &intended,
+        });
+        assert_eq!(
+            outcome,
+            TargetRefAdvanceOutcome::Advanced {
+                resulting_revision_id: intended.clone()
+            }
+        );
+        let listed = super::super::host_git::remote_git(&repo.outside)
+            .args(["ls-remote", &remote_url, "refs/heads/published"])
+            .output()
+            .expect("ls-remote");
+        assert!(String::from_utf8_lossy(&listed.stdout).starts_with(commit));
+        assert!(repo.fired().is_empty(), "fired: {:?}", repo.fired());
+        // A second advance has nothing staged: it refuses instead of rebuilding from the workspace.
+        assert!(matches!(
+            port.advance_target_ref(&TargetRefAdvanceRequest {
+                remote_url: &remote_url,
+                target_ref: "scm-ref://acme/hypervisor/heads/again",
+                base_revision_id: &base,
+                expected_target_head: None,
+                files: &files,
+                workspace_root: &workspace,
+                title: "publication",
+                intended_revision_id: &intended,
+            }),
+            TargetRefAdvanceOutcome::Refused { .. }
+        ));
+    }
+
+    // W1 survey §7.3: the push presented the operator's ambient git credentials. After the gate
+    // the port's crossings present the lease's token, and before it they present nothing.
+    #[test]
+    fn the_publication_push_presents_the_leased_credential() {
+        let (repo, base, files) = hostile_publication_fixture();
+        let workspace = repo.workspace.to_str().expect("utf8").to_owned();
+        let port = GitProcessScmPort::unleased();
+        let intended = port
+            .prepare_target_revision(&TargetRevisionPreparationRequest {
+                base_revision_id: &base,
+                files: &files,
+                workspace_root: &workspace,
+                title: "publication",
+                authored_at: "2026-09-28T00:00:00Z",
+            })
+            .expect("prepared");
+        let capture = super::super::host_git::test_support::AuthCapture::start();
+        let remote_url = format!("{}/acme/hypervisor.git", capture.url_base);
+        let unleased_read = port.observe_heads(&HeadObservationRequest {
+            remote_url: &remote_url,
+            target_ref: "scm-ref://acme/hypervisor/heads/published",
+            base_ref: "scm-ref://acme/hypervisor/heads/main",
+        });
+        assert!(unleased_read.is_err(), "the stand-in refuses every read");
+        assert!(
+            capture.decoded_basic_credentials().is_empty(),
+            "an unleased read presented a credential: {:?}",
+            capture.decoded_basic_credentials()
+        );
+        let port = port.leased(Some("lease-token-for-this-crossing"));
+        let outcome = port.advance_target_ref(&TargetRefAdvanceRequest {
+            remote_url: &remote_url,
+            target_ref: "scm-ref://acme/hypervisor/heads/published",
+            base_revision_id: &base,
+            expected_target_head: None,
+            files: &files,
+            workspace_root: &workspace,
+            title: "publication",
+            intended_revision_id: &intended,
+        });
+        assert!(matches!(outcome, TargetRefAdvanceOutcome::Refused { .. }));
+        assert_eq!(
+            capture.decoded_basic_credentials(),
+            vec!["x-access-token:lease-token-for-this-crossing".to_string()]
+        );
+    }
+
+    #[test]
+    fn only_a_transport_that_can_carry_a_lease_is_publishable() {
+        for leasable in [
+            "https://github.com/acme/hypervisor.git",
+            "http://127.0.0.1:9/acme.git",
+            "file:///srv/remotes/hypervisor.git",
+            "/srv/remotes/hypervisor.git",
+        ] {
+            assert!(remote_transport_is_leasable(leasable), "{leasable}");
+        }
+        for unleasable in [
+            "git@github.com:acme/hypervisor.git",
+            "ssh://git@github.com/acme/hypervisor.git",
+            "git://github.com/acme/hypervisor.git",
+            "ext::sh -c touch% /tmp/pwned",
+            "fd::7",
+        ] {
+            assert!(!remote_transport_is_leasable(unleasable), "{unleasable}");
+        }
     }
 }

@@ -388,6 +388,43 @@ pub(crate) struct DaemonState {
     pub(crate) harness_profile_lock: Mutex<()>,
 }
 
+/// A daemon state over `data_dir` for route tests that call a handler directly. Nothing here
+/// opens a socket or reaches a network: the inference edge points at a closed loopback port and
+/// is never called by the handlers these tests exercise.
+#[cfg(test)]
+pub(crate) fn test_daemon_state(data_dir: &str) -> Arc<DaemonState> {
+    Arc::new(DaemonState {
+        inference: Arc::new(HttpInferenceRuntime::new(
+            "http://127.0.0.1:9/v1".to_string(),
+            String::new(),
+            "test-model".to_string(),
+        )),
+        model_name: "test-model".to_string(),
+        data_dir: data_dir.to_string(),
+        enforcement_coverage_registry: Mutex::new(Default::default()),
+        mcp_manager: Arc::new(ioi_drivers::mcp::McpManager::new()),
+        runtime_tool_contract_registry: Arc::new(std::sync::RwLock::new(
+            ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry::seeded_native()
+                .expect("seeded native tool contracts"),
+        )),
+        workspace_root: data_dir.to_string(),
+        home_dir: data_dir.to_string(),
+        base_url: "http://127.0.0.1:9".to_string(),
+        token_expiry: Mutex::new(HashMap::new()),
+        stream_frame_delay_ms: 0,
+        boot_id: "boot_test".to_string(),
+        internal_dispatch_token: "idisp_test_internal_dispatch_token".to_string(),
+        vault_bound: Mutex::new(HashSet::new()),
+        preview_servers: Mutex::new(HashMap::new()),
+        model_route_lock: Mutex::new(()),
+        harness_profile_lock: Mutex::new(()),
+        live_vms: Mutex::new(HashMap::new()),
+        terminals: Mutex::new(HashMap::new()),
+        editor_runtimes: Mutex::new(HashMap::new()),
+        editor_proxies: Mutex::new(HashMap::new()),
+    })
+}
+
 /// A real running preview listener for a session (a static file server bound to
 /// a free localhost port, serving the provisioned workspace). Shutdown is
 /// deterministic: signal `shutdown` and await `join` so the socket is closed

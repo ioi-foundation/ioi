@@ -16654,74 +16654,189 @@ pub(crate) async fn resolve_sealed_credential(
     (token, source, key_source)
 }
 
-/// The single authority gateway. Order: resolve sealed credential (428) → verify wallet grant (403)
-/// → issue + persist the lease. Returns the authorized lease, or a (StatusCode, body) the caller
-/// returns verbatim. This is THE crossing — publish/abandon/future-connectors all route through it.
-/// Async because some credential kinds (github-app) MINT a fresh token (network) at resolution time.
-pub(crate) async fn authorize_capability_lease(
-    st: &Arc<DaemonState>,
-    req: &CapabilityLeaseRequest,
-) -> Result<AuthorizedCapabilityLease, (StatusCode, Value)> {
-    let policy_hash = capability_lease_policy_hash(req);
-    let request_hash = capability_lease_request_hash(req);
+/// A credential kind whose token is MINTED over the network at resolution time (a GitHub App
+/// installation token, an OAuth refresh, an OIDC token exchange). Every other kind opens locally.
+fn credential_mints_over_network(record: &Value) -> bool {
+    matches!(
+        record["kind"].as_str(),
+        Some("github-app" | "oauth-refresh" | "oidc-workload")
+    )
+}
 
-    // 1) Resolve the SEALED backing credential (decrypt/mint failure → None → fail closed). Connector's
-    //    own credential first, then the github host git-auth fallback. Never exported. Two credential
-    //    KINDS resolve here: a sealed PAT (open the sealed token) and a github-app (mint a fresh
-    //    installation token from the sealed pem + app_id + installation_id).
-    let mut token: Option<String> = None;
-    let mut credential_source: Option<String> = None;
-    let mut credential_key_source: Option<String> = None;
-    if let Some(cid) = req.credential_connector_id.as_deref() {
-        if let Some(rec) = read_record_dir(&st.data_dir, &req.credential_store)
-            .into_iter()
-            .find(|c| c["connector_id"].as_str() == Some(cid))
-        {
-            // THE CONNECTION FENCE (M03.16): a credential bound to a ProviderConnectionBinding
-            // resolves only while that connection is active at the exact version and epoch the
-            // record names and before its reauthorization deadline. One check site, crossed by
-            // every brokered use — sessions, execution, MCP tools/call, materializing runs.
-            if let Err(cause) =
-                super::provider_connection_routes::fence_credential(&st.data_dir, &rec)
-            {
-                return Err((
-                    StatusCode::PRECONDITION_REQUIRED,
-                    json!({
-                        "ok": false, "decision": "blocked", "reason": "connection_fenced",
-                        "cause": cause,
-                        "message": "This lease's backing credential is bound to a provider connection that is not active through this credential binding at this epoch; reconnect or reauthorize the connection.",
-                        "backing_provider": req.backing_provider, "host_mutation": false,
-                    }),
-                ));
-            }
-            let (t, src, ks) = resolve_sealed_credential(&rec).await;
-            token = t;
-            credential_source = src;
-            credential_key_source = ks;
+/// What can be known about a minting credential WITHOUT the network: the sealed material opens and
+/// the endpoints and ids a mint needs are present. Mirrors the early returns of
+/// `resolve_sealed_credential`, so a record that could never mint is not deferred.
+fn mint_precondition_holds(record: &Value) -> bool {
+    let present = |field: &str| record[field].as_str().is_some_and(|value| !value.is_empty());
+    let opens = |field: &str| record[field].as_str().and_then(open_scm_token).is_some();
+    match record["kind"].as_str() {
+        Some("github-app") => {
+            opens("sealed_pem") && present("app_id") && present("installation_id")
         }
-        if token.is_none() && req.github_host_fallback {
-            if let Some(host) = read_record_dir(&st.data_dir, "scm-credentials")
-                .into_iter()
-                .find(|c| c["connector_id"].as_str() == Some("scm_host_github"))
-            {
-                let (t, _src, ks) = resolve_sealed_credential(&host).await;
-                if t.is_some() {
-                    token = t;
-                    credential_source = Some("host-authentication".to_string());
-                    credential_key_source = ks;
-                }
-            }
+        Some("oauth-refresh") => opens("sealed_refresh_token") && present("token_url"),
+        Some("oidc-workload") => {
+            let subject = match record["subject_token_file"].as_str() {
+                Some(path) if !path.is_empty() => std::fs::metadata(path).is_ok(),
+                _ => opens("sealed_subject_token"),
+            };
+            subject && present("token_url")
         }
-        if req.credential_required && token.is_none() {
+        _ => false,
+    }
+}
+
+/// One candidate backing credential, in the order the gateway prefers them (the connector's own
+/// record, then the GitHub host fallback), located and fenced without any network call.
+enum BackingCredentialSlot {
+    /// Opened locally: `(token, source label, key source)`.
+    Opened(Option<String>, Option<String>, Option<String>),
+    /// Mints over the network — only after authority has been admitted (W1 survey §7.2).
+    Deferred(Value),
+}
+
+/// Step 1 of the gateway, LOCAL ONLY: find the backing credential records, cross the connection
+/// fence, open the kinds that open locally and defer the kinds that mint. Nothing here reaches a
+/// network, so a caller refused at step 2 has caused no mint.
+async fn locate_backing_credential(
+    data_dir: &str,
+    req: &CapabilityLeaseRequest,
+) -> Result<Vec<(BackingCredentialSlot, bool)>, (StatusCode, Value)> {
+    let mut slots = Vec::new();
+    let Some(cid) = req.credential_connector_id.as_deref() else {
+        return Ok(slots);
+    };
+    if let Some(rec) = read_record_dir(data_dir, &req.credential_store)
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(cid))
+    {
+        // THE CONNECTION FENCE (M03.16): a credential bound to a ProviderConnectionBinding
+        // resolves only while that connection is active at the exact version and epoch the
+        // record names and before its reauthorization deadline. One check site, crossed by
+        // every brokered use — sessions, execution, MCP tools/call, materializing runs.
+        if let Err(cause) = super::provider_connection_routes::fence_credential(data_dir, &rec) {
             return Err((
                 StatusCode::PRECONDITION_REQUIRED,
                 json!({
-                    "ok": false, "decision": "blocked", "reason": "scm_credential_required",
-                    "message": "This lease needs a resolvable backing credential before the crossing.",
+                    "ok": false, "decision": "blocked", "reason": "connection_fenced",
+                    "cause": cause,
+                    "message": "This lease's backing credential is bound to a provider connection that is not active through this credential binding at this epoch; reconnect or reauthorize the connection.",
                     "backing_provider": req.backing_provider, "host_mutation": false,
                 }),
             ));
         }
+        slots.push((local_or_deferred_credential(rec).await, false));
+    }
+    if req.github_host_fallback {
+        if let Some(host) = read_record_dir(data_dir, "scm-credentials")
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some("scm_host_github"))
+        {
+            slots.push((local_or_deferred_credential(host).await, true));
+        }
+    }
+    Ok(slots)
+}
+
+async fn local_or_deferred_credential(record: Value) -> BackingCredentialSlot {
+    if credential_mints_over_network(&record) {
+        if mint_precondition_holds(&record) {
+            BackingCredentialSlot::Deferred(record)
+        } else {
+            BackingCredentialSlot::Opened(None, None, record["key_source"].as_str().map(str::to_string))
+        }
+    } else {
+        // Every non-minting kind resolves without a network call.
+        let (token, source, key_source) = resolve_sealed_credential(&record).await;
+        BackingCredentialSlot::Opened(token, source, key_source)
+    }
+}
+
+/// Whether step 1 found anything that can still produce a token.
+fn backing_credential_available(slots: &[(BackingCredentialSlot, bool)]) -> bool {
+    slots.iter().any(|(slot, _)| match slot {
+        BackingCredentialSlot::Opened(token, _, _) => token.is_some(),
+        BackingCredentialSlot::Deferred(_) => true,
+    })
+}
+
+/// The token the crossing uses: the first slot, in preference order, that yields one. Deferred
+/// slots are minted here, in order, and only until one succeeds. Returns `(token, source label,
+/// key source)`; a host-fallback token is labelled `host-authentication`.
+async fn resolve_backing_credential<Mint, MintFuture>(
+    slots: Vec<(BackingCredentialSlot, bool)>,
+    mint: &Mint,
+) -> (Option<String>, Option<String>, Option<String>)
+where
+    Mint: Fn(Value) -> MintFuture,
+    MintFuture: std::future::Future<Output = (Option<String>, Option<String>, Option<String>)>,
+{
+    // With no token, the connector record's key source is still what the lease records.
+    let mut fallback_key_source = None;
+    for (index, (slot, host)) in slots.into_iter().enumerate() {
+        let (token, source, key_source) = match slot {
+            BackingCredentialSlot::Opened(token, source, key_source) => (token, source, key_source),
+            BackingCredentialSlot::Deferred(record) => mint(record).await,
+        };
+        if token.is_some() {
+            let source = if host {
+                Some("host-authentication".to_string())
+            } else {
+                source
+            };
+            return (token, source, key_source);
+        }
+        if index == 0 && !host {
+            fallback_key_source = key_source;
+        }
+    }
+    (None, None, fallback_key_source)
+}
+
+/// The single authority gateway. Order (W1 survey §7.2): locate and fence the sealed credential
+/// locally (428 when none can resolve) → verify and consume the wallet grant (403) → only THEN
+/// open/mint the credential (a GitHub App installation token, an OAuth refresh or an OIDC token
+/// exchange reaches the network here, after authority) → issue + persist the lease. Returns the
+/// authorized lease, or a (StatusCode, body) the caller returns verbatim. This is THE crossing —
+/// publish/abandon/future-connectors all route through it.
+pub(crate) async fn authorize_capability_lease(
+    st: &Arc<DaemonState>,
+    req: &CapabilityLeaseRequest,
+) -> Result<AuthorizedCapabilityLease, (StatusCode, Value)> {
+    authorize_capability_lease_minting(&st.data_dir, req, &|record: Value| async move {
+        resolve_sealed_credential(&record).await
+    })
+    .await
+}
+
+async fn authorize_capability_lease_minting<Mint, MintFuture>(
+    data_dir: &str,
+    req: &CapabilityLeaseRequest,
+    mint: &Mint,
+) -> Result<AuthorizedCapabilityLease, (StatusCode, Value)>
+where
+    Mint: Fn(Value) -> MintFuture,
+    MintFuture: std::future::Future<Output = (Option<String>, Option<String>, Option<String>)>,
+{
+    let policy_hash = capability_lease_policy_hash(req);
+    let request_hash = capability_lease_request_hash(req);
+
+    // 1) Locate the SEALED backing credential — connector's own record first, then the github host
+    //    git-auth fallback — and fail closed (428) when nothing could resolve. Local only: a kind
+    //    that MINTS over the network is checked for what can be checked locally and minted after
+    //    step 2, so a caller without authority causes no mint. Never exported.
+    let credential_slots = locate_backing_credential(data_dir, req).await?;
+    if req.credential_connector_id.is_some()
+        && req.credential_required
+        && !backing_credential_available(&credential_slots)
+    {
+        return Err((
+            StatusCode::PRECONDITION_REQUIRED,
+            json!({
+                "ok": false, "decision": "blocked", "reason": "scm_credential_required",
+                "message": "This lease needs a resolvable backing credential before the crossing.",
+                "backing_provider": req.backing_provider, "host_mutation": false,
+            }),
+        ));
     }
 
     // 2) Owner authority gate — independently resolve the daemon-owned principal, verify the
@@ -16744,7 +16859,7 @@ pub(crate) async fn authorize_capability_lease(
         .flatten()
     {
         Some(approval_ref) => match super::authority_challenge_routes::claim_approval_ref(
-            &st.data_dir,
+            data_dir,
             &approval_ref,
             &required_scope,
             &policy_hash,
@@ -16785,7 +16900,7 @@ pub(crate) async fn authorize_capability_lease(
     })?;
     let admitted = match if let Some(draw) = req.standing_draw.as_ref() {
         super::governed_authority::authorize_standing_deployment_grant(
-            &st.data_dir,
+            data_dir,
             &draw.grant_value,
             draw.envelope_hash,
             draw.policy_hash,
@@ -16805,7 +16920,7 @@ pub(crate) async fn authorize_capability_lease(
         .map(CapabilityAuthorityAdmission::Standing)
     } else if let Some(grant_hash) = portable_locator {
         super::governed_authority::authorize_portable_authority_locator(
-            &st.data_dir,
+            data_dir,
             super::governed_authority::LIVE_ROUTE_AUTHORITY,
             grant_hash,
             &required_scope,
@@ -16821,7 +16936,7 @@ pub(crate) async fn authorize_capability_lease(
         .map(CapabilityAuthorityAdmission::Portable)
     } else {
         super::governed_authority::authorize_deployment_grant(
-            &st.data_dir,
+            data_dir,
             &effective_grant_value,
             &required_scope,
             &policy_hash,
@@ -16837,7 +16952,7 @@ pub(crate) async fn authorize_capability_lease(
         Ok(admitted) => {
             if let Some(claim) = &claim {
                 super::authority_challenge_routes::mark_consumed(
-                    &st.data_dir,
+                    data_dir,
                     claim,
                     &admitted.intent_ref(),
                 );
@@ -16846,7 +16961,7 @@ pub(crate) async fn authorize_capability_lease(
         }
         Err((status, Json(challenge))) => {
             if let Some(claim) = &claim {
-                super::authority_challenge_routes::release_claim(&st.data_dir, claim);
+                super::authority_challenge_routes::release_claim(data_dir, claim);
             }
             let audience = super::wallet_network_capability_client::capability_account_id_hex();
             let wants_grant = challenge
@@ -16863,7 +16978,7 @@ pub(crate) async fn authorize_capability_lease(
                     capability_lease_request_preimage(req),
                 );
                 super::authority_challenge_routes::park_challenge(
-                    &st.data_dir,
+                    data_dir,
                     super::authority_challenge_routes::ParkRequest {
                         target_scope: &required_scope,
                         policy_hash: &policy_hash,
@@ -16924,17 +17039,17 @@ pub(crate) async fn authorize_capability_lease(
     };
     let revalidation = match &admitted {
         CapabilityAuthorityAdmission::Exact(exact) => {
-            super::governed_authority::revalidate_admission_receipt(&st.data_dir, exact).await
+            super::governed_authority::revalidate_admission_receipt(data_dir, exact).await
         }
         CapabilityAuthorityAdmission::Portable(portable) => {
             super::governed_authority::revalidate_portable_authority_admission(
-                &st.data_dir,
+                data_dir,
                 portable,
             )
             .await
         }
         CapabilityAuthorityAdmission::Standing(standing) => {
-            super::governed_authority::revalidate_standing_admission_receipt(&st.data_dir, standing)
+            super::governed_authority::revalidate_standing_admission_receipt(data_dir, standing)
                 .await
         }
     };
@@ -16947,6 +17062,24 @@ pub(crate) async fn authorize_capability_lease(
                 "reason": "authority_receipt_unavailable",
                 "message": reason,
                 "host_mutation": false,
+            }),
+        ));
+    }
+
+    // 1b) Authority is admitted: only now open/mint the credential step 1 located. A mint that
+    //     fails here refuses the crossing (fail closed) and says the authority was spent.
+    let (token, credential_source, credential_key_source) =
+        resolve_backing_credential(credential_slots, mint).await;
+    if req.credential_connector_id.is_some() && req.credential_required && token.is_none() {
+        return Err((
+            StatusCode::PRECONDITION_REQUIRED,
+            json!({
+                "ok": false, "decision": "blocked", "reason": "scm_credential_required",
+                "message": "Authority was admitted, but the lease's backing credential did not mint; the crossing is refused.",
+                "backing_provider": req.backing_provider, "host_mutation": false,
+                "authority_consumed": true,
+                "authority_usage_disposition": "spent_not_refunded",
+                "admission_intent_ref": admitted.intent_ref(),
             }),
         ));
     }
@@ -17026,7 +17159,7 @@ pub(crate) async fn authorize_capability_lease(
     // W1.2 / MEF-GAP-008 — this write was discarded. The lease descriptor IS the authority
     // audit trail (served by handle_capability_lease_list); an authority crossing must never
     // execute without its durable descriptor, so refuse before returning the lease.
-    if persist_record(&st.data_dir, "capability-leases", &lease_id, &descriptor).is_err() {
+    if persist_record(data_dir, "capability-leases", &lease_id, &descriptor).is_err() {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             json!({
@@ -17045,6 +17178,151 @@ pub(crate) async fn authorize_capability_lease(
         credential_key_source,
         admitted,
     })
+}
+
+#[cfg(test)]
+mod capability_lease_mint_order_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    fn minting_request(connector_id: &str) -> CapabilityLeaseRequest {
+        CapabilityLeaseRequest {
+            authority_provider_ref: "wallet.network".to_string(),
+            backing_provider: format!("scm:connector:{connector_id}"),
+            allowed_tools: vec!["scm.publish".to_string()],
+            resource_refs: vec!["scm-destination-binding://acme/hypervisor".to_string()],
+            scopes: vec!["scm.publication.advance-target-ref".to_string()],
+            policy_domain: "hypervisor.scm.publication.policy.v1".to_string(),
+            request_domain: "hypervisor.scm.publication.request.v1".to_string(),
+            request_facets: json!({ "operation_key": "op-mint-order" }),
+            credential_connector_id: Some(connector_id.to_string()),
+            credential_store: "scm-credentials".to_string(),
+            credential_required: true,
+            github_host_fallback: false,
+            receipt_required: true,
+            revocation_ref: format!("scm-connectors/{connector_id}/credential"),
+            authority_reason: "scm_publish_authority_required".to_string(),
+            grant_value: Value::Null,
+            standing_draw: None,
+            principal_binding: None,
+        }
+    }
+
+    fn seed_oauth_refresh_credential(data_dir: &str, connector_id: &str) -> Value {
+        let record = json!({
+            "connector_id": connector_id,
+            "kind": "oauth-refresh",
+            "sealed_refresh_token": seal_scm_token("refresh-secret").expect("test sealing key"),
+            "token_url": "https://idp.invalid/oauth/token",
+            "client_id": "client",
+        });
+        persist_record(data_dir, "scm-credentials", connector_id, &record).expect("seed");
+        record
+    }
+
+    // W1 survey §7.2: the gateway minted credentials over the network (GitHub App installation
+    // tokens, OAuth refresh, token exchange) BEFORE it checked authority. A caller the authority
+    // gate refuses must cause no mint at all.
+    #[tokio::test]
+    async fn a_caller_without_authority_causes_no_mint() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        let record = seed_oauth_refresh_credential(data_dir, "scm_mint_order");
+        assert!(
+            mint_precondition_holds(&record),
+            "the fixture must be one the old order would have minted"
+        );
+        let mints = AtomicUsize::new(0);
+        let mint = |_record: Value| {
+            mints.fetch_add(1, Ordering::SeqCst);
+            async {
+                (
+                    Some("minted-token".to_string()),
+                    Some("oauth-refresh".to_string()),
+                    None,
+                )
+            }
+        };
+        let refused =
+            authorize_capability_lease_minting(data_dir, &minting_request("scm_mint_order"), &mint)
+                .await;
+        let Err((status, body)) = refused else {
+            panic!("a caller with no grant was issued a lease");
+        };
+        assert_ne!(status, StatusCode::PRECONDITION_REQUIRED, "{body}");
+        assert_eq!(body["reason"], json!("scm_publish_authority_required"), "{body}");
+        assert_eq!(mints.load(Ordering::SeqCst), 0, "a refused caller caused a mint");
+        assert!(read_record_dir(data_dir, "capability-leases").is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_credential_that_cannot_resolve_still_refuses_before_authority_without_a_mint() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        persist_record(
+            data_dir,
+            "scm-credentials",
+            "scm_unmintable",
+            &json!({ "connector_id": "scm_unmintable", "kind": "github-app", "app_id": "", "installation_id": "" }),
+        )
+        .expect("seed");
+        let mints = AtomicUsize::new(0);
+        let mint = |_record: Value| {
+            mints.fetch_add(1, Ordering::SeqCst);
+            async { (None, None, None) }
+        };
+        let Err((status, body)) =
+            authorize_capability_lease_minting(data_dir, &minting_request("scm_unmintable"), &mint)
+                .await
+        else {
+            panic!("an unresolvable credential was issued a lease");
+        };
+        assert_eq!(status, StatusCode::PRECONDITION_REQUIRED, "{body}");
+        assert_eq!(body["reason"], json!("scm_credential_required"));
+        assert_eq!(mints.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn after_authority_the_connector_mint_is_preferred_and_the_host_fallback_answers_a_failed_mint(
+    ) {
+        let slots = || {
+            vec![
+                (
+                    BackingCredentialSlot::Deferred(json!({ "connector_id": "scm_app" })),
+                    false,
+                ),
+                (
+                    BackingCredentialSlot::Opened(
+                        Some("host-token".to_string()),
+                        Some("connector".to_string()),
+                        Some("wallet-secret-pass".to_string()),
+                    ),
+                    true,
+                ),
+            ]
+        };
+        let mints = AtomicUsize::new(0);
+        let minted = |_record: Value| {
+            mints.fetch_add(1, Ordering::SeqCst);
+            async {
+                (
+                    Some("app-installation-token".to_string()),
+                    Some("github-app-installation".to_string()),
+                    None,
+                )
+            }
+        };
+        let (token, source, _) = resolve_backing_credential(slots(), &minted).await;
+        assert_eq!(token.as_deref(), Some("app-installation-token"));
+        assert_eq!(source.as_deref(), Some("github-app-installation"));
+        assert_eq!(mints.load(Ordering::SeqCst), 1);
+
+        let failed = |_record: Value| async { (None, None, None) };
+        let (token, source, key_source) = resolve_backing_credential(slots(), &failed).await;
+        assert_eq!(token.as_deref(), Some("host-token"));
+        assert_eq!(source.as_deref(), Some("host-authentication"));
+        assert_eq!(key_source.as_deref(), Some("wallet-secret-pass"));
+    }
 }
 
 /// GET /v1/hypervisor/capability-leases — the authority audit trail: every issued use-only lease
@@ -18987,38 +19265,111 @@ pub(crate) async fn handle_connector_invoke(
         }
     };
     let ok = (200..300).contains(&status_code);
-    let receipt_id = format!(
-        "invk_{}",
-        short_hash(&format!("{id}:{tool_name}:{status_code}"))
-    );
     let receipt = json!({
         "schema_version": "ioi.hypervisor.connector-invoke-receipt.v1",
-        "receipt_id": receipt_id, "connector_id": id, "service": service, "tool": tool_name,
+        "connector_id": id, "service": service, "tool": tool_name,
         "method": method, "url": url, "status": status_code, "ok": ok,
         "session_ref": session_ref,
         "principal_id": caller_id, "principal_scoped": org_policy["principal_scoped"].as_bool().unwrap_or(false),
         "credential_source": lease.credential_source, "grant_ref": lease.grant_ref,
+        "admission_intent_ref": lease.admitted.intent_ref(),
         "capability_lease": lease.descriptor, "org_policy": org_policy, "host_mutation": true, "error": error,
         "invoked_at": iso_now(),
     });
-    // Classified as an audit record, not canonical state and not best-effort telemetry: nothing
-    // reads `connector-invoke-receipts` back, so this fails the second admission test and must not
-    // fail the call closed — the host mutation has already happened and cannot be un-invoked.
-    // What it must not do is silently swallow the failure, so the receipt's durability is reported.
-    let receipt_durable = persist_record(
-        &st.data_dir,
-        "connector-invoke-receipts",
-        &receipt_id,
-        &receipt,
-    )
-    .is_ok();
-    (
-        StatusCode::OK,
-        Json(
-            json!({ "ok": ok, "status": status_code, "response": response_value, "receipt": receipt,
-                "receipt_durable": receipt_durable }),
+    // W1 survey §7.7: the receipt IS the record of a crossing that already happened, so it is
+    // unique per invocation and its durable write is fatal. A call whose receipt did not persist
+    // is never reported as settled: the caller learns the call may have run and nothing recorded
+    // it, instead of an `ok` over a lost record.
+    match commit_connector_invoke_receipt(&st.data_dir, lease.admitted.intent_ref(), receipt) {
+        Ok(receipt) => (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": ok, "status": status_code, "response": response_value, "receipt": receipt,
+                    "receipt_durable": true }),
+            ),
         ),
-    )
+        Err(reason) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "code": "connector_invoke_receipt_persistence_failed",
+                "message": format!("the connector call ran (upstream status {status_code}) but its receipt did not commit: {reason}"),
+                "status": status_code,
+                "host_mutation": true,
+                "settled": false,
+                "receipt_durable": false,
+            })),
+        ),
+    }
+}
+
+/// Stamp a connector-invoke receipt with an id unique to THIS invocation — the admission it
+/// consumed plus a per-call nonce, so two identical calls never share (or overwrite) a receipt —
+/// and write it durably. Returns the receipt as persisted, or why it was not.
+fn commit_connector_invoke_receipt(
+    data_dir: &str,
+    admission_intent_ref: &str,
+    mut receipt: Value,
+) -> Result<Value, String> {
+    let nonce = uuid::Uuid::new_v4().simple().to_string();
+    let receipt_id = format!(
+        "invk_{}",
+        short_hash(&format!(
+            "{}:{}:{admission_intent_ref}:{nonce}",
+            receipt["connector_id"].as_str().unwrap_or_default(),
+            receipt["tool"].as_str().unwrap_or_default(),
+        ))
+    );
+    if let Some(object) = receipt.as_object_mut() {
+        object.insert("receipt_id".into(), json!(receipt_id));
+        object.insert("invocation_nonce".into(), json!(nonce));
+    }
+    persist_record_durable(data_dir, "connector-invoke-receipts", &receipt_id, &receipt).map_err(
+        |failure| match failure {
+            PersistFailure::NotCommitted(error) => format!("not committed: {error}"),
+            PersistFailure::RenamedDurabilityUnconfirmed(error) => {
+                format!("visible but its durability is unconfirmed: {error}")
+            }
+        },
+    )?;
+    Ok(receipt)
+}
+
+#[cfg(test)]
+mod connector_invoke_receipt_tests {
+    use super::*;
+
+    fn receipt() -> Value {
+        json!({
+            "schema_version": "ioi.hypervisor.connector-invoke-receipt.v1",
+            "connector_id": "conn_echo", "service": "echo", "tool": "echo.say",
+            "method": "POST", "url": "http://127.0.0.1:9/say", "status": 200, "ok": true,
+            "host_mutation": true,
+        })
+    }
+
+    // W1 survey §7.7: the id was `short_hash(id:tool:status)`, so two identical calls shared one
+    // receipt (the second overwrote the first), and a failed write still answered `ok`.
+    #[test]
+    fn every_invocation_gets_its_own_receipt() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        let first = commit_connector_invoke_receipt(data_dir, "intent-1", receipt()).expect("first");
+        let second =
+            commit_connector_invoke_receipt(data_dir, "intent-1", receipt()).expect("second");
+        assert_ne!(first["receipt_id"], second["receipt_id"]);
+        assert_eq!(read_record_dir(data_dir, "connector-invoke-receipts").len(), 2);
+    }
+
+    #[test]
+    fn a_receipt_that_cannot_persist_is_an_error() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        // A path shadow: the receipt family is a regular file, so no receipt can land in it.
+        std::fs::write(directory.path().join("connector-invoke-receipts"), b"not a directory")
+            .expect("shadow");
+        assert!(commit_connector_invoke_receipt(data_dir, "intent-1", receipt()).is_err());
+    }
 }
 
 /// GET /v1/hypervisor/connectors/:id/mcp/tools — discover an MCP connector's tools (read-only). Uses
@@ -20667,22 +21018,22 @@ fn login_possible(data_dir: &str) -> bool {
 /// exposed. SAFE default: an exposed instance enforces. When enforcement is wanted but no login is
 /// possible, we still enforce (fail-safe) — the operator bootstraps via the exempt bootstrap endpoint.
 pub(crate) fn auth_enforced(data_dir: &str, headers: &HeaderMap) -> bool {
-    let policy = auth_policy(data_dir);
-    let mode = policy["mode"]
-        .as_str()
-        .map(String::from)
-        .unwrap_or_else(|| {
-            if policy["require_authentication"].as_bool().unwrap_or(false) {
-                "always".into()
-            } else {
-                "auto".into()
-            }
-        });
-    match mode.as_str() {
+    match auth_policy_mode(data_dir).as_str() {
         "always" => true,
         "never" => false,
         _ => daemon_exposed() || request_exposed(headers),
     }
+}
+/// The configured enforcement mode: "always", "never" or "auto" (the default).
+fn auth_policy_mode(data_dir: &str) -> String {
+    let policy = auth_policy(data_dir);
+    policy["mode"].as_str().map(String::from).unwrap_or_else(|| {
+        if policy["require_authentication"].as_bool().unwrap_or(false) {
+            "always".into()
+        } else {
+            "auto".into()
+        }
+    })
 }
 /// Deployment auth posture — how much trust identity claims deserve on THIS instance:
 /// `local_development` (loopback, unenforced), `exposed_untrusted` (reachable from outside but
@@ -22131,34 +22482,103 @@ fn auth_gate_exempt_path(path: &str) -> bool {
         || (path.starts_with("/v1/hypervisor/automations/") && path.ends_with("/webhook"))
 }
 
+/// A mutation of the Hypervisor control plane (`/v1/hypervisor/*`, any method but GET, HEAD and
+/// OPTIONS) needs a resolved principal even where the `auto` policy does not enforce, i.e. on
+/// loopback (W1 survey §7.5). Loopback used to make every such route callable anonymously, so a
+/// route whose authority is "the owner" — or whose handler falls back to the local operator —
+/// could be driven by any local process. Reads stay available on loopback (the local read lanes a
+/// signed-out serve and local tools use). `never` is the operator's explicit opt-out and keeps its
+/// meaning; `always` and exposed requests are already enforced for every route.
+fn control_plane_mutation_requires_principal(
+    data_dir: &str,
+    method: &axum::http::Method,
+    path: &str,
+) -> bool {
+    use axum::http::Method;
+    let safe = *method == Method::GET || *method == Method::HEAD || *method == Method::OPTIONS;
+    !safe
+        && path.starts_with("/v1/hypervisor/")
+        && !CAPABILITY_AUTHENTICATED_MUTATIONS.contains(&path)
+        && auth_policy_mode(data_dir) != "never"
+}
+
+/// Control-plane mutations that authenticate by their own capability rather than a session, so the
+/// loopback principal rule does not apply to them (the enforced-mode rule still does). The
+/// workload finalizer presents the `host_trigger` minted to an authenticated host controller, and
+/// its handler refuses anything else by name (`workload_effect_host_trigger_invalid`).
+const CAPABILITY_AUTHENTICATED_MUTATIONS: &[&str] =
+    &["/v1/hypervisor/workload-effect-capabilities/consume"];
+
+/// The gate's refusal for a request, if any: a session scoped away from the route (403), an
+/// unauthenticated request where enforcement applies (401), and an anonymous control-plane
+/// mutation on loopback (401). The daemon's own dispatches cross with the per-boot internal
+/// token, never a session, and stay admitted; their handlers apply their own identity rules.
+fn auth_gate_refusal(
+    st: &DaemonState,
+    method: &axum::http::Method,
+    path: &str,
+    headers: &HeaderMap,
+) -> Option<(StatusCode, Value)> {
+    let exempt = auth_gate_exempt_path(path)
+        || (*method == axum::http::Method::GET && path == "/v1/hypervisor/sso-configurations");
+    if exempt {
+        return None;
+    }
+    if !session_allows_route(&st.data_dir, headers, path) {
+        return Some((
+            StatusCode::FORBIDDEN,
+            json!({
+                "ok": false,
+                "code": "hypervisor.auth_session_route_scope_denied",
+                "message": "this short-lived session is not scoped to the requested daemon route"
+            }),
+        ));
+    }
+    let anonymous = || resolve_principal(&st.data_dir, headers).is_none();
+    if auth_enforced(&st.data_dir, headers) && anonymous() {
+        let needs_bootstrap = !login_possible(&st.data_dir);
+        return Some((
+            StatusCode::UNAUTHORIZED,
+            json!({ "ok": false, "reason": "authentication_required", "needs_bootstrap": needs_bootstrap }),
+        ));
+    }
+    if control_plane_mutation_requires_principal(&st.data_dir, method, path)
+        && anonymous()
+        && !super::orchestration_routes::internal_dispatch_authorized(st, headers)
+    {
+        // The estate's canonical anonymous-write refusal (`RequestScopeRefusal::AuthenticationRequired`),
+        // carried in each place a family puts it — flat `code`, `reason`, and nested `error.code` —
+        // so a route that already refused anonymous callers answers with the same code it did.
+        let message =
+            "a change to the Hypervisor control plane needs an authenticated session, on loopback too";
+        return Some((
+            StatusCode::UNAUTHORIZED,
+            json!({
+                "ok": false,
+                "code": "request_principal_required",
+                "reason": "request_principal_required",
+                "error": { "code": "request_principal_required", "message": message },
+                "message": message,
+                "needs_bootstrap": !login_possible(&st.data_dir),
+            }),
+        ));
+    }
+    None
+}
+
 /// Axum middleware: when auth policy is enforced, reject unauthenticated requests
-/// to every `/v1/*` API namespace (401). Only the explicit login/bootstrap/readiness
-/// paths and independently token-authenticated automation webhooks are exempt.
-/// Default policy is OFF, preserving the local-development posture.
+/// to every `/v1/*` API namespace (401); on loopback under the default `auto` policy,
+/// reject an anonymous MUTATION of `/v1/hypervisor/*` (401). Only the explicit
+/// login/bootstrap/readiness paths and independently token-authenticated automation
+/// webhooks are exempt.
 pub(crate) async fn auth_gate(
     State(st): State<Arc<DaemonState>>,
     req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Response {
     let path = req.uri().path().to_string();
-    let exempt = auth_gate_exempt_path(&path)
-        || (req.method() == axum::http::Method::GET && path == "/v1/hypervisor/sso-configurations");
-    if !exempt && !session_allows_route(&st.data_dir, req.headers(), &path) {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(json!({
-                "ok": false,
-                "code": "hypervisor.auth_session_route_scope_denied",
-                "message": "this short-lived session is not scoped to the requested daemon route"
-            })),
-        )
-            .into_response();
-    }
-    if !exempt && auth_enforced(&st.data_dir, req.headers()) {
-        if resolve_principal(&st.data_dir, req.headers()).is_none() {
-            let needs_bootstrap = !login_possible(&st.data_dir);
-            return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "authentication_required", "needs_bootstrap": needs_bootstrap }))).into_response();
-        }
+    if let Some((status, body)) = auth_gate_refusal(&st, req.method(), &path, req.headers()) {
+        return (status, Json(body)).into_response();
     }
     next.run(req).await
 }
@@ -22196,6 +22616,80 @@ mod auth_gate_tests {
                 "authority.unverified_final_invoker_calls must remain 0; {path} escaped the principal gate"
             );
         }
+    }
+
+    // W1 survey §7.5: in the default `auto` mode a loopback request was unenforced, so every
+    // identity-only control-plane mutation (the storage archive ops, the GitHub credential bind,
+    // host exec, …) was callable anonymously by any local process.
+    #[test]
+    fn an_anonymous_control_plane_mutation_on_loopback_gets_the_typed_401() {
+        use super::{
+            auth_enforced, auth_gate_refusal, ensure_identity_foundation, issue_session,
+            OPERATOR_ID,
+        };
+        use axum::http::{header, HeaderMap, Method, StatusCode};
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        ensure_identity_foundation(data_dir).expect("identity foundation");
+        let state = crate::test_daemon_state(data_dir);
+        let mut loopback = HeaderMap::new();
+        loopback.insert(header::HOST, "127.0.0.1:8765".parse().unwrap());
+        assert!(
+            !auth_enforced(data_dir, &loopback),
+            "the default auto policy does not enforce on loopback — the case this gate covers"
+        );
+
+        for path in [
+            "/v1/hypervisor/storage-archive-ops",
+            "/v1/hypervisor/scm-connect/github",
+            "/v1/hypervisor/exec",
+            "/v1/hypervisor/environments/env-1/scm/publish",
+            "/v1/hypervisor/auth/policy",
+        ] {
+            let refusal = auth_gate_refusal(&state, &Method::POST, path, &loopback);
+            let Some((status, body)) = refusal else {
+                panic!("an anonymous loopback POST {path} was admitted");
+            };
+            assert_eq!(status, StatusCode::UNAUTHORIZED, "{path}");
+            assert_eq!(body["code"], "request_principal_required", "{path}");
+            assert_eq!(body["error"]["code"], "request_principal_required", "{path}");
+        }
+        for method in [Method::PUT, Method::PATCH, Method::DELETE] {
+            assert!(
+                auth_gate_refusal(&state, &method, "/v1/hypervisor/environments/env-1", &loopback)
+                    .is_some(),
+                "{method}"
+            );
+        }
+
+        // Reads on loopback, the login/bootstrap lane, the daemon's own dispatches and a signed-in
+        // caller all stay admitted, and so do the capability-token namespaces outside the plane.
+        assert!(auth_gate_refusal(&state, &Method::GET, "/v1/hypervisor/storage-archives", &loopback)
+            .is_none());
+        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/auth/login", &loopback)
+            .is_none());
+        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/chat/completions", &loopback)
+            .is_none());
+        let mut internal = loopback.clone();
+        internal.insert(
+            "x-ioi-internal-dispatch",
+            state.internal_dispatch_token.parse().unwrap(),
+        );
+        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/exec", &internal).is_none());
+        let mut forged = loopback.clone();
+        forged.insert("x-ioi-internal-dispatch", "idisp_forged".parse().unwrap());
+        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/exec", &forged).is_some());
+        let (status, issued) = issue_session(data_dir, OPERATOR_ID, "local");
+        assert_eq!(status, StatusCode::OK);
+        let mut signed_in = loopback.clone();
+        signed_in.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {}", issued["session_token"].as_str().unwrap())
+                .parse()
+                .unwrap(),
+        );
+        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/exec", &signed_in)
+            .is_none());
     }
 }
 
@@ -25825,10 +26319,64 @@ pub(crate) async fn handle_scm_abandon_pull_request(
 /// never returned. Fail-closed if GitHub rejects the token. With no repo it returns identity only
 /// (account connected; provide a repo to materialize a connector). This is the PAT-connect flow;
 /// OAuth/device flow is a follow-on (needs a registered GitHub OAuth App client_id).
+/// Who may bind a GitHub credential into the daemon's SCM vault: the deployment's operator (an
+/// administrator), never an impersonated session and never an anonymous caller (W1 survey §7.4).
+/// The host-level record `scm_host_github` is the fallback credential of the publish and abandon
+/// gates, and a repository record backs every publish to that repository, so replacing either is
+/// an operator act. Refused before the token is sent anywhere and before anything is recorded.
+fn require_scm_credential_operator(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let Some(principal) = resolve_principal(data_dir, headers) else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.authentication_required",
+                "reason": "authentication_required",
+                "message": "an authenticated operator session is required to connect a GitHub credential",
+            })),
+        ));
+    };
+    if principal["role"].as_str() != Some("admin") {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "scm_credential_binder_not_operator",
+                "reason": "scm_credential_binder_not_operator",
+                "message": "only the deployment's operator (an administrator) connects a GitHub credential; it backs publication for every principal",
+            })),
+        ));
+    }
+    if principal["is_impersonated"].as_bool() == Some(true) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "scm_credential_binder_impersonated",
+                "reason": "scm_credential_binder_impersonated",
+                "message": "an impersonated session cannot connect a GitHub credential",
+            })),
+        ));
+    }
+    let principal_id = principal["principal_id"].as_str().unwrap_or("").to_string();
+    Ok(principal["principal_ref"]
+        .as_str()
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("user://{principal_id}")))
+}
+
 pub(crate) async fn handle_scm_connect_github(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let bound_by = match require_scm_credential_operator(&st.data_dir, &headers) {
+        Ok(principal_ref) => principal_ref,
+        Err(refusal) => return refusal,
+    };
     let token = body
         .get("token")
         .and_then(Value::as_str)
@@ -25905,7 +26453,7 @@ pub(crate) async fn handle_scm_connect_github(
                 Json(json!({ "ok": false, "reason": "failed to seal credential" })),
             );
         };
-        let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+        let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now(), "bound_by_principal_ref": bound_by });
         // W1.2 / MEF-GAP-008 — sealed token first, then connector (host lane).
         if persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred).is_err() {
             return (
@@ -25948,7 +26496,7 @@ pub(crate) async fn handle_scm_connect_github(
             Json(json!({ "ok": false, "reason": "failed to seal credential" })),
         );
     };
-    let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+    let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now(), "bound_by_principal_ref": bound_by });
     // W1.2 / MEF-GAP-008 — sealed token first, then connector. "Connected" over a discarded
     // sealed token means publish later 428s while connect claimed success.
     if persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred).is_err() {
@@ -25987,6 +26535,78 @@ pub(crate) async fn handle_scm_connect_github(
             json!({ "ok": true, "login": login, "connector": connector, "connector_id": connector_id }),
         ),
     )
+}
+
+#[cfg(test)]
+mod scm_connect_operator_tests {
+    use super::*;
+
+    fn seed_member(data_dir: &str, id: &str) {
+        persist_record_durable(
+            data_dir,
+            "principals",
+            id,
+            &json!({
+                "schema_version": "ioi.hypervisor.principal.v1",
+                "principal_id": id, "email": format!("{id}@example.test"), "name": id,
+                "role": "member", "status": "active", "source": "test",
+                "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+            }),
+        )
+        .expect("seed member");
+    }
+
+    fn bearer(data_dir: &str, principal_id: &str) -> HeaderMap {
+        let (status, issued) = issue_session(data_dir, principal_id, "local");
+        assert_eq!(status, StatusCode::OK, "{issued}");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {}", issued["session_token"].as_str().expect("token"))
+                .parse()
+                .expect("header"),
+        );
+        headers
+    }
+
+    // W1 survey §7.4: `POST /v1/hypervisor/scm-connect/github` overwrote the host credential
+    // `scm_host_github` — the fallback of the publish and abandon gates — for any caller. Only
+    // the deployment's operator may bind it; everyone else is refused by name before the token
+    // leaves the daemon and before anything is recorded.
+    #[tokio::test]
+    async fn only_the_operator_binds_the_host_github_credential() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        ensure_identity_foundation(data_dir).expect("identity foundation");
+        seed_member(data_dir, "member-gamma");
+        let state = crate::test_daemon_state(data_dir);
+        let body = json!({ "token": "ghp_not_a_real_token" });
+
+        let (status, Json(refusal)) =
+            handle_scm_connect_github(State(state.clone()), HeaderMap::new(), Json(body.clone()))
+                .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{refusal}");
+        assert_eq!(refusal["code"], json!("hypervisor.authentication_required"), "{refusal}");
+
+        let (status, Json(refusal)) = handle_scm_connect_github(
+            State(state.clone()),
+            bearer(data_dir, "member-gamma"),
+            Json(json!({ "token": "ghp_not_a_real_token", "owner": "acme", "repo": "hypervisor" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{refusal}");
+        assert_eq!(refusal["code"], json!("scm_credential_binder_not_operator"), "{refusal}");
+
+        assert!(
+            read_record_dir(data_dir, "scm-credentials").is_empty(),
+            "a refused caller recorded a credential"
+        );
+        assert!(read_record_dir(data_dir, "scm-connectors").is_empty());
+        assert!(
+            require_scm_credential_operator(data_dir, &bearer(data_dir, OPERATOR_ID)).is_ok(),
+            "the operator is admitted"
+        );
+    }
 }
 
 /// Lane B (Phase-5 foothold): a Rust-native, DETERMINISTIC, offline decision step.
@@ -26994,7 +27614,7 @@ pub(crate) async fn handle_session_execute(
     let mut adapter_transcript_run: Option<String> = None;
     if harness_label != "hypervisor_worker" {
         adapter_transcript_run = super::harness_routes::post_op_transcript(
-            &st.base_url,
+            &st,
             "adapter_execute",
             harness_profile_ref.as_deref().unwrap_or(&harness_label),
             &json!({
@@ -29158,6 +29778,11 @@ pub(crate) mod runtime_host {
     /// a file named `hex(key)` whose bytes are the value. Loads existing keys on
     /// construction and write-throughs on insert/delete, so runtime state writes are
     /// persistent + inspectable. Single-request use (Phase 5A foothold).
+    ///
+    /// W1 survey §7.6: the lane keeps its signed firewall decision receipts and settlement
+    /// records here, so every write is DURABLE (temporary sibling → file fsync → rename →
+    /// directory fsync) and a write that fails is an error the lane sees — it propagates as a
+    /// `StateError`, so an effect whose receipt did not persist is never reported as settled.
     pub(crate) struct DaemonHostStateAccess {
         dir: std::path::PathBuf,
         data: HashMap<Vec<u8>, Vec<u8>>,
@@ -29185,12 +29810,52 @@ pub(crate) mod runtime_host {
             self.data.len()
         }
 
-        fn persist_key(&self, key: &[u8], value: &[u8]) {
-            let _ = std::fs::write(self.dir.join(hex_encode(key)), value);
+        /// Durably replace one key's file: write a temporary sibling, fsync it, rename it over the
+        /// key, fsync the directory. Any failure is returned; the temporary is removed.
+        fn persist_key(&self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+            use std::io::Write as _;
+            let durable = || -> std::io::Result<()> {
+                std::fs::create_dir_all(&self.dir)?;
+                let name = hex_encode(key);
+                let temporary = self.dir.join(format!(
+                    ".{name}.{}-{}.pending",
+                    std::process::id(),
+                    uuid::Uuid::new_v4().simple()
+                ));
+                let written = (|| -> std::io::Result<()> {
+                    let mut file = std::fs::OpenOptions::new()
+                        .create_new(true)
+                        .write(true)
+                        .open(&temporary)?;
+                    file.write_all(value)?;
+                    file.sync_all()?;
+                    std::fs::rename(&temporary, self.dir.join(&name))
+                })();
+                if written.is_err() {
+                    let _ = std::fs::remove_file(&temporary);
+                }
+                written?;
+                std::fs::File::open(&self.dir)?.sync_all()
+            };
+            durable().map_err(|error| {
+                StateError::WriteError(format!(
+                    "runtime-host state key was not durably written: {error}"
+                ))
+            })
         }
 
-        fn remove_key(&self, key: &[u8]) {
-            let _ = std::fs::remove_file(self.dir.join(hex_encode(key)));
+        /// Durably remove one key's file. An absent file is already removed.
+        fn remove_key(&self, key: &[u8]) -> Result<(), StateError> {
+            let removed = match std::fs::remove_file(self.dir.join(hex_encode(key))) {
+                Ok(()) => std::fs::File::open(&self.dir).and_then(|dir| dir.sync_all()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(error) => Err(error),
+            };
+            removed.map_err(|error| {
+                StateError::WriteError(format!(
+                    "runtime-host state key was not durably removed: {error}"
+                ))
+            })
         }
     }
 
@@ -29199,12 +29864,12 @@ pub(crate) mod runtime_host {
             Ok(self.data.get(key).cloned())
         }
         fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
-            self.persist_key(key, value);
+            self.persist_key(key, value)?;
             self.data.insert(key.to_vec(), value.to_vec());
             Ok(())
         }
         fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
-            self.remove_key(key);
+            self.remove_key(key)?;
             self.data.remove(key);
             Ok(())
         }
@@ -29242,6 +29907,67 @@ pub(crate) mod runtime_host {
                 .map(|(key, value)| Ok((Arc::from(key.as_slice()), Arc::from(value.as_slice()))))
                 .collect();
             Ok(Box::new(results.into_iter()))
+        }
+    }
+
+    // W1 survey §7.6: `persist_key` was `let _ = std::fs::write(..)` — no fsync, and a failed
+    // write still answered `Ok`, so the lane's signed firewall receipts could vanish while the
+    // effect was reported settled.
+    #[cfg(test)]
+    mod host_state_durability_tests {
+        use super::*;
+
+        #[test]
+        fn a_state_write_that_cannot_persist_is_an_error_the_lane_sees() {
+            let directory = tempfile::tempdir().expect("tempdir");
+            let data_dir = directory.path().to_str().expect("utf8");
+            let mut state = DaemonHostStateAccess::open(data_dir);
+            // Replace the state directory with a regular file: every write under it now fails
+            // (a path shadow, so the fault holds even for root).
+            let dir = directory.path().join("runtime-host-state");
+            std::fs::remove_dir_all(&dir).expect("remove dir");
+            std::fs::write(&dir, b"not a directory").expect("shadow");
+            let refused = state.insert(b"firewall-receipt", b"signed bytes");
+            assert!(
+                matches!(refused, Err(StateError::WriteError(_))),
+                "a failed durable write answered {refused:?}"
+            );
+            assert_eq!(
+                state.get(b"firewall-receipt").expect("get"),
+                None,
+                "an unpersisted value must not read back as written"
+            );
+        }
+
+        #[test]
+        fn a_state_write_is_durable_across_a_reopen_and_leaves_no_temporary() {
+            let directory = tempfile::tempdir().expect("tempdir");
+            let data_dir = directory.path().to_str().expect("utf8");
+            let mut state = DaemonHostStateAccess::open(data_dir);
+            state
+                .insert(b"firewall-receipt", b"signed bytes")
+                .expect("durable insert");
+            state
+                .insert(b"firewall-receipt", b"signed bytes v2")
+                .expect("durable replace");
+            let reopened = DaemonHostStateAccess::open(data_dir);
+            assert_eq!(
+                reopened.get(b"firewall-receipt").expect("get"),
+                Some(b"signed bytes v2".to_vec())
+            );
+            let names: Vec<String> =
+                std::fs::read_dir(directory.path().join("runtime-host-state"))
+                    .expect("dir")
+                    .flatten()
+                    .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                    .collect();
+            assert_eq!(names, vec![hex_encode(b"firewall-receipt")]);
+            let mut state = reopened;
+            state.delete(b"firewall-receipt").expect("durable delete");
+            state
+                .delete(b"firewall-receipt")
+                .expect("deleting an absent key is not an error");
+            assert_eq!(DaemonHostStateAccess::open(data_dir).key_count(), 0);
         }
     }
 

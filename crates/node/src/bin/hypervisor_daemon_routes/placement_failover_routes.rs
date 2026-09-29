@@ -754,11 +754,8 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                     "material_ref": mref,
                     "wallet_approval_grant": body.get("wallet_approval_grant_archive_restore").cloned().unwrap_or(Value::Null),
                 });
-                let (code, Json(resp)) = super::storage_backend_routes::handle_storage_archive_op(
-                    State(st.clone()),
-                    Json(sbody),
-                )
-                .await;
+                let (code, Json(resp)) =
+                    super::storage_backend_routes::dispatch_storage_archive_op(st, sbody).await;
                 if code == StatusCode::FORBIDDEN {
                     return awaiting(&mut run, &data_dir, "archive_restore", &resp);
                 }

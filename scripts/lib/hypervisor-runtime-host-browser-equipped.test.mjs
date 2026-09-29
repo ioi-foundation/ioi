@@ -47,9 +47,13 @@ afterEach(async () => {
 });
 
 async function postRuntimeHost(body) {
+  // A control-plane write: on loopback too it needs an authenticated principal (W1 survey §7.5).
   const response = await fetch(`${daemon.endpoint}/v1/hypervisor/runtime-host/sessions`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${await daemon.operatorSession()}`,
+    },
     body: JSON.stringify(body),
   });
   return { status: response.status, body: await response.json() };

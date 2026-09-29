@@ -53,10 +53,19 @@ async function pollThreadEventsFor(threadId, needle, timeoutMs = 5000) {
   return lastBody;
 }
 
+// The runtime-host route is a control-plane write: on loopback too it needs an authenticated
+// principal (W1 survey §7.5), so every POST here carries the daemon's operator session.
+async function operatorHeaders() {
+  return {
+    "content-type": "application/json",
+    authorization: `Bearer ${await daemon.operatorSession()}`,
+  };
+}
+
 test("Phase 5A: the daemon hosts start@v1 + post_message@v1 with real state writes + honest no-op drivers", async () => {
   const response = await fetch(`${daemon.endpoint}/v1/hypervisor/runtime-host/sessions`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: await operatorHeaders(),
     body: JSON.stringify({
       session_ref: "session:phase5a-host",
       goal: "exercise the runtime-host lifecycle",
@@ -100,7 +109,7 @@ test("Phase 5A: the daemon hosts start@v1 + post_message@v1 with real state writ
 test("Phase 5A: start@v1 alone (no message) still hosts + persists + links", async () => {
   const response = await fetch(`${daemon.endpoint}/v1/hypervisor/runtime-host/sessions`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: await operatorHeaders(),
     body: JSON.stringify({ session_ref: "session:phase5a-startonly", goal: "start only" }),
   });
   assert.equal(response.status, 200);
@@ -119,7 +128,7 @@ test("Phase 5A: start@v1 alone (no message) still hosts + persists + links", asy
 async function postRuntimeHost(body) {
   const response = await fetch(`${daemon.endpoint}/v1/hypervisor/runtime-host/sessions`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: await operatorHeaders(),
     body: JSON.stringify(body),
   });
   return { status: response.status, body: await response.json() };

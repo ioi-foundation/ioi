@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -1353,10 +1353,38 @@ pub(crate) async fn handle_storage_backend_preflight(
 // ── Archive custody ops (body-dispatched like provider-ops to avoid route collisions) ───────
 
 /// POST /v1/hypervisor/storage-archive-ops — {op: export|verify|restore|repair, ...}.
+///
+/// Every op needs an authenticated principal (W1 survey §5 H24: this handler took no headers, so
+/// repair — an upload to the backend — ran for anyone). Export, restore and repair each also
+/// consume the wallet capability lease bound to their exact material, state root and backend.
 pub(crate) async fn handle_storage_archive_op(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Err(refusal) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false,
+                "code": refusal.code(),
+                "reason": refusal.code(),
+                "message": "a storage archive operation needs an authenticated principal",
+            })),
+        );
+    }
+    dispatch_storage_archive_op(&st, body).await
+}
+
+/// The archive ops behind their wallet leases. The HTTP handler reaches it only for an
+/// authenticated principal; the failover run core reaches it in-process (its own route is
+/// principal-gated and its auto-trigger is the daemon's), and export, restore and repair still
+/// consume their exact storage lease here either way.
+pub(crate) async fn dispatch_storage_archive_op(
+    st: &Arc<DaemonState>,
+    body: Value,
+) -> (StatusCode, Json<Value>) {
+    let st = st.clone();
     let op = text(&body, "op").to_string();
     match op.as_str() {
         "export" => op_export(&st, &body).await,
@@ -2015,6 +2043,40 @@ async fn op_repair(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
         return fail(format!("custody_hash_mismatch — custody bytes hash {plain_root} but the admitted state_root is {admitted_root}; a stale/wrong source can never repair an archive"),
             json!({ "actual": plain_root, "expected": admitted_root }));
     }
+    // H24 (W1 survey §5): repair uploads to the backend exactly as export does, so it crosses the
+    // same wallet capability lease, bound to this archive, material, state root and backend.
+    let facets = json!({
+        "op": "repair", "archive_ref": archive_ref, "material_ref": material_ref,
+        "state_root": admitted_root, "backend_ref": archive["backend_ref"], "backend_kind": kind,
+        "encryption": "sealed_wallet_secret", "payload_bytes": plaintext.len(),
+    });
+    let (lease_descriptor, grant_ref) = match storage_lease(
+        st,
+        &account,
+        "repair",
+        facets.clone(),
+        body.get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .await
+    {
+        Ok(pair) => pair,
+        Err((status, mut challenge)) => {
+            let receipt = storage_receipt(
+                data_dir,
+                &kind,
+                "repair",
+                "authority_missing",
+                &json!({ "backend_ref": archive["backend_ref"], "archive_ref": archive_ref, "material_ref": material_ref, "state_root": admitted_root }),
+            );
+            if let Some(o) = challenge.as_object_mut() {
+                o.insert("receipt_ref".into(), json!(receipt));
+                o.insert("lease_request_facets".into(), facets);
+            }
+            return (status, Json(challenge));
+        }
+    };
     let sealed = match seal_archive_bytes(&plaintext) {
         Ok(s) => s,
         Err(e) => return fail(e, Value::Null),
@@ -2089,6 +2151,7 @@ async fn op_repair(st: &Arc<DaemonState>, body: &Value) -> (StatusCode, Json<Val
         &json!({
             "backend_ref": archive["backend_ref"], "archive_ref": archive_ref, "repair_ref": repair_ref,
             "material_ref": material_ref, "state_root": admitted_root, "commitment": new_commitment,
+            "grant_ref": grant_ref, "capability_lease": lease_descriptor,
         }),
     );
     (
@@ -3688,4 +3751,104 @@ pub(crate) fn backend_facts(data_dir: &str) -> Vec<Value> {
             })
         })
         .collect()
+}
+
+/// H24 (W1 survey §5): `op_repair` uploads sealed custody bytes to the backend, and it had no gate
+/// at all — its handler took no headers and it crossed no lease.
+#[cfg(test)]
+mod archive_repair_authority_tests {
+    use super::*;
+
+    /// A verified local backend, a custody material and an impaired archive over it: everything a
+    /// repair needs except authority.
+    fn impaired_archive_fixture(data_dir: &str) -> (String, PathBuf) {
+        let account = json!({
+            "schema_version": "ioi.hypervisor.storage-backend-account.v1",
+            "account_id": "sba_repair_gate", "account_ref": "storage-backend://sba_repair_gate",
+            "display_name": "local_disk backend", "kind": "local_disk", "status": "verified",
+            "endpoint": {},
+        });
+        persist_record(data_dir, ACCOUNT_KIND, "sba_repair_gate", &account).expect("account");
+        let material_path = Path::new(data_dir).join("custody-material.bin");
+        std::fs::write(&material_path, b"custody bytes").expect("material");
+        let state_root = sha256_bytes(b"custody bytes");
+        persist_record(
+            data_dir,
+            MATERIAL_KIND,
+            "pm_repair_gate",
+            &json!({
+                "material_ref": "provider-material://pm_repair_gate",
+                "path": material_path.to_string_lossy(),
+                "state_root": state_root,
+            }),
+        )
+        .expect("material record");
+        let archive_ref = "storage-archive://sao_repair_gate".to_string();
+        persist_record(
+            data_dir,
+            ARCHIVE_KIND,
+            "sao_repair_gate",
+            &json!({
+                "archive_id": "sao_repair_gate", "archive_ref": archive_ref,
+                "backend_ref": "storage-backend://sba_repair_gate", "backend_kind": "local_disk",
+                "material_ref": "provider-material://pm_repair_gate", "state_root": state_root,
+                "commitment": { "address": "cas://sha256/lost" }, "status": "impaired",
+            }),
+        )
+        .expect("archive");
+        (archive_ref, object_dir(data_dir, &account))
+    }
+
+    #[tokio::test]
+    async fn a_repair_needs_a_principal_and_the_storage_lease_before_any_upload() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        super::super::lifecycle_routes::ensure_identity_foundation(data_dir).expect("identity");
+        let (archive_ref, objects) = impaired_archive_fixture(data_dir);
+        let state = crate::test_daemon_state(data_dir);
+        let body = json!({ "op": "repair", "archive_ref": archive_ref });
+
+        let (status, Json(refusal)) =
+            handle_storage_archive_op(State(state.clone()), HeaderMap::new(), Json(body.clone()))
+                .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{refusal}");
+        assert_eq!(refusal["code"], json!("request_principal_required"));
+        assert!(!objects.exists(), "an anonymous repair uploaded bytes");
+
+        // A signed-in caller with no grant is refused by the lease, still before any upload.
+        let (issued_status, issued) = super::super::lifecycle_routes::issue_session(
+            data_dir,
+            "00000000-0000-4000-8000-000000000001",
+            "local",
+        );
+        assert_eq!(issued_status, StatusCode::OK, "{issued}");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!(
+                "Bearer {}",
+                issued["session_token"].as_str().expect("token")
+            )
+            .parse()
+            .expect("header"),
+        );
+        let (status, Json(refusal)) =
+            handle_storage_archive_op(State(state), headers, Json(body)).await;
+        assert_ne!(status, StatusCode::OK, "{refusal}");
+        assert_eq!(
+            refusal["reason"],
+            json!("storage_archive_authority_required"),
+            "{refusal}"
+        );
+        assert_eq!(refusal["lease_request_facets"]["op"], json!("repair"));
+        assert!(
+            !objects.exists(),
+            "a repair without the storage lease uploaded bytes"
+        );
+        assert!(read_record_dir(data_dir, REPAIR_KIND).is_empty());
+        assert_eq!(
+            load_archive(data_dir, "storage-archive://sao_repair_gate").expect("archive")["status"],
+            json!("impaired")
+        );
+    }
 }

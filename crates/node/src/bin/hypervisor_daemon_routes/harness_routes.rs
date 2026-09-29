@@ -90,13 +90,16 @@ fn profile_receipt(
 
 /// Post an agent-run-transcript for an effectful registry op so the transcript plane computes a
 /// tamper-evident state_root and the op surfaces in Run Timeline / Work Ledger. Best-effort; the
-/// outcome (`transcript_recorded`) is reported honestly on the response.
+/// outcome (`transcript_recorded`) is reported honestly on the response. The daemon's own loopback
+/// POST presents the per-boot internal dispatch token: an anonymous control-plane mutation is
+/// refused on loopback too (W1 survey §7.5).
 pub(crate) async fn post_op_transcript(
-    base: &str,
+    st: &DaemonState,
     op: &str,
     profile_ref: &str,
     detail: &Value,
 ) -> Option<String> {
+    let base = st.base_url.as_str();
     let run_id = format!("hpo_{:x}", nanos());
     let at = iso_now();
     let transcript = json!({
@@ -113,6 +116,10 @@ pub(crate) async fn post_op_transcript(
     let url = format!("{base}/v1/hypervisor/agent-run-transcripts/{run_id}");
     let ok = reqwest::Client::new()
         .post(&url)
+        .header(
+            "x-ioi-internal-dispatch",
+            st.internal_dispatch_token.as_str(),
+        )
         .json(&transcript)
         .timeout(Duration::from_millis(3000))
         .send()
@@ -919,8 +926,7 @@ pub(crate) async fn handle_harness_profile_probe(
             ),
         );
     }
-    let transcript_run =
-        post_op_transcript(&st.base_url, "probe", &profile_ref, &runnability).await;
+    let transcript_run = post_op_transcript(&st, "probe", &profile_ref, &runnability).await;
     (
         StatusCode::OK,
         Json(json!({
@@ -983,7 +989,7 @@ async fn lifecycle_flip(
                 fresh
             };
             let transcript_run = post_op_transcript(
-                &st.base_url,
+                &st,
                 mutation_kind,
                 &s(&profile, "profile_ref", ""),
                 &json!({ "new_status": new_status }),
@@ -1105,7 +1111,7 @@ pub(crate) async fn handle_harness_profile_select_default(
                 fresh
             };
             let transcript_run =
-                post_op_transcript(&st.base_url, "select_default", &profile_ref, &json!({})).await;
+                post_op_transcript(&st, "select_default", &profile_ref, &json!({})).await;
             (
                 StatusCode::OK,
                 Json(json!({
@@ -1343,8 +1349,7 @@ pub(crate) async fn bind_profile_for_session(
         .get("profile_ref")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    let transcript_run =
-        post_op_transcript(&st.base_url, "bind_session", profile_ref, &binding).await;
+    let transcript_run = post_op_transcript(&st, "bind_session", profile_ref, &binding).await;
     response["transcript_recorded"] = json!(transcript_run.is_some());
     Ok(response)
 }
