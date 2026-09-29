@@ -200,6 +200,15 @@ export const SYNC_WRITE_REFUSALS = {
 };
 // the refusal as the reference's error body, its message also at the top level (where the app reads it)
 export const syncRefusalBodyOf = (refusal) => ({ errorCode: "CONFLICT", errorName: refusal.code, errorInstanceId: "", parameters: { message: refusal.message }, message: refusal.message });
+// (cut D7) Edit syncs' "Run N syncs" asks the build service to build the selected syncs' datasets (POST
+// build2/api/manager/submitBuild) rather than triggering each sync: a sync's dataset is built only by its plan's
+// materializing run, so the same refusal applies — each named dataset must be one a sync of the caller's writes.
+export function submitBuildRefusalOf(request, syncs) {
+  const rids = (request?.jobSpecSelections || []).flatMap((s) => (s?.type === "datasets" ? s.datasets?.datasetRids || [] : [s?.type || "untyped"]));
+  if (!rids.length || rids.some((rid) => !(syncs || []).some((y) => y.datasetRid === rid)))
+    return { status: 404, code: "Hypervisor:DataConnectionDatasetNotFound", message: "No sync of yours writes this dataset. Nothing was run." };
+  return SYNC_WRITE_REFUSALS.run;
+}
 export function syncWriteRefusalOf(method, route) {
   if (method === "POST" && /^build\/trigger\/ri\.magritte\.\.extract\.[0-9a-f-]{36}$/u.test(route)) return SYNC_WRITE_REFUSALS.run;
   if (method === "POST" && route === "preview/source-adapter") return SYNC_WRITE_REFUSALS.preview;
@@ -381,10 +390,18 @@ const enrollmentOf = (base) => ({
 // A source bound to a wallet credential lease names that lease as its one secret (the secret itself never leaves the
 // wallet); any other posture holds none here.
 const secretsOf = (src) => src.credential_binding?.credential_lease_ref ? [{ __typename: "MagritteSecret", name: "Credential lease", vaultEntryRid: src.credential_binding.credential_lease_ref }] : [];
-function sourceDetailOf(src, syncs = []) {
+// (cut D7) The folder a source is filed in, as the reference names a resource: the folder its syncs write into
+// (outputFolderOf — its project's folder, else the owner's organization folder), so the source's page and its syncs'
+// datasets place it in one location.
+const folderSegmentOf = (folder) => ({ __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${folder.rid}`), rid: folder.rid, name: folder.name, alias: null, openUrl: null, path: `/${folder.name}`,
+  collections: [], status: null, trashedStatus: "NOT_TRASHED", type: { __typename: "ResourceType", iconName: null }, autosaved: false, statusInfo: null, ancestors: [],
+  permissions: { __typename: "ResourcePermissions", _id: cid(`ResourcePermissions:${folder.rid}`), canEditMetadata: false, canOpenLink: false } });
+// folder: outputFolderOf(src, ownerRef, projects), when the operation reads where the source is filed
+function sourceDetailOf(src, syncs = [], folder = null) {
   const node = sourceNodeOf(src, syncs);
+  // (a source's default output folder is the folder it is filed in, so it is not changed here, cut D7)
   const off = { canCreateExport: false, canCreateExtract: false, canExploreSource: false, canRegisterTable: false, canUpdateSourceConfig: false, canCreateWebhook: false, canUseSourceTerminal: false,
-    canUpdateExportControls: false, canUpdateExportMarkings: false };
+    canUpdateExportControls: false, canUpdateExportMarkings: false, canUpdateDefaultOutputFolder: false };
   // a REST source's connection details are its endpoint, which its declarer may change (cut D3); nothing else is editable
   if (src.caller_may_change && sourceTypeOf(src.kind) === "webhooks-rest") off.canUpdateSourceConfig = true;
   // its declarer may add a sync to it: a lease plan declared on the ladder the new sync's configuration names (cut D6)
@@ -400,8 +417,10 @@ function sourceDetailOf(src, syncs = []) {
     streamingExtracts: [], exports: [], changeDataCaptureStreamingExtract: null, importingCodeResources: [], streamingMediaExtracts: [], mediaExtracts: [], hyperAutoIntegrations: [],
     tables: { __typename: "MagritteTablePage", values: [], nextPageToken: null }, tableIndexSettings: null, magritteIcebergExtractsV2: { __typename: "MagritteIcebergExtractPage", totalNumberOfResults: 0 },
     webhooks: { __typename: "WebhooksPage", totalNumberOfResults: 0, values: [], nextPageToken: null }, lastKnownCdataOauthAuthenticationStatus: null, userUploadedJdbcDrivers: [],
-    // a declared source syncs nothing, so no folder receives its datasets
-    outputFolder: null,
+    // its syncs' datasets are placed in its output folder (cut D6: its project's folder, else the owner's organization
+    // folder); answered where the operation reads it (cut D7), never created
+    outputFolder: folder ? folderSegmentOf(folder) : null,
+    outputFolderV2: folder ? { __typename: "MagritteOutputFolderConfigured", __implements: ["MagritteOutputFolder"], resource: folderSegmentOf(folder) } : null,
     metadata: { ...node.metadata, name: src.name || src.source_id, description: "", permissions: { __typename: "ResourcePermissions", _id: cid(`ResourcePermissions:${node.rid}`), canEditMetadata: false, canAdministerNetworkControls: false },
       project: { ...node.metadata.project, usageAccountEnrollment: enrollmentOf(node.metadata.project.usageAccountEnrollment) } },
   };
@@ -417,18 +436,21 @@ export function sourceMetadataOf(rids, sources) {
   return Object.fromEntries((Array.isArray(rids) ? rids : []).filter((r) => byRid.has(r)).map((r) => { const s = byRid.get(r); const who = principalUserId(s.declared_by_principal_ref);
     return [r, { created: { time: s.created_at || null, userId: who }, lastModified: { time: s.updated_at || s.created_at || null, userId: who }, displayOptions: null }]; }));
 }
-// REST: GET compass/api/resources/<source rid>/parent — a source is filed in no project here, so its parent is the owner's
-// organization folder (the namespace the adopted Ontology Manager answers too)
-export function sourceParentOf(rid, sources, ownerRef) {
+// REST: GET compass/api/resources/<source rid>/parent — the folder the source is filed in: its project's folder when it
+// is filed in one of the caller's projects, else the owner's organization folder (the namespace the adopted Ontology
+// Manager answers too). (cut D7: the same folder its syncs write into — a project-filed source no longer reads "local")
+export function sourceParentOf(rid, sources, ownerRef, projects = []) {
   const s = (sources || []).find((x) => sourceRidOf(x.source_id) === rid);
-  if (!s || !ownerRef) return null;
+  const folder = s ? outputFolderOf(s, ownerRef, projects) : null;
+  if (!folder) return null;
   const at = { time: s.created_at || null, userId: principalUserId(s.declared_by_principal_ref) };
-  return { rid: namespaceRidOf(ownerRef), name: namespaceNameOf(ownerRef), created: at, modified: at, lastModified: Date.parse(s.created_at || "") || 0,
+  return { rid: folder.rid, name: folder.name, created: at, modified: at, lastModified: Date.parse(s.created_at || "") || 0,
     urlVariables: {}, directlyTrashed: false, isAutosave: false, isHidden: false, isPreviewResource: false, status: null };
 }
-// REST: POST compass/api/batch/resources — the caller's sources (and their parent, the owner's organization folder) as
-// the resources the app names and places them by: its header, breadcrumbs and path. No operation is granted on them here.
-export function compassSourceResources(rids, sources, ownerRef, syncs = []) {
+// REST: POST compass/api/batch/resources — the caller's sources (and the owner's organization folder) as the resources
+// the app names and places them by: its header, breadcrumbs and path, each under the folder it is filed in (cut D7). No
+// operation is granted on them here. (A project's folder is answered by the project plane's own resources.)
+export function compassSourceResources(rids, sources, ownerRef, syncs = [], projects = []) {
   const out = {};
   const want = new Set(Array.isArray(rids) ? rids : []);
   const folder = ownerRef ? namespaceRidOf(ownerRef) : null;
@@ -440,7 +462,8 @@ export function compassSourceResources(rids, sources, ownerRef, syncs = []) {
     const rid = sourceRidOf(s.source_id);
     if (!want.has(rid)) continue;
     const at = { time: s.created_at || null, userId: principalUserId(s.declared_by_principal_ref) };
-    out[rid] = base(rid, s.name || s.source_id, at, { path: `/${namespaceNameOf(ownerRef)}/${s.name || s.source_id}`, namedAncestors: folder ? [{ rid: folder, name: namespaceNameOf(ownerRef) }] : [] });
+    const filed = outputFolderOf(s, ownerRef, projects);
+    out[rid] = base(rid, s.name || s.source_id, at, { path: `/${filed ? filed.name : namespaceNameOf(ownerRef)}/${s.name || s.source_id}`, namedAncestors: filed ? [{ rid: filed.rid, name: filed.name }] : [] });
   }
   if (folder && want.has(folder)) out[folder] = base(folder, namespaceNameOf(ownerRef), { time: null, userId: null }, { path: `/${namespaceNameOf(ownerRef)}`, namedAncestors: [] });
   // …and each asked sync's output dataset
@@ -456,15 +479,13 @@ export function sourceRuntimePlatformOf(rid, sources) {
   return { type: "cloud", cloud: { credential: null, networkEgressPolicies: { networkEgressPolicies: [] }, cloudIdentity: null, oidcRuntime: null, clientCertificates: [], serverCertificateBundles: [] } };
 }
 export const SOURCE_CERTIFICATES = { client: {}, server: {} };
-// a source as a resource the settings pages name and place (its name, its folder, its path); nothing is editable here
-function sourceResourceMetadataOf(src, ownerRef) {
+// a source as a resource the settings pages name and place (its name, its folder, its path); nothing is editable here.
+// Its folder is the one it is filed in (cut D7: its project's, else the owner's organization folder).
+function sourceResourceMetadataOf(src, ownerRef, projects = []) {
   const rid = sourceRidOf(src.source_id);
-  const folderRid = ownerRef ? namespaceRidOf(ownerRef) : null;
-  const seg = (r, name, path) => ({ __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${r}`), rid: r, name, alias: null, openUrl: null, path, collections: [], status: null,
-    trashedStatus: "NOT_TRASHED", type: { __typename: "ResourceType", iconName: null }, permissions: { __typename: "ResourcePermissions", _id: cid(`ResourcePermissions:${r}`), canEditMetadata: false, canOpenLink: false },
-    autosaved: false, statusInfo: null, ancestors: [], parent: null });
-  const folder = folderRid ? seg(folderRid, namespaceNameOf(ownerRef), `/${namespaceNameOf(ownerRef)}`) : null;
-  return { ...seg(rid, src.name || src.source_id, `/${namespaceNameOf(ownerRef)}/${src.name || src.source_id}`), parent: folder, ancestors: folder ? [folder] : [] };
+  const filed = outputFolderOf(src, ownerRef, projects);
+  const folder = filed ? { ...folderSegmentOf(filed), parent: null } : null;
+  return { ...folderSegmentOf({ rid, name: src.name || src.source_id }), path: `/${filed ? filed.name : namespaceNameOf(ownerRef)}/${src.name || src.source_id}`, parent: folder, ancestors: folder ? [folder] : [] };
 }
 const GLOBAL_PERMISSIONS = { __typename: "GlobalPermissions", _id: cid("GlobalPermissions"), canCreateMagritteSourceV2: true };
 export const CREATE_PAGE_OPERATIONS = new Set(["ChooseNewSourceTypePageQuery", "CreateSourcePageQuery", "CreateSourceStepQuery", "ResourceNewNameKnownInvalidQuery", "CheckSourceApiNameQuery"]);
@@ -531,7 +552,7 @@ export function authzOperationsOf(rids, sources, { signedIn = false } = {}) {
 
 export const SOURCE_PAGE_OPERATIONS = new Set(["SourcePageQuery", "SourcePageHelperQuery", "SourceBadConfigurationCalloutQuery", "CdataSourceInformationQuery", "ActiveResourceQuery", "WalkthroughsForResourceQuery", "SourceOutputFolderCondensedQuery",
   "SourceSettingsPageQuery", "SourceEditorQuery", "SourceEgressSelectPanelQuery", "SourceWebhooksPageQuery", "SourceWebhooksSectionQuery", "CodeImportsStepQuery", "ResourceMetadataQuery",
-  "ExportConfigurationStepQuery", "SourceVirtualTablesPageQuery", "VirtualTablesForSourceQuery", "SourceExplorerPageQuery"]);
+  "ExportConfigurationStepQuery", "SourceVirtualTablesPageQuery", "VirtualTablesForSourceQuery", "SourceExplorerPageQuery", "SourceEditSyncsPageQuery", "SourceOutputFolderPageQuery"]);
 // no service a source's settings name exists here: no compute service, no egress or on-prem proxy
 const SERVICE_AVAILABILITY = { __typename: "MagritteServiceAvailability", computeService: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false },
   egressProxy: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false }, onPremProxy: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false } };
@@ -557,8 +578,17 @@ function datasetMetadataOf(y) {
 const extractNodeOf = (y) => ({ __typename: "MagritteExtract", _id: cid(`MagritteExtract:${y.rid}`), rid: y.rid, extractName: y.plan.name || y.plan.id, extractConfig: extractOf(y).extractConfig,
   dataset: { __typename: "CatalogDataset", _id: cid(`CatalogDataset:${y.datasetRid}`), rid: y.datasetRid, metadata: datasetMetadataOf(y) },
   branch: { __typename: "CatalogBranch", _id: cid(`CatalogBranch:${y.datasetRid}:${BRANCH}`), jobs: { __typename: "JobSearchResultPage", results: y.runs.slice(0, 1).map((r) => ({ __typename: "JobReport", _id: cid(`JobReport:${r.id}`), build: buildReportOf(r) })) } } });
-// the operations whose answer names the owner's organization folder (the serve reads the owner for these)
-export const OWNER_REF_OPERATIONS = new Set(["ResourceMetadataQuery", "GetOrCreateSourceOutputFolder"]);
+// (cut D7) a sync as Edit syncs lists it: its name, its source's runtime, no schedule (a run is admitted by hand), its
+// branch (the dataset's one, master) and its dataset — the plan's own, placed in the source's output folder, made when the
+// plan was declared
+const editSyncExtractOf = (y) => ({ __typename: "MagritteExtract", _id: cid(`MagritteExtract:${y.rid}`), rid: y.rid, extractName: y.plan.name || y.plan.id,
+  source: { __typename: "MagritteSource", _id: cid(`MagritteSource:${sourceRidOf(y.plan.data_source_id)}`), type: sourceTypeOf(y.source.kind), runtimePlatform: { __typename: "CloudRuntimePlatform" } },
+  branch: { __typename: "CatalogBranch", _id: cid(`CatalogBranch:${y.datasetRid}:${BRANCH}`), indirectlyRelevantSchedules: [],
+    metadata: { __typename: "BranchMetadata", _id: cid(`BranchMetadata:${y.datasetRid}:${BRANCH}`), resourceType: { __typename: "ResourceType", iconName: null }, openUrl: null } },
+  dataset: { __typename: "CatalogDataset", _id: cid(`CatalogDataset:${y.datasetRid}`), rid: y.datasetRid, metadata: { ...datasetMetadataOf(y), created: { __typename: "Timestamp", time: y.plan.created_at || null } } } });
+// the operations whose answer names the owner's organization folder or the folder a source is filed in (the serve reads
+// the owner and the caller's projects for these)
+export const OWNER_REF_OPERATIONS = new Set(["ResourceMetadataQuery", "GetOrCreateSourceOutputFolder", "SourceOutputFolderCondensedQuery", "SourceOutputFolderPageQuery"]);
 export const DATA_CONNECTION_GRAPHQL_OPERATIONS = new Set([...SOURCE_PAGE_OPERATIONS, ...CREATE_PAGE_OPERATIONS, ...SYNC_PAGE_OPERATIONS,
   "SourcesListQuery", "CreateSourceButtonQuery", "SplashTableQuery", "TargetsListQuery", "GetRemoteStoreRid", "RecentInstallationsPopoverQuery",
   "CommunicationChannelsQuery", "FoundryProvidedDriverQuery", "HasAipEnabledQuery", "CreatePolicyDialogQuery",
@@ -602,10 +632,23 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
     case "SourceSettingsPageQuery": case "SourceEditorQuery": case "SourceWebhooksPageQuery": case "SourceWebhooksSectionQuery": case "ExportConfigurationStepQuery":
     // (cut D5) Virtual tables: none is registered on a source here, and none can be (canRegisterTable is false); Explore
     // source: no compute service browses a source (the explorer says so, in words the adopted layer makes true)
-    case "SourceVirtualTablesPageQuery": case "VirtualTablesForSourceQuery": case "SourceExplorerPageQuery": {
+    case "SourceVirtualTablesPageQuery": case "VirtualTablesForSourceQuery": case "SourceExplorerPageQuery": case "SourceOutputFolderPageQuery": {
       const src = sourceOf(ctx.sources, variables?.sourceRid || variables?.rid);
+      // (the Overview's Output folder, and its settings page, read where its syncs' datasets are placed, cut D7)
+      const folder = src && OWNER_REF_OPERATIONS.has(name) ? outputFolderOf(src, ctx.ownerRef, ctx.projects) : null;
       // no identity provider federates a source's outbound calls
-      return { ...root, source: src ? sourceDetailOf(src, ctx.syncs) : null, magritteServiceAvailability: SERVICE_AVAILABILITY, oidcMetadata: null };
+      return { ...root, source: src ? sourceDetailOf(src, ctx.syncs, folder) : null, magritteServiceAvailability: SERVICE_AVAILABILITY, oidcMetadata: null };
+    }
+    // (cut D7) Edit syncs — the source's syncs to configure, one at a time or in bulk: each is a capability-lease plan on
+    // it (its configuration the plan's, saved through the plan's PATCH as a sync's own page saves it), its dataset the
+    // plan's own in the source's output folder, and no schedule runs one (a run is admitted by hand). Newest first.
+    case "SourceEditSyncsPageQuery": {
+      const src = sourceOf(ctx.sources, variables?.sourceRid);
+      if (!src) return { ...root, source: null, magritteServiceAvailability: SERVICE_AVAILABILITY };
+      const rows = (ctx.syncs || []).filter((y) => y.plan.data_source_id === src.source_id).sort((a, b) => String(b.plan.created_at || "").localeCompare(String(a.plan.created_at || "")));
+      const from = Math.max(0, Number(variables?.pageToken) || 0), size = Math.max(1, Number(variables?.pageSize) || 100);
+      return { ...root, magritteServiceAvailability: SERVICE_AVAILABILITY,
+        source: { ...sourceDetailOf(src, ctx.syncs), extractsV2: { __typename: "MagritteExtractPage", nextPageToken: from + size < rows.length ? String(from + size) : null, values: rows.slice(from, from + size).map(editSyncExtractOf) } } };
     }
     // the egress panel reads the enrollment through the source's resource metadata
     case "SourceEgressSelectPanelQuery": {
@@ -622,7 +665,7 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
     }
     case "ResourceMetadataQuery": {
       const src = sourceOf(ctx.sources, variables?.resourceRid || variables?.rid);
-      return { ...root, resourceMetadata: src ? sourceResourceMetadataOf(src, ctx.ownerRef) : null };
+      return { ...root, resourceMetadata: src ? sourceResourceMetadataOf(src, ctx.ownerRef, ctx.projects) : null };
     }
     // no AIP assistant runs here
     case "HasAipEnabledQuery": return { ...root, me: { __typename: "User", _id: cid("User:me"), isAipEnabled: false } };
@@ -722,6 +765,11 @@ export const TRUTHFUL_MESSAGES = [
   { id: "387c90f6857f.explorationsAreUnavailableDescription",
     from: "This instance of Foundry does not support source exploration with Foundry Worker connections.",
     to: "The Hypervisor never browses a source: it reads one only in a sync run, as one bounded, receipted batch under a wallet-authority lease." },
+  // (cut D7) a source's Output folder settings: why Change default output folder is off — not a permission the caller
+  // lacks, but where the folder comes from
+  { id: "ec37e6b26788.insufficientPermissions",
+    from: "You do not have sufficient permissions",
+    to: "A source's output folder is the folder it is filed in — its project's, else the organization folder — and is not changed here." },
 ];
 const messageLiteral = (id, text) => `{id:${JSON.stringify(id)},defaultMessage:${JSON.stringify(text)}}`;
 export function truthfulBundle(js) {

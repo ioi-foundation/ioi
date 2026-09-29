@@ -1,4 +1,4 @@
-// The adopted Data Connection's pure answers (R-241, Data Connection D1–D6): the caller's data sources as the reference
+// The adopted Data Connection's pure answers (R-241, Data Connection D1–D7): the caller's data sources as the reference
 // app's sources, the bootstrap reads over them, and their syncs (lease plans) with their builds (materializing runs).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -353,4 +353,57 @@ test("New from a source's Batch syncs opens over the source, and no assistant ex
   assert.equal(DC.dataConnectionGraphqlFacts("SourceNewBatchExtractPageQuery", { sourceRid: DC.sourceRidOf("ds_4") }, { sources, syncs: [] }).source, null);
   assert.ok(DC.SYNC_PAGE_OPERATIONS.has("SourceNewBatchExtractPageQuery"));
   assert.notEqual(DC.ERROR_ENHANCER.type, "enabled");
+});
+
+// ---- cut D7: a source's Edit syncs, and the folder a source is filed in
+test("Edit syncs lists the source's lease plans newest first — each its dataset in the source's output folder, no schedule — and Run N syncs is refused by name", () => {
+  const projects = [{ project_id: "project:payments", project_name: "payments", name: "payments" }];
+  const filed = { ...bucket, source_id: "ds_5", name: "Meter feed", kind: "http_feed", project_ref: "project://project:payments" };
+  const sources = DC.callerSourcesOf([bucket, filed, stranger], "user://me", []);
+  const syncs = DC.callerSyncsOf([plan, { ...plan, id: "clp_2", name: "Plants archive", created_at: "2026-09-29T01:00:00Z" }, { ...plan, id: "clp_5", data_source_id: "ds_5", name: "Meter readings" }, strangersPlan], [], sources, "org://local", projects);
+  const q = "query SourceEditSyncsPageQuery($sourceRid: RID!, $pageSize: Int!) { source(rid: $sourceRid) { type name numberOfExtracts extractsV2(pageSize: $pageSize) { nextPageToken values { ...ExtractDetails _id __typename } __typename } permissions { canCreateExtract canCreateWebhook canRegisterTable _id } _id __typename } magritteServiceAvailability { egressProxy { isAvailable } onPremProxy { isAvailable } } }"
+    + " fragment ExtractDetails on MagritteExtract { rid extractName ...UseExtractStateFragment source { type runtimePlatform { __typename } _id } branch { metadata { openUrl _id } _id } dataset { rid metadata { name path ancestors { name rid } created { time } _id } _id } }"
+    + " fragment UseExtractStateFragment on MagritteExtract { branch { indirectlyRelevantSchedules { _id } _id } _id }";
+  const page = (rid, pageSize = 100) => answerDocument(q, DC.dataConnectionGraphqlFacts("SourceEditSyncsPageQuery", { sourceRid: rid, pageSize }, { sources, syncs }), null, "SourceEditSyncsPageQuery");
+  const s3 = page(DC.sourceRidOf("ds_2"));
+  assert.deepEqual([s3.source.name, s3.source.numberOfExtracts, s3.source.extractsV2.values.map((v) => v.extractName)], ["Plants bucket", 2, ["Plants archive", "Plants import"]], "its plans, newest first");
+  const [first] = s3.source.extractsV2.values;
+  assert.deepEqual([first.rid, first.dataset.rid, first.dataset.metadata.name, first.dataset.metadata.path, first.dataset.metadata.ancestors.map((a) => a.name), first.dataset.metadata.created.time],
+    [DC.extractRidOf("clp_2"), DC.syncDatasetRidOf("clp_2"), "Plants archive objects", "/local/Plants archive objects", ["local"], "2026-09-29T01:00:00Z"]);
+  assert.deepEqual(first.branch.indirectlyRelevantSchedules, [], "no schedule runs a sync");
+  assert.deepEqual([s3.source.permissions.canCreateExtract, s3.source.permissions.canCreateWebhook, s3.source.permissions.canRegisterTable, s3.magritteServiceAvailability.egressProxy.isAvailable], [true, false, false, false]);
+  assert.equal(page(DC.sourceRidOf("ds_5")).source.extractsV2.values[0].dataset.metadata.path, "/payments/Meter readings objects", "a project-filed source's syncs write into its project");
+  const paged = page(DC.sourceRidOf("ds_2"), 1);
+  assert.deepEqual([paged.source.extractsV2.values.length, paged.source.extractsV2.nextPageToken], [1, "1"]);
+  assert.equal(page(DC.sourceRidOf("ds_4")).source, null, "another principal's source is not answered");
+  assert.ok(DC.SOURCE_PAGE_OPERATIONS.has("SourceEditSyncsPageQuery"), "the serve reads the caller's syncs for it");
+  const datasets = syncs.filter((y) => y.plan.data_source_id === "ds_2").map((y) => y.datasetRid);
+  const ask = (rids) => ({ branch: "master", jobSpecSelections: [{ type: "datasets", datasets: { datasetRids: rids, isRequired: false } }], forceBuild: true });
+  assert.deepEqual(DC.submitBuildRefusalOf(ask(datasets), syncs), DC.SYNC_WRITE_REFUSALS.run, "a sync's dataset is built only by its plan's materializing run");
+  assert.equal(DC.submitBuildRefusalOf(ask([...datasets, "ri.foundry.main.dataset.00000000-0000-0000-0000-000000000000"]), syncs).code, "Hypervisor:DataConnectionDatasetNotFound");
+  assert.equal(DC.submitBuildRefusalOf({ jobSpecSelections: [] }, syncs).code, "Hypervisor:DataConnectionDatasetNotFound");
+});
+
+test("a source sits in the folder it is filed in — its project's, else the owner's organization folder — on its page, its parent, its path and its output folder", () => {
+  const projects = [{ project_id: "project:payments", project_name: "payments", name: "payments" }];
+  const filed = { ...bucket, source_id: "ds_5", name: "Meter feed", kind: "http_feed", project_ref: "project://project:payments", created_at: "2026-09-28T00:00:00Z" };
+  const sources = DC.callerSourcesOf([bucket, filed], "user://me", []);
+  const inProject = DC.outputFolderOf(filed, "org://local", projects), inOrg = DC.outputFolderOf(bucket, "org://local", projects);
+  const [f, b] = [DC.sourceRidOf("ds_5"), DC.sourceRidOf("ds_2")];
+  assert.deepEqual([DC.sourceParentOf(f, sources, "org://local", projects).rid, DC.sourceParentOf(f, sources, "org://local", projects).name, DC.sourceParentOf(b, sources, "org://local", projects).name], [inProject.rid, "payments", "local"]);
+  assert.equal(DC.sourceParentOf(f, sources, "org://local").name, "local", "without the caller's projects, the organization folder");
+  const res = DC.compassSourceResources([f, b], sources, "org://local", [], projects);
+  assert.deepEqual([res[f].path, res[f].namedAncestors, res[b].path], ["/payments/Meter feed", [{ rid: inProject.rid, name: "payments" }], "/local/Plants bucket"]);
+  const meta = DC.dataConnectionGraphqlFacts("ResourceMetadataQuery", { resourceRid: f }, { sources, ownerRef: "org://local", projects }).resourceMetadata;
+  assert.deepEqual([meta.path, meta.parent.rid, meta.ancestors.map((a) => a.name)], ["/payments/Meter feed", inProject.rid, ["payments"]]);
+  const condensed = DC.dataConnectionGraphqlFacts("SourceOutputFolderCondensedQuery", { sourceRid: f }, { sources, ownerRef: "org://local", projects, syncs: [] }).source;
+  assert.deepEqual([condensed.outputFolder.rid, condensed.outputFolder.name], [inProject.rid, "payments"], "the Overview's Output folder is where its syncs write");
+  const settings = answerDocument("query SourceOutputFolderPageQuery($sourceRid: RID!) { source(rid: $sourceRid) { permissions { canUpdateDefaultOutputFolder _id } outputFolderV2 { ...MagritteOutputFolder __typename } _id } } fragment MagritteOutputFolder on MagritteOutputFolder { ... on MagritteOutputFolderConfigured { resource { rid name path _id } } }",
+    DC.dataConnectionGraphqlFacts("SourceOutputFolderPageQuery", { sourceRid: b }, { sources, ownerRef: "org://local", projects, syncs: [] }), null, "SourceOutputFolderPageQuery").source;
+  assert.deepEqual([settings.outputFolderV2.resource.rid, settings.outputFolderV2.resource.name, settings.permissions.canUpdateDefaultOutputFolder], [inOrg.rid, "local", false], "the settings page names it, and it is not changed here");
+  assert.ok(DC.OWNER_REF_OPERATIONS.has("SourceOutputFolderCondensedQuery") && DC.OWNER_REF_OPERATIONS.has("SourceOutputFolderPageQuery"), "the serve reads the owner and the caller's projects for both");
+  assert.equal(DC.dataConnectionGraphqlFacts("SourcePageQuery", { sourceRid: f }, { sources, syncs: [] }).source.outputFolder, null, "an operation that does not read the folder is not answered one");
+  const why = DC.TRUTHFUL_MESSAGES.find((m) => m.id === "ec37e6b26788.insufficientPermissions");
+  assert.match(DC.truthfulBundle(`x={id:"ec37e6b26788.insufficientPermissions",defaultMessage:"You do not have sufficient permissions"}`), /the folder it is filed in/u, "Change default output folder says why it is off — not a permission");
+  assert.ok(!/'/u.test(why.to.replace(/[a-z]'s\b/gu, "")));
 });

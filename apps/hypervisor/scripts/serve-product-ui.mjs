@@ -10901,8 +10901,9 @@ async function handleEstateRequest(req, res, body) {
         // …and on Data Connection's pages, the caller's sources and their organization folder
         // (and their syncs' output datasets, cut D4)
         const dcSourceList = pathname.endsWith("/resources") && onDataConnectionSurface() ? await callerDataSources() : [];
+        // (each source under the folder it is filed in — its project's, else the organization folder, cut D7)
         const dcSources = pathname.endsWith("/resources") && onDataConnectionSurface() ? DATA_CONNECTION.compassSourceResources(rids, dcSourceList, (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")),
-          rids.some((r) => String(r).startsWith("ri.foundry.main.dataset.")) ? await callerSyncs(dcSourceList) : []) : {};
+          rids.some((r) => String(r).startsWith("ri.foundry.main.dataset.")) ? await callerSyncs(dcSourceList) : [], daemonProjects) : {};
         // (on Data Connection's pages a project folder answers its branches as none rather than null: a new sync's
         // destination link reads them, cut D6)
         const projectResources = Object.fromEntries(Object.entries(AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref)).map(([rid, r]) => [rid, onDataConnectionSurface() ? { ...r, branches: r.branches || [] } : r]));
@@ -10979,8 +10980,9 @@ async function handleEstateRequest(req, res, body) {
       }
       // THE ADOPTED ONTOLOGY MANAGER'S READS (R-241 cut O1b) over the caller's ODK domain ontologies (adopted-ontology.mjs).
       const sendO = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
-      // a Data Connection write the Hypervisor refuses, in the reference's error shape, named
-      const dataConnectionRefusal = (status, errorName, message) => sendO(status, { errorCode: ({ 403: "PERMISSION_DENIED", 404: "NOT_FOUND", 409: "CONFLICT" })[status] || (status >= 500 ? "INTERNAL" : "INVALID_ARGUMENT"), errorName, errorInstanceId: "", parameters: { message } });
+      // a Data Connection write the Hypervisor refuses, in the reference's error shape, named — its message also at the top
+      // level, where the app's error toast reads it (without it Edit syncs toasted only the code, cut D7)
+      const dataConnectionRefusal = (status, errorName, message) => sendO(status, { errorCode: ({ 403: "PERMISSION_DENIED", 404: "NOT_FOUND", 409: "CONFLICT" })[status] || (status >= 500 ? "INTERNAL" : "INVALID_ARGUMENT"), errorName, errorInstanceId: "", parameters: { message }, message });
       const ontologyRidIn = (p) => (p.match(/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}/u) || [])[0] || null;
       // an edit's save is refused by name (cut O7): nothing is written
       const ontologySave = onOntologySurface() && ONTOLOGY.ontologySaveRefusalOf(req.method, pathname);
@@ -11261,6 +11263,13 @@ async function handleEstateRequest(req, res, body) {
       if (onDataConnectionSurface() && req.method === "GET" && /^\/foundry-metadata\/api\/schemas\/datasets\/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}\/branches\/[^/]+$/u.test(pathname)
         && (await callerSyncs()).some((y) => y.datasetRid === pathname.split("/")[5])) { res.writeHead(204); return res.end(); }
       if (onDataConnectionSurface() && req.method === "POST" && pathname === "/build2/api/manager/get-policies") return sendO(200, {});
+      // (cut D7) Edit syncs' "Run N syncs" builds the selected syncs' datasets: refused by name, as a sync's Run is — a
+      // sync's dataset is built only by its plan's materializing run, under a wallet-authority grant. Nothing runs.
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/build2/api/manager/submitBuild") {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const refusal = DATA_CONNECTION.submitBuildRefusalOf(asked, await callerSyncs());
+        return dataConnectionRefusal(refusal.status, refusal.code, refusal.message);
+      }
       // a source's connection details saved → the data-source plane's update (only its declarer; only a REST domain)
       if (onDataConnectionSurface() && req.method === "PUT" && /^\/magritte-coordinator\/api\/source-store\/v2\/sources\/ri\.magritte\.\.source\.[0-9a-f-]{36}$/u.test(pathname)) {
         let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
@@ -11280,10 +11289,10 @@ async function handleEstateRequest(req, res, body) {
         const signedIn = (await planeRead("/v1/hypervisor/auth/whoami")).authenticated === true;
         return sendO(200, DATA_CONNECTION.authzOperationsOf(asked, await callerDataSources(), { signedIn }));
       }
-      // a source's parent folder (the owner's organization folder)
+      // a source's parent folder: its project's folder, else the owner's organization folder (cut D7)
       if (onDataConnectionSurface() && req.method === "GET" && /^\/compass\/api\/resources\/ri\.magritte\.\.source\.[0-9a-f-]{36}\/parent$/u.test(pathname)) {
         const owner = ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
-        const parent = DATA_CONNECTION.sourceParentOf(pathname.split("/")[4], await callerDataSources(), owner);
+        const parent = DATA_CONNECTION.sourceParentOf(pathname.split("/")[4], await callerDataSources(), owner, await callerProjectRows());
         if (parent) return sendO(200, parent);
       }
       // installed-application metadata and the command palette's application commands: the Hypervisor registers none

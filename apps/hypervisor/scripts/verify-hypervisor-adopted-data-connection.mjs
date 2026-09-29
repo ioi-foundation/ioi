@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D6).
+// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D7).
 //
 // The reference Data Connection (booted by the local mirror, routed at /workspace/data-ingestion-app) answers from the
 // Hypervisor's data-source plane (adopted-data-connection.mjs), in a real browser against an ISOLATED daemon + serve:
@@ -21,13 +21,17 @@
 //     lease-plan write); a new sync's output folder is its source's project folder, else the owner's organization folder
 //     — answered, never created — and its dataset's build policy (always) and branch (master) are what is already true;
 //     New on a bucket (the reference's file-sync form) is refused by name, and nothing is declared;
+//   - a source's Edit syncs (cut D7), opened from its Overview's sync count: its lease plans, each configured in the
+//     reference's own panel (Save re-declares the plan), Bulk edit and Run N syncs — what a plan cannot hold (another
+//     transaction type, a build policy but Always, a maximum duration, a run) refused by name; and a source sits in the
+//     folder it is filed in (its project's, else the owner's organization folder) on its Overview and output-folder page;
 //   - New source (cut D3), driven as a person does it: pick REST API, name it, file it in a project, create — a draft
 //     data source — give it its domain (the draft becomes declared, with that endpoint), and walk the remaining steps;
 //   - an existing REST source's connection settings: its declarer's new domain becomes its endpoint, path kept;
 //   - no read reaches the mirror but the reference's chrome, no service read gets the serve's HTML page; a type other
 //     than REST API is refused by name at create, and any other write is a named gap that writes nothing;
-//   - with the daemon stopped, the Sources list shows its error rather than "No sources", and the checkpoint read fails
-//     rather than answering none.
+//   - with the daemon stopped, the Sources list, the Syncs list and a source's Edit syncs show their error rather than
+//     none, and the checkpoint read fails rather than answering none.
 //
 // Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, or the local mirror cannot boot the reference app).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
@@ -40,6 +44,8 @@ import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+// (a sync's dataset rid is named from its plan's id — the daemon's plan ids are what the Run N syncs selection is checked against)
+import { syncDatasetRidOf } from "./adopted-data-connection.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
@@ -480,6 +486,152 @@ async function run() {
       fenced.size === fencedBefore && pageErrors.length === pageErrorsBefore && gqlErrors.size === gqlBefore && unnamed.size === 0 && htmlAnswers.size === 0,
       `fenced ${[...fenced].slice(fencedBefore).join(",") || "none"} · page ${pageErrors.slice(pageErrorsBefore, pageErrorsBefore + 1).join("") || "none"} · gql ${[...gqlErrors].slice(gqlBefore, gqlBefore + 2).join(" | ") || "none"}`);
 
+    // ---- (cut D7) a source's Edit syncs, reached from its Overview's sync count: its syncs are its lease plans, each
+    // configured in the reference's own panel and saved through the plan's PATCH; what a plan cannot hold is refused by
+    // name. And a source sits in the folder it is filed in — its project's, else the owner's organization folder — on its
+    // own pages as its syncs' datasets do.
+    const d7 = [];
+    const D7_ROUTE = /getConfigsV5|\/extract-store\/extract\/ri\.|\/set-policies|\/submitBuild|\/build\/trigger\/|\/scheduler\/api\/(?!scheduler\/get-)/u;
+    const onD7 = async (r) => { const u = new URL(r.url()); if (D7_ROUTE.test(u.pathname) && r.request().method() !== "GET") d7.push({ p: u.pathname, m: r.request().method(), s: r.status(), req: r.request().postData() || "", body: await r.text().catch(() => "") }); };
+    pg.on("response", onD7);
+    const fencedBeforeD7 = fenced.size, pageErrorsBeforeD7 = pageErrors.length, gqlBeforeD7 = gqlErrors.size;
+    const planOf = async (id) => (await d("GET", `/v1/hypervisor/odk/capability-lease-plans/${id}`)).j.capability_lease_plan || {};
+    const bucketPlans = async () => (await plans()).filter((x) => x.data_source_id === plantsId && x.status !== "revoked").sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+    const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    const saveButton = () => pg.locator("a,button").filter({ hasText: /^Save$/u }).first();
+    const toastOf = (t, re) => (t.match(new RegExp(`.{0,40}${re.source}.{0,120}`, "u")) || [""])[0];
+
+    // the bucket's Overview names where it is filed, and its sync count opens Edit syncs
+    const s3Overview = await visit(`${s3Base}/overview`, /Parent folder local \/[\s\S]*Output folder \(local\)|An error occurred/u);
+    const bucketNow = await bucketPlans();
+    await pg.getByText(/^\d+ syncs?$/u).first().click({ timeout: 8000 }).catch(() => {});
+    const SYNC_LIST = new RegExp(`Syncs\\s*\\(${bucketNow.length}\\) ${bucketNow.map((p) => `\\(${esc(p.name)} objects\\) \\/local`).join(" ")} `, "u");
+    let editSyncs = ""; for (let i = 0; i < 25 && !SYNC_LIST.test(editSyncs) && !/Failed to load syncs|An error occurred/u.test(editSyncs); i++) { await pg.waitForTimeout(800); editSyncs = await text(); }
+    const editUrl = new URL(pg.url()).pathname;
+    ok("Edit syncs, opened from a source's Overview sync count, lists the source's lease plans newest first, each its plan's dataset in the source's folder (the owner's organization folder: the bucket is filed in no project) — and the Overview's Parent folder and Output folder name that folder",
+      editUrl === `${s3Base}/edit-syncs` && bucketNow.length === 2 && SYNC_LIST.test(editSyncs) && !/Failed to load syncs|An error occurred/u.test(editSyncs)
+        && /Batch syncs 2 syncs/u.test(s3Overview) && /Parent folder local \//u.test(s3Overview) && /Output folder \(local\)/u.test(s3Overview),
+      `${editUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · daemon ${bucketNow.map((p) => p.name).join(", ")} · ${after(editSyncs, "Syncs(", 90)} · ${after(s3Overview, "Parent folder", 22)} · ${after(s3Overview, "Output folder", 24)}`);
+
+    // a sync's panel is its plan: schedule Manually (no schedule runs one), build policy Always, the plan's configuration
+    const importBefore = await planOf(planId);
+    await pg.getByText("(Plants import objects)", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let syncPanel = ""; for (let i = 0; i < 25 && !(/Configure Plants import[\s\S]*Build policy/u.test(syncPanel) && syncPanel.includes(`leaseTtlSeconds: ${importBefore.ttl_seconds}`)); i++) { await pg.waitForTimeout(700); syncPanel = await text(); }
+    await pg.locator("pre.CodeMirror-line").filter({ hasText: new RegExp(`leaseTtlSeconds: ${importBefore.ttl_seconds}`, "u") }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.keyboard.press("End");
+    for (let i = 0; i < String(importBefore.ttl_seconds).length; i++) await pg.keyboard.press("Backspace");
+    await pg.keyboard.type("450");
+    await pg.waitForTimeout(600);
+    await saveButton().click({ timeout: 8000 }).catch(() => {});
+    let panelSaved = ""; for (let i = 0; i < 20 && !/Sync saved!/u.test(panelSaved); i++) { await pg.waitForTimeout(600); panelSaved = await text(); }
+    const importSaved = await planOf(planId);
+    const panelGate = d7.find((w) => /getConfigsV5/u.test(w.p) && /DATA_CONNECTION_SYNC_EDIT/u.test(w.req));
+    const panelPut = d7.find((w) => w.m === "PUT" && w.s === 200);
+    ok("a sync's panel in Edit syncs is its plan (schedule Manually, build policy Always, the plan's lease shape), and its Save after a real edit re-declares the plan: the checkpoint read answers none, and the daemon's plan moves one revision with the new lease TTL, receipted — the page says Sync saved",
+      /Run this import Manually/u.test(syncPanel) && /Build policy .{0,60}Always/u.test(syncPanel) && syncPanel.includes(`connectorMapping: ${mappingId}`) && /View sync details/u.test(syncPanel)
+        && panelGate?.s === 200 && jsonOf(panelGate.body)?.checkpointConfigs?.length === 0 && jsonOf(panelPut?.req)?.extractConfig?.sourceAdapter?.leaseTtlSeconds === 450
+        && importSaved.revision === importBefore.revision + 1 && importSaved.ttl_seconds === 450 && (importSaved.history || []).at(-1)?.op === "patched" && !!(importSaved.history || []).at(-1)?.receipt_ref && /Sync saved!/u.test(panelSaved),
+      `panel ${/Run this import Manually/u.test(syncPanel) ? "Manually" : "NO SCHEDULE LINE"} · checkpoint ${panelGate?.s ?? "NOT SENT"} · PUT ${panelPut?.s ?? "NOT SENT"} · plan r${importBefore.revision} → r${importSaved.revision} ttl ${importSaved.ttl_seconds} · ${/Sync saved!/u.test(panelSaved) ? "Sync saved" : "NO TOAST"}`);
+
+    // what a plan cannot hold, pressed in the panel: another transaction type, a build policy other than Always, a Run
+    const runsBeforeD7 = ((await d("GET", "/v1/hypervisor/odk/materializing-runs")).j.materializing_runs || []).length;
+    await pg.getByText("Append", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(500);
+    await saveButton().click({ timeout: 8000 }).catch(() => {});
+    let appendToast = ""; for (let i = 0; i < 15 && !/holds none of the APPEND transaction type/u.test(appendToast); i++) { await pg.waitForTimeout(600); appendToast = await text(); }
+    await pg.getByText("Snapshot", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.getByRole("button", { name: /^Edit$/u }).last().click({ timeout: 8000 }).catch(() => {});
+    const policyDialog = pg.locator(".bp5-dialog, .bp6-dialog, [role=dialog]").last();
+    await policyDialog.locator("pre.CodeMirror-line").first().click({ timeout: 8000 }).catch(() => {});
+    await pg.keyboard.press("Control+A");
+    await pg.keyboard.type("type: never\nnever: {}\n");
+    await policyDialog.getByRole("button", { name: /^Done$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(600);
+    await saveButton().click({ timeout: 8000 }).catch(() => {});
+    let policyToast = ""; for (let i = 0; i < 15 && !/keeps no build policy/u.test(policyToast); i++) { await pg.waitForTimeout(600); policyToast = await text(); }
+    // (a compute profile, from View 3 more settings: the reference's default profile, then Save)
+    await pg.getByRole("button", { name: /^View 3 more settings$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.getByText(/^Compute profile se/u).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(600);
+    await saveButton().click({ timeout: 8000 }).catch(() => {});
+    let profileToast = ""; for (let i = 0; i < 15 && !/holds none of Spark profiles/u.test(profileToast); i++) { await pg.waitForTimeout(600); profileToast = await text(); }
+    await pg.locator("a,button").filter({ hasText: /^Run$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let runToastD7 = ""; for (let i = 0; i < 15 && !/wallet-authority grant/u.test(runToastD7); i++) { await pg.waitForTimeout(600); runToastD7 = await text(); }
+    const importKept = await planOf(planId);
+    const appendPut = d7.find((w) => w.m === "PUT" && w.s === 409);
+    const policySet = d7.find((w) => /set-policies/u.test(w.p));
+    const panelRun = d7.find((w) => /build\/trigger/u.test(w.p));
+    const profilePut = d7.find((w) => w.m === "PUT" && (jsonOf(w.req)?.sparkProfiles || []).length);
+    ok("in Edit syncs, what a plan cannot hold is refused by name and changes nothing: another transaction type (the plan's PATCH is never sent), a build policy other than Always, a compute profile, and a Run (a wallet-authority grant) — each toast says why",
+      appendPut && jsonOf(appendPut.body)?.errorName === "Hypervisor:DataConnectionSyncFieldNotBound" && /holds none of the APPEND transaction type/u.test(appendToast)
+        && policySet?.s === 409 && jsonOf(policySet.body)?.errorName === "Hypervisor:DataConnectionBuildPolicyNotBound" && jsonOf(policySet.req)?.[0]?.buildPolicy?.type === "never" && /keeps no build policy/u.test(policyToast)
+        && profilePut?.s === 409 && jsonOf(profilePut.body)?.errorName === "Hypervisor:DataConnectionSyncFieldNotBound" && /holds none of Spark profiles/u.test(profileToast)
+        && panelRun?.s === 409 && jsonOf(panelRun.body)?.errorName === "Hypervisor:DataConnectionRunNeedsApproval" && /wallet-authority grant/u.test(runToastD7)
+        && importKept.revision === importSaved.revision && importKept.ttl_seconds === 450,
+      `append ${appendPut?.s ?? "NOT SENT"} · policy ${policySet?.s ?? "NOT SENT"} ${jsonOf(policySet?.body)?.errorName || ""} "${toastOf(policyToast, /keeps no build policy/u).slice(0, 80)}" · profile ${profilePut?.s ?? "NOT SENT"} · run ${panelRun?.s ?? "NOT SENT"} · plan r${importKept.revision}`);
+
+    // Bulk edit: a maximum duration is refused by name for every selected sync; the schedule Manually is what is already
+    // true, so its Save writes nothing
+    const revsBefore = (await bucketPlans()).map((p) => `${p.id}:${p.revision}`).join(",");
+    const d7Mark = d7.length;
+    await visit(editUrl, SYNC_LIST);
+    await pg.locator("input[type=checkbox]").first().check({ force: true, timeout: 8000 }).catch(() => {});
+    await pg.getByText(/^Bulk edit 2 syncs$/u).first().click({ timeout: 8000 }).catch(() => {});
+    let bulk = ""; for (let i = 0; i < 15 && !/Bulk configure 2 syncs[\s\S]*Maximum duration/u.test(bulk); i++) { await pg.waitForTimeout(600); bulk = await text(); }
+    await pg.getByRole("button", { name: /^Edit$/u }).nth(1).click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(600);
+    await saveButton().click({ timeout: 8000 }).catch(() => {});
+    let durationToast = ""; for (let i = 0; i < 15 && !/holds none of a maximum duration/u.test(durationToast); i++) { await pg.waitForTimeout(600); durationToast = await text(); }
+    const durationPuts = d7.slice(d7Mark).filter((w) => w.m === "PUT");
+    await pg.getByRole("button", { name: /^Remove$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.getByRole("button", { name: /^Edit$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(800);
+    const manualForm = await text();
+    const manualMark = d7.length;
+    await saveButton().click({ timeout: 8000 }).catch(() => {});
+    let bulkSaved = ""; for (let i = 0; i < 15 && !/2 syncs saved!/u.test(bulkSaved); i++) { await pg.waitForTimeout(600); bulkSaved = await text(); }
+    const revsAfter = (await bucketPlans()).map((p) => `${p.id}:${p.revision}`).join(",");
+    ok("Bulk edit in Edit syncs: a maximum duration is refused by name for each selected sync, and the bulk schedule Manually — what is already true, no schedule runs a sync — saves without writing anything; every plan keeps its revision",
+      durationPuts.length === 2 && durationPuts.every((w) => w.s === 409 && jsonOf(w.body)?.errorName === "Hypervisor:DataConnectionSyncFieldNotBound" && jsonOf(w.req)?.maxAllowedDuration) && /holds none of a maximum duration/u.test(durationToast)
+        && /Bulk schedule .{0,20}Run imports Manually/u.test(manualForm) && /2 syncs saved!/u.test(bulkSaved) && d7.length === manualMark && revsAfter === revsBefore,
+      `duration ${durationPuts.map((w) => `${w.s} ${jsonOf(w.body)?.errorName}`).join(" · ") || "NOT SENT"} "${toastOf(durationToast, /holds none of a maximum duration/u).slice(0, 60)}" · ${after(manualForm, "Bulk schedule", 50)} · Manually saved ${/2 syncs saved!/u.test(bulkSaved) ? "yes" : "NO"} with ${d7.length - manualMark} writes · revisions ${revsBefore === revsAfter ? "kept" : `${revsBefore} → ${revsAfter}`}`);
+
+    // Run N syncs builds the selection's datasets: refused by name, nothing runs
+    await visit(editUrl, SYNC_LIST);
+    await pg.locator("input[type=checkbox]").first().check({ force: true, timeout: 8000 }).catch(() => {});
+    await pg.getByText(/^Run 2 syncs$/u).first().click({ timeout: 8000 }).catch(() => {});
+    let runAllToast = ""; for (let i = 0; i < 15 && !/wallet-authority grant/u.test(runAllToast); i++) { await pg.waitForTimeout(600); runAllToast = await text(); }
+    const submit = d7.find((w) => /submitBuild/u.test(w.p));
+    const runsAfterD7 = ((await d("GET", "/v1/hypervisor/odk/materializing-runs")).j.materializing_runs || []).length;
+    // (the selection is the bucket's plans: each plan's dataset rid, named from the daemon's plan id)
+    const bucketDatasets = bucketNow.map((p) => syncDatasetRidOf(p.id)).sort();
+    ok("Run N syncs in Edit syncs asks to build the selection's datasets, and is refused by name as a sync's Run is — a sync's dataset is built only by its plan's materializing run, under a wallet-authority grant — and nothing runs",
+      submit?.s === 409 && jsonOf(submit.body)?.errorName === "Hypervisor:DataConnectionRunNeedsApproval" && JSON.stringify([...(jsonOf(submit.req)?.jobSpecSelections?.[0]?.datasets?.datasetRids || [])].sort()) === JSON.stringify(bucketDatasets)
+        && /wallet-authority grant/u.test(runAllToast) && runsAfterD7 === runsBeforeD7,
+      `submitBuild ${submit?.s ?? "NOT SENT"} ${jsonOf(submit?.body)?.errorName || ""} over ${(jsonOf(submit?.req)?.jobSpecSelections?.[0]?.datasets?.datasetRids || []).length} datasets · runs ${runsBeforeD7} → ${runsAfterD7}`);
+
+    // a source filed in a project sits in that project on its own pages: Parent folder, Output folder and its settings
+    // page, and its Edit syncs' datasets (the daemon's source names the project; the project names the folder)
+    const meterSource = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).find((x) => x.source_id === meterId) || {};
+    const projectName = projectRow.project_name || projectRow.name;
+    const meterOverview = await visit(`${BASE}/sources/${meterRid}/overview`, new RegExp(`Parent folder ${esc(projectName)} \\/[\\s\\S]*Output folder \\(${esc(projectName)}\\)|Parent folder local|An error occurred`, "u"));
+    await pg.locator("[aria-label='Navigate to output folder configuration']").first().click({ timeout: 8000 }).catch(() => {});
+    let folderPage = ""; for (let i = 0; i < 20 && !/Default output folder for syncs .{0,40}(Change default output folder|Unable to load)/u.test(folderPage); i++) { await pg.waitForTimeout(700); folderPage = await text(); }
+    const folderUrl = new URL(pg.url()).pathname;
+    const changeOff = await pg.getByRole("button", { name: /^Change default output folder$/u }).first().isDisabled().catch(() => null);
+    await pg.getByRole("button", { name: /^Change default output folder$/u }).first().hover({ force: true, timeout: 5000 }).catch(() => {});
+    let changeWhy = ""; for (let i = 0; i < 8 && !/the folder it is filed in/u.test(changeWhy); i++) { await pg.waitForTimeout(400); changeWhy = await text(); }
+    const meterEdit = await visit(`${BASE}/sources/${meterRid}/edit-syncs`, /Meter readings objects\) \/\S+|Failed to load syncs|An error occurred/u);
+    ok("a source filed in a project sits in that project on its own pages — Parent folder, Output folder and its settings page (Change default output folder off, saying why: it is the folder the source is filed in), and its Edit syncs' datasets — never the organization folder",
+      meterSource.project_ref === project.project_ref && new RegExp(`Parent folder ${esc(projectName)} \\/`, "u").test(meterOverview) && new RegExp(`Output folder \\(${esc(projectName)}\\)`, "u").test(meterOverview)
+        && /\/settings\/output-folder$/u.test(folderUrl) && new RegExp(`Default output folder for syncs \\(${esc(projectName)}\\)`, "u").test(folderPage) && changeOff === true && /the folder it is filed in/u.test(changeWhy)
+        && new RegExp(`\\(Meter readings objects\\) \\/${esc(projectName)}\\b`, "u").test(meterEdit) && !/Parent folder local/u.test(meterOverview),
+      `daemon ${meterSource.project_ref || "no project"} · ${after(meterOverview, "Parent folder", 26)} · ${after(meterOverview, "Output folder", 26)} · ${folderUrl.replace(/ri\.[\w.-]+/u, "<rid>")} "${after(folderPage, "Default output folder for syncs", 52)}" · Change ${changeOff === true ? "off" : "OFFERED"} ${/the folder it is filed in/u.test(changeWhy) ? "says why" : "NO REASON"} · ${after(meterEdit, "(Meter readings objects)", 36)}`);
+    pg.off("response", onD7);
+    ok("no Edit syncs or folder flow met a fenced read, a page error or an unbound GraphQL operation",
+      fenced.size === fencedBeforeD7 && pageErrors.length === pageErrorsBeforeD7 && gqlErrors.size === gqlBeforeD7 && unnamed.size === 0 && htmlAnswers.size === 0,
+      `fenced ${[...fenced].slice(fencedBeforeD7).join(",") || "none"} · page ${pageErrors.slice(pageErrorsBeforeD7, pageErrorsBeforeD7 + 1).join("") || "none"} · gql ${[...gqlErrors].slice(gqlBeforeD7, gqlBeforeD7 + 2).join(" | ") || "none"}`);
+
     // ---- refused by name: a type this plane cannot create, and a write the app would send that is not bound ----------
     const H = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}${BASE}/sources/new` };
     const countMid = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).length;
@@ -501,6 +653,11 @@ async function run() {
     ok("with the daemon stopped, the Syncs list shows its error — never \"No syncs\"",
       !/Plants import/u.test(syncsDown) && !/No syncs Please create/u.test(syncsDown) && /Syncs Could not load syncs/u.test(syncsDown),
       after(syncsDown, "Syncs Could", 80));
+    // (cut D7) …and a source's Edit syncs says it failed to load them, never that the source has none
+    const editDown = await visit(editUrl, /Plants import objects|No syncs|Failed to load syncs|An error occurred/u);
+    ok("with the daemon stopped, a source's Edit syncs shows it failed to load its syncs — never \"No syncs\"",
+      /Failed to load syncs/u.test(editDown) && !/Plants import objects|No syncs for source/u.test(editDown),
+      after(editDown, "Failed to load syncs", 40));
     // (cut D6) …and the checkpoint read before a sync's write fails rather than answering none (which would let the
     // write skip an obligation the daemon might keep)
     const gateDown = await serveJ("POST", "/checkpoints/api/checkpoints/configuration/getConfigsV5", { checkpointedItems: [{ checkpointedItemId: { checkpointedResourceRid: s3Rid, type: "checkpointedResourceRid" }, branches: [] }], checkpointType: "DATA_CONNECTION_SYNC_EDIT" });

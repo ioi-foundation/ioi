@@ -114,7 +114,17 @@ const PINS = {
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
   "ontology-manager": { total: 65, bound: 31, refused: 8, named_gap: 25, open: 1 },
-  // 2026-09-29 (R-241, Data Connection D6): 43 → 51. The reference's checkpoint prompt chunks reached the mirror, so the
+  // 2026-09-29 (R-241, Data Connection D7): 51 → 60. Edit syncs' chunk reached the mirror, and the open row splits in
+  // eight, driven by check:adopted-data-connection over daemon truth: the page (the source's lease plans, each its dataset
+  // in the source's folder; a sync's panel: schedule Manually, build policy Always, the plan's configuration), a panel's
+  // Save (the plan's PATCH) and Bulk edit with the schedule Manually (what is already true: nothing written) bound; what
+  // a plan cannot hold in the panel (transaction type, build policy, compute profile, Run), Bulk edit's maximum duration
+  // and Run N syncs (the build service's submitBuild) refused by name; Start pipelining (the Pipeline Builder's create, in
+  // a new tab) named. Where a source is filed (Parent folder, Output folder and its settings page: its project's folder,
+  // else the organization folder — a project-filed source read "local /" and the output folder "error") and the stopped-
+  // daemon Edit syncs join as bound. Found on the way: "On a schedule" crashes on a chunk the mirror lacks (open). bound
+  // 31 → 36, refused 5 → 8, named 14 → 15, open 1 → 1 (source.edit-syncs closed, source.edit-syncs.schedule opened).
+  // Before that, 2026-09-29 (R-241, Data Connection D6): 43 → 51. The reference's checkpoint prompt chunks reached the mirror, so the
   // writes are driven by a click, and the one open row splits in seven: a configuration's Save after a real edit (the
   // plan's PATCH), the checkpoint read before a write (the daemon's justification-checkpoint plane: its catalog gates no
   // lease-plan write, so none applies), Duplicate's Create sync, New on a custom source (the reference's YAML editor, the
@@ -154,7 +164,7 @@ const PINS = {
   // and Delete refused by name; Versions' history, Created by, the output dataset, the live banner and the build report
   // named; a failed run (needs a grant to drive) and New / Duplicate / Save (undriven) open. The splash row's proof text
   // (stale since D3, so this gate was red) now cites the assertion. 30 → 41.
-  "data-connection": { total: 51, bound: 31, refused: 5, named_gap: 14, open: 1 },
+  "data-connection": { total: 60, bound: 36, refused: 8, named_gap: 15, open: 1 },
   // 2026-09-28 (R-241, Approvals A2): the two open rows become five, all driven live by check:adopted-approvals over daemon
   // truth. A challenge Approved (the operator's passphrase on the daemon's decision route mints one grant), Completed (the
   // requester's retry consumes it; a replay is refused) and Closed (a restarted daemon with a shortened pending window —

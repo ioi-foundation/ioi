@@ -509,11 +509,12 @@ assertion in its verifier.
   The local mirror boots the app with no failed asset. The GraphQL bodies (documents and streamed answers) are recorded
   in the mirror's traffic dir (`data-connection-flow/operations`).
 - **Still to harvest.** A succeeded run and its dataset (they need working credentials), and the setup wizard's
-  remaining steps (export configuration, code import configuration, summary). A source's Edit syncs page (chunk 98867,
-  `SourceEditSyncsPage`): the mirror stubs `8112b6f75eef2412510daee34ab462641f6060f6eac700d47290dd157f0aed39.js` and its
-  stylesheet `4deea8964b34e1b685eec69842e1308b9a5fe4f8250a61911eb2cd3bf986cdde.css`, so the page crashes (D6 found it).
+  remaining steps (export configuration, code import configuration, summary). The schedule editor behind "On a
+  schedule" (chunk 51877): the mirror stubs `48569533b328abb5e18a312b31b5fd962c76c5b6dfa572d6886f09779431e49d.js`, so
+  choosing it crashes Edit syncs and a sync's Configuration (D7 found it; its stylesheet `7730042e…` is present).
   The checkpoint prompt's chunks (`49952070…`, `26003ca7…`, `b88e3924…`, `6cfee11d…`) were fed on 2026-09-29, with a
-  harvest of Save's checkpoint read and body (`.artifacts/live-tenant-atlas/r241-dc-checkpoint-save/`).
+  harvest of Save's checkpoint read and body (`.artifacts/live-tenant-atlas/r241-dc-checkpoint-save/`). Edit syncs'
+  chunk 98867 (`8112b6f7…js` and `4deea896…css`, `SourceEditSyncsPage`) was fed the same day.
 - **Backing truth.** Data sources (`/v1/hypervisor/data-sources`: kind `rest_api`, endpoint, credential posture),
   connectors with their credentials, and the materialization ladder (connector mapping → projection → lease plan →
   materializing run → materialized object set). That ladder is the Hypervisor's import, the analog of a sync.
@@ -592,6 +593,32 @@ assertion in its verifier.
     - After `add-extract`, the reference awaits `createBranch2` on the reserved dataset. A fenced 501 there crashed the
       page after the plan existed.
     - A project folder's compass resource carried `branches: null`, and the destination link calls `.find` on it.
+  - D7: a source's Edit syncs, and where a source is filed. Done 2026-09-29, once Edit syncs' chunk was in the mirror.
+    The page is opened from the Overview's sync count (or its tab). It reads `SourceEditSyncsPageQuery`: the source's
+    lease plans, newest first, each with its plan's dataset in the source's folder. A sync's panel is its plan: the
+    schedule reads Manually (no schedule runs a sync), the build policy reads Always, and the configuration is the plan's.
+    Every write goes through the D5/D6 bindings. Nothing new is written to the daemon.
+    - **Save.** After a real edit in the panel, Save runs the checkpoint read (none applies), then the plan's PATCH
+      (one receipted revision; "Sync saved!").
+    - **Refused by name in the panel.** Another transaction type (refused before any PATCH), a build policy other than
+      Always (the reference's Edit Build Policy dialog), a compute profile, and Run (a wallet-authority grant).
+    - **Bulk edit.** A maximum duration is refused by name for each selected sync. The bulk schedule Manually is
+      already true, so its Save writes nothing ("2 syncs saved!"), and every plan keeps its revision.
+    - **Run N syncs.** It sends the build service's `submitBuild` over the selection's datasets, which was fenced 501
+      ("Unknown error occurred"). It is now refused by name, as a sync's Run is.
+    - **Start pipelining.** It opens the adopted Pipeline Builder's Create new pipeline in a new tab, with the
+      selection's datasets as its initial datasets. Named gap: that create refuses initial datasets by name (a recipe
+      reads connector-mapping revisions, not datasets).
+
+    Where a source is filed now reads one truth: its project's folder, else the owner's organization folder, which is
+    the folder its syncs write into (D6). This covers the Overview's Parent folder (a project-filed source read
+    "local /"), its Output folder (it read "error"), and the Output folder settings page behind its pencil
+    (`SourceOutputFolderPageQuery`, which was unbound). On that page, Change default output folder is off, and its
+    tooltip says why: the folder is where the source is filed, not a permission the person lacks. With the daemon
+    stopped, Edit syncs shows "Failed to load syncs", never "No syncs". A Data Connection refusal now carries its
+    message at the top level, where the reference's toast reads it (the build-policy refusal had toasted only its
+    code). `check:adopted-data-connection` 39/39, `adopted-data-connection.test` 24/24; seed depth 60 = 36 bound / 8
+    refused / 15 named gaps / 1 open (ledger CCXLVIII). The open row is "On a schedule" (chunk 51877 above).
 
 ### Approvals — harvest and the adoption path (2026-09-28)
 
