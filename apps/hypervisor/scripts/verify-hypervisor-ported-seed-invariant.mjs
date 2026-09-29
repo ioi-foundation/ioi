@@ -18,9 +18,7 @@
 // reader can see both numbers.
 
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import fs from "node:fs";
-import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
@@ -114,47 +112,19 @@ checkEvery(
   "every protected ported route is still dispatched by the product server",
 );
 
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address();
-      server.close((error) => error ? reject(error) : resolve(port));
-    });
-  });
-}
-
-async function waitForReady(url, processHandle) {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if (processHandle.exitCode !== null) throw new Error(`ported seed server exited early with ${processHandle.exitCode}`);
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
-      if (response.ok) return;
-    } catch {}
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  throw new Error(`ported seed server did not become ready: ${url}`);
-}
-
+// THE LIVE LANE READS A STACK IT OWNS (R-240, verifier hazard sweep 2, 2026-09-29). It started its own serve with no
+// daemon URL, so that serve read the owner's daemon (:8765) as nobody. It now starts an isolated daemon + serve with the
+// operator signed in (lib/verifier-stack.mjs, imported only here: CI's lane never boots one), and every protected route
+// is fetched as that operator — the product requires sign-in, and a sign-in wall is not a rendered ported app.
 async function runLiveProof() {
-  const [port, productUiPort] = await Promise.all([freePort(), freePort()]);
-  const child = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
-    cwd: ROOT,
-    env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(productUiPort) },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let output = "";
-  child.stdout.on("data", (chunk) => { output += chunk; });
-  child.stderr.on("data", (chunk) => { output += chunk; });
+  const { verifierStack } = await import("./lib/verifier-stack.mjs");
+  const STACK = await verifierStack({ serve: true });
   try {
-    await waitForReady(`http://127.0.0.1:${port}/`, child);
     // Each served route is asserted on all four properties; the four INVARIANTS are the named
     // results, so the live census does not scale with how many protected routes exist.
     const served = [];
     for (const seed of recordProtected) {
-      const response = await fetch(`http://127.0.0.1:${port}${seed.route}`, { signal: AbortSignal.timeout(10_000) });
+      const response = await fetch(`${STACK.serveUrl}${seed.route}`, { signal: AbortSignal.timeout(60_000) });
       served.push({ seed, response, body: await response.text() });
     }
     checkEvery(served, ({ response }) => response.status === 200,
@@ -169,13 +139,8 @@ async function runLiveProof() {
     checkEvery(served, ({ body }) => !/RouteRefusalSurface|hypervisor[.]route_retired|route retirement refusal|<title>Route retired/iu.test(body),
       ({ seed }) => `${seed.slug}: ported route rendered a retirement/refusal substitute`,
       "live: no protected ported route rendered a retirement/refusal substitute");
-  } catch (error) {
-    throw new Error(`${error.message}\nserver output:\n${output.slice(-8_000)}`);
   } finally {
-    if (child.exitCode === null) {
-      child.kill("SIGTERM");
-      await new Promise((resolve) => child.once("exit", resolve));
-    }
+    await STACK.stop();
   }
 }
 

@@ -11,16 +11,25 @@
 // gated adapter slots (unwired, fail-closed). The no-binding legacy lane stays byte-identical.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-harness-adapter-drivers.mjs
-// Runs the two local drivers against the live Ollama route (≈1–3 min).
+// Runs the two local drivers against the live Ollama route (≈1–3 min). HOST PRECONDITION: the plane's daemon inherits
+// IOI_HYPERVISOR_MODEL_UPSTREAM (default http://127.0.0.1:11434, local Ollama) — with no model upstream the drivers'
+// runnability probes answer model_route_unreachable and the execution clauses fail naming it.
+//
+// ITS OWN STACK (R-240, verifier hazard sweep 2, 2026-09-29). This verifier enabled and disabled harness profiles,
+// created sessions and wrote files through the owner's daemon (:8765) as nobody. It now runs on its own isolated
+// daemon with the operator signed in (lib/verifier-stack.mjs); its requests go over node:http (a synchronous driver
+// run outlives undici's header timeout), so each carries the operator's session cookie itself.
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+const STACK = await verifierStack();
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -33,7 +42,7 @@ function jd(method, p, body) {
   return new Promise((resolve, reject) => {
     const req = http.request(
       { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+        headers: { "content-type": "application/json", cookie: STACK.cookie, ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
       (res) => {
         let raw = "";
         res.on("data", (c) => { raw += c; });
@@ -49,6 +58,10 @@ function jd(method, p, body) {
     req.end();
   });
 }
+
+// Why an execute answered without an approval challenge (a precondition gate such as ollama_provider), so a missing
+// model upstream reads as a FAIL naming it — never a crash that hides every result.
+const gateOf = (j) => `${j?.reason || j?.decision || "no decision"}${(j?.checks || []).filter((c) => c.status === "fail").map((c) => ` · ${c.id} fail`).join("")}`;
 
 // DeepSeek runs without --auto (master guide G9 / W0.5): it is offered no write tool and its shell is denied, so its
 // lane must execute and change NOTHING in the workspace.
@@ -67,7 +80,8 @@ async function driveAdapter(harness, profileId) {
   const intent = `Create the file ./${marker} with exactly this content: real execution by ${harness}`;
   // Wallet gate: the ungrated call must fail closed with the challenge, never execute.
   const challenge = await jd("POST", `/v1/hypervisor/sessions/${encodeURIComponent(sid)}/execute`, { intent });
-  ok(`${harness}: execute without a grant fails closed (authority challenge)`, challenge.status === 403 && challenge.j?.reason === "execution_authority_required" && (challenge.j?.terminal_events || []).length === 0, challenge.j?.reason);
+  ok(`${harness}: execute without a grant fails closed (authority challenge)`, challenge.status === 403 && challenge.j?.reason === "execution_authority_required" && (challenge.j?.terminal_events || []).length === 0, gateOf(challenge.j));
+  if (!challenge.j?.approval) return;
   const grant = mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash });
 
   // Bounded retry (2 REAL attempts): the 7B route occasionally answers without a tool call —
@@ -148,9 +162,13 @@ async function run() {
   const plain = await jd("POST", "/v1/hypervisor/sessions", { session_ref: `session:vfy-plain-${Date.now().toString(16)}` });
   const psid = plain.j?.session_ref;
   const c2 = await jd("POST", `/v1/hypervisor/sessions/${encodeURIComponent(psid)}/execute`, { intent: "Create the file ./legacy.txt with content: legacy lane" });
-  const g2 = mintApprovalGrant({ policyHash: c2.j.approval.policy_hash, requestHash: c2.j.approval.request_hash });
-  const e2 = await jd("POST", `/v1/hypervisor/sessions/${encodeURIComponent(psid)}/execute`, { intent: "Create the file ./legacy.txt with content: legacy lane", wallet_approval_grant: g2 });
-  ok("no-binding session executes on the legacy native lane", e2.status === 200 && e2.j?.harness === "hypervisor_worker" && e2.j?.lane === "host_spawn_session", `${e2.j?.harness} ${e2.j?.lane}`);
+  if (c2.j?.approval) {
+    const g2 = mintApprovalGrant({ policyHash: c2.j.approval.policy_hash, requestHash: c2.j.approval.request_hash });
+    const e2 = await jd("POST", `/v1/hypervisor/sessions/${encodeURIComponent(psid)}/execute`, { intent: "Create the file ./legacy.txt with content: legacy lane", wallet_approval_grant: g2 });
+    ok("no-binding session executes on the legacy native lane", e2.status === 200 && e2.j?.harness === "hypervisor_worker" && e2.j?.lane === "host_spawn_session", `${e2.j?.harness} ${e2.j?.lane}`);
+  } else {
+    ok("no-binding session executes on the legacy native lane", false, `no approval challenge: ${gateOf(c2.j)}`);
+  }
 
   // 4. Restore: disable the drivers so the estate returns to its admitted-off posture.
   for (const id of ["hp_opencode", "hp_deepseek_tui"]) {
@@ -160,13 +178,15 @@ async function run() {
   ok("drivers restored to non-active posture", (fin.j?.profiles || []).filter((p) => ["opencode", "deepseek_tui"].includes(p.harness)).every((p) => p.lifecycle.status === "disabled"));
 }
 
-run().then(() => {
+run().then(async () => {
+  await STACK.stop();
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`harness adapter drivers readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
-}).catch((e) => {
+}).catch(async (e) => {
   console.error("verifier crashed:", e);
+  await STACK.stop().catch(() => {});
   process.exit(1);
 });

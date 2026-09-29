@@ -21,21 +21,34 @@
 // durable receipt must attribute the decision to the server-derived `user://<principal_id>` of that
 // session, never to form input.
 //
-// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
-//          node apps/hypervisor/scripts/verify-hypervisor-action-runtime.mjs
-// Exit 0 = pass · 1 = fail · 2 = blocked (daemon/serve down).
+// Usage: node apps/hypervisor/scripts/verify-hypervisor-action-runtime.mjs
+// Exit 0 = pass · 1 = fail · 2 = blocked (no daemon binary, or an explicit URL naming the owner's stack).
+//
+// ITS OWN STACK (R-240, verifier hazard sweep 2, 2026-09-29). This verifier defaulted to the owner's daemon (:8765)
+// and serve (:4173), read receipt files out of the owner's data dir, provisioned and deleted a reviewer principal
+// and approval requests there, and started its fault serve with no daemon URL — so that serve read the owner's
+// daemon too. It now runs on a FRESH isolated daemon + serve (lib/verifier-stack.mjs): the receipt-file delta is
+// counted in that plane's own data dir, the operator provisioning the reviewer is the stack's signed-in operator
+// (no IOI_HYPERVISOR_DAEMON_SESSION to hand in), and the fault serve reads the same isolated daemon on free ports.
 
 import { spawn } from "node:child_process";
+import net from "node:net";
 import { readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SURFACES, boundActionRoute } from "./surface-registry.mjs";
+import { refuseOwnerPath, verifierStack } from "./lib/verifier-stack.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || `${process.env.HOME}/.ioi/hypervisor/data`;
+const STACK = await verifierStack({ serve: true, fresh: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
+const DATA_DIR = refuseOwnerPath(STACK.dataDir, "data dir");
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FAULT_PORT = 4606, FAULT_UI_PORT = 9406;
+const freePort = () => new Promise((resolve, reject) => {
+  const server = net.createServer();
+  server.once("error", reject);
+  server.listen(0, "127.0.0.1", () => { const { port } = server.address(); server.close(() => resolve(port)); });
+});
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -48,16 +61,15 @@ async function formPost(url, data, headers) {
 // Admit the principal whose session performs every transition. Its server-derived ref is the only
 // reviewer this verifier may assert — a fabricated header or a form-named principal would rebuild
 // exactly the forgery GOV-ATTR-1 closed. Admission ladder, existing endpoints only —
-//   1. an operator session from IOI_HYPERVISOR_DAEMON_SESSION (the same external-daemon credential
-//      `scripts/smoke-product-surfaces.mjs` already requires); principal creation is org-admin
-//      governed EVEN ON LOOPBACK, so there is no anonymous fixture shortcut to reach for;
+//   1. the stack's signed-in operator session (lib/verifier-stack.mjs); principal creation is
+//      org-admin governed EVEN ON LOOPBACK, so there is no anonymous fixture shortcut to reach for;
 //   2. that operator provisions a dedicated reviewer principal, which logs in for itself;
 //   3. `whoami` reports who that session IS — the expected reviewer ref is the daemon's own answer.
 // Admission is load-bearing: an unadmitted fixture would exercise an anonymous decision instead of
 // the identity seam, so it fails the verifier outright rather than degrading into a skip.
-const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+const OPERATOR_SESSION = STACK.token;
 async function admitReviewer(tag) {
-  if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
+  if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: the stack signed no operator in (provisioning a principal is org-admin governed even on loopback)");
   const operator = { authorization: `Bearer ${OPERATOR_SESSION}` };
   const principalId = `usr_vfyart${tag}`;
   const email = `vfyart-${tag}@local`;
@@ -77,9 +89,9 @@ const receiptCount = () => { try { return readdirSync(join(DATA_DIR, "governance
 const approvalsCount = async () => ((await jd("GET", "/v1/hypervisor/governance/approval-requests")).approval_requests || []).length;
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((r) => r.ok).catch(() => false);
-  const sup = await fetch(`${SERVE}/__ioi/governance/approvals`).then((r) => r.ok).catch(() => false);
-  if (!up || !sup) { console.error("BLOCKED: daemon or serve not reachable"); process.exit(2); }
+  await STACK.requireRead("/v1/hypervisor/governance/approval-requests", "the governance approval-requests read");
+  const sup = await page(`${SERVE}/__ioi/governance/approvals`);
+  if (sup.status !== 200) { console.error(`FAIL: the stack's serve answered HTTP ${sup.status || "nothing"} for /__ioi/governance/approvals`); process.exit(sup.status ? 1 : 2); }
 
   // 1. Registry resolution + descriptor contract (static).
   const hit = boundActionRoute("/__ioi/governance/approvals/appr_x/transition", "POST");
@@ -172,14 +184,18 @@ async function run() {
   }
   ok("fixtures deleted — baseline restored", !JSON.stringify(await jd("GET", "/v1/hypervisor/governance/approval-requests")).includes(`act-rt-${process.pid}`));
 
-  // 3. FAULT ISOLATION on an isolated serve with the runtime-test flag (never on the live serve).
+  // 3. FAULT ISOLATION on a second serve with the runtime-test flag (never on the stack's own serve), reading the
+  // stack's isolated daemon on free ports — never a serve with no daemon URL, which reads the owner's :8765.
   {
+    const [faultPort, faultUiPort] = [await freePort(), await freePort()];
     const child = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
-      env: { ...process.env, PORT: String(FAULT_PORT), PRODUCT_UI_PORT: String(FAULT_UI_PORT), IOI_APP_RUNTIME_TEST_ROUTE: "1" },
+      env: { ...process.env, PORT: String(faultPort), PRODUCT_UI_PORT: String(faultUiPort), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_HYPERVISOR_DATA_DIR: DATA_DIR, IOI_APP_RUNTIME_TEST_ROUTE: "1" },
       stdio: "ignore",
     });
+    const exited = new Promise((resolve) => child.once("exit", resolve));
     try {
-      const tbase = `http://127.0.0.1:${FAULT_PORT}`;
+      const tbase = `http://127.0.0.1:${faultPort}`;
+      STACK.addOrigin(tbase);
       let up2 = null;
       for (let i = 0; i < 30 && !up2; i++) { await new Promise((r) => setTimeout(r, 500)); up2 = await page(`${tbase}/__ioi/__test/action-surface`).then((r) => (r.status === 200 ? r : null)).catch(() => null); }
       ok("isolated test serve reachable (fault surface mounted only under the flag)", !!up2);
@@ -195,14 +211,16 @@ async function run() {
       ok("the fault surface does NOT exist on the live serve (flag-gated)", live.status !== 200 || !live.text.includes("action test"));
     } finally {
       child.kill("SIGTERM");
+      await Promise.race([exited, new Promise((r) => setTimeout(r, 5000))]);
     }
   }
 }
 
-run().then(() => {
+run().then(async () => {
+  await STACK.stop();
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("governed action runtime: OK");
-}).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });
+}).catch(async (e) => { console.error("verifier crashed:", e); await STACK.stop().catch(() => {}); process.exit(1); });

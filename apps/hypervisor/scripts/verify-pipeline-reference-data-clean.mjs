@@ -26,15 +26,21 @@
 //   result.json  ·  screens/<lane>.png
 //
 // Usage: node apps/hypervisor/scripts/verify-pipeline-reference-data-clean.mjs
-// Exit: 0 writes the artifact; 2 = BLOCKED (mirror/serve unreachable). data_clean is read from
-// result.json by callers (the pipeline verifier); a non-zero exit is NOT used to signal "dirty".
+// Exit: 0 writes the artifact; 2 = BLOCKED (mirror/serve unreachable, no daemon binary, or an explicit URL naming the
+// owner's stack). data_clean is read from result.json by callers (the pipeline verifier); a non-zero exit is NOT used
+// to signal "dirty".
+//
+// ITS OWN SERVE (R-240, verifier hazard sweep 2, 2026-09-29). Run alone, the proxy lane defaulted to the owner's serve
+// (:4173). It now reads the stack its caller names (the pipeline verifier hands down its own — IOI_HYPERVISOR_DAEMON_URL,
+// IOI_HYPERVISOR_SERVE_URL and IOI_VERIFIER_SESSION_TOKEN via STACK.childEnv()), else starts its own isolated daemon +
+// serve (lib/verifier-stack.mjs); the owner's stack is refused. The two mirror lanes still read the local mirror.
 
 import { chromium } from "playwright";
 import { writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 // The mirror's captured absolute fetch URLs use `localhost` — that is the MATCHING origin. The hardened
 // harness (and IOI_HARVEST_MIRROR_URL) use `127.0.0.1`, which is the MISMATCHED origin.
 const MATCH_ORIGIN = (process.env.IOI_MIRROR_MATCH_ORIGIN || "http://localhost:9225").replace(/\/$/, "");
@@ -177,19 +183,23 @@ export function diagnose({ proxyLanding, matchCanvas, crossCanvas, matchOrigin =
 
 async function run() {
   const mirrorUp = await fetch(`${MATCH_ORIGIN}/workspace/builder/`).then((r) => r.ok).catch(() => false);
+  if (!mirrorUp) { console.error(`BLOCKED: mirror(${MATCH_ORIGIN})=false`); process.exit(2); }
+  const STACK = await verifierStack({ serve: true });
+  const SERVE = STACK.serveUrl;
   const serveUp = await fetch(`${SERVE}/__apps/pipeline`).then((r) => r.ok).catch(() => false);
   if (!mirrorUp || !serveUp) { console.error(`BLOCKED: mirror(${MATCH_ORIGIN})=${mirrorUp} serve(${SERVE})=${serveUp}`); process.exit(2); }
   mkdirSync(path.join(ARTIFACT_DIR, "screens"), { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const ctx = await browser.newContext({ viewport: { width: VW, height: VH } });
-  // A verifier on its own stack hands its operator's session down (R-240, verifier auth sweep, 2026-09-29).
-  if (process.env.IOI_VERIFIER_SESSION_TOKEN) await ctx.addCookies([{ name: "ioi_session", value: process.env.IOI_VERIFIER_SESSION_TOKEN, url: SERVE }]);
+  // The stack's operator (its own, or the one a caller handed down) browses the proxy lane.
+  await STACK.signIn(ctx);
   const cap = async (lane, url) => { const c = await capture(ctx, url, path.join(ARTIFACT_DIR, "screens", `${lane}.png`)); return { lane, ...c, screenshot: `screens/${lane}.png` }; };
 
   const proxyLanding = await cap("proxy-landing", `${SERVE}/__apps/pipeline`);
   const matchCanvas = await cap("matchorigin-canvas", `${MATCH_ORIGIN}/workspace/builder/${CANVAS_SUBPATH}`);
   const crossCanvas = await cap("crossorigin-canvas", `${CROSS_ORIGIN}/workspace/builder/${CANVAS_SUBPATH}`);
   await browser.close();
+  await STACK.stop();
   const lanes = [proxyLanding, matchCanvas, crossCanvas];
 
   const { data_clean, diagnosis, reference_data_complete, missing_chunk, cors_origin_mismatch, generated_stub_chunks: stubbed, blocking_reason } = diagnose({ proxyLanding, matchCanvas, crossCanvas, matchOrigin: MATCH_ORIGIN, crossOrigin: CROSS_ORIGIN });

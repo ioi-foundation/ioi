@@ -12,11 +12,25 @@
 // session ref, provision receipt, harness admission, and capability-admitted knob binding.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-new-session-launcher.mjs
-// Exit 0 = all assertions pass. Creates one real session (daemon estate truth, intentionally kept).
+// Exit 0 = all assertions pass; 2 = blocked (no daemon binary, or an explicit URL naming the owner's stack).
+// Creates one real session — on its own stack.
+//
+// ITS OWN STACK (R-240, verifier hazard sweep 2, 2026-09-29). This verifier launched a real session through the
+// owner's serve (:4173) into the owner's daemon (:8765) and kept it there ("intentionally kept"). It now launches
+// on its own isolated daemon + serve with the operator signed in (lib/verifier-stack.mjs), the session is that
+// plane's, and the plane is torn down with it.
+//
+// HOST PRECONDITION. The launcher preselects the native worker only when the daemon's live probe says it runs over an
+// AVAILABLE model route (nsDefaultHarness), so the binding clauses need a model upstream serving the default route —
+// the plane's daemon inherits IOI_HYPERVISOR_MODEL_UPSTREAM (default http://127.0.0.1:11434, local Ollama). With none,
+// the launcher honestly preselects None and those clauses fail naming the route; nothing here fakes a model.
 
 import { chromium } from "playwright";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const SHELL = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -42,6 +56,7 @@ async function run() {
   // 3. In-shell modal flow.
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await STACK.signIn(page);
   const consoleErrors = [];
   const failedUrls = [];
   page.on("requestfailed", (r) => failedUrls.push(r.url()));
@@ -114,8 +129,7 @@ async function run() {
   // The created session is DAEMON truth, not UI state.
   const m = resultText.match(/session:hyp-[a-z0-9]+/);
   if (m) {
-    const daemon = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-    const sess = await fetch(`${daemon}/v1/hypervisor/sessions/${encodeURIComponent(m[0])}`).then((r) => r.json()).catch(() => ({}));
+    const sess = await fetch(`${DAEMON}/v1/hypervisor/sessions/${encodeURIComponent(m[0])}`).then((r) => r.json()).catch(() => ({}));
     const rec = sess.session || sess;
     ok("created session exists in the daemon with the recorded harness binding", rec?.session_ref === m[0] && rec?.harness_binding?.profile_ref === "harness-profile:hp_hypervisor_worker", rec?.harness_binding?.binding_id);
   } else {
@@ -124,8 +138,7 @@ async function run() {
 
   // 4. The binding surfaces on the estate: daemon sessions LIST projection + the Workbench panel
   //    (harness selection lives in Workbench/session details as daemon truth, not UI state).
-  const daemonBase = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-  const slist = await fetch(`${daemonBase}/v1/hypervisor/sessions`).then((r) => r.json()).catch(() => ({}));
+  const slist = await fetch(`${DAEMON}/v1/hypervisor/sessions`).then((r) => r.json()).catch(() => ({}));
   const bound = (slist.sessions || []).find((s) => s.harness_binding?.profile_ref === "harness-profile:hp_hypervisor_worker");
   ok("sessions list projection carries the admitted binding", slist.schema_version === "ioi.hypervisor.sessions-list.v1" && !!bound && String(bound.harness_binding.admission_id || "").startsWith("harness-profile-mutation-admission:"), bound?.session_ref);
   const wbHtml = await fetch(`${SHELL}/__ioi/workbench`).then((r) => r.text()).catch(() => "");
@@ -138,13 +151,15 @@ async function run() {
   await browser.close();
 }
 
-run().then(() => {
+run().then(async () => {
+  await STACK.stop();
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`new-session launcher readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
-}).catch((e) => {
+}).catch(async (e) => {
   console.error("verifier crashed:", e);
+  await STACK.stop().catch(() => {});
   process.exit(1);
 });

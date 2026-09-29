@@ -16,18 +16,58 @@
 // modes block NAMED without credentials/config; Work Ledger + Operations + Environments surface
 // it; no fee objects, no RoutingDecisionReceipt.
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-filecoin-cas-archive-custody.mjs
+//
+// ITS OWN STACK (R-240, verifier hazard sweep 2, 2026-09-29). This verifier created storage backends, provider
+// accounts and archives in the owner's daemon (:8765) and then APPENDED TO, DELETED and OVERWROTE the files the daemon
+// named — the archive commitment and the custody material, inside the owner's ~/.ioi/hypervisor/data. It now runs on
+// a FRESH isolated daemon + serve (lib/verifier-stack.mjs), every daemon-given path it corrupts or restores is
+// refused if it lies under the owner's Hypervisor home (refuseOwnerPath), and a provider-ops write names its owner and
+// idempotency key (the owned-mutation contract every provider write now requires).
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER. A grant-gated provider or storage crossing now needs a configured authority
+// principal — a test-signer grant is no authority (501 provider_operation_authority_required). The plane's daemon is
+// pointed at a sealed deployment-local wallet.network authority node of this verifier's own (a temp state dir, a
+// passphrase unique to the run), and each crossing is the product's own ask: the ungranted call parks a challenge
+// (403), the operator approves it with the passphrase on the daemon's decision route, and the retry names the
+// decision's approval_ref (the one-use grant the authority minted for exactly that request). The authority starts a
+// chain, so a run takes several minutes; IOI_WALLET_AUTHORITY_BINARY overrides the node binary.
+// Exit 2 (BLOCKED): no daemon or authority binary, or the authority node never became ready.
 
 import path from "node:path";
-import os from "node:os";
-import { readFileSync, writeFileSync, rmSync, appendFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync, appendFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { refuseOwnerPath, verifierStack } from "./lib/verifier-stack.mjs";
+import { DEFAULT_BINARY as AUTHORITY_DEFAULT_BINARY, OPERATOR_PASS_ENV, startLocalAuthority } from "./lib/wallet-network-local-authority.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// ── the sealed authority this verifier's daemon takes its grants from ──
+const AUTHORITY_BINARY = process.env.IOI_WALLET_AUTHORITY_BINARY || AUTHORITY_DEFAULT_BINARY;
+if (!existsSync(AUTHORITY_BINARY)) { console.error(`BLOCKED: no wallet-network authority binary (${AUTHORITY_BINARY}) — cargo build -p ioi-cli --bin wallet-network-local-authority`); process.exit(2); }
+const OPERATOR_PASS = `filecoin-custody-${randomBytes(12).toString("hex")}`;
+const authorityDir = mkdtempSync(path.join(refuseOwnerPath(tmpdir(), "temp root"), "ioi-filecoin-custody-authority-"));
+let authority = null;
+async function dropAuthority() {
+  try { await authority?.stop(); } catch { /* gone */ }
+  try { rmSync(authorityDir, { recursive: true, force: true }); } catch { /* keep */ }
+}
+delete process.env[OPERATOR_PASS_ENV];
+try {
+  authority = await startLocalAuthority({ stateDir: authorityDir, principalRef: "domain://filecoin-cas-archive-custody", binary: AUTHORITY_BINARY, operatorPass: OPERATOR_PASS, log: () => {} });
+} catch (error) {
+  await dropAuthority();
+  console.error(`BLOCKED: the local authority node never became ready: ${String(error.message).split("\n")[0]}`);
+  process.exit(2);
+}
+
+const STACK = await verifierStack({ serve: true, fresh: true, env: { ...authority.daemonEnv, IOI_WALLET_TEST_SIGNER: "" }, serveEnv: authority.serveEnv });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
+// A daemon-given file this verifier corrupts, deletes or restores: always inside its own plane's data dir.
+const ownPath = (p, what) => refuseOwnerPath(p, what);
 const LIVE_MODE = process.env.IOI_FILECOIN_LIVE === "1" || process.env.IOI_IPFS_LIVE === "1";
 const LIVE_TOKEN = process.env.IOI_FILECOIN_TOKEN || process.env.IOI_IPFS_TOKEN || "";
 
@@ -40,21 +80,33 @@ async function jd(method, url, body) {
   });
   return { status: r.status, j: await r.json().catch(() => ({})) };
 }
+// The operator's approval of a parked crossing: the daemon's decision route runs the authority's `approve` with the
+// passphrase and answers the approval_ref the retry names (null when the refusal parked no challenge).
+async function operatorGrant(refused) {
+  const id = refused.j?.approval_challenge?.challenge_id;
+  if (!id) return null;
+  const decided = await jd("POST", `/v1/hypervisor/authority/challenges/${encodeURIComponent(id)}/decision`, { decision: "approve", reason: "filecoin/CAS custody verifier", operator_passphrase: OPERATOR_PASS });
+  return decided.j?.approval_ref || null;
+}
 async function archiveOp(body) {
   const c = await jd("POST", "/v1/hypervisor/storage-archive-ops", body);
   if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
+  const grant = await operatorGrant(c);
+  if (!grant) return c;
   return jd("POST", "/v1/hypervisor/storage-archive-ops", { ...body, wallet_approval_grant: grant });
 }
 
 let sshAccountId = null;
 let env = null;
 const backendIds = [];
+let opSeq = 0;
 async function providerOp(o, extra = {}) {
-  const base = { provider_id: sshAccountId, op: o, environment_ref: env, ...extra };
+  // One logical op, one idempotency key: the challenged call and its granted retry are the same request.
+  const base = { provider_id: sshAccountId, op: o, environment_ref: env, owner_ref: STACK.owner, idempotency_key: `fc-${env}-${o}-${++opSeq}`, ...extra };
   const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
   if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
+  const grant = await operatorGrant(c);
+  if (!grant) return c;
   return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grant });
 }
 
@@ -117,7 +169,7 @@ async function run() {
     materialRef.startsWith("provider-material://") && stateRoot.startsWith("sha256:"));
   const materials = (await jd("GET", "/v1/hypervisor/provider-materials")).j.materials || [];
   const material = materials.find((m) => m.material_ref === materialRef) || {};
-  const custodyBytes = readFileSync(material.path);
+  const custodyBytes = readFileSync(ownPath(material.path, "custody material"));
 
   // ── 4. Export: wallet-bound, sealed BEFORE write, commitment recorded ──
   const challenge = await jd("POST", "/v1/hypervisor/storage-archive-ops", { op: "export", backend_id: cas.account_id, material_ref: materialRef });
@@ -126,7 +178,7 @@ async function run() {
     challenge.status === 403
     && facets.material_ref === materialRef && facets.state_root === stateRoot
     && facets.backend_ref === cas.account_ref && facets.encryption === "sealed_wallet_secret");
-  const grant = mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash });
+  const grant = await operatorGrant(challenge);
   const exported = await jd("POST", "/v1/hypervisor/storage-archive-ops", { op: "export", backend_id: cas.account_id, material_ref: materialRef, wallet_approval_grant: grant });
   const archive = exported.j.archive || {};
   const commitment = archive.commitment || {};
@@ -138,7 +190,7 @@ async function run() {
     && archive.media_type === "application/x-tar+gzip"
     && archive.backend_kind === "cas" && archive.state_root === stateRoot
     && /NOT restore truth/.test(archive.availability_note || ""));
-  const storedBytes = readFileSync(commitment.path);
+  const storedBytes = readFileSync(ownPath(commitment.path, "archive commitment"));
   ok("public/decentralized backend NEVER receives plaintext (sealed bytes differ; no gzip magic; state_root ≠ stored hash)",
     archive.encryption?.plaintext_at_backend === false
     && !storedBytes.equals(custodyBytes)
@@ -156,7 +208,7 @@ async function run() {
   const v1 = await archiveOp({ op: "verify", archive_ref: archive.archive_ref });
   ok("verify re-fetches and re-hashes the stored commitment (availability evidence only)",
     v1.j.ok === true && v1.j.stored_sha256 === commitment.stored_sha256 && /not restore truth/.test(v1.j.note || ""));
-  appendFileSync(commitment.path, Buffer.from("CORRUPTION"));
+  appendFileSync(ownPath(commitment.path, "archive commitment"), Buffer.from("CORRUPTION"));
   const v2 = await archiveOp({ op: "verify", archive_ref: archive.archive_ref });
   ok("corrupt stored bytes → hash_mismatch ArtifactAvailabilityIncident opens; archive impaired",
     v2.status === 409 && String(v2.j.incident_ref || "").startsWith("artifact-availability-incident://")
@@ -190,18 +242,18 @@ async function run() {
   // ── 6. Missing bytes + stale/wrong repair source ──
   const archNow2 = ((await jd("GET", "/v1/hypervisor/storage-archives")).j.archives || [])
     .find((a) => a.archive_ref === archive.archive_ref) || {};
-  rmSync(archNow2.commitment.path, { force: true });
+  rmSync(ownPath(archNow2.commitment.path, "archive commitment"), { force: true });
   const v3 = await archiveOp({ op: "verify", archive_ref: archive.archive_ref });
   ok("missing stored bytes → missing_bytes availability incident, fail closed",
     v3.status === 409 && String(v3.j.incident_ref || "").startsWith("artifact-availability-incident://"));
   // stale/wrong repair source: corrupt the DAEMON custody bytes — repair must refuse.
-  writeFileSync(material.path, Buffer.concat([custodyBytes, Buffer.from("STALE")]));
+  writeFileSync(ownPath(material.path, "custody material"), Buffer.concat([custodyBytes, Buffer.from("STALE")]));
   const rep2 = await archiveOp({ op: "repair", archive_ref: archive.archive_ref });
   ok("stale/wrong repair source → repair_failed ArtifactRepairReceipt (never a silent overwrite)",
     rep2.status === 409 && rep2.j.outcome === "repair_failed"
     && /custody_hash_mismatch/.test(rep2.j.reason || "")
     && String(rep2.j.repair_ref || "").startsWith("artifact-repair-receipt://"));
-  writeFileSync(material.path, custodyBytes);
+  writeFileSync(ownPath(material.path, "custody material"), custodyBytes);
   const rep3 = await archiveOp({ op: "repair", archive_ref: archive.archive_ref });
   ok("restored custody source → repair succeeds and the archive is admitted available again",
     rep3.j.ok === true && rep3.j.outcome === "repaired");
@@ -218,7 +270,7 @@ async function run() {
     && String(fcArch.commitment?.address || "").startsWith("local-cas://sha256/")
     && fcArch.commitment?.mode === "fixture_evidence"
     && /NOT network availability/.test(fcArch.commitment?.warning || ""));
-  const fcStored = readFileSync(fcArch.commitment.path);
+  const fcStored = readFileSync(ownPath(fcArch.commitment.path, "fixture archive commitment"));
   ok("fixture filecoin backend also NEVER sees plaintext (sealed, differs from custody bytes)",
     !fcStored.equals(custodyBytes) && !(fcStored[0] === 0x1f && fcStored[1] === 0x8b));
   const ipfs = (await jd("POST", "/v1/hypervisor/storage-backends", { kind: "ipfs", display_name: `IPFS ${tag}`, endpoint: { mode: "live", endpoint: "http://127.0.0.1:9" } })).j.backend || {};
@@ -266,14 +318,18 @@ async function cleanup() {
 
 run()
   .then(cleanup, async (e) => { await cleanup(); throw e; })
-  .then(() => {
+  .then(async () => {
+    await STACK.stop();
+    await dropAuthority();
     let fail = 0;
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`filecoin/cas archive custody readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_storage_not_run)"}`);
     process.exit(fail ? 1 : 0);
   })
-  .catch((e) => {
+  .catch(async (e) => {
     console.error("verifier crashed:", e);
+    await STACK.stop().catch(() => {});
+    await dropAuthority();
     process.exit(1);
   });

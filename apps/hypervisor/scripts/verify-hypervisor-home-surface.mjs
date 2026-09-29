@@ -5,7 +5,7 @@
 // recents / applications, SPA design tokens, live daemon truth). The SPA's polished composer page
 // is New Session, at /ai#new-session (create-session button + Ctrl+O land there; Advanced launch
 // opens the owned governed modal). /__ioi/home stays the full readout the explorer links to.
-// Asserts all three against the running daemon (:8765) + serve (:4173): explorer mounts as the
+// Asserts all three against its own isolated daemon + serve: explorer mounts as the
 // /ai default and cites live blocked/pending truth with token-resolved styles (Playwright); the
 // create-session button routes to the composer and the owned modal stays one click away; the
 // readout's four strips render bound to REAL daemon truth with honest empty states; NO second
@@ -14,17 +14,29 @@
 // pointed at a dead daemon port so the live processes are never touched).
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-home-surface.mjs
-// Exit 0 = all assertions pass; exit 1 = one or more failed.
+// Exit 0 = all assertions pass; exit 1 = one or more failed; 2 = blocked (no daemon binary, or an explicit URL
+// naming the owner's stack).
+//
+// ITS OWN STACK (R-240, verifier hazard sweep 2, 2026-09-29). This verifier read the owner's daemon (:8765) and
+// serve (:4173) as nobody, and its degraded serve took a fixed port. It now reads its own isolated daemon + serve
+// with the operator signed in (lib/verifier-stack.mjs) — the strips are compared with that daemon's truth, empty
+// or not, which is what each clause's honest-empty branch is for — and the degraded serve takes free ports.
 
 import { spawn } from "node:child_process";
+import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SERVE = STACK.serveUrl;
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DEGRADED_PORT = 4599;
-const DEGRADED_UI_PORT = 9399;
+const freePort = () => new Promise((resolve, reject) => {
+  const server = net.createServer();
+  server.once("error", reject);
+  server.listen(0, "127.0.0.1", () => { const { port } = server.address(); server.close(() => resolve(port)); });
+});
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -122,9 +134,10 @@ async function run() {
     const b = await chromium.launch();
     try {
       const page = await b.newPage({ viewport: { width: 1440, height: 1000 } });
+      await STACK.signIn(page);
       const visible = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return !!e && e.offsetParent !== null && getComputedStyle(e).display !== "none"; }, sel);
       // Explorer = the /ai default view (what the rail's Home opens).
-      await page.goto(`${SERVE}/ai`, { waitUntil: "networkidle" });
+      await page.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded" }); // the signed-in shell streams: never network-idle
       const exp = page.locator('[data-testid="ioi-home-explorer"]');
       await exp.waitFor({ state: "attached", timeout: 15000 }).catch(() => {});
       ok("explorer mounts as the /ai default view", await exp.count() === 1);
@@ -188,7 +201,7 @@ async function run() {
       const modalOpen = await page.waitForSelector("#ioi-ns-modal.open", { timeout: 10000 }).then(() => true).catch(() => false);
       ok("Advanced launch opens the owned governed modal", modalOpen, "one daemon-backed launch lane preserved");
       // Governed row click-through — back on the explorer, a row opens the owning surface in-slot.
-      await page.goto(`${SERVE}/ai`, { waitUntil: "networkidle" });
+      await page.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded" }); // the signed-in shell streams: never network-idle
       await exp.waitFor({ state: "attached", timeout: 15000 }).catch(() => {});
       const itemRow = page.locator("#ioi-home-explorer a.ioi-hb-row").first();
       if (await itemRow.count()) {
@@ -221,15 +234,17 @@ async function run() {
   ok("fallthrough empty", ftCount === 0, `entries: ${ftCount}`);
 
   // 9. Degraded lane — isolated serve pointed at a dead daemon port shows the named outage banner.
+  const [degradedPort, degradedUiPort] = [await freePort(), await freePort()];
   const child = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
-    env: { ...process.env, PORT: String(DEGRADED_PORT), PRODUCT_UI_PORT: String(DEGRADED_UI_PORT), IOI_HYPERVISOR_DAEMON_URL: "http://127.0.0.1:1" },
+    env: { ...process.env, PORT: String(degradedPort), PRODUCT_UI_PORT: String(degradedUiPort), IOI_HYPERVISOR_DAEMON_URL: "http://127.0.0.1:1" },
     stdio: "ignore",
   });
+  const exited = new Promise((resolve) => child.once("exit", resolve));
   try {
     let deg = null;
-    for (let i = 0; i < 30 && !deg; i++) {
+    for (let i = 0; i < 60 && !deg; i++) {
       await new Promise((r) => setTimeout(r, 500));
-      deg = await sGet("/__ioi/home", `http://127.0.0.1:${DEGRADED_PORT}`).catch(() => null);
+      deg = await sGet("/__ioi/home", `http://127.0.0.1:${degradedPort}`).catch(() => null);
     }
     // With the daemon wholly unreachable the serve's posture admission answers FIRST and fails closed
     // (it cannot confirm local development), so the page is its 503, not the home's own banner — which
@@ -240,16 +255,19 @@ async function run() {
     ok("degraded page fabricates nothing", !!deg && deg.text.includes("Nothing is shown rather than a guess") && !deg.text.includes("Welcome back"));
   } finally {
     child.kill("SIGTERM");
+    await Promise.race([exited, new Promise((r) => setTimeout(r, 5000))]);
   }
 }
 
-run().then(() => {
+run().then(async () => {
+  await STACK.stop();
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("home-surface readiness: OK");
-}).catch((e) => {
+}).catch(async (e) => {
   console.error("verifier crashed:", e);
+  await STACK.stop().catch(() => {});
   process.exit(1);
 });

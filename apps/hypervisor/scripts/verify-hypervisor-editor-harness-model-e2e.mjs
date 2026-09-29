@@ -13,17 +13,27 @@
 // record.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-editor-harness-model-e2e.mjs
-// Drives the opencode adapter against local Ollama/qwen2.5:7b (≈30–60s).
+// Drives the opencode adapter against local Ollama/qwen2.5:7b (≈30–60s). HOST PRECONDITIONS: the plane's daemon
+// inherits IOI_HYPERVISOR_MODEL_UPSTREAM (default http://127.0.0.1:11434, local Ollama) and the VS Code Browser lane
+// needs its editor server on the host; without them the clauses that need them fail naming the gate.
+//
+// ITS OWN STACK (R-240, verifier hazard sweep 2, 2026-09-29). This verifier enabled a harness profile, launched a
+// session and had a harness write into an environment of the owner's daemon (:8765) through the owner's serve (:4173),
+// as nobody. It now runs on its own isolated daemon + serve with the operator signed in (lib/verifier-stack.mjs); the
+// environment it binds is one it provisions through the product's own environment routes (a fresh plane holds none);
+// its node:http requests carry the operator's session cookie themselves.
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const SHELL = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -36,7 +46,7 @@ function jd(base, method, p, body) {
   return new Promise((resolve, reject) => {
     const req = http.request(
       { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+        headers: { "content-type": "application/json", cookie: STACK.cookie, ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
       (res) => {
         let raw = "";
         res.on("data", (c) => { raw += c; });
@@ -53,7 +63,22 @@ function jd(base, method, p, body) {
   });
 }
 
+// The environment the session binds: provisioned and started through the daemon's own environment routes, its
+// workspace on disk (what the editor serves). A fresh plane holds none; the owner's daemon always had one.
+async function provisionEnvironment() {
+  const made = await jd(DAEMON, "POST", "/v1/hypervisor/environments", { spec: { environment_class_id: "local-workspace-v0", project_id: "editor-harness-model-e2e" } });
+  const id = made.j?.environment?.id;
+  if (!id) return;
+  await jd(DAEMON, "POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/start`);
+  for (let i = 0; i < 120; i++) {
+    const rec = await jd(DAEMON, "GET", `/v1/hypervisor/environments/${encodeURIComponent(id)}`);
+    if (rec.j?.environment?.status?.workspace_root) return;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
 async function run() {
+  await provisionEnvironment();
   // ── STEP 1: New Session context offers all three interchangeable axes as REAL choices ──
   const ctx = await jd(SHELL, "GET", "/__ioi/api/new-session/context");
   const editors = ctx.j?.editor_targets || [];
@@ -96,7 +121,9 @@ async function run() {
   // ── STEP 3: HARNESS EXECUTES (wallet-gated) — real file into the env workspace ──
   const intent = `Create the file ./${marker} with exactly this content: ${content}`;
   const challenge = await jd(DAEMON, "POST", `/v1/hypervisor/sessions/${encodeURIComponent(sid)}/execute`, { intent });
-  ok("execute fails closed without a wallet grant", challenge.status === 403 && challenge.j?.reason === "execution_authority_required", challenge.j?.reason);
+  ok("execute fails closed without a wallet grant", challenge.status === 403 && challenge.j?.reason === "execution_authority_required",
+    `${challenge.j?.reason || challenge.j?.decision || "no decision"}${(challenge.j?.checks || []).filter((c) => c.status === "fail").map((c) => ` · ${c.id} fail`).join("")}`);
+  if (!challenge.j?.approval) return; // a precondition gate answered before the wallet gate (named above): nothing to grant
   const grant = mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash });
   // Bounded retry (2 REAL attempts): the 7B route occasionally answers without a tool call —
   // an honest empty run, not a driver fault. Retry mechanics belong to the deterministic
@@ -150,13 +177,15 @@ async function run() {
   await jd(DAEMON, "POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");
 }
 
-run().then(() => {
+run().then(async () => {
+  await STACK.stop();
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`editor+harness+model e2e loop readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
-}).catch((e) => {
+}).catch(async (e) => {
   console.error("verifier crashed:", e);
+  await STACK.stop().catch(() => {});
   process.exit(1);
 });
