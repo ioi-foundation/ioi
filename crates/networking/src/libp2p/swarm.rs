@@ -3086,4 +3086,75 @@ mod tests {
         .await;
         assert_eq!(account, genuine_account);
     }
+
+    /// The peerless guard on the drains must only defer the outbox, never lose
+    /// it: gossip queued while a node is alone -- across several retry ticks --
+    /// is published by gossipsub and received once a subscribed peer connects.
+    /// A guard that always answered "no peers" would keep the outbox forever.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn gossip_queued_while_peerless_is_published_once_a_subscribed_peer_connects() {
+        let alone = spawn_live_swarm(Keypair::generate_ed25519()).await;
+        let mut subscriber = spawn_live_swarm(Keypair::generate_ed25519()).await;
+        let alone_peer = alone.peer;
+        let alone_commands = alone.commands.clone();
+        // Nobody reads the queuing node's events; keep its loop unblocked.
+        tokio::spawn(async move {
+            let mut alone = alone;
+            while alone.events.recv().await.is_some() {}
+        });
+
+        let block = b"block queued while peerless".to_vec();
+        let tx = b"transaction queued while peerless".to_vec();
+        let vote = b"vote queued while peerless".to_vec();
+        // Every publish is refused InsufficientPeers and queued; no peer is
+        // connected, so no direct relay is sent either.
+        alone_commands
+            .send(SwarmCommand::PublishBlock(block.clone()))
+            .await
+            .unwrap();
+        alone_commands
+            .send(SwarmCommand::PublishTransaction(tx.clone()))
+            .await
+            .unwrap();
+        alone_commands
+            .send(SwarmCommand::BroadcastVote(vote.clone()))
+            .await
+            .unwrap();
+        // Several 500 ms retry ticks pass while the node is still alone.
+        tokio::time::sleep(Duration::from_millis(1_600)).await;
+
+        // The command channel is ordered: the dial follows the queued publishes.
+        alone_commands
+            .send(SwarmCommand::Dial(subscriber.address.clone()))
+            .await
+            .unwrap();
+
+        let (mut got_block, mut got_tx, mut got_vote) = (false, false, false);
+        let deadline = tokio::time::sleep(Duration::from_secs(30));
+        tokio::pin!(deadline);
+        while !(got_block && got_tx && got_vote) {
+            tokio::select! {
+                _ = &mut deadline => panic!(
+                    "gossip queued while peerless never reached the subscribed peer \
+                     (block: {got_block}, transaction: {got_tx}, vote: {got_vote})"
+                ),
+                event = subscriber.events.recv() => match event.expect("subscriber swarm loop ended") {
+                    SwarmInternalEvent::GossipBlock(data, source, mirror) if data == block => {
+                        assert_eq!(source, alone_peer);
+                        assert!(mirror < 2, "the queued block must arrive by gossip, not direct relay");
+                        got_block = true;
+                    }
+                    SwarmInternalEvent::GossipTransaction(data, source) if data == tx => {
+                        assert_eq!(source, alone_peer);
+                        got_tx = true;
+                    }
+                    SwarmInternalEvent::ConsensusVoteReceived(data, source) if data == vote => {
+                        assert_eq!(source, alone_peer);
+                        got_vote = true;
+                    }
+                    _ => {}
+                },
+            }
+        }
+    }
 }
