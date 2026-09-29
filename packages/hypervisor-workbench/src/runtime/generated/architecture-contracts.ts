@@ -15676,6 +15676,43 @@ export type JustificationRecordV1 = {
   admitted_head: string | null;
 };
 
+export type StudioBlueprintV1 = {
+  schema_version: "ioi.hypervisor.studio.blueprint.v1";
+  object: "ioi.hypervisor.studio.blueprint";
+  id: string;
+  ref: string;
+  name: string;
+  description: string;
+  graph: Record<string, unknown>;
+  layout_ref: string | null;
+  status: "draft";
+  content_hash: string;
+  owner_ref: string;
+  system_ref: string | null;
+  promote_state?: "approval_requested";
+  approval_request_id?: string;
+  approval_request_ref?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type SystemDataAttachmentV1 = {
+  schema_version: "ioi.hypervisor.system-data-attachment.v1";
+  attachment_id: string;
+  subject_kind: "ontology" | "data_source" | "connection";
+  subject_ref: string;
+  status: "attached" | "detached";
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -32005,6 +32042,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/studio-blueprint/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/positive-bound-to-system.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/studio-blueprint/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/positive-unbound-promotion-requested.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/studio-blueprint/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/negative-bound-to-a-non-system.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-ontology-attached.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-data-source-attached.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -36698,6 +36783,12 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json","contract_id":"schema://ioi/components/hypervisor/justification-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json","contract_id":"schema://ioi/components/hypervisor/justification-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json","contract_id":"schema://ioi/components/hypervisor/justification-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/positive-bound-to-system.json","contract_id":"schema://ioi/components/hypervisor/studio-blueprint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/positive-bound-to-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/positive-unbound-promotion-requested.json","contract_id":"schema://ioi/components/hypervisor/studio-blueprint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/positive-unbound-promotion-requested.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/negative-bound-to-a-non-system.json","contract_id":"schema://ioi/components/hypervisor/studio-blueprint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/studio-blueprint-v1/negative-bound-to-a-non-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-ontology-attached.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-ontology-attached.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-data-source-attached.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-data-source-attached.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -37275,6 +37366,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9+._-]*://[^\\s]{1,400}$",
   "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
   "^[a-z][a-z0-9+._-]*://\\S+$",
+  "^[a-z][a-z0-9+._-]*:[^\\s]{1,500}$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9-]*://[^\\s]+$",
@@ -37363,6 +37455,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^artifact://[^\\s]+$",
   "^artifact://[^\\s]{1,240}$",
   "^artifact://[^\\s]{1,248}$",
+  "^artifact://[^\\s]{1,289}$",
   "^artifact://[^\\s]{1,500}$",
   "^artifact://\\S+$",
   "^artifact://foundry-checkpoint/[0-9a-f]{64}$",
@@ -37388,7 +37481,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^autonomous-system-chain://[A-Za-z0-9._:/-]+$",
   "^autonomous-system-chain://[^\\s]{1,248}$",
   "^availability-manifest://[^\\s]{1,248}$",
+  "^blueprint://bp_[0-9a-f]{1,64}$",
   "^boot-profile://[^\\s]{1,248}$",
+  "^bp_[0-9a-f]{1,64}$",
   "^branch-checkpoint://[^\\s]+$",
   "^branch-merge://[0-9a-f]{64}$",
   "^branch-merge://[^\\s]+$",
@@ -37434,6 +37529,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^connection-ceremony://[A-Za-z0-9][A-Za-z0-9._:-]*$",
   "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
   "^connection://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$",
+  "^connection://[^\\s]{1,500}$",
   "^connector-mapping://cmap_[0-9a-f]{12,32}$",
   "^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
@@ -37463,6 +37559,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$",
   "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,5}$",
   "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^data-source:[^\\s]{1,500}$",
   "^data_processor_terms://[^\\s?#\\\\]{1,200}$",
   "^dataset-snapshot://[^\\s]{1,500}$",
   "^dataset-snapshot://foundry/[0-9a-f]{64}$",
@@ -37720,6 +37817,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$",
   "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$",
   "^ontology://[^\\s]{1,248}$",
+  "^ontology://[^\\s]{1,500}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
@@ -37940,6 +38038,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$",
   "^system-activation-state://[^\\s]{1,248}$",
   "^system-binding://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+  "^system-data-attachment://sda_[0-9a-f]{16}$",
   "^system-home-domain-binding://[A-Za-z0-9._:/-]+$",
   "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$",
   "^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$",
@@ -38406,7 +38505,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/notification-subscription/v1": "sha256:45e93217cbd14d2a60a34a674d85b8bc7729cbb8953c71fa0ee4fd72c4f1f1dd",
   "schema://ioi/components/hypervisor/notification-projection/v1": "sha256:6edeb66e0a835287a9851bd781e2a6f0136df868db2f10b16cf1e40ff671d557",
   "schema://ioi/components/hypervisor/justification-checkpoint/v1": "sha256:fbaa54c53e0eebbc5eb3deb89469ea20ae589547ace10beb183d1f75512ba4d8",
-  "schema://ioi/components/hypervisor/justification-record/v1": "sha256:3281dcf985707d23dace61c615809ab08420965aee07cc9cce4267c93bbfc867"
+  "schema://ioi/components/hypervisor/justification-record/v1": "sha256:3281dcf985707d23dace61c615809ab08420965aee07cc9cce4267c93bbfc867",
+  "schema://ioi/components/hypervisor/studio-blueprint/v1": "sha256:d6339ec53c4da2ab521a58da345bf427ce9ce82e118b7cfd49b11fe511db46af",
+  "schema://ioi/components/hypervisor/system-data-attachment/v1": "sha256:f027567dacb88d035a7d9312d74676c174a438184c5daeadfe0d19faed8a70a3"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -158902,6 +159003,294 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     }
+  },
+  "schema://ioi/components/hypervisor/studio-blueprint/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/studio-blueprint/v1",
+    "title": "StudioBlueprint",
+    "x-ioi-schema-version": "ioi.hypervisor.studio.blueprint.v1",
+    "description": "One Studio blueprint: an authored composition draft owned by one tenant, optionally bound to the one bounded System it designs. Its identity is `ref` (derived from the owner and the creating caller's idempotency key); its tip is the admitted head of its own event stream, which the daemon serves beside the record as `admitted_head` and every successor compare-and-swaps against. `content_hash` is the canonical (JCS) sha256 of the four authored fields (name, description, graph, layout_ref) and names what the draft says, never who holds it or where it is bound. `system_ref` is set when the blueprint is created — only to an ACTIVE System in the creating caller's inventory — and never moves; null means the draft designs no System. `created_at` and `updated_at` are stamped from the admission on the read model and are absent from the admitted payload. A blueprint confers no authority and mounts nothing; promotion only composes a governance approval request.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "object",
+      "id",
+      "ref",
+      "name",
+      "description",
+      "graph",
+      "layout_ref",
+      "status",
+      "content_hash",
+      "owner_ref",
+      "system_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.studio.blueprint.v1"
+      },
+      "object": {
+        "type": "string",
+        "const": "ioi.hypervisor.studio.blueprint"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^bp_[0-9a-f]{1,64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^blueprint://bp_[0-9a-f]{1,64}$"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "graph": {
+        "type": "object"
+      },
+      "layout_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^artifact://[^\\s]{1,289}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft"
+        ]
+      },
+      "content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "system_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "promote_state": {
+        "type": "string",
+        "enum": [
+          "approval_requested"
+        ]
+      },
+      "approval_request_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "approval_request_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/system-data-attachment/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/system-data-attachment/v1",
+    "title": "SystemDataAttachment",
+    "x-ioi-schema-version": "ioi.hypervisor.system-data-attachment.v1",
+    "description": "One subject a bounded System uses — an ontology, a data source or a connection — attached to that System through the System-record seam. It names the subject by its owning plane's own ref and nothing more: the subject stays owned, scoped and governed by its plane, and attaching grants no access to it. `system_binding` is DERIVED by the seam (the System, the parent scope, the resolved principal and a payload root over this record with the binding absent) and is never authored. The attachment's identity is `attachment_id`, one per System and subject; `status` moves from attached to detached only by a successor on the exact admitted head.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "attachment_id",
+      "subject_kind",
+      "subject_ref",
+      "status",
+      "system_binding"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.system-data-attachment.v1"
+      },
+      "attachment_id": {
+        "type": "string",
+        "pattern": "^system-data-attachment://sda_[0-9a-f]{16}$"
+      },
+      "subject_kind": {
+        "type": "string",
+        "enum": [
+          "ontology",
+          "data_source",
+          "connection"
+        ]
+      },
+      "subject_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*:[^\\s]{1,500}$"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "attached",
+          "detached"
+        ]
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject_kind"
+          ],
+          "properties": {
+            "subject_kind": {
+              "type": "string",
+              "const": "ontology"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^ontology://[^\\s]{1,500}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject_kind"
+          ],
+          "properties": {
+            "subject_kind": {
+              "type": "string",
+              "const": "data_source"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^data-source:[^\\s]{1,500}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject_kind"
+          ],
+          "properties": {
+            "subject_kind": {
+              "type": "string",
+              "const": "connection"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^connection://[^\\s]{1,500}$"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -180927,7 +181316,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/notification-subscription/v1": [],
   "schema://ioi/components/hypervisor/notification-projection/v1": [],
   "schema://ioi/components/hypervisor/justification-checkpoint/v1": [],
-  "schema://ioi/components/hypervisor/justification-record/v1": []
+  "schema://ioi/components/hypervisor/justification-record/v1": [],
+  "schema://ioi/components/hypervisor/studio-blueprint/v1": [],
+  "schema://ioi/components/hypervisor/system-data-attachment/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -184006,4 +184397,16 @@ export function validateJustificationRecordV1(
   value: unknown,
 ): value is JustificationRecordV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/justification-record/v1", value).ok;
+}
+
+export function validateStudioBlueprintV1(
+  value: unknown,
+): value is StudioBlueprintV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/studio-blueprint/v1", value).ok;
+}
+
+export function validateSystemDataAttachmentV1(
+  value: unknown,
+): value is SystemDataAttachmentV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/system-data-attachment/v1", value).ok;
 }

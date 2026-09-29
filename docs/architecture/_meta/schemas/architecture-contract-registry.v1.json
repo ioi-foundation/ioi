@@ -21935,6 +21935,94 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/studio-blueprint/v1",
+      "canonical_name": "StudioBlueprint",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#design-mode-blueprints-and-data-bound-to-a-system",
+      "schema_version": "ioi.hypervisor.studio.blueprint.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "studio-blueprint.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "StudioBlueprintV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "StudioBlueprintV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/studio-blueprint-v1/positive-bound-to-system.json",
+        "fixtures/studio-blueprint-v1/positive-unbound-promotion-requested.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/studio-blueprint-v1/negative-bound-to-a-non-system.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v1",
+      "canonical_name": "SystemDataAttachment",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#design-mode-blueprints-and-data-bound-to-a-system",
+      "schema_version": "ioi.hypervisor.system-data-attachment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "system-data-attachment.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "SystemDataAttachmentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "SystemDataAttachmentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/system-data-attachment-v1/positive-ontology-attached.json",
+        "fixtures/system-data-attachment-v1/positive-data-source-attached.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

@@ -82,9 +82,8 @@ export const REQUIRED_STEPS = Object.freeze(["create", "design", "data", "limits
 export const REQUIRED_GAPS = Object.freeze({
   "create/legs/template-picker": "system_template_picker_absent",
   "create/legs/approval-in-inbox": "genesis_approval_not_in_inbox",
-  "create/handoff/system-offered-to-studio": "blueprint_system_ref_absent",
-  "design/legs/design-bound-to-system": "blueprint_system_ref_absent",
-  "data/legs/attach-to-system": "system_data_attachment_absent",
+  // WP-C1 (2026-09-28): blueprint_system_ref_absent and system_data_attachment_absent are closed —
+  // their four rows are live legs (REQUIRED_LIVE).
   "limits/legs/limits": "system_limits_authority_node_absent",
   // WP-B (2026-09-28): a run satisfies "running THE System"; the SESSION half keeps the code here.
   "run/legs/session-subject-system": "session_system_subject_absent",
@@ -99,7 +98,6 @@ export const REQUIRED_GAPS = Object.freeze({
 // The gaps the System workspace itself names on the page (system-genesis-surfaces.mjs `namedGap`). The
 // walk reads each marker: while it is there the gap is true; when it goes, the row is stale.
 export const REQUIRED_PROBES = Object.freeze({
-  "create/handoff/system-offered-to-studio": 'data-system-named-gap="blueprint system_ref (Studio blueprint plane)"',
   "limits/legs/limits": 'data-system-named-gap="authority node (ADR 0056 Ruling 8)"',
   "run/legs/session-subject-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
   "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement (ADR 0056 P4 change sets)"',
@@ -112,6 +110,11 @@ export const REQUIRED_LIVE = Object.freeze([
   "create/handoff/system-links-its-design",
   "design/legs/walk-blueprint",
   "design/handoff/walk-designer-offers-ontology",
+  // WP-C1 (2026-09-28): the design and the data bound to the System.
+  "create/handoff/system-offered-to-studio",
+  "design/legs/design-bound-to-system",
+  "design/handoff/design-carries-system-data",
+  "data/legs/attach-to-system",
   "data/legs/walk-ontology-and-source",
   "data/legs/walk-function",
   "observe/legs/walk-issue",
@@ -315,6 +318,7 @@ export function bindingFindings({ rootPkg, appPkg, floors, ci, floorsGate, compo
 // (exact JCS hashing over the tracked M1 fixtures); both should import one shared copy.
 const SYSTEMS_BASE = "/__ioi/systems";
 const GENESIS_API = "/v1/hypervisor/autonomous-systems";
+const ATTACHMENT_CONTRACT = "schema://ioi/components/hypervisor/system-data-attachment/v1";
 const OWNER = "org://acme/research";
 const GENESIS_SCOPE = "scope:autonomous_system.genesis_admit";
 const MATERIALIZE_SCOPE = "scope:autonomous_system.genesis_materialize";
@@ -691,19 +695,45 @@ async function liveLeg() {
         && design.text.includes('data-system-workspace-mode="design"') && design.text.includes(`data-system-workspace-id="${ids.systemId}"`)
         && studio.status === 200 && studio.headers["x-ioi-surface-route"] === "/studio" && !studio.text.includes("is not available yet"),
       `/systems ${systems.status} card ${cardAt >= 0} · design '${designHref}' ${design.status} · studio ${studio.status} · hand-offs ${handoffLinks.join(" ")}`);
+    // HAND-OFF 1→2 (WP-C1): the Design mode's own link to Studio's Draft a blueprint form, whose
+    // system_ref select — the caller-filtered Systems projection — offers THIS System, chosen.
+    const draftHref = unesc((design.text.match(/data-system-draft-blueprint="1" href="([^"]+)"/u) || [])[1] || "");
+    const draftPage = draftHref ? await page(ctx, draftHref) : { status: 0, text: "", headers: {} };
+    const draftForm = renderedForm(draftPage.text, "/__ioi/studio/workbench/actions/create-blueprint");
+    claimLive("create/handoff/system-offered-to-studio",
+      draftHref === `/__ioi/studio/workbench?view=blueprints&system_ref=${encodeURIComponent(ids.systemId)}` && draftPage.status === 200
+        && !!draftForm && !!draftForm.options.system_ref?.has(ids.systemId) && draftForm.values.system_ref === ids.systemId && !!draftForm.values.owner_ref,
+      `draft link '${draftHref || "none"}' → ${draftPage.status} · form ${!!draftForm} · offers ${draftForm?.options.system_ref ? [...draftForm.options.system_ref].filter(Boolean).join(" ") || "no System" : "no system_ref select"} · chosen '${draftForm?.values.system_ref ?? ""}' · owner '${draftForm?.values.owner_ref ?? ""}'`);
     await probesOf("create");
 
     // ==== STEP 2 — DESIGN ==========================================================================
-    // THIS walk's blueprint, through the form Studio's blueprints view renders; its owner is the tenant
-    // the form itself offers (a person does not type one).
+    // THIS walk's blueprint, through the form Studio's blueprints view renders — reached by the System's
+    // own hand-off, bound to the System the form offers; its owner is the tenant the form itself offers
+    // (a person does not type one).
     const blueprintsRoute = "/__ioi/studio/workbench?view=blueprints";
+    const draftRoute = draftHref || blueprintsRoute;
     const blueprintName = `bp-${vars.tag}`;
-    const blueprint = outcomeOf(await submitRenderedForm(ctx, { id: "blueprint", page: await page(ctx, blueprintsRoute), from: blueprintsRoute, action: "/__ioi/studio/workbench/actions/create-blueprint",
-      fields: { name: blueprintName, description: `the journey walk's design for ${ids.systemId}`, graph_json: JSON.stringify({ nodes: [{ id: "system", kind: "concept" }], edges: [] }) } }));
+    const blueprint = outcomeOf(await submitRenderedForm(ctx, { id: "blueprint", page: await page(ctx, draftRoute), from: draftRoute, action: "/__ioi/studio/workbench/actions/create-blueprint",
+      fields: { name: blueprintName, description: `the journey walk's design for ${ids.systemId}`, graph_json: JSON.stringify({ nodes: [{ id: "system", kind: "concept" }], edges: [] }), system_ref: ids.systemId } }));
     const blueprints = await page(ctx, blueprintsRoute);
     claimLive("design/legs/walk-blueprint",
       blueprint.redirected && !blueprint.refused && blueprint.q.get("acted") === "create-blueprint" && blueprints.status === 200 && blueprints.text.includes(blueprintName),
       `${blueprint.status} ${blueprint.refused ? `refused ${blueprint.refused}: ${blueprint.q.get("reason") || ""}` : blueprint.q.get("acted") || blueprint.location.slice(0, 80)} · listed ${blueprints.text.includes(blueprintName)}`);
+    // WP-C1 — THIS walk's blueprint is bound to THIS System, read from daemon truth: the record (the
+    // registered StudioBlueprint v1) carries the System and its admitted head, the daemon's
+    // System-narrowed list names it, and the System's Design mode lists it by its own ref and name.
+    const bpId = blueprint.q.get("record") || "";
+    const bpRead = bpId ? ((await read(ctx, `/v1/hypervisor/studio/blueprints/${encodeURIComponent(bpId)}`)).json || {}) : {};
+    const boundList = ((await read(ctx, `/v1/hypervisor/studio/blueprints?system_ref=${encodeURIComponent(ids.systemId)}`)).json || {}).blueprints || [];
+    const designBound = await page(ctx, `/systems/${vars.system}/design`);
+    const bpRowAt = bpRead.blueprint?.ref ? designBound.text.indexOf(`data-system-blueprint="${bpRead.blueprint.ref}"`) : -1;
+    const bpRow = bpRowAt >= 0 ? designBound.text.slice(bpRowAt, designBound.text.indexOf("</tr>", bpRowAt)) : "";
+    claimLive("design/legs/design-bound-to-system",
+      bpRead.ok === true && bpRead.blueprint?.system_ref === ids.systemId && bpRead.blueprint?.schema_version === "ioi.hypervisor.studio.blueprint.v1"
+        && typeof bpRead.admitted_head === "string" && bpRead.admitted_head.length > 0
+        && boundList.some((b) => b.id === bpId && b.system_ref === ids.systemId) && boundList.every((b) => b.system_ref === ids.systemId)
+        && designBound.status === 200 && bpRow.includes(blueprintName),
+      `record ${bpId || "none"} system_ref ${bpRead.blueprint?.system_ref || "none"} head ${bpRead.admitted_head ? "known" : "none"} · the System's list ${boundList.length} (holds it ${boundList.some((b) => b.id === bpId)}) · Design row ${bpRowAt >= 0} names it ${bpRow.includes(blueprintName)}`);
 
     // ==== STEP 3 — DATA ============================================================================
     // THIS walk's ontology and source — the first writes of lib/propagation-matrix.mjs, through the same
@@ -725,6 +755,30 @@ async function liveLeg() {
     claimLive("design/handoff/walk-designer-offers-ontology",
       designerPage.status === 200 && designerPage.text.includes(ontologyName),
       `designer ${designerPage.status} · offers ${ontologyName} ${designerPage.text.includes(ontologyName)}`);
+    // STEP 3 (continued, WP-C1) — THIS walk's ontology and source attached to THIS System from its
+    // Design mode's Attach form, whose options are the caller's own ontologies and sources. Each is one
+    // SystemDataAttachment record in the System-record seam, read back from the daemon under the System.
+    const attachOntId = ontology.q.get("record") || "";
+    const walkOntRef = attachOntId ? ((await read(ctx, `/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(attachOntId)}`)).json?.ontology?.ref || "") : "";
+    const walkSourceRef = ((((await read(ctx, "/v1/hypervisor/data-sources")).json || {}).data_sources || []).find((s) => s.name === sourceName) || {}).source_ref || "";
+    const designRoute = `/systems/${vars.system}/design`;
+    const attachOne = async (id, subject) => outcomeOf(await submitRenderedForm(ctx, { id, page: await page(ctx, designRoute), from: designRoute, action: "/__ioi/systems/attach-data", fields: { subject } }));
+    const noAttach = { status: 0, q: new URLSearchParams() };
+    const attachedOnt = walkOntRef ? await attachOne("attach-ontology", `ontology|${walkOntRef}`) : noAttach;
+    const attachedSrc = walkSourceRef ? await attachOne("attach-source", `data_source|${walkSourceRef}`) : noAttach;
+    const seamRecords = ((await read(ctx, `${GENESIS_API}/${encodeURIComponent(ids.systemId)}/records?contract_id=${encodeURIComponent(ATTACHMENT_CONTRACT)}`)).json || {}).records || [];
+    const heldFor = (ref) => !!ref && seamRecords.some((r) => r.contract_id === ATTACHMENT_CONTRACT && typeof r.head === "string" && r.current?.subject_ref === ref
+      && r.current?.status === "attached" && r.current?.system_binding?.system_id === ids.systemId);
+    const attachSaid = (o) => `${o.status} ${o.q.get("acted") || (o.q.get("refused") ? `refused ${o.q.get("refused")}: ${o.q.get("reason") || ""}` : "")}`;
+    claimLive("data/legs/attach-to-system",
+      [attachedOnt, attachedSrc].every((o) => o.status === 303 && o.q.get("acted") === "attach-data" && !!o.q.get("receipt")) && heldFor(walkOntRef) && heldFor(walkSourceRef),
+      `ontology ${walkOntRef || "no ref"} → ${attachSaid(attachedOnt)} · source ${walkSourceRef || "no ref"} → ${attachSaid(attachedSrc)} · the seam holds ${seamRecords.length} attachment(s) (ontology ${heldFor(walkOntRef)}, source ${heldFor(walkSourceRef)})`);
+    // HAND-OFF 2→3 (WP-C1): the System's design names the data it uses, by the subjects' own names.
+    const designData = await page(ctx, designRoute);
+    const attachmentRow = (ref) => { const at = ref ? designData.text.indexOf(`data-subject-ref="${ref}"`) : -1; return at >= 0 ? designData.text.slice(at, designData.text.indexOf("</tr>", at)) : ""; };
+    claimLive("design/handoff/design-carries-system-data",
+      designData.status === 200 && attachmentRow(walkOntRef).includes(ontologyName) && attachmentRow(walkSourceRef).includes(sourceName),
+      `Design ${designData.status} · ontology row names ${ontologyName} ${attachmentRow(walkOntRef).includes(ontologyName)} · source row names ${sourceName} ${attachmentRow(walkSourceRef).includes(sourceName)}`);
     // ==== STEP 4 — LIMITS ==========================================================================
     // THIS walk's checkpoint (ADR 0056 P5), from Leases & Limits' Configuration form: a person's Run now
     // needs a written justification naming the walk. The run step below must then pass it.

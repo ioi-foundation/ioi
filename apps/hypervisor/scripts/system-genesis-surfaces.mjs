@@ -26,7 +26,7 @@
 //     system_projection_source_incomplete renders as a stale/conflict stop, never a partial list.
 import http from "node:http";
 import { createHash } from "node:crypto";
-import { escHtml, refusalCodeOf, refusalMessageOf } from "../surfaces/kit.mjs";
+import { callerOwnerRef, escHtml, refusalCodeOf, refusalMessageOf } from "../surfaces/kit.mjs";
 import { renderTargetHealth } from "./operations-health.mjs";
 
 const esc = escHtml;
@@ -785,6 +785,10 @@ export async function handleSystemGenesisSurfaces(req, res, pathname, body, { da
     sendHtml(await handleGovernancePreview(daemonUrl, shell, form()));
     return true;
   }
+  if (pathname === `${BASE}/attach-data` && req.method === "POST") {
+    await handleAttachData(daemonUrl, res, form());
+    return true;
+  }
   const rest = pathname.slice(BASE.length + 1).split("/");
   const tail = rest[0] || "";
   if (!KEY_RE.test(tail)) {
@@ -959,7 +963,7 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
       + handOffs([["/operations", "Operations"], ["/environments", "Environments"], ["/work", "Work"], ["/__ioi/automations/new", "New automation"]]));
   }
   if (mode === "design") {
-    return shell(title, head + pending + namedGap("blueprint system_ref (Studio blueprint plane)", "Designs bound to this System")
+    return shell(title, head + pending + await systemDesign(daemonUrl, systemId, tailPath, parsed.query)
       + handOffs([["/studio", "Studio"], ["/ontology", "Ontology"], ["/data", "Data"], ["/automations", "Automations"]]));
   }
   if (mode === "improve") {
@@ -980,6 +984,124 @@ export async function handleSystemWorkspace(req, res, pathname, { daemonUrl: bas
   }
   const daemonUrl = { url: baseDaemonUrl, headers: callerIdentityHeaders(req) };
   res.writeHead(200, HTMLH);
-  res.end(await renderSystemWorkspace(daemonUrl, shell, parsed));
+  res.end(await renderSystemWorkspace(daemonUrl, shell, { ...parsed, query: new URL(req.url || "", "http://x").searchParams }));
   return true;
+}
+
+// ---- Design mode: what the System is made of (R-240 journey WP-C1) ------------------------------
+// The blueprints bound to the System (Studio's own plane, narrowed by system_ref) and the data
+// attached to it (SystemDataAttachment records in the System-record seam), each read as the caller
+// from the plane that owns it. Attaching is one write through the seam; the subject stays its own
+// plane's. Every read degrades on its own and names its refusal code; nothing is cached.
+export const SYSTEM_DATA_ATTACHMENT_CONTRACT = "schema://ioi/components/hypervisor/system-data-attachment/v1";
+const ATTACH_KINDS = { ontology: "Ontology", data_source: "Data source", connection: "Connection" };
+const STUDIO_BLUEPRINTS = "/__ioi/studio/workbench?view=blueprints";
+const sha256Hex = (text) => createHash("sha256").update(text).digest("hex");
+// One attachment per System and subject: its identity is derived from both, so attaching the same
+// subject again is the same record, and the seam replays or refuses it by name.
+export function systemDataAttachmentId(systemId, subjectRef) {
+  return `system-data-attachment://sda_${sha256Hex(`${systemId}\u0000${subjectRef}`).slice(0, 16)}`;
+}
+const unreadCode = (result) => (result.networkError
+  ? "daemon_unreachable"
+  : (result.status !== 200 || result.body?.ok === false) ? refusalCodeOf(result.body || {}, result.status) : null);
+
+async function systemDesign(daemonUrl, systemId, tailPath, query) {
+  const [blueprints, attachments, ontologies, sources] = await Promise.all([
+    daemonJson(daemonUrl, "GET", `/v1/hypervisor/studio/blueprints?system_ref=${encodeURIComponent(systemId)}`),
+    daemonJson(daemonUrl, "GET", `${GENESIS_API}/${encodeURIComponent(systemId)}/records?contract_id=${encodeURIComponent(SYSTEM_DATA_ATTACHMENT_CONTRACT)}`),
+    daemonJson(daemonUrl, "GET", "/v1/hypervisor/odk/domain-ontologies"),
+    daemonJson(daemonUrl, "GET", "/v1/hypervisor/data-sources"),
+  ]);
+  const acted = query?.get("acted") === "attach-data"
+    ? stateBlock("completed", null, `<div class="empty" data-system-attach-result="attached">Attached <code>${esc(query.get("record") || "")}</code> to this System · receipt <code>${esc(query.get("receipt") || "")}</code></div>`)
+    : query?.get("refused")
+      ? stateBlock("denied_or_revoked", query.get("refused"), `<div class="empty" data-system-attach-result="refused">Not attached — <code>${esc(query.get("refused"))}</code>: ${esc(query.get("reason") || "")}. Nothing changed.</div>`)
+      : "";
+
+  // Designs bound to this System.
+  const draftHref = `${STUDIO_BLUEPRINTS}&system_ref=${encodeURIComponent(systemId)}`;
+  const draftLink = `<p class="sub"><a class="act" data-system-draft-blueprint="1" href="${esc(draftHref)}">Draft a blueprint for this System in Studio →</a></p>`;
+  const bpCode = unreadCode(blueprints);
+  const bpRows = bpCode ? [] : (Array.isArray(blueprints.body?.blueprints) ? blueprints.body.blueprints : []).filter((b) => b.system_ref === systemId);
+  const designs = bpCode
+    ? stateBlock(stateForErrorCode(bpCode), bpCode, `<div class="empty" data-system-designs-unavailable="1">The blueprints bound to this System could not be read — <code>${esc(bpCode)}</code>. Nothing is shown in their place.</div>`)
+    : bpRows.length
+      ? stateBlock("ready_or_proposed", null, `<table data-system-designs="${esc(systemId)}"><thead><tr><th>Blueprint</th><th>Status</th><th>Content hash</th><th>Updated</th></tr></thead><tbody>${bpRows.map((b) => `<tr data-system-blueprint="${esc(b.ref || "")}"><td><a href="${esc(`${STUDIO_BLUEPRINTS}&bp=${encodeURIComponent(b.id || "")}`)}"><b>${esc(b.name || b.id || "")}</b></a><br><code>${esc(b.ref || "")}</code></td><td>${pill(b.promote_state || b.status || "draft", b.promote_state ? "warn" : "muted")}</td><td><code>${esc(b.content_hash || "")}</code></td><td>${esc(b.updated_at || "")}</td></tr>`).join("")}</tbody></table>`)
+      : stateBlock("honest_empty", "no_blueprint_bound_to_system", `<div class="empty" data-system-designs="${esc(systemId)}">No blueprint is bound to this System yet. A blueprint drafted in Studio for this System is bound to it when it is created, and is listed here.</div>`);
+
+  // Data attached to this System, named by the subject planes' own reads (the caller's own).
+  const ontCode = unreadCode(ontologies);
+  const srcCode = unreadCode(sources);
+  const ontList = ontCode ? [] : (Array.isArray(ontologies.body?.ontologies) ? ontologies.body.ontologies : []).filter((o) => String(o.ref || "").startsWith("ontology://"));
+  const srcList = srcCode ? [] : (Array.isArray(sources.body?.data_sources) ? sources.body.data_sources : []).filter((s) => String(s.source_ref || "").startsWith("data-source:"));
+  const names = new Map([...ontList.map((o) => [o.ref, o.domain || o.id || o.ref]), ...srcList.map((s) => [s.source_ref, s.name || s.source_id || s.source_ref])]);
+  const attCode = unreadCode(attachments);
+  const attached = attCode ? [] : (Array.isArray(attachments.body?.records) ? attachments.body.records : [])
+    .map((r) => ({ record: r.current || {}, head: r.head || "" }))
+    .filter(({ record }) => record.status === "attached" && record.system_binding?.system_id === systemId);
+  const attachedRefs = new Set(attached.map(({ record }) => record.subject_ref));
+  const dataTable = attCode
+    ? stateBlock(stateForErrorCode(attCode), attCode, `<div class="empty" data-system-data-unavailable="1">The data attached to this System could not be read — <code>${esc(attCode)}</code>. Nothing is shown in its place.</div>`)
+    : attached.length
+      ? stateBlock("ready_or_proposed", null, `<table data-system-data="${esc(systemId)}"><thead><tr><th>Kind</th><th>Name</th><th>Ref</th><th>Admitted head</th></tr></thead><tbody>${attached.map(({ record, head }) => `<tr data-system-attachment="${esc(record.attachment_id || "")}" data-subject-ref="${esc(record.subject_ref || "")}"><td>${esc(ATTACH_KINDS[record.subject_kind] || record.subject_kind || "")}</td><td>${names.has(record.subject_ref) ? `<b>${esc(names.get(record.subject_ref))}</b>` : `<span class="sub" style="margin:0">not in your own reads</span>`}</td><td><code>${esc(record.subject_ref || "")}</code></td><td><code>${esc(head)}</code></td></tr>`).join("")}</tbody></table>`)
+      : stateBlock("honest_empty", "no_data_attached_to_system", `<div class="empty" data-system-data="${esc(systemId)}">No ontology or data source is attached to this System yet.</div>`);
+  const offer = (list, kind, refOf, labelOf) => list.filter((x) => !attachedRefs.has(refOf(x)))
+    .map((x) => `<option value="${esc(`${kind}|${refOf(x)}`)}">${esc(labelOf(x))} — ${esc(refOf(x))}</option>`).join("");
+  const ontOptions = offer(ontList, "ontology", (o) => o.ref, (o) => o.domain || o.id || o.ref);
+  const srcOptions = offer(srcList, "data_source", (s) => s.source_ref, (s) => s.name || s.source_id || s.source_ref);
+  const unreadNote = [ontCode && `ontologies unavailable (<code>${esc(ontCode)}</code>)`, srcCode && `data sources unavailable (<code>${esc(srcCode)}</code>)`].filter(Boolean).join(" · ");
+  const attachForm = ontOptions || srcOptions
+    ? `<form method="post" action="${BASE}/attach-data" data-system-attach-form="1">
+        <input type="hidden" name="system_id" value="${esc(systemId)}">
+        <div class="field"><label>Attach an ontology or a data source you can see</label><select name="subject">${ontOptions ? `<optgroup label="Ontologies">${ontOptions}</optgroup>` : ""}${srcOptions ? `<optgroup label="Data sources">${srcOptions}</optgroup>` : ""}</select></div>
+        <button class="act" type="submit">Attach to this System</button>
+      </form>${unreadNote ? `<p class="sub">${unreadNote}</p>` : ""}`
+    : `<div class="empty" data-system-attach-none="1">Nothing to attach: every ontology and data source you can see is attached already, or you have none — create one in <a href="/ontology">Ontology</a> or <a href="/data">Data</a>.${unreadNote ? ` ${unreadNote}.` : ""}</div>`;
+
+  return `${acted}<h2>Designs bound to this System</h2>${designs}${draftLink}`
+    + `<h2>Data attached to this System</h2>${dataTable}${attachForm}`
+    + `<p class="sub">Attaching records that this System uses the subject; the subject stays owned and governed by its own plane, and attaching grants no access to it.</p>`;
+}
+
+// POST /__ioi/systems/attach-data — ONE SystemDataAttachment through the System-record seam, as the
+// caller. POLICY FIRST, like every workspace page: the System must be an ACTIVE row of the caller's
+// filtered projection before anything is written (the seam itself checks only that it is active).
+// The binding is derived by the seam, never composed here. The answer returns to Design mode.
+async function handleAttachData(daemonUrl, res, form) {
+  const systemId = (form.get("system_id") || "").trim();
+  const [kind, ...refParts] = String(form.get("subject") || "").split("|");
+  const subjectRef = refParts.join("|").trim();
+  const tailPath = systemId.startsWith("system://") ? systemId.slice("system://".length) : "";
+  const back = (params) => {
+    res.writeHead(303, { Location: `${tailPath ? modeHref(tailPath, "design") : "/systems"}?${new URLSearchParams(params).toString()}`, "Cache-Control": "no-cache" });
+    res.end();
+  };
+  if (!tailPath || /\s/u.test(systemId)) return back({ refused: "system_workspace_path_invalid", reason: "system_id is not a system:// ref" });
+  if (!ATTACH_KINDS[kind] || !subjectRef) return back({ refused: "system_attachment_subject_invalid", reason: "choose an ontology or a data source from the form" });
+  const gate = await fetchCensus(daemonUrl, "compact", systemId);
+  const row = !gate.networkError && gate.status === 200 && gate.body?.state === "ready" ? (gate.body.systems || []).find((s) => s.system_id === systemId) : null;
+  if (!row) {
+    const code = gate.networkError ? "daemon_unreachable" : gate.status === 200 ? "system_not_in_inventory" : refusalCodeOf(gate.body || {}, gate.status);
+    return back({ refused: code, reason: "attaching needs a System in your inventory" });
+  }
+  if (row.status !== "active") return back({ refused: "system_record_system_not_active", reason: `the System is ${row.status || "not active"}` });
+  const who = await daemonJson(daemonUrl, "GET", "/v1/hypervisor/auth/whoami");
+  const ownerRef = callerOwnerRef(who.body || {});
+  if (!ownerRef) return back({ refused: "mutation_owner_ref_required", reason: "your session carries no org:// or project:// tenant to own the attachment" });
+  const attachmentId = systemDataAttachmentId(systemId, subjectRef);
+  const result = await daemonJson(daemonUrl, "POST", `${GENESIS_API}/${encodeURIComponent(systemId)}/records`, {
+    owner_ref: ownerRef,
+    idempotency_key: `system-data-attachment-${sha256Hex(`${attachmentId}\u0000genesis`).slice(0, 32)}`,
+    contract_id: SYSTEM_DATA_ATTACHMENT_CONTRACT,
+    object_id: attachmentId,
+    parent_scope_ref: null,
+    record: { schema_version: "ioi.hypervisor.system-data-attachment.v1", attachment_id: attachmentId, subject_kind: kind, subject_ref: subjectRef, status: "attached" },
+    expected_head: null,
+  });
+  if (result.networkError) return back({ refused: "daemon_unreachable", reason: result.networkError });
+  if ((result.status === 200 || result.status === 201) && result.body?.ok === true && result.body?.receipt_ref) {
+    return back({ acted: "attach-data", record: attachmentId, receipt: result.body.receipt_ref, result: result.body.replayed ? "replayed" : "attached" });
+  }
+  return back({ refused: refusalCodeOf(result.body || {}, result.status) || `http_${result.status}`, reason: String(refusalMessageOf(result.body || {}) || "").slice(0, 200) });
 }

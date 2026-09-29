@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.hypervisor.studio.blueprint.v1",
+  "object": "ioi.hypervisor.studio.blueprint",
+  "id": "bp_0123456789abcdef",
+  "ref": "blueprint://bp_0123456789abcdef",
+  "name": "Loan review desk",
+  "description": "A binding that names a project, not a System.",
+  "graph": {},
+  "layout_ref": null,
+  "status": "draft",
+  "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "owner_ref": "org://acme",
+  "system_ref": "project://acme/lending"
+}

@@ -2194,10 +2194,43 @@ caller-filtered Systems projection before any per-System read, because the
 per-System daemon reads by storage key do not yet resolve the caller.
 
 - Live: Overview (identity and read projection), Govern (the lifecycle ladder
-  and its governed forms) and Evidence (genesis and lifecycle receipts and the
-  operation log), plus a read-only desired-versus-observed topology on Operate.
-- Named gaps: Design, Improve, Interfaces, health and limits each name the
-  plane that is missing, and hand off to the surface that owns that work today.
+  and its governed forms), Evidence (genesis and lifecycle receipts and the
+  operation log), Design (the blueprints and data bound to the System, below),
+  plus a read-only desired-versus-observed topology on Operate.
+- Named gaps: Improve, Interfaces, health and limits each name the plane that
+  is missing, and hand off to the surface that owns that work today.
+
+### Design mode: blueprints and data bound to a System
+
+Design mode lists what the System is made of, read from the planes that own
+each piece. Nothing new is stored for the System itself (2026-09-28, R-240
+journey WP-C1).
+
+- **Blueprints.** A Studio blueprint
+  (`schema://ioi/components/hypervisor/studio-blueprint/v1`) may carry
+  `system_ref`. The daemon sets it only when the blueprint is created, only to a
+  System that is in the creating caller's inventory (the Systems projection's
+  own rule) and is active, and never changes it afterwards. `null` means the
+  draft designs no System. A blueprint's identity is its `ref`. Its latest
+  version is the admitted head of its own event stream, which the daemon serves
+  as `admitted_head`, and every later revision must name that head.
+  `GET /v1/hypervisor/studio/blueprints?system_ref=` lists the blueprints bound
+  to one System. The caller must be signed in, the System must be one they can
+  see, and only blueprints owned by the caller's tenants are returned. Studio's
+  Draft a blueprint form offers the caller's active Systems as `system_ref`.
+- **Data.** An ontology, a data source or a connection is attached as a
+  `schema://ioi/components/hypervisor/system-data-attachment/v1` record through
+  the System-record seam (`/v1/hypervisor/autonomous-systems/:id/records`). The
+  seam derives the `SystemScopedObjectBinding`, checks the System is active and
+  keeps the record's head and receipt. The attachment holds only the subject's
+  ref; the subject stays owned and governed by its own plane, and attaching it
+  grants no access. Design mode's Attach form offers only ontologies and data
+  sources the caller's own scoped reads return.
+
+Not yet built: the seam does not check the subject ref against its owning plane.
+It admits any ref that fits the contract, so a caller writing to the API
+directly can attach a ref the form would never offer. Detaching (a successor
+with `status: detached`) has no form yet.
 
 ## Hypervisor Work
 

@@ -1,0 +1,17 @@
+{
+  "schema_version": "ioi.hypervisor.studio.blueprint.v1",
+  "object": "ioi.hypervisor.studio.blueprint",
+  "id": "bp_fedcba9876543210",
+  "ref": "blueprint://bp_fedcba9876543210",
+  "name": "Intake sketch",
+  "description": "",
+  "graph": {},
+  "layout_ref": "artifact://layouts/intake-sketch",
+  "status": "draft",
+  "content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "owner_ref": "org://acme",
+  "system_ref": null,
+  "promote_state": "approval_requested",
+  "approval_request_id": "apr_0123456789abcdef",
+  "approval_request_ref": "approval-request://apr_0123456789abcdef"
+}

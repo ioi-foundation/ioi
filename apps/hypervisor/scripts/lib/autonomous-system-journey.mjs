@@ -85,9 +85,8 @@ export const JOURNEY = Object.freeze([
     handoff: { into: "design", legs: [
       { id: "system-links-its-design", kind: "live", judged_by: "the created System is a card on /systems whose design link — the daemon's own published mode route — lands on the served System workspace in Design mode for THIS System, and that page's hand-off to Studio lands",
         assertion: "HAND-OFF 1→2 — /systems lists the created System, its Design link lands on the System workspace for it, and the workspace's hand-off to Studio lands" },
-      { id: "system-offered-to-studio", kind: "named_gap", judged_by: "Studio's blueprint form offers the System as a system_ref option",
-        gap: { code: "blueprint_system_ref_absent", plane: "blueprint system_ref (Studio blueprint plane)", source: "gap map hand-off 1→2; build order 4 (contract-first)",
-          probe: { route: "/systems/{system}/design", marker: 'data-system-named-gap="blueprint system_ref (Studio blueprint plane)"' } } },
+      { id: "system-offered-to-studio", kind: "live", judged_by: "the System's Design mode links to Studio's Draft a blueprint form, and that form's system_ref select — built from the caller-filtered Systems projection — offers THIS System, already chosen (closed 2026-09-28: R-240 journey WP-C1, the StudioBlueprint v1 contract carries system_ref)",
+        assertion: "HAND-OFF 1→2 — the System's Design mode hands off to Studio's blueprint form, which offers THIS System as the blueprint's system_ref" },
     ] },
   },
   {
@@ -98,15 +97,15 @@ export const JOURNEY = Object.freeze([
       { id: "designer-to-blueprints", kind: "composed", gate: "cross-surface-propagation", what: "a diagram saved in the Designer is listed among Studio's blueprints" },
       { id: "walk-blueprint", kind: "live", what: "THIS walk's blueprint bp-{tag}, created through the form Studio's blueprints view renders (its owner the tenant the form offers) and read back BY NAME on that view",
         assertion: "DESIGN — THIS walk's blueprint is created through Studio's own form and listed by its own name on Studio's blueprints" },
-      { id: "design-bound-to-system", kind: "named_gap", what: "a design bound to the System",
-        gap: { code: "blueprint_system_ref_absent", plane: "blueprint system_ref (Studio blueprint plane)", source: "gap map step 2; build order 4 (contract-first)" } },
+      { id: "design-bound-to-system", kind: "live", what: "THIS walk's blueprint bound to THIS System: created from the hand-off's form with system_ref = the System; the daemon's record carries that system_ref under the registered StudioBlueprint v1 contract with its admitted head, the daemon's System-narrowed blueprint list names it, and the System's Design mode lists it by its own ref and name (closed 2026-09-28: R-240 journey WP-C1)",
+        assertion: "DESIGN — THIS walk's blueprint is bound to THIS System in the daemon's record and listed by its own name on the System's Design mode" },
     ],
     handoff: { into: "data", legs: [
       { id: "studio-offers-data", kind: "composed", gate: "cross-surface-propagation", judged_by: "an ontology admitted in the Ontology Manager is offered by the Solution Designer and Open Diagram · Recent (the gap map's 2→3 works in reverse)" },
       { id: "walk-designer-offers-ontology", kind: "live", judged_by: "THIS walk's ontology {tag}-lending, written in step 3, is offered by the Solution Designer by its own name",
         assertion: "HAND-OFF 2→3 — the Solution Designer offers THIS walk's ontology by its own name" },
-      { id: "design-carries-system-data", kind: "named_gap", judged_by: "the System's design names the data it uses, under the System",
-        gap: { code: "system_data_attachment_absent", plane: "data and ontology attached to a System through the record seam", source: "gap map hand-off 2→3; build order 4" } },
+      { id: "design-carries-system-data", kind: "live", judged_by: "the System's Design mode lists THIS walk's ontology and source — attached in step 3 — by their own names, read from the caller's own ontology and data-source planes beside the seam's admitted heads (closed 2026-09-28: R-240 journey WP-C1)",
+        assertion: "HAND-OFF 2→3 — the System's Design mode names THIS walk's attached ontology and source by their own names" },
     ] },
   },
   {
@@ -119,8 +118,8 @@ export const JOURNEY = Object.freeze([
         assertion: "DATA — THIS walk's ontology and source are written through their owning forms and listed by their own names" },
       { id: "walk-function", kind: "live", what: "THIS walk's function fn{tag}, declared from Ontology / Functions' New function form (an integer input and output, Python), test-run from its own Run a test form in the environment the walk's run used, released from its own Release form, and read back on /ontology/functions by its own name as released with an operable tool revision (closed 2026-09-26: ADR 0056 P3)",
         assertion: "DATA — THIS walk's function is declared, test-run and released through Ontology / Functions' own forms, and listed by its own name with an operable tool revision" },
-      { id: "attach-to-system", kind: "named_gap", what: "attaching the data and the ontology to the System",
-        gap: { code: "system_data_attachment_absent", plane: "data and ontology attached to a System through the record seam", source: "gap map step 3; build order 4" } },
+      { id: "attach-to-system", kind: "live", what: "THIS walk's ontology and source attached to THIS System from its Design mode's Attach form (the options are the caller's own ontologies and sources): each is ONE SystemDataAttachment v1 record admitted through the System-record seam with a receipt, and the daemon's record list under the System holds both — each naming its subject by ref, attached, the binding derived to this System (closed 2026-09-28: R-240 journey WP-C1)",
+        assertion: "DATA — THIS walk's ontology and source are attached to THIS System through its Design mode's form, and the System-record seam holds both attachments under the System" },
     ],
     handoff: { into: "limits", legs: [
       { id: "data-offered-to-limits", kind: "named_gap", judged_by: "the System's connections and data are offered in the Leases & Limits lane",

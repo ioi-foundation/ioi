@@ -50,6 +50,8 @@ const BLUEPRINT_SCHEMA = "ioi.hypervisor.studio.blueprint.v1";
 // CLOSED here — so it has to move together with the body builder, never separately.
 const DESCRIPTOR_SCHEMA = "ioi.ontology-surface-descriptor.v2";
 const BLUEPRINT_PLANE = "/v1/hypervisor/studio/blueprints";
+const SYSTEMS_PROJECTION = "/v1/hypervisor/autonomous-systems/projection";
+const SYSTEMS_READ_TIMEOUT_MS = 60_000;
 const DESCRIPTOR_PLANE = "/v1/hypervisor/odk/surface-descriptors";
 // The ontology family plane a descriptor may actually bind. NOT the ODK domain-ontology plane: that
 // one mints `ontology://ont_<hex>` refs, and the v2 contract owner-resolves every `ontology_refs`
@@ -123,6 +125,21 @@ export async function load(ctx) {
     ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch })
     : createReadClient({ daemon: ctx.daemon });
   const sp = ctx.url.searchParams;
+  // R-240 journey WP-C1 — the Systems a new blueprint may be bound to: the caller-filtered Systems
+  // projection, read only where the Draft form renders. A hand-off from a System's Design mode names
+  // that System; the projection is then narrowed to it, so another System still mid-genesis cannot
+  // withhold the offer (the unfiltered projection is all-or-nothing).
+  // The projection rebuilds every row from verified owner truth, so it is slower than a plane list
+  // and gets its own deadline rather than the fan-out's 8 s. It is read AFTER the fan-out, never
+  // beside it: run in parallel on a loaded daemon, it starved the fan-out's own reads past their
+  // deadline (the journey walk measured whoami degrading, so the Draft form offered no owner).
+  const handedSystem = (sp.get("system_ref") || "").trim();
+  const draftingBlueprint = (sp.get("view") || "") === "blueprints" && !(sp.get("bp") || "").trim();
+  const systemsClient = draftingBlueprint
+    ? (typeof ctx.daemonFetch === "function"
+      ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch, timeoutMs: SYSTEMS_READ_TIMEOUT_MS })
+      : createReadClient({ daemon: ctx.daemon, timeoutMs: SYSTEMS_READ_TIMEOUT_MS }))
+    : null;
   const results = await client.readMany({
     // The agent-estate lens planes (the /__ioi/agent-studio T2 readout grammar).
     agents: "/v1/agents",
@@ -148,6 +165,9 @@ export async function load(ctx) {
     blueprints: BLUEPRINT_PLANE,
     whoami: "/v1/hypervisor/auth/whoami",
   });
+  if (systemsClient) {
+    results.systems = await systemsClient.read(`${SYSTEMS_PROJECTION}?view=compact${handedSystem ? `&system_id=${enc(handedSystem)}` : ""}`);
+  }
   const model = { results };
   // The admitted ontology REVISIONS this caller may bind. The family inventory names families
   // (`ontology://ns/name`), which the descriptor contract refuses — durable product inventory may
@@ -205,7 +225,7 @@ export async function load(ctx) {
 const BP_AUTHORITY = { plane: "studio.blueprints", operation: "POST|PATCH /v1/hypervisor/studio/blueprints" };
 const SD_AUTHORITY = { plane: "odk.surface-descriptors", operation: "POST|PATCH /v1/hypervisor/odk/surface-descriptors" };
 export const actions = [
-  { id: "create-blueprint", method: "POST", route: "/actions/create-blueprint", fields: ["owner_ref", "idempotency_key", "name", "description", "graph_json", "layout_ref"], fieldMax: 8192, context: [], authority: BP_AUTHORITY, receipt: BLUEPRINT_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+  { id: "create-blueprint", method: "POST", route: "/actions/create-blueprint", fields: ["owner_ref", "idempotency_key", "name", "description", "graph_json", "layout_ref", "system_ref"], fieldMax: 8192, context: [], authority: BP_AUTHORITY, receipt: BLUEPRINT_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "update-blueprint", method: "POST", route: "/:id/update", fields: ["idempotency_key", "expected_head", "name", "description", "graph_json", "layout_ref"], fieldMax: 8192, context: ["id"], authority: BP_AUTHORITY, receipt: BLUEPRINT_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   { id: "promote-blueprint", method: "POST", route: "/:id/promote", fields: ["idempotency_key", "expected_head", "reason"], context: ["id"], authority: { plane: "studio.blueprints+governance.approval-requests", operation: "POST /v1/hypervisor/studio/blueprints/:id/promote (composes an ApprovalRequest)" }, receipt: BLUEPRINT_SCHEMA, confirm: false, success: "return-to-surface", refusal: "typed-banner" },
   // The v2 authoring set: the five scalars plus the fourteen ref-set members. Every member is
@@ -251,6 +271,9 @@ export async function handleAction({ action, id, fields, daemonFetch }) {
     if (fields.description !== undefined) body.description = fields.description;
     if (graph !== undefined) body.graph = graph;
     if (fields.layout_ref) body.layout_ref = fields.layout_ref;
+    // The System this draft designs — chosen from the Systems the form offered; the daemon admits the
+    // binding only for an active System in the caller's inventory. Unchosen, the draft is unbound.
+    if (fields.system_ref) body.system_ref = fields.system_ref;
   } else if (action.id === "update-blueprint") {
     path = `${BLUEPRINT_PLANE}/${enc(id)}`;
     method = "PATCH";
@@ -520,11 +543,27 @@ function blueprintsView(model, sp) {
   const selectedId = (sp.get("bp") || "").trim();
   const mintKey = () => `studio-ui-${globalThis.crypto.randomUUID()}`;
   const ownerField = `<label class="fl">Owner (org:// or project://)<input name="owner_ref" value="${esc(callerOwnerRef(model.results.whoami))}" placeholder="org://… or project://…" required title="The single org:// or project:// that owns this record. The daemon admits the write under it and refuses a caller who holds no authority over it."></label>`;
+  // The System this draft designs (R-240 journey WP-C1): the caller's ACTIVE Systems from the
+  // caller-filtered Systems projection, the one a System's Design mode handed off pre-chosen. A
+  // projection that did not answer offers only "not bound" and says why — never a typed-in ref.
+  const handedSystem = (sp.get("system_ref") || "").trim();
+  const systemsRead = model.results.systems;
+  const activeSystems = systemsRead?.ok
+    ? (Array.isArray(systemsRead.payload?.systems) ? systemsRead.payload.systems : []).filter((s) => s?.status === "active" && String(s.system_id || "").startsWith("system://"))
+    : [];
+  const handedOffered = handedSystem && activeSystems.some((s) => s.system_id === handedSystem);
+  const systemNote = !systemsRead?.ok
+    ? `the Systems projection did not answer (<code>${esc(systemsRead?.code || "daemon_unavailable")}</code>) — only an unbound draft can be created here`
+    : handedSystem && !handedOffered
+      ? `<code>${esc(handedSystem)}</code> is not an active System in your inventory, so it is not offered`
+      : activeSystems.length ? "a draft binds one active System you can see; the binding never moves" : "you have no active System yet — the draft is created unbound";
+  const systemField = `<label class="fl">System this blueprint designs<select name="system_ref" data-blueprint-system-select="1"><option value="">Not bound to a System</option>${activeSystems.map((s) => `<option value="${esc(s.system_id)}"${s.system_id === handedSystem ? " selected" : ""}>${esc(s.system_id)}</option>`).join("")}</select><span class="sub" style="margin:0;text-transform:none;letter-spacing:0;font-weight:400">${systemNote}</span></label>`;
   const list = rows === null
     ? degraded(listResult)
     : (rows.length
-      ? `<table><thead><tr><th>Blueprint</th><th>Status</th><th>Promotion</th><th>Content hash</th><th>Updated</th></tr></thead><tbody>${rows.map((b) => `<tr>
+      ? `<table><thead><tr><th>Blueprint</th><th>System</th><th>Status</th><th>Promotion</th><th>Content hash</th><th>Updated</th></tr></thead><tbody>${rows.map((b) => `<tr>
           <td><a href="?view=blueprints&bp=${enc(b.id || "")}"><b>${esc(b.name || b.id || "—")}</b></a><div style="color:#878a93;font-size:11.5px"><code>${esc(b.ref || "")}</code></div></td>
+          <td>${b.system_ref ? `<code data-blueprint-system="${esc(b.system_ref)}">${esc(b.system_ref)}</code>` : "—"}</td>
           <td>${pill(b.status === "draft" ? "muted" : "ok", b.status || "—")}</td>
           <td>${b.promote_state ? pill("warn", b.promote_state) : "—"}</td>
           <td><code title="${esc(b.content_hash || "")}">${esc(shortHash(b.content_hash))}</code></td>
@@ -536,6 +575,7 @@ function blueprintsView(model, sp) {
       <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
       <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?view=blueprints`)}">
       ${ownerField}
+      ${systemField}
       <label class="fl">Name<input name="name" maxlength="200" required></label>
       <label class="fl">Description<input name="description" maxlength="2000"></label>
       <label class="fl">Graph (JSON object, ≤64KiB serialized)<textarea name="graph_json" rows="4" placeholder='{"nodes":[],"edges":[]}'></textarea></label>
@@ -565,6 +605,7 @@ function blueprintsView(model, sp) {
         <dt>Content hash</dt><dd><code data-testid="bp-content-hash">${esc(b.content_hash || "—")}</code></dd>
         <dt>Admitted head</dt><dd><code data-testid="bp-admitted-head">${esc(head || "—")}</code></dd>
         <dt>Owner</dt><dd>${code(b.owner_ref)}</dd>
+        <dt>System</dt><dd>${b.system_ref ? `${code(b.system_ref)} — set when the draft was created; it never moves` : "not bound to a System"}</dd>
         <dt>Description</dt><dd>${esc(b.description || "—")}</dd>
         <dt>Layout ref</dt><dd>${b.layout_ref ? code(b.layout_ref) : "—"}</dd>
         <dt>Promotion</dt><dd>${b.promote_state ? `${pill("warn", b.promote_state)} · approval ${code(b.approval_request_ref)} — decide on <a href="/governance/approvals">Approvals</a>` : "not requested"}</dd>

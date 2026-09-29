@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/studio-blueprint/v1",
+  "title": "StudioBlueprint",
+  "x-ioi-schema-version": "ioi.hypervisor.studio.blueprint.v1",
+  "description": "One Studio blueprint: an authored composition draft owned by one tenant, optionally bound to the one bounded System it designs. Its identity is `ref` (derived from the owner and the creating caller's idempotency key); its tip is the admitted head of its own event stream, which the daemon serves beside the record as `admitted_head` and every successor compare-and-swaps against. `content_hash` is the canonical (JCS) sha256 of the four authored fields (name, description, graph, layout_ref) and names what the draft says, never who holds it or where it is bound. `system_ref` is set when the blueprint is created — only to an ACTIVE System in the creating caller's inventory — and never moves; null means the draft designs no System. `created_at` and `updated_at` are stamped from the admission on the read model and are absent from the admitted payload. A blueprint confers no authority and mounts nothing; promotion only composes a governance approval request.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "name",
+    "description",
+    "graph",
+    "layout_ref",
+    "status",
+    "content_hash",
+    "owner_ref",
+    "system_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.studio.blueprint.v1"
+    },
+    "object": {
+      "type": "string",
+      "const": "ioi.hypervisor.studio.blueprint"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^bp_[0-9a-f]{1,64}$"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^blueprint://bp_[0-9a-f]{1,64}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "graph": {
+      "type": "object"
+    },
+    "layout_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^artifact://[^\\s]{1,289}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft"
+      ]
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "system_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "promote_state": {
+      "type": "string",
+      "enum": [
+        "approval_requested"
+      ]
+    },
+    "approval_request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "approval_request_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

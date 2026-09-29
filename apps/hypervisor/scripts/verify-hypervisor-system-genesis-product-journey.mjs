@@ -841,8 +841,11 @@ async function main() {
       "overview/govern/evidence carry alpha only",
     );
     ok(
-      "WORKSPACE GAP MODES: Design, Improve and Interfaces name the missing plane and hand off to the surfaces that own the work today",
-      ["design", "improve", "interfaces"].every((mode) => /data-system-named-gap="[^"]+"/.test(pageFor(mode)) && pageFor(mode).includes('data-system-handoffs="1"')),
+      "WORKSPACE DESIGN + GAP MODES: Design lists the blueprints and data bound to THIS System (alpha's own, never beta's) with its draft and attach hand-offs; Improve and Interfaces name the missing plane; all three hand off to the surfaces that own the work today",
+      pageFor("design").includes(`data-system-designs="${alphaCompactIds.systemId}"`) && pageFor("design").includes(`data-system-data="${alphaCompactIds.systemId}"`)
+        && pageFor("design").includes('data-system-draft-blueprint="1"') && !pageFor("design").includes(betaIds.systemId)
+        && ["improve", "interfaces"].every((mode) => /data-system-named-gap="[^"]+"/.test(pageFor(mode)))
+        && ["design", "improve", "interfaces"].every((mode) => pageFor(mode).includes('data-system-handoffs="1"')),
     );
     const { systemRecordTail } = await import(SURFACE_MODULE);
     ok(

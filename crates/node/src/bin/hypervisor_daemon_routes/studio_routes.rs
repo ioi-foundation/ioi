@@ -17,16 +17,25 @@
 //!     plane's own handler and records the request on the blueprint. Status stays `"draft"` —
 //!     nothing auto-applies on approval; any state change an approval authorizes is a later,
 //!     separate plane.
+//!
+//! The record is the registered contract `schema://ioi/components/hypervisor/studio-blueprint/v1`,
+//! validated before every admission (R-240 journey WP-C1). A draft may be bound to the ONE System
+//! it designs (`system_ref`): set at create, only to an active System in the creating caller's
+//! inventory, and never moved by a successor. A blueprint's identity is its `ref`; its tip is the
+//! admitted head of its own stream (`admitted_head` on GET), which every successor names.
 
 use axum::http::HeaderMap;
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
+use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 use serde_json::{json, Value};
 
+use super::substrate_store::RequestIdentity;
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 /// Record-directory kind for the read-model projection (also referenced by
@@ -37,11 +46,14 @@ pub(crate) const KIND_BLUEPRINT: &str = "studio-blueprints";
 /// namespace; no registration step exists).
 const STUDIO_NAMESPACE: &str = "hypervisor-studio";
 const BLUEPRINT_SCOPE_KIND: &str = "hypervisor-studio-blueprint";
-/// Code-local schema constant is the house pattern; the M6 central-registration gap is filed.
+/// The record's schema version, registered centrally as `BLUEPRINT_CONTRACT_ID` (R-240 journey WP-C1).
 const BLUEPRINT_SCHEMA_VERSION: &str = "ioi.hypervisor.studio.blueprint.v1";
+const BLUEPRINT_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/studio-blueprint/v1";
 const BLUEPRINT_REF_PREFIX: &str = "blueprint://";
 
 const NAME_MAX: usize = 200;
+/// The System lifecycle loaders' own bound on a `system://` ref.
+const SYSTEM_REF_MAX: usize = 320;
 const DESCRIPTION_MAX: usize = 2000;
 const REASON_MAX: usize = 2000;
 const LAYOUT_REF_MAX: usize = 300;
@@ -176,6 +188,7 @@ fn studio_derived_id(prefix: &str, owner_ref: &str, idempotency_key: &str) -> St
 /// `previous` is None for a genesis create and Some(existing) for a successor.
 struct StudioAdmission<'a> {
     family: &'a str,
+    contract_id: &'a str,
     scope_kind: &'a str,
     ref_prefix: &'a str,
     op_kind: &'a str,
@@ -243,6 +256,17 @@ fn studio_admit(
         object.remove("created_at");
         object.remove("updated_at");
         object.insert("owner_ref".into(), json!(owner_ref));
+    }
+    // THE ADMITTED PAYLOAD IS THE REGISTERED CONTRACT, checked before anything is bound or written:
+    // a record the contract refuses is refused by name, never admitted and corrected later.
+    if let Err(reason) = validate_architecture_contract(spec.contract_id, &record) {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "ok": false, "error": {
+                "code": "studio_blueprint_contract_invalid",
+                "message": format!("the blueprint would not satisfy its registered contract {}: {reason}", spec.contract_id)
+            }})),
+        );
     }
 
     let resource_ref = format!("{}{id}", spec.ref_prefix);
@@ -414,6 +438,114 @@ fn validated_layout_ref(body: &Value) -> Result<LayoutRefEdit, VErr> {
     }
 }
 
+/// `system_ref` binds a draft to the ONE System it designs. Absent or null leaves the draft unbound;
+/// a present value must be a bounded `system://` ref — never blank, never another scheme.
+fn validated_system_ref(body: &Value) -> Result<Option<String>, VErr> {
+    match body.get("system_ref") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) => {
+            let s = s.trim();
+            let tail = s.strip_prefix("system://").unwrap_or("");
+            if tail.is_empty()
+                || s.chars().count() > SYSTEM_REF_MAX
+                || s.chars().any(char::is_whitespace)
+            {
+                return Err(verr(
+                    "studio_blueprint_system_ref_invalid",
+                    format!("`system_ref` must be a bounded 'system://…' ref (at most {SYSTEM_REF_MAX} chars), or null for a draft that designs no System"),
+                ));
+            }
+            Ok(Some(s.to_string()))
+        }
+        Some(_) => Err(verr(
+            "studio_field_type_invalid",
+            "`system_ref` must be a string or null when present".to_string(),
+        )),
+    }
+}
+
+/// A successor never moves a blueprint between Systems, exactly as it never moves it between owners:
+/// a `system_ref` in a successor body must name the System the admitted record already names. A
+/// record admitted before the binding existed carries none and reads as unbound (null).
+fn successor_system_ref(previous: &Value, body: &Value) -> Result<Value, VErr> {
+    let admitted = previous.get("system_ref").cloned().unwrap_or(Value::Null);
+    if body.get("system_ref").is_some() {
+        let requested = validated_system_ref(body)?;
+        if requested.as_deref() != admitted.as_str() {
+            return Err(verr(
+                "studio_blueprint_system_ref_immutable",
+                "`system_ref` is set when a blueprint is created and never moves; draft a new blueprint for another System".to_string(),
+            ));
+        }
+    }
+    Ok(admitted)
+}
+
+/// A draft binds only a System in the caller's OWN inventory — the Systems projection's rule, so a
+/// stranger's System answers exactly as one that does not exist — and only while that System is
+/// ACTIVE (the System-record seam's own check).
+fn require_bindable_system(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    system_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let refuse = |status: StatusCode, code: &str, message: String| {
+        Err((
+            status,
+            Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+        ))
+    };
+    match super::system_projection_routes::system_in_inventory(data_dir, identity, system_id) {
+        Ok(true) => {}
+        Ok(false) => {
+            return refuse(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "studio_blueprint_system_unknown",
+                format!("no System in your inventory answers to {system_id}; a blueprint binds only a System you can see"),
+            )
+        }
+        Err((code, message)) => {
+            return refuse(
+                StatusCode::CONFLICT,
+                "studio_blueprint_system_unreadable",
+                format!("the System's admission could not be read ({code}: {message}); nothing was bound"),
+            )
+        }
+    }
+    match super::system_activation_routes::load_active_system_graph(data_dir, system_id) {
+        Ok(_) => Ok(()),
+        Err((code, message)) => refuse(
+            StatusCode::CONFLICT,
+            "studio_blueprint_system_not_active",
+            format!("{system_id} is not an active System ({code}: {message}); a blueprint binds only an active System"),
+        ),
+    }
+}
+
+/// The blueprints bound to ONE System that this caller may read: the record names the System, and
+/// the caller holds the blueprint's owner tenant or its own admission scope.
+fn blueprints_bound_to(
+    items: Vec<Value>,
+    system_ref: &str,
+    identity: &RequestIdentity,
+    held_refs: &std::collections::BTreeSet<String>,
+) -> Vec<Value> {
+    items
+        .into_iter()
+        .filter(|record| record.get("system_ref").and_then(Value::as_str) == Some(system_ref))
+        .filter(|record| {
+            record
+                .get("owner_ref")
+                .and_then(Value::as_str)
+                .is_some_and(|owner| identity.authorizes_tenant(owner))
+                || record
+                    .get("ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reference| held_refs.contains(reference))
+        })
+        .collect()
+}
+
 /// Content identity over the four author-editable fields. Canonical (JCS) bytes, so key order and
 /// whitespace can never change what a blueprint "is"; the substrate's replay identity stays byte-
 /// level and untouched.
@@ -457,13 +589,70 @@ fn not_found() -> (StatusCode, Json<Value>) {
 
 // ---------------------------------------- handlers -----------------------------------------------
 
-/// GET /v1/hypervisor/studio/blueprints — read-model list projection.
+/// GET /v1/hypervisor/studio/blueprints[?system_ref=] — read-model list projection. Narrowed to one
+/// System, the read is identity-first and policy-first: the System must be in the caller's
+/// inventory (else the answer is empty, the same as a System with no designs), and only blueprints
+/// the caller may read are returned.
 pub(crate) async fn handle_studio_blueprint_list(
     State(st): State<Arc<DaemonState>>,
-) -> Json<Value> {
+    headers: HeaderMap,
+    Query(query): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
     let mut items = read_record_dir(&st.data_dir, KIND_BLUEPRINT);
-    sort_by_updated(&mut items);
-    Json(json!({ "ok": true, "blueprints": items }))
+    let Some(system_ref) = query
+        .get("system_ref")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    else {
+        sort_by_updated(&mut items);
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "blueprints": items })),
+        );
+    };
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return studio_scope_refusal(error),
+    };
+    let in_inventory = match super::system_projection_routes::system_in_inventory(
+        &st.data_dir,
+        &identity,
+        &system_ref,
+    ) {
+        Ok(visible) => visible,
+        Err((code, message)) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "ok": false, "error": {
+                    "code": "studio_blueprint_system_unreadable",
+                    "message": format!("the System's admission could not be read ({code}: {message})")
+                }})),
+            )
+        }
+    };
+    let held_refs = match super::substrate_store::authorized_request_resource_refs(
+        &st.data_dir,
+        &identity,
+        BLUEPRINT_SCOPE_KIND,
+    ) {
+        Ok(refs) => refs,
+        Err(error) => return studio_scope_refusal(error),
+    };
+    let mut bound = if in_inventory {
+        blueprints_bound_to(items, &system_ref, &identity, &held_refs)
+    } else {
+        Vec::new()
+    };
+    sort_by_updated(&mut bound);
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "blueprints": bound,
+            "system_ref": system_ref,
+            "policy": { "principal_ref": identity.principal_ref, "system_in_inventory": in_inventory }
+        })),
+    )
 }
 
 /// POST /v1/hypervisor/studio/blueprints — create a StudioBlueprint DRAFT through the shared
@@ -475,9 +664,10 @@ pub(crate) async fn handle_studio_blueprint_create(
 ) -> (StatusCode, Json<Value>) {
     // Identity first: a blueprint write is an owner-scoped mutation, not an anonymous
     // record-directory append.
-    if let Err(error) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
-        return studio_scope_refusal(error);
-    }
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return studio_scope_refusal(error),
+    };
     let owner_ref = body
         .get("owner_ref")
         .and_then(|v| v.as_str())
@@ -517,6 +707,17 @@ pub(crate) async fn handle_studio_blueprint_create(
         Ok(LayoutRefEdit::Unchanged) | Ok(LayoutRefEdit::Clear) => Value::Null,
         Err((c, m)) => return bad(&c, &m),
     };
+    let system_ref = match validated_system_ref(&body) {
+        Ok(system_ref) => system_ref,
+        Err((c, m)) => return bad(&c, &m),
+    };
+    // The binding is checked last among the cheap validations and before anything is admitted: a
+    // draft binds only an active System the caller can see.
+    if let Some(system_id) = system_ref.as_deref() {
+        if let Err(response) = require_bindable_system(&st.data_dir, &identity, system_id) {
+            return response;
+        }
+    }
     let content_hash = match blueprint_content_hash(&name, &description, &graph, &layout_ref) {
         Ok(hash) => hash,
         Err(error) => return content_hash_failed(error),
@@ -536,6 +737,7 @@ pub(crate) async fn handle_studio_blueprint_create(
         "status": "draft",
         "content_hash": content_hash,
         "owner_ref": owner_ref,
+        "system_ref": system_ref,
     });
     studio_admit(
         &st.data_dir,
@@ -543,6 +745,7 @@ pub(crate) async fn handle_studio_blueprint_create(
         &body,
         StudioAdmission {
             family: KIND_BLUEPRINT,
+            contract_id: BLUEPRINT_CONTRACT_ID,
             scope_kind: BLUEPRINT_SCOPE_KIND,
             ref_prefix: BLUEPRINT_REF_PREFIX,
             op_kind: "event_stream.hypervisor_studio_blueprint_admitted",
@@ -598,6 +801,10 @@ pub(crate) async fn handle_studio_blueprint_patch(
         return not_found();
     };
     let mut d = previous.clone();
+    match successor_system_ref(&previous, &body) {
+        Ok(system_ref) => d["system_ref"] = system_ref,
+        Err((c, m)) => return bad(&c, &m),
+    }
     match validated_name(&body, false) {
         Ok(Some(name)) => d["name"] = json!(name),
         Ok(None) => {}
@@ -637,6 +844,7 @@ pub(crate) async fn handle_studio_blueprint_patch(
         &body,
         StudioAdmission {
             family: KIND_BLUEPRINT,
+            contract_id: BLUEPRINT_CONTRACT_ID,
             scope_kind: BLUEPRINT_SCOPE_KIND,
             ref_prefix: BLUEPRINT_REF_PREFIX,
             op_kind: "event_stream.hypervisor_studio_blueprint_revised",
@@ -737,6 +945,8 @@ pub(crate) async fn handle_studio_blueprint_promote(
         );
     }
     let mut record = previous.clone();
+    // A record admitted before the System binding existed reads as unbound (the contract's null).
+    record["system_ref"] = previous.get("system_ref").cloned().unwrap_or(Value::Null);
     record["promote_state"] = json!("approval_requested");
     record["approval_request_id"] = json!(approval_id);
     record["approval_request_ref"] = json!(approval_ref);
@@ -749,6 +959,7 @@ pub(crate) async fn handle_studio_blueprint_promote(
         &body,
         StudioAdmission {
             family: KIND_BLUEPRINT,
+            contract_id: BLUEPRINT_CONTRACT_ID,
             scope_kind: BLUEPRINT_SCOPE_KIND,
             ref_prefix: BLUEPRINT_REF_PREFIX,
             op_kind: "event_stream.hypervisor_studio_blueprint_promotion_requested",
@@ -936,6 +1147,183 @@ mod studio_tests {
             validated_layout_ref(&json!({ "layout_ref": "artifact://layouts/a1" })).unwrap(),
             LayoutRefEdit::Set(_)
         ));
+    }
+
+    /// The admitted payload create builds is the registered contract, bound or unbound; a record
+    /// that names no binding at all, or binds anything but a `system://` ref, is refused by it.
+    #[test]
+    fn blueprint_payload_is_the_registered_contract_with_its_system_binding() {
+        let payload = |system_ref: Value| {
+            json!({
+                "schema_version": BLUEPRINT_SCHEMA_VERSION,
+                "object": "ioi.hypervisor.studio.blueprint",
+                "id": "bp_0123456789abcdef",
+                "ref": "blueprint://bp_0123456789abcdef",
+                "name": "desk",
+                "description": "",
+                "graph": { "nodes": [], "edges": [] },
+                "layout_ref": Value::Null,
+                "status": "draft",
+                "content_hash": blueprint_content_hash("desk", "", &json!({ "nodes": [], "edges": [] }), &Value::Null).unwrap(),
+                "owner_ref": "org://acme",
+                "system_ref": system_ref,
+            })
+        };
+        validate_architecture_contract(
+            BLUEPRINT_CONTRACT_ID,
+            &payload(json!("system://acme/lending")),
+        )
+        .expect("a bound draft is the registered contract");
+        validate_architecture_contract(BLUEPRINT_CONTRACT_ID, &payload(Value::Null))
+            .expect("an unbound draft is the registered contract");
+        let mut unnamed = payload(Value::Null);
+        unnamed.as_object_mut().unwrap().remove("system_ref");
+        assert!(
+            validate_architecture_contract(BLUEPRINT_CONTRACT_ID, &unnamed).is_err(),
+            "a payload that says nothing about its System is refused, never read as unbound"
+        );
+        assert!(
+            validate_architecture_contract(
+                BLUEPRINT_CONTRACT_ID,
+                &payload(json!("project://acme/x"))
+            )
+            .is_err(),
+            "a binding to anything but a System is refused"
+        );
+        let mut promoted = payload(json!("system://acme/lending"));
+        promoted["promote_state"] = json!("approval_requested");
+        promoted["approval_request_id"] = json!("apr_1");
+        promoted["approval_request_ref"] = json!("approval-request://apr_1");
+        validate_architecture_contract(BLUEPRINT_CONTRACT_ID, &promoted)
+            .expect("a promotion successor is the registered contract");
+        let mut stray = payload(Value::Null);
+        stray["system_binding"] = json!({});
+        assert!(
+            validate_architecture_contract(BLUEPRINT_CONTRACT_ID, &stray).is_err(),
+            "an unregistered member is refused"
+        );
+    }
+
+    /// `system_ref` is a bounded `system://` ref or null; everything else is refused by name.
+    #[test]
+    fn system_ref_is_a_bounded_system_ref_or_null() {
+        assert_eq!(validated_system_ref(&json!({})).unwrap(), None);
+        assert_eq!(
+            validated_system_ref(&json!({ "system_ref": null })).unwrap(),
+            None
+        );
+        assert_eq!(
+            validated_system_ref(&json!({ "system_ref": " system://acme/lending " })).unwrap(),
+            Some("system://acme/lending".to_string())
+        );
+        for bad_ref in [
+            "",
+            "   ",
+            "system://",
+            "project://acme/x",
+            "system://acme/has space",
+        ] {
+            assert_eq!(
+                validated_system_ref(&json!({ "system_ref": bad_ref }))
+                    .unwrap_err()
+                    .0,
+                "studio_blueprint_system_ref_invalid",
+                "{bad_ref:?}"
+            );
+        }
+        assert_eq!(
+            validated_system_ref(
+                &json!({ "system_ref": format!("system://{}", "x".repeat(SYSTEM_REF_MAX)) })
+            )
+            .unwrap_err()
+            .0,
+            "studio_blueprint_system_ref_invalid"
+        );
+        assert_eq!(
+            validated_system_ref(&json!({ "system_ref": 7 }))
+                .unwrap_err()
+                .0,
+            "studio_field_type_invalid"
+        );
+    }
+
+    /// A successor never moves a blueprint between Systems; a legacy record reads as unbound.
+    #[test]
+    fn a_successor_keeps_the_system_the_blueprint_was_created_for() {
+        let bound = json!({ "system_ref": "system://acme/lending" });
+        let legacy = json!({ "name": "made before the binding existed" });
+        assert_eq!(
+            successor_system_ref(&bound, &json!({})).unwrap(),
+            json!("system://acme/lending")
+        );
+        assert_eq!(
+            successor_system_ref(&bound, &json!({ "system_ref": "system://acme/lending" }))
+                .unwrap(),
+            json!("system://acme/lending")
+        );
+        assert_eq!(
+            successor_system_ref(&bound, &json!({ "system_ref": "system://acme/other" }))
+                .unwrap_err()
+                .0,
+            "studio_blueprint_system_ref_immutable"
+        );
+        assert_eq!(
+            successor_system_ref(&bound, &json!({ "system_ref": null }))
+                .unwrap_err()
+                .0,
+            "studio_blueprint_system_ref_immutable"
+        );
+        assert_eq!(
+            successor_system_ref(&legacy, &json!({})).unwrap(),
+            Value::Null
+        );
+        assert_eq!(
+            successor_system_ref(&legacy, &json!({ "system_ref": "system://acme/lending" }))
+                .unwrap_err()
+                .0,
+            "studio_blueprint_system_ref_immutable"
+        );
+        assert_eq!(
+            successor_system_ref(&legacy, &json!({ "system_ref": "project://x" }))
+                .unwrap_err()
+                .0,
+            "studio_blueprint_system_ref_invalid"
+        );
+    }
+
+    /// The System-narrowed list returns only blueprints bound to THAT System which the caller may
+    /// read — by owner tenant or by the blueprint's own admission scope — and nobody else's.
+    #[test]
+    fn the_system_narrowed_list_is_the_callers_blueprints_bound_to_that_system() {
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://usr_1",
+            ["org://acme".to_string()],
+        );
+        let bp = |id: &str, owner: &str, system: Value| json!({ "id": id, "ref": format!("blueprint://{id}"), "owner_ref": owner, "system_ref": system });
+        let items = vec![
+            bp("bp_mine", "org://acme", json!("system://acme/lending")),
+            bp(
+                "bp_other_system",
+                "org://acme",
+                json!("system://acme/other"),
+            ),
+            bp("bp_unbound", "org://acme", Value::Null),
+            bp(
+                "bp_stranger",
+                "org://globex",
+                json!("system://acme/lending"),
+            ),
+            bp("bp_held", "project://p", json!("system://acme/lending")),
+            json!({ "id": "bp_legacy", "ref": "blueprint://bp_legacy", "owner_ref": "org://acme" }),
+        ];
+        let held: std::collections::BTreeSet<String> =
+            ["blueprint://bp_held".to_string()].into_iter().collect();
+        let ids: Vec<String> =
+            blueprints_bound_to(items, "system://acme/lending", &identity, &held)
+                .iter()
+                .map(|b| b["id"].as_str().unwrap().to_string())
+                .collect();
+        assert_eq!(ids, vec!["bp_mine".to_string(), "bp_held".to_string()]);
     }
 
     /// A refusal must carry the status its class implies: an unauthenticated write answering 200,
