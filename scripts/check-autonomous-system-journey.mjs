@@ -20,9 +20,10 @@
 // re-read of the System.
 //
 //   PURE     — the journey table and the verdict rules (apps/hypervisor/scripts/lib/autonomous-system-journey.mjs)
-//   SOURCE   — the LIVE leg owns its plane and operator and writes only through rendered forms
+//   SOURCE   — the LIVE leg owns its plane and operator and writes only through rendered forms (and the
+//              one JavaScript surface, the New Session composer, through its rendered controls in a browser)
 //   BINDING  — floored, CI-bound in the recognised form, and every composed gate runnable
-//   LIVE     — the continuous walk (step 1 and its hand-off live today; later steps TODO or NAMED_GAP)
+//   LIVE     — the continuous walk: every step's own legs live or NAMED_GAP, none TODO
 //   COMPOSE  — the existing gates, run in this invocation on one basis
 //
 //   --drills        CI-bound, seconds: PURE, SOURCE, BINDING, the verdict rules. No daemon, no browser.
@@ -66,7 +67,7 @@ export const CLAUSES = [
   { n: 1, demand: "THE LIFECYCLE WORKS THROUGH THE UI, AS ONE CONTINUOUS WALK. One tag, one System, created by governed genesis and carried through the eleven steps the gap map names — create, design, data, limits, run, observe, provenance, evaluate, improve, release, operate. Each step is PASS, NAMED_GAP or FAIL, and the gate passes only when all eleven PASS", executed_by: [PURE, LIVE, COMPOSED] },
   { n: 2, demand: "EVERY HAND-OFF IS JUDGED. Step N's object must appear as an option or a link in step N+1's form; a step whose hand-off is not judged is red, never skipped. The last step hands off to nothing: the walk ends with a restart and a re-read of the System", executed_by: [PURE, LIVE] },
   { n: 3, demand: "A NAMED GAP IS NEVER A PASS. Any NAMED_GAP step exits 2, \"journey incomplete\"; a gap that reports pass is fabricated and red; a gap the product no longer names is stale and red. Closing a gap flips its row to a live leg with its own assertion, in the same cut that removes it from REQUIRED_GAPS", executed_by: [PURE, LIVE] },
-  { n: 4, demand: "EVERY WRITE GOES THROUGH THE FORM ITS OWNING SURFACE RENDERS — found on the rendered page before it is submitted, never the daemon API — and authority is a real wallet.network grant for the exact hashes the surface rendered", executed_by: [SOURCE, LIVE] },
+  { n: 4, demand: "EVERY WRITE GOES THROUGH THE FORM ITS OWNING SURFACE RENDERS — found on the rendered page before it is submitted, never the daemon API; a JavaScript surface (the New Session composer) is driven in a browser as the same operator through the controls the page rendered — and authority is a real wallet.network grant for the exact hashes the surface rendered", executed_by: [SOURCE, LIVE] },
   { n: 5, demand: "THE GATE OWNS ITS DAEMON, ITS SERVE AND ITS OPERATOR: a fresh data directory, free ports, the sign-in gate on, the real wallet.network fixture, an operator bootstrapped with the daemon's one-boot token through the serve's first-run form. The owner's data is never read or written, and no shared serve can answer for it", executed_by: [SOURCE, LIVE] },
   { n: 6, demand: "COMPOSED, NOT RE-PROVEN. A leg passes by composition only when the named gate ran green in this invocation on an unmoved basis; not executed, exit 2, a timeout or a moved basis is never a pass", executed_by: [PURE, COMPOSED] },
   { n: 7, demand: "EVERY PASS NAMES ITS EVIDENCE — the live assertion that measured it or the composed gate whose run proved it — and a leg the walk never reached is red, never read as green", executed_by: [PURE, LIVE] },
@@ -85,6 +86,9 @@ export const REQUIRED_GAPS = Object.freeze({
   // WP-C1 (2026-09-28): blueprint_system_ref_absent and system_data_attachment_absent are closed —
   // their four rows are live legs (REQUIRED_LIVE).
   "limits/legs/limits": "system_limits_authority_node_absent",
+  // Journey TODO legs (2026-09-29): the lease half of hand-off 4→5 waits on the same authority node;
+  // the withheld half is live (unleased-connection-withheld).
+  "limits/handoff/lease-gates-connection-picker": "system_limits_authority_node_absent",
   // WP-B (2026-09-28): a run satisfies "running THE System"; the SESSION half keeps the code here.
   "run/legs/session-subject-system": "session_system_subject_absent",
   "observe/legs/telemetry": "system_telemetry_absent",
@@ -99,6 +103,8 @@ export const REQUIRED_GAPS = Object.freeze({
 // walk reads each marker: while it is there the gap is true; when it goes, the row is stale.
 export const REQUIRED_PROBES = Object.freeze({
   "limits/legs/limits": 'data-system-named-gap="authority node (ADR 0056 Ruling 8)"',
+  // Connections names it on the connection's own card, where Set limits would be.
+  "limits/handoff/lease-gates-connection-picker": 'data-ioi-standing-recorder="none"',
   "run/legs/session-subject-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
   "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement (ADR 0056 P4 change sets)"',
 });
@@ -136,6 +142,12 @@ export const REQUIRED_LIVE = Object.freeze([
   "run/handoff/run-names-system",
   "observe/legs/issue-subject-system",
   "provenance/legs/ledger-by-system",
+  // Journey TODO legs (2026-09-29): the New Session composer, driven in a browser; the unleased
+  // connection it withholds.
+  "run/legs/walk-session",
+  "limits/handoff/unleased-connection-withheld",
+  // …and THIS walk's improvement through Agent Studio's own forms.
+  "improve/legs/walk-improvement",
 ]);
 
 // The gap map's "Composes (does not re-prove)" list, plus the two R-240 lanes the walk leans on.
@@ -281,6 +293,11 @@ export function sourceFindings({ gate, lib }) {
   const posts = code.match(/"PO[S]T"/gu) || [];
   if (posts.length !== 1 || !/if \(!action\.startsWith\("\/__ioi\/"\)\)/u.test(code) || !/renderedForm\(page\.text, action\)/u.test(code)) f.push("a write no longer goes only through submitRenderedForm — the one POST, to a /__ioi/ form found on the rendered page");
   if (/"(?:PA[T]CH|P[U]T|DE[L]ETE)"|\bfet[c]h\(/u.test(code)) f.push("the gate carries a write verb or a transport outside its one form submitter");
+  // The ONE browser leg (the New Session composer is JavaScript) signs in as THIS gate's operator on its
+  // own serve and drives only what the page rendered: it carries no request, route or header of its own.
+  if (!/await context\.addCookies\(\[\{ name: ctx\.cookie\.slice\(0, at\), value: ctx\.cookie\.slice\(at \+ 1\), url: ctx\.serve \}\]\);/u.test(code)
+    || (code.match(/chromium\.laun[c]h\(/gu) || []).length !== 1) f.push("the browser leg no longer runs one browser signed in as this gate's own operator on its own serve");
+  if (/\b(?:tab|context|ctx\.browser)\.request\b|\.route\(|setExtraHTTP[H]eaders|\bgoto\((?!`\$\{ctx\.serve\}\/ai#new-session`)/u.test(code)) f.push("the browser leg carries a request of its own, or navigates anywhere but the plane's own New Session composer");
   if (!/FIXTURE_FREE_ENV = Object\.freeze\(\{ IOI_HYPERVISOR_DAEMON_URL: "{2}/u.test(code) || !/env: \{ \.\.\.process\.env, \.\.\.FIXTURE_FREE_ENV,/u.test(code) || !/basisMoved: now\.head !== start\.head/u.test(code)) f.push("the COMPOSE runner no longer clears the shared-daemon redirection or re-reads the basis after each gate");
   if (/fetch\(|readFileSync|Date\.now\(|new Date\(|document\.|window\.|^\s*import\s/mu.test(lib)) f.push("the journey rules reach a browser, a file, a clock, a network or an import");
   for (const name of ["JOURNEY", "COMPOSE", "ESTATE"]) if (!lib.includes(`export const ${name}`)) f.push(`the journey library no longer names \`${name}\``);
@@ -551,6 +568,37 @@ async function governedStep(ctx, { id, page: from, route, action, fields, scope 
   return { challenge, committed, approval };
 }
 
+// ---- LIVE: the browser leg ----------------------------------------------------------------------
+// The New Session composer is a JavaScript surface: its launcher is a modal the page builds from the
+// daemon-backed context, and Start sends the page's own request, not a form. So THIS leg drives it as a
+// person does — in chromium, signed in as THIS gate's operator (its own session cookie, on its own
+// serve, never another's) — and only opens, clicks, types and ticks controls the page rendered. It
+// carries no request of its own (no page.request, no route interception): the page's script is the
+// only thing that writes. What the composer did is then judged from daemon truth, never from the page.
+async function openComposer(ctx) {
+  if (!ctx.browser) {
+    const { chromium } = await import("playwright");
+    ctx.browser = await chromium.launch({ headless: true });
+  }
+  const context = await ctx.browser.newContext({ viewport: { width: 1500, height: 1000 } });
+  const at = ctx.cookie.indexOf("=");
+  await context.addCookies([{ name: ctx.cookie.slice(0, at), value: ctx.cookie.slice(at + 1), url: ctx.serve }]);
+  const tab = await context.newPage();
+  await tab.goto(`${ctx.serve}/ai#new-session`, { waitUntil: "domcontentloaded", timeout: 600_000 });
+  // New Session is the composer page; its governed launcher (harness, connections, placement) opens
+  // from the page's own "Advanced launch" control.
+  await tab.waitForSelector("#ioi-ns-advanced", { timeout: 600_000 });
+  await tab.click("#ioi-ns-advanced");
+  await tab.waitForSelector("#ioi-ns-modal.open #ioi-ns-launch", { timeout: 600_000 });
+  // The connection rows the launcher rendered: each checkbox's value, and whether a person can tick it
+  // (a withheld connection is rendered disabled WITH its reason, never hidden).
+  const connections = await tab.locator("#ioi-ns-modal .ioi-ns-cx").evaluateAll((rows) => rows.map((row) => {
+    const box = row.querySelector("input.ioi-ns-cx-box");
+    return { ref: box ? box.value : "", tickable: !!box && !box.disabled, text: row.textContent || "" };
+  }));
+  return { context, tab, connections, close: () => context.close().catch(() => {}) };
+}
+
 // ---- LIVE: the walk -----------------------------------------------------------------------------
 async function liveLeg() {
   const started = Date.now();
@@ -558,7 +606,7 @@ async function liveLeg() {
   const claims = {};
   const L = LIB.legIndex(LIB.JOURNEY, LIB.ESTATE);
   const vars = { tag: `asj${Date.now().toString(36).slice(-6)}`, system: null, system_id: null };
-  const ctx = { serve: null, cookie: "", resolver: null, walk: [], cache: new Map() };
+  const ctx = { serve: null, cookie: "", resolver: null, browser: null, walk: [], cache: new Map() };
   const claimLive = (key, cond, detail = "") => {
     const l = L[key];
     if (!l || l.kind !== "live") throw new Error(`the walk claims '${key}', which the table does not hold as a live leg`);
@@ -790,8 +838,17 @@ async function liveLeg() {
     claimLive("limits/legs/walk-checkpoint",
       configuredCheckpoint.status === 303 && configuredCheckpoint.q.get("ok") === "1" && checkpointList.status === 200 && checkpointList.text.includes(checkpointName) && checkpointList.text.includes('data-limits-enablement="enabled"'),
       `configure ${configuredCheckpoint.status} ${configuredCheckpoint.q.get("note") || ""} · listed ${checkpointList.text.includes(checkpointName)}`);
+    // HAND-OFF 4 → 5 (connections): THIS walk's connection, added through Connections' Add API key form
+    // with its token sealed and no limits. A session may name only a connection whose standing lease is
+    // active, so the New Session composer (step 5) must withhold it; leasing it needs the authority node
+    // (the named gap probed here, on the connection's own card).
+    const cxName = `cx-${vars.tag}`;
+    const addConnectionRoute = "/__ioi/connections/add?type=bearer";
+    const addedConnection = await submitRenderedForm(ctx, { id: "connection", page: await page(ctx, addConnectionRoute), from: addConnectionRoute, action: "/__ioi/connections/add?type=bearer",
+      fields: { name: cxName, base_url: `https://example.invalid/journey/${vars.tag}`, tool_name: "list_loans", tool_path: "/v1/loans", token: `journey-${vars.tag}-sealed-token` } });
+    const walkConnector = ((((await read(ctx, "/v1/hypervisor/connectors")).json || {}).connectors || []).find((c) => c.name === cxName)) || null;
+    const walkConnectionRef = walkConnector?.connector_id ? `connector:${walkConnector.connector_id}` : "";
     await probesOf("limits");
-    todo("limits/handoff/lease-gates-connection-picker");
     // ==== STEP 5 — RUN =============================================================================
     // THIS walk's automation, through the New automation form. An automation names one of this
     // Hypervisor's projects — the daemon refuses any other (automation_project_unknown) — so THIS walk's
@@ -824,7 +881,58 @@ async function liveLeg() {
         && createdAutomation.status === 302 && /^\/__ioi\/automations\/auto_[0-9a-f]+/u.test(automationAt) && walkAutomationRecord.project_ref === walkProjectId
         && automate.status === 200 && automate.text.includes(automationName),
       `project ${walkProject ? `${walkProject.status} ${walkProject.q.get("project") || walkProject.q.get("note") || ""}` : "already held"} · create ${createdAutomation.status} → ${automationAt.slice(0, 60) || "no location"} in ${walkAutomationRecord.project_ref || "no project"} · Automate lists it ${automate.text.includes(automationName)}`);
-    todo("run/legs/walk-session");
+    // THIS walk's session, from the New Session composer — the browser leg (see openComposer). The
+    // launcher is opened as a person opens it; THIS walk's project is picked from its project select, the
+    // walk's first instruction typed, and no harness binding chosen: the launcher preselects the native
+    // worker, whose live runnability probe refuses on a plane with no available model route, and "None
+    // — defer to execute-time default" is the choice it offers for that. Then Start, and the daemon's
+    // record is read back as the same person.
+    const instruction = `walk ${vars.tag} — the done-bar walk's session, in its own project`;
+    let composerSaid = "";
+    let composerProjects = [];
+    let composerConnection = null;
+    let composerError = "";
+    try {
+      const composer = await openComposer(ctx);
+      try {
+        composerConnection = composer.connections.find((c) => c.ref === walkConnectionRef) || null;
+        composerProjects = await composer.tab.locator("#ioi-ns-project option").evaluateAll((os) => os.map((o) => o.value));
+        await composer.tab.selectOption("#ioi-ns-project", walkProjectId);
+        await composer.tab.fill("#ioi-ns-goal", instruction);
+        await composer.tab.selectOption("#ioi-ns-harness", "");
+        await composer.tab.click("#ioi-ns-launch");
+        await composer.tab.waitForFunction(() => /Session created|rejected|did not reach/u.test(document.querySelector("#ioi-ns-result")?.textContent || ""), null, { timeout: 900_000 });
+        composerSaid = await composer.tab.locator("#ioi-ns-result").innerText();
+      } finally {
+        await composer.close();
+      }
+    } catch (error) {
+      composerError = String(error.message).split("\n")[0].slice(0, 160);
+    }
+    const walkSessionRef = (composerSaid.match(/session:hyp-[0-9a-f]{64}/u) || [])[0] || "";
+    const sessionRead = walkSessionRef ? (await read(ctx, `/v1/hypervisor/sessions/${encodeURIComponent(walkSessionRef)}`)).json || {} : {};
+    const walkSession = sessionRead.session || sessionRead;
+    const operatorRef = who.json?.principal?.principal_ref || "";
+    const provisionReceipt = (walkSession.latest_receipt_refs || []).find((r) => String(r).startsWith("receipt://hypervisor/session-provision/")) || "";
+    const sessionsPage = walkSessionRef ? await page(ctx, "/work/sessions") : { status: 0, text: "" };
+    claimLive("run/legs/walk-session",
+      composerProjects.includes(walkProjectId) && /Session created/u.test(composerSaid) && !!walkSessionRef
+        && walkSession.session_ref === walkSessionRef && !!operatorRef && walkSession.owner_ref === operatorRef && walkSession.project_ref === walkProjectId
+        && walkSession.initial_input_projection?.content === instruction && walkSession.lifecycle_state === "provisioned"
+        && /^environment:\S+$/u.test(walkSession.environment_ref || "") && composerSaid.includes(walkSession.environment_ref)
+        && !!provisionReceipt && composerSaid.includes(provisionReceipt)
+        && Array.isArray(walkSession.authority_profile?.connection_refs) && walkSession.authority_profile.connection_refs.length === 0
+        && sessionsPage.status === 200 && sessionsPage.text.includes(`data-ioi-work-row="${walkSessionRef}"`),
+      `${composerError ? `composer: ${composerError} · ` : ""}launcher offers the walk's project ${composerProjects.includes(walkProjectId)} · ${(composerSaid.split("\n")[0] || "no result").slice(0, 60)} ${walkSessionRef || ""} · record owner ${walkSession.owner_ref === operatorRef ? "the operator" : walkSession.owner_ref || "none"} project ${walkSession.project_ref || "none"} instruction ${walkSession.initial_input_projection?.content === instruction} ${walkSession.lifecycle_state || "no state"} · connections ${JSON.stringify(walkSession.authority_profile?.connection_refs ?? null)} · Work / Sessions lists it ${sessionsPage.text.includes(`data-ioi-work-row="${walkSessionRef || "@@"}"`)}`);
+    // HAND-OFF 4 → 5 (connections), judged on the composer the session was started from: THIS walk's
+    // connection is there, withheld — disabled with its reason — and the daemon holds it bound (its
+    // token sealed) with no active standing lease; the session names no connection.
+    claimLive("limits/handoff/unleased-connection-withheld",
+      addedConnection.status === 302 && String(addedConnection.headers.location || "") === "/__ioi/connections"
+        && !!walkConnector && walkConnector.auth_posture === "token-lease:bound" && walkConnector.standing_lease?.status !== "active"
+        && !!composerConnection && composerConnection.tickable === false && /no limits set/u.test(composerConnection.text)
+        && Array.isArray(walkSession.authority_profile?.connection_refs) && !walkSession.authority_profile.connection_refs.includes(walkConnectionRef),
+      `add ${addedConnection.status} → ${String(addedConnection.headers.location || "no location").slice(0, 60)} · connector ${walkConnector ? `${walkConnector.connector_id} ${walkConnector.auth_posture} lease ${walkConnector.standing_lease?.status || "none"}` : "absent"} · composer row ${composerConnection ? `tickable ${composerConnection.tickable} '${composerConnection.text.replace(/\s+/gu, " ").trim().slice(0, 80)}'` : "absent"}`);
     await probesOf("run");
     // HAND-OFF 5 → 6: THIS walk's run. Run now on the automation's own page; the automation's run
     // history names the canonical run it admitted, and Work lists that run by its own ref.
@@ -1023,7 +1131,48 @@ async function liveLeg() {
       declared.redirected && !declared.refused && suites.status === 200 && suites.text.includes(suiteName),
       `declare ${declared.status}${declared.refused ? ` refused ${declared.refused.slice(0, 80)}` : ""} · the suites list it ${suites.text.includes(suiteName)}`);
     // ==== STEP 9 — IMPROVE =========================================================================
-    todo("improve/legs/walk-improvement");
+    // THIS walk's improvement, through Agent Studio's own forms. A person records two corrections from
+    // the Memory form; the daemon's outcome mining derives a candidate from exactly those entries, and
+    // the page renders its Propose form with the candidate as the daemon mined it (a hidden field this
+    // walk never fills). The proposal's id is the daemon's, so it is found by its evidence. Simulate,
+    // Approve and Apply are its own forms; each outcome is read back from the improvement plane.
+    const agentStudioRoute = "/__ioi/agent-studio";
+    const correctionTitle = `imp-${vars.tag} correction`;
+    const recordedCorrections = [];
+    for (const n of [1, 2]) {
+      recordedCorrections.push(await submitRenderedForm(ctx, { id: `correction-${n}`, page: await page(ctx, agentStudioRoute), from: agentStudioRoute, action: "/__ioi/agent-studio/intel/memory",
+        fields: { title: `${correctionTitle} ${n}`, body: `walk ${vars.tag}: the walk's own correction ${n}`, entry_kind: "correction", sensitivity: "normal" } }));
+    }
+    const walkCorrections = ((((await read(ctx, "/v1/hypervisor/memory-entries")).json || {}).entries || [])
+      .filter((e) => String(e.title || "").startsWith(`${correctionTitle} `) && e.entry_kind === "correction" && e.status === "active")).map((e) => e.entry_ref);
+    const improvementsNow = async () => ((((await read(ctx, "/v1/hypervisor/intelligence/improvement-proposals")).json || {}).proposals) || []);
+    const ofWalk = (p) => walkCorrections.length === 2 && walkCorrections.every((r) => (p.evidence_refs || []).includes(r));
+    const proposedImp = await submitRenderedForm(ctx, { id: "improvement-propose", page: await page(ctx, agentStudioRoute), from: agentStudioRoute, action: "/__ioi/agent-studio/improvements/propose", fields: {} });
+    const proposedRecord = (await improvementsNow()).find(ofWalk) || {};
+    const impId = proposedRecord.improvement_id || "";
+    const improvementAct = async (id, verb) => (impId
+      ? submitRenderedForm(ctx, { id, page: await page(ctx, agentStudioRoute), from: agentStudioRoute, action: `/__ioi/agent-studio/improvements/${encodeURIComponent(impId)}/${verb}`, fields: {} })
+      : { status: 0, headers: {}, text: "" });
+    const simulatedImp = await improvementAct("improvement-simulate", "simulate");
+    const simulatedRecord = (await improvementsNow()).find((p) => p.improvement_id === impId) || {};
+    const offersGovernance = (await page(ctx, agentStudioRoute)).text.includes(`/improvements/${impId}/governance/request-approval`);
+    const approvedImp = await improvementAct("improvement-approve", "approve");
+    const approvedRecord = (await improvementsNow()).find((p) => p.improvement_id === impId) || {};
+    const appliedImp = await improvementAct("improvement-apply", "apply");
+    const appliedRecord = (await improvementsNow()).find((p) => p.improvement_id === impId) || {};
+    const walkSkill = appliedRecord.applied_ref
+      ? ((((await read(ctx, "/v1/hypervisor/skill-entries")).json || {}).skills || []).find((s) => s.skill_ref === appliedRecord.applied_ref) || null) : null;
+    const improvementInbox = impId ? await page(ctx, "/__ioi/improvement/changes?lane=active&filter=all") : { status: 0, text: "" };
+    claimLive("improve/legs/walk-improvement",
+      recordedCorrections.every((r) => r.status === 302) && walkCorrections.length === 2
+        && proposedImp.status === 302 && !!impId && proposedRecord.state === "pending" && proposedRecord.proposal_kind === "skill_improvement" && proposedRecord.signal === "repeated_manual_correction"
+        && simulatedImp.status === 302 && !!simulatedRecord.latest_simulation_ref && simulatedRecord.latest_simulation_high_impact === false && simulatedRecord.gate?.posture === "low_impact" && !offersGovernance
+        && approvedImp.status === 302 && approvedRecord.state === "approved" && !!operatorRef && approvedRecord.reviewed_by_ref === operatorRef
+        && appliedImp.status === 302 && appliedRecord.state === "applied" && String(appliedRecord.applied_ref || "").startsWith("skill-entry://")
+        && (appliedRecord.receipt_refs || []).includes(`receipt://hypervisor/improvement/${impId}`)
+        && !!walkSkill && walkSkill.quality_state === "accepted" && walkCorrections.every((r) => (walkSkill.source_refs || []).includes(r))
+        && improvementInbox.status === 200 && improvementInbox.text.includes(appliedRecord.proposal_ref || "@@"),
+      `corrections ${recordedCorrections.map((r) => r.status).join("/")} held ${walkCorrections.length} · propose ${proposedImp.status} ${impId || "no proposal from the walk's corrections"} ${proposedRecord.state || ""} · simulate ${simulatedImp.status} ${simulatedRecord.gate?.posture || "no posture"} high-impact ${simulatedRecord.latest_simulation_high_impact} governance offered ${offersGovernance} · approve ${approvedImp.status} ${approvedRecord.state || ""} by ${approvedRecord.reviewed_by_ref === operatorRef ? "the operator" : approvedRecord.reviewed_by_ref || "nobody"} · apply ${appliedImp.status} ${appliedRecord.state || ""} ${appliedRecord.applied_ref || ""} · skill ${walkSkill ? `${walkSkill.quality_state} from ${(walkSkill.source_refs || []).length} source(s)` : "absent"} · inbox lists it ${improvementInbox.text.includes(appliedRecord.proposal_ref || "@@")}`);
     await probesOf("improve");
     // ==== STEP 10 — RELEASE ========================================================================
     // THIS walk's package, built from step 3's ontology through the form each surface renders: a type,
@@ -1092,6 +1241,7 @@ async function liveLeg() {
     // every live leg it did not reach is red in the verdict (unreached), never read as green.
     setup.push(`${reached ? "walk" : "setup"}: ${String(error.message).split("\n")[0].slice(0, 240)}`);
   } finally {
+    try { await ctx.browser?.close(); } catch { /* gone */ }
     try { await plane?.stop(); } catch { /* gone */ }
     try { await plane2?.stop(); } catch { /* gone */ }
     try { await ctx.resolver?.stop(); } catch { /* gone */ }

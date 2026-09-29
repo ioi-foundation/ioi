@@ -3035,7 +3035,14 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
   if (!agents.length) {
     // Registry truth still renders without agents — routes exist independently of the agent estate.
-    return automationsShell("Studio", styles + head + renderCustodyCards() + renderStudioSystemDesigns((intel || {}).systemDesigns) + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles));
+    // So do the workspace's own planes (R-240, journey TODO legs): memory, skills, automation readiness
+    // and improvement proposals are not per-agent, and hiding them until an agent record existed left a
+    // fresh workspace no way to record a correction or propose, approve and apply an improvement — no
+    // form anywhere creates an agent. (The empty state used to say an agent is created when you start a
+    // session or run an automation; neither writes an agent record.)
+    const ws = intel || {};
+    return automationsShell("Studio", styles + head + renderCustodyCards() + renderStudioSystemDesigns(ws.systemDesigns) + `<div class="empty" data-agent-studio-no-agents="1">No agents yet — once the agent runtime records one it appears here with its model route, runtime posture, and activity. The workspace's memory, skills and improvement proposals below belong to the workspace, not to one agent.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles)
+      + renderAutomationReadiness(ws.affinities || []) + renderImprovementProposals(ws.mining || [], ws.improvements || []) + renderIntelSkills(ws.skills || []) + renderIntelMemory(ws.entries || [], ws.proposals || [], ws.projections || [], ws.review || []));
   }
   // Selected agent (query ?agent=, else first of the filtered list).
   const sel = filtered.find((a) => a.id === selId) || filtered[0] || agents[0];
