@@ -2010,7 +2010,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   // The applied filter says it is applied (R-240, the census's first click on this page): pressing the
   // chip already in force changed nothing, so it read as a dead control. It carries aria-pressed and
   // aria-disabled with the reason, and those move to whichever chip is chosen next.
-  const jobsChips = `<div class="chips" id="jobs-chips" role="group" aria-label="Filter jobs">${JOB_TYPES.map(([v, l]) => `<button class="chip${v === "" ? " on" : ""}" data-job-type="${v}" aria-pressed="${v === ""}"${v === "" ? ' aria-disabled="true" title="Already showing this filter"' : ""} onclick="jobsChip(this)">${l} ${v === "" ? jobs.length : jobCounts[v] || 0}</button>`).join("")}</div>`;
+  const jobsChips = `<div class="chips" id="jobs-chips" role="group" aria-label="Filter jobs">${JOB_TYPES.map(([v, l]) => `<button class="chip${v === "" ? " on" : ""}" data-job-type="${v}" aria-pressed="${v === ""}"${v === "" ? ' aria-disabled="true" title="Already showing this filter" data-ioi-disabled-reason="Already showing this filter"' : ""} onclick="jobsChip(this)">${l} ${v === "" ? jobs.length : jobCounts[v] || 0}</button>`).join("")}</div>`;
   const jobRows = capped.slice(0, 48).map((j) => `<tr data-job="${CX_ESC(j.type)}">
       <td>${CX_ESC(j.name)}<div style="color:#5f6b7c;font-size:11px;margin-top:1px"><code style="font-size:10px">${CX_ESC(j.id)}</code></div></td>
       <td><span class="pill muted">${CX_ESC(j.type)}</span></td>
@@ -2031,7 +2031,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const jobsScript = `<script>
     function jobsChip(b){
       if(b.getAttribute('aria-disabled')==='true')return;
-      document.querySelectorAll('#jobs-chips .chip').forEach(function(x){var on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',String(on));if(on){x.setAttribute('aria-disabled','true');x.setAttribute('title','Already showing this filter');}else{x.removeAttribute('aria-disabled');x.removeAttribute('title');}});
+      document.querySelectorAll('#jobs-chips .chip').forEach(function(x){var on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',String(on));if(on){x.setAttribute('aria-disabled','true');x.setAttribute('title','Already showing this filter');x.setAttribute('data-ioi-disabled-reason','Already showing this filter');}else{x.removeAttribute('aria-disabled');x.removeAttribute('title');x.removeAttribute('data-ioi-disabled-reason');}});
       var want=b.getAttribute('data-job-type');var shown=0;
       document.querySelectorAll('#jobs-body tr').forEach(function(r){var on=!want||r.getAttribute('data-job')===want;r.style.display=on?'':'none';if(on)shown++;});
       var e=document.getElementById('jobs-empty');if(e)e.style.display=shown?'none':'';
