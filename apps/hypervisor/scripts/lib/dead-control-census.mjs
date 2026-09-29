@@ -60,7 +60,12 @@ export function isLiveLooking(el) {
 
 // How must this control be exercised? A click on a field proves nothing: the first census clicked
 // seven form fields, saw nothing move, and called them dead.
-export function exerciseFor(el) {
+//
+// A contenteditable editor is a text field too (the adopted Approvals app's comment box: a click only put the caret in
+// it, and it read dead). It is TYPED into only by a census that measures the field's own echo (editableEcho, and
+// echoOnly below): typed words are page text, so a census that does not measure the echo would call every editor alive
+// for showing what was typed — that census keeps clicking.
+export function exerciseFor(el, { editableEcho = false } = {}) {
   if (el.tag === "A" && el.href) {
     if (el.href.startsWith("#")) return el.href.length > 1 ? "fragment" : "click";
     if (/^javascript:/iu.test(el.href)) return "click";
@@ -70,7 +75,7 @@ export function exerciseFor(el) {
   // moved nothing and read dead, exactly as a clicked text field did before clause 2.
   if (/^(ew|ns|col|row|e|w|n|s)-resize$/u.test(el.cursor || "")) return "drag";
   if (el.tag === "SELECT") return "select";
-  if (el.tag === "TEXTAREA" || (el.tag === "INPUT" && TEXT_TYPES.includes(el.type || ""))) return "type";
+  if (el.tag === "TEXTAREA" || (el.tag === "INPUT" && TEXT_TYPES.includes(el.type || "")) || (editableEcho && el.contentEditable === true)) return "type";
   if (el.tag === "INPUT" && DATE_TYPES.includes(el.type || "")) return "date";
   if (el.tag === "INPUT" && (el.type === "checkbox" || el.type === "radio")) return "toggle";
   return "click";
@@ -90,11 +95,12 @@ export function dateValueFor(type) {
 //                  Name field was this: typed into, Enter pressed, and its form's only submit was
 //                  disabled — so every exit was closed.
 // click_failed   — the control could not be activated at all (covered, detached, off-screen).
+// (outcome.how: the exercise the census performed, when it chose one exerciseFor's defaults do not — a typed editor)
 export function exerciseVerdict(el, outcome) {
   if (outcome?.error) return { verdict: "click_failed", why: String(outcome.error).slice(0, 160) };
   const moved = SIGNALS.filter((s) => outcome?.signals?.[s] === true);
   if (moved.length) return { verdict: "alive", why: moved.join(",") };
-  const field = ["select", "type", "toggle", "date"].includes(exerciseFor(el));
+  const field = ["select", "type", "toggle", "date"].includes(outcome?.how || exerciseFor(el));
   if (field && el.formCanSubmit === true) return { verdict: "alive_by_form", why: "its form has an enabled submit" };
   if (!field && isSelfControl(el)) return { verdict: "self", why: "it points at where you already are" };
   return { verdict: "dead", why: field ? "a field whose change moves nothing and whose form cannot submit" : "activated, and none of the five signals moved" };
@@ -145,11 +151,29 @@ export function isReadRequest(method, url) {
 export function requestKey(method, url) {
   try { const u = new URL(url); return `${method} ${u.pathname}`; } catch { return `${method} ${url}`; }
 }
+// A FIELD'S OWN ECHO IS NOT A SIGNAL. An input's typed value is no part of the page's text, so typing into one never moved
+// "dom" by itself — what counts is whether anything carries the value. A contenteditable editor's text IS page text (and
+// its placeholder with it): typing into the adopted Approvals app's comment box moved the text by the typed words alone.
+// The page moved only by that echo when putting the field's text after in place of its text before, at a place where it
+// occurs, gives the page's text after (spacing and zero-width characters aside). fieldBefore/fieldAfter are null for
+// every exercise but typing into a contenteditable, and then this never excuses anything.
+const flat = (s) => String(s ?? "").replace(/[\u200B-\u200D\uFEFF]/gu, "").replace(/\s+/gu, " ").trim();
+export function echoOnly({ textBefore, textAfter, fieldBefore, fieldAfter }) {
+  if (fieldBefore == null || fieldAfter == null) return false;
+  const a = flat(textBefore), b = flat(textAfter), fa = flat(fieldBefore), fb = flat(fieldAfter);
+  if (a === b) return true;
+  if (!fa) { // the field was empty: exactly its new text appeared, in one place
+    for (let i = b.indexOf(fb); fb && i !== -1; i = b.indexOf(fb, i + 1)) if (flat(b.slice(0, i) + b.slice(i + fb.length)) === a) return true;
+    return false;
+  }
+  for (let i = a.indexOf(fa); i !== -1; i = a.indexOf(fa, i + 1)) if (flat(a.slice(0, i) + fb + a.slice(i + fa.length)) === b) return true;
+  return false;
+}
 export function spaSignals(m) {
   const rest = new Set(m.restKeys || []);
   return {
     url: m.urlBefore !== m.urlAfter,
-    dom: m.textBefore !== m.textAfter || m.overlaysBefore !== m.overlaysAfter,
+    dom: (m.textBefore !== m.textAfter && !echoOnly(m)) || m.overlaysBefore !== m.overlaysAfter,
     network: (m.blocked || 0) > 0 || (m.requestKeys || []).some((k) => !rest.has(k)),
     state: m.stateMoved === true,
     other: (m.other || 0) > 0,
@@ -169,6 +193,23 @@ export function crashVerdict({ textBefore, textAfter }) {
   const hit = String(textAfter || "").match(ERROR_BOUNDARY);
   if (!hit || ERROR_BOUNDARY.test(String(textBefore || ""))) return null;
   return { verdict: "crashed", why: `the page fell to its error boundary: "${hit[0]}"` };
+}
+// 5. A TAB A CLICK OPENS MUST LAND TOO. A new tab counted as "something happened" and was closed unread, so a link opening
+// the shell's not-found page in a new tab read alive — the adopted Approvals app's Documentation (the reference's
+// /docs/foundry/… path, 2026-09-28) was one. A tab on this serve is judged as a same-tab navigation is: it must answer, and
+// render something that is not the not-found page or an error boundary. A tab on another origin (or one that never left
+// about:blank) is not this serve's to judge.
+export function popupLandingVerdict({ url, status, text }, serveOrigin) {
+  let u;
+  try { u = new URL(url); } catch { return null; }
+  if (u.origin !== serveOrigin) return null;
+  if (status != null && status >= 400) return { verdict: "bad_landing", why: `the tab it opened (${u.pathname}) answered ${status}` };
+  const t = String(text || "").trim();
+  const crash = t.match(ERROR_BOUNDARY);
+  if (crash) return { verdict: "crashed", why: `the tab it opened (${u.pathname}) fell to its error boundary: "${crash[0]}"` };
+  if (SPA_NOT_FOUND.test(t)) return { verdict: "bad_landing", why: `the tab it opened (${u.pathname}) is the shell's not-found page` };
+  if (t.length < SPA_MIN_TEXT) return { verdict: "bad_landing", why: `the tab it opened (${u.pathname}) rendered nothing` };
+  return null;
 }
 export function spaLandingVerdict({ urlChanged, text }) {
   if (!urlChanged) return null;

@@ -13,7 +13,9 @@
 // and judged by the single-page-app rules (signals against the page AT REST, a route a click opened must
 // render). Two refinements the adopted apps need, each measured: a skip link off the viewport is exercised
 // by keyboard FOCUS (it appears on focus; a click cannot reach it), and a link to the page you are on is
-// "self" whether or not a trailing slash differs.
+// "self" whether or not a trailing slash differs. Two more, from the adopted Approvals app (2026-09-28): a contenteditable
+// editor is TYPED into, its own echo of the typed words not counted (LIB.echoOnly), and a tab a click opens is read before
+// it is closed — it must land (LIB.popupLandingVerdict), as a same-tab navigation must render.
 //
 // THE DEFECT LIST IS PINNED EXACTLY. A control that is not alive must be one of NAMED below, each with the
 // reason that survives reading; a new one is red, and a named one that becomes alive must be unpinned.
@@ -48,16 +50,14 @@ export const NAMED = Object.freeze([
     reason: "the Hypervisor keeps no favorites: the favorite mutation is refused by name, and the reference app shows no message (seed-depth detail.favorite, open). The header's second star renders zero-size in a fresh tab until the favorites read settles, so it is sometimes not found again — inert either way" },
   { surface: "ontology:discover", tag: "DIV", text: /^$/u, cls: /ontology-authoring__clickable/u, verdict: "dead",
     reason: "the Ontology Manager's app icon returns to the app's home, Discover — where this page already is; from any other section it navigates there (the object-types target exercises it live)" },
-  { surface: "ontology:object-type", tag: "DIV", text: /^$/u, cls: /ontology-icon__ontology-icon-container/u, verdict: "dead",
-    reason: "the object type's icon opens the icon-and-colour editor, which stays shut because editing an ontology is not bound yet: an ODK type has no backing datasource to save against (seed depth edit.types, open)" },
-  { surface: "ontology:link-type", tag: "DIV", text: /^Select foreign key$/u, verdict: "dead",
-    reason: "the link's foreign-key picker is an edit control, shut because editing an ontology is not bound yet (seed depth edit.types, open)" },
   { surface: "explorer:landing", tag: "DIV", text: /^Shared with me$/u, verdict: "dead",
     reason: "no exploration is kept, so every filter of the explorations list (All, Created by me, Shared with me, Favorites) shows the same empty list" },
   { surface: "data-connection:syncs", tag: "BUTTON", text: /^(Name|Dataset|Status|Next run)$/u, verdict: "dead",
     reason: "the census's stack declares sources but no sync, so the Syncs list is empty and sorting its columns shows the same empty list (the verifier's fixture builds a sync and drives the list, D4)" },
   { surface: "pipeline:create", tag: "INPUT", text: /^$/u, verdict: "dead",
     reason: "the name field is consumed by Create pipeline, which the form enables once a location is chosen (check:adopted-pipeline proves the typed name reaches the founding change set)" },
+  { surface: "approvals:request", tag: "DIV", text: /^Add comment$/u, cls: /comment-editor-input/u, verdict: "dead",
+    reason: "the comment box is a rich-text editor outside any form: what is typed shows in it and is carried only by the Add comment button beside it (exercised alive here), whose send is refused by name — the Hypervisor keeps no comment thread on a request (seed depth a08.task.comment, refused; check:adopted-approvals proves a typed comment is refused and writes nothing)" },
 ]);
 
 const results = [];
@@ -69,22 +69,29 @@ const waitFor = async (url, ms) => { const until = Date.now() + ms; while (Date.
 const daemonBinary = path.resolve(ROOT, process.env.IOI_HYPERVISOR_DAEMON_BINARY ?? "target/debug/hypervisor-daemon");
 try { fs.accessSync(daemonBinary, fs.constants.X_OK); } catch { console.error(`BLOCKED: daemon binary not executable at ${daemonBinary}`); process.exit(2); }
 const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
-for (const seed of ["builder", "object-monitoring", "ontology", "hubble", "data-ingestion-app"]) {
+// each adopted app's mirror: captured locally, and its path answered by the mirror server (an app it cannot boot is not a pass)
+const SEEDS = ["builder", "object-monitoring", "ontology", "hubble", "data-ingestion-app", "approvals-app"];
+for (const seed of SEEDS) {
   if (!fs.existsSync(path.join(ROOT, "internal-docs", "reverse-engineering", "palantir", "public", "workspace", seed, "index.html"))) { console.error(`BLOCKED: no local reference mirror for ${seed}`); process.exit(2); }
 }
-if (!(await fetch(`${CAPTURE}/workspace/builder/`).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local mirror server is not reachable at ${CAPTURE}`); process.exit(2); }
+for (const seed of SEEDS) {
+  if (!(await fetch(`${CAPTURE}/workspace/${seed}/`, { signal: AbortSignal.timeout(5000) }).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local mirror server at ${CAPTURE} does not answer /workspace/${seed}/`); process.exit(2); }
+}
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-dead-"));
 let daemon = null, serve = null, DAEMON = "", SERVE = "", COOKIE = "";
 const daemonReq = async (method, route, body) => { const r = await fetch(`${DAEMON}${route}`, { method, headers: { cookie: COOKIE, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).catch(() => null); return { status: r?.status ?? 0, body: r ? await r.json().catch(() => ({})) : {} }; };
 
 // Measured per exercise, in the page.
-const PAGE = () => {
+// (css: the control exercised — when it is a contenteditable editor, its own text is measured too, so that its echo of the
+// typed words is not counted as the page moving: LIB.echoOnly)
+const PAGE = (css) => {
   const vis = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none"; };
   // a control that reveals a text field and puts the caret in it (a section's search icon) changes no text, URL or
   // network: the visible fields and the focused element are measured too
   const field = (e) => e && /^(INPUT|TEXTAREA)$/u.test(e.tagName) ? `${e.tagName}:${e.getAttribute("placeholder") || e.getAttribute("aria-label") || e.name || ""}` : String(e?.tagName || "");
-  return { url: location.pathname + location.search + location.hash, text: document.body.innerText,
+  const editor = css ? document.querySelector(css) : null;
+  return { url: location.pathname + location.search + location.hash, text: document.body.innerText, editorText: editor?.isContentEditable ? editor.innerText : null,
     fields: [...document.querySelectorAll("input,textarea")].filter(vis).length, focus: field(document.activeElement), overlays: [...document.querySelectorAll('[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[class*="popover"]')].filter(vis).length };
 };
 const STATES = () => JSON.stringify([...document.querySelectorAll("*")].flatMap((e) => [...e.attributes].filter((a) => /^data-.*state$/u.test(a.name)).map((a) => `${a.name}=${a.value}`)));
@@ -148,6 +155,18 @@ async function run() {
   ok("PRECONDITION: an ODK ontology (types, a link, an action) and two data sources exist",
     odk.status < 300 && sources.every((x) => x.status < 300), `ontology ${odk.status} · sources ${sources.map((x) => x.status).join(",")}`);
 
+  // the adopted Approvals app (R-241 Approvals A1): governance approval requests, which the daemon keeps without a wallet
+  // authority (a parked wallet challenge needs a sealed authority node; check:adopted-approvals drives those) — one pending,
+  // whose page the census exercises, and one approved, so the inbox's quick filters sift different lists
+  const GOV_ASK = { subject_ref: "authority-action://spend", request_kind: "spend_increase", reason: "raise the model spend ceiling for the nightly eval", required_authority_refs: ["authority://spend"], would_call: ["POST /v1/hypervisor/limits"] };
+  const GOV_TITLE = `${GOV_ASK.request_kind} — ${GOV_ASK.subject_ref}`;
+  const gov1 = await daemonReq("POST", "/v1/hypervisor/governance/approval-requests", GOV_ASK);
+  const gov2 = await daemonReq("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: "connector:conn_github", request_kind: "connector_attach", reason: "attach the GitHub connector to the payments project" });
+  const gov2ok = await daemonReq("PATCH", `/v1/hypervisor/governance/approval-requests/${encodeURIComponent(gov2.body?.approval_request?.id || "")}`, { transition: "approve" });
+  let govId = gov1.body?.approval_request?.id || null;
+  ok("PRECONDITION: governance approval requests stand pending and approved",
+    gov1.body?.approval_request?.status === "pending" && gov2ok.body?.approval_request?.status === "approved", `pending ${gov1.status} ${gov1.body?.approval_request?.status} · approved ${gov2ok.status} ${gov2ok.body?.approval_request?.status}`);
+
   // IOI_DEAD_CONTROL_TARGETS (a regex over the keys) narrows a run to some surfaces; the gate runs them all
   const ALL_TARGETS = [
     { key: "pipeline:landing", route: "/workspace/builder/" },
@@ -164,6 +183,7 @@ async function run() {
     { key: "data-connection:splash", route: "/workspace/data-ingestion-app/splash" },
     { key: "data-connection:sources", route: "/workspace/data-ingestion-app/sources" },
     { key: "data-connection:syncs", route: "/workspace/data-ingestion-app/syncs" },
+    { key: "approvals:inbox", route: "/workspace/approvals-app/" },
   ];
   const FILTER = process.env.IOI_DEAD_CONTROL_TARGETS ? new RegExp(process.env.IOI_DEAD_CONTROL_TARGETS, "u") : null;
   const TARGETS = ALL_TARGETS.filter((t) => !FILTER || FILTER.test(t.key));
@@ -199,7 +219,25 @@ async function run() {
     const debugTrail = [], debugConsole = [];
     // a tab the page itself opens (a popup, a new-window link) counts as "anything" and is closed; the census's own
     // fresh tabs are not
-    ctx.on("page", (p) => { if (opening || p === pg) return; other += 1; p.close().catch(() => {}); });
+    // …and where it lands is part of what the click did: it is read (as a same-tab navigation is given time to render),
+    // then closed, and judged by LIB.popupLandingVerdict
+    const popups = [];
+    ctx.on("page", (p) => {
+      if (opening || p === pg) return;
+      other += 1;
+      popups.push((async () => {
+        let status = null, url = p.url(), text = "", last = null;
+        p.on("response", (r) => { if (r.request().isNavigationRequest() && r.frame() === p.mainFrame()) status = r.status(); });
+        for (let i = 0; i < 16; i++) {
+          await p.waitForTimeout(750).catch(() => {});
+          url = p.url(); text = await p.evaluate(() => document.body?.innerText || "").catch(() => text);
+          if (url !== "about:blank" && String(text).trim().length >= LIB.SPA_MIN_TEXT && text === last) break;
+          last = text;
+        }
+        await p.close().catch(() => {});
+        return { url, status, text };
+      })());
+    });
     await freshPage();
     // identity by what a control IS: time-varying text ("Created 2 seconds ago") and classes are not it
     // a control with no words of its own (a facet checkbox) is known by the words of its row
@@ -213,15 +251,39 @@ async function run() {
     const detail = await pg.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")).find((h) => /\/automation\/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/u.test(h)) || null);
     if (detail && (!FILTER || FILTER.test("automate:detail"))) TARGETS.push({ key: "automate:detail", route: new URL(detail, SERVE).pathname });
     ok("the adopted Automate list links the seeded automation's own page", !!detail, detail || "no automation link on the list");
+    // the pending request's own page, at the address the adopted inbox links (read from the list, never derived)
+    if (!FILTER || FILTER.test("approvals:request")) {
+      await pg.goto(`${SERVE}/workspace/approvals-app/`, { waitUntil: "domcontentloaded", timeout: 90000 });
+      let task = null;
+      for (let i = 0; i < 40 && !task; i++) { task = await pg.evaluate((x) => [...document.querySelectorAll("a[href]")].find((a) => a.innerText.trim() === x)?.getAttribute("href") || null, GOV_TITLE); if (!task) await pg.waitForTimeout(750); }
+      // Approve there is the governance plane's own transition, so a request an exercise approved is asked afresh before
+      // the next one: each exercise meets the page a person opening a pending request meets, as each meets a clean client
+      const prepare = async (t) => {
+        if ((await daemonReq("GET", `/v1/hypervisor/governance/approval-requests/${encodeURIComponent(govId)}`)).body?.approval_request?.status === "pending") return;
+        govId = (await daemonReq("POST", "/v1/hypervisor/governance/approval-requests", GOV_ASK)).body?.approval_request?.id || govId;
+        // the new request's page is where the inbox's open request by this title links (the list's own read)
+        const found = await fetch(`${SERVE}/approvals/api/search/task-requests`, { method: "PUT", headers: { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}/workspace/approvals-app/` },
+          body: JSON.stringify({ filters: [{ type: "status", status: { statuses: ["PENDING_APPROVAL"] } }, { type: "title", title: { contains: GOV_TITLE } }], sort: { order: "DESC" }, pageSizeLimit: 5 }) }).then((r) => r.json()).catch(() => ({}));
+        const rid = found.requests?.length === 1 ? found.requests[0].taskRid : null;
+        if (rid) t.route = t.route.replace(/ri\.approvals\.main\.task-request\.[0-9a-f-]{36}/u, rid);
+        if (process.env.IOI_DEAD_CONTROL_DEBUG) console.error(`DEBUG approvals:request re-asked: ${govId} → ${rid || "NOT FOUND"}`);
+      };
+      if (task) TARGETS.push({ key: "approvals:request", route: new URL(task, SERVE).pathname, prepare });
+      ok("the adopted Approvals inbox links the seeded pending request's own page", !!task && /\/task\/ri\.approvals\.main\.task-request\.[0-9a-f-]{36}$/u.test(task), task || "no request link on the inbox");
+    }
 
     for (const t of TARGETS) {
       const open = async () => {
         // EACH EXERCISE STARTS FROM A CLEAN CLIENT (check:dead-controls' shell rule): the adopted apps keep
         // filters and choices in browser storage, so one exercise's click would reshape the next page load
+        if (t.prepare) await t.prepare(t);
         await freshPage();
         await pg.goto(`${SERVE}${t.route}`, { waitUntil: "domcontentloaded", timeout: 90000 });
         await pg.waitForTimeout(6000);
-        await pg.getByText("Close", { exact: true }).first().click({ timeout: 1500 }).catch(() => { /* no announcement */ });
+        // an announcement that opens over the app (Data Connection's What's new) is dismissed — only one in a dialog: a request's
+        // page in the adopted Approvals app has a Close of its own, and pressing it at every load opened the Close-request dialog
+        // over the page, so every later exercise there was covered and failed
+        await pg.locator('[role="dialog"]').getByText("Close", { exact: true }).first().click({ timeout: 1500 }).catch(() => { /* no announcement */ });
         // settled: the live-looking population holds its size across three reads a second apart
         const counts = [];
         for (let i = 0; i < 15; i++) { counts.push((await enumerate()).length); if (counts.length >= 3 && counts.slice(-3).every((n) => n === counts.at(-1) && n > 0)) break; await pg.waitForTimeout(1000); }
@@ -240,9 +302,9 @@ async function run() {
           if (process.env.IOI_DEAD_CONTROL_DEBUG) { const seen = await pg.evaluate(() => document.body.innerText.replace(/\s+/gu, " ").slice(0, 160)).catch(() => "?"); const like = await pg.evaluate((t) => [...document.querySelectorAll("*")].filter((e) => t && ((e.getAttribute("aria-label") || "") === t || (e.getAttribute("title") || "") === t || ((e.innerText || "").trim() === t && e.children.length <= 2))).map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName}${e.getAttribute("role") ? "[" + e.getAttribute("role") + "]" : ""} ${Math.round(r.width)}x${Math.round(r.height)} cursor=${getComputedStyle(e).cursor} cls=${String(e.className?.baseVal ?? e.className ?? "").slice(0, 50)}`; }).slice(0, 6), target.text).catch(() => []); console.error(`DEBUG click_failed ${target.tag} "${target.text}" at ${pg.url()} :: ${seen}\n  wanted ident: ${target.ident} occ ${target.occ}\n  now on page: ${JSON.stringify(like)}\n  after exercising: ${JSON.stringify(debugTrail.slice(-3))}\n  console: ${debugConsole.slice(-3).join(" || ")}`); }
           rows.push({ surface: t.key, tag: target.tag, text: target.text, verdict: "click_failed", why: "not found again after two fresh loads" }); dirty = true; continue;
         }
-        const before = await pg.evaluate(PAGE); const st0 = await pg.evaluate(STATES);
-        const k0 = keys.length; other = 0; let error = null;
-        const how = LIB.exerciseFor(now);
+        const before = await pg.evaluate(PAGE, now.css); const st0 = await pg.evaluate(STATES);
+        const k0 = keys.length; other = 0; popups.length = 0; let error = null;
+        const how = LIB.exerciseFor(now, { editableEcho: true });
         if (process.env.IOI_DEAD_CONTROL_DEBUG) debugTrail.push(`${now.tag} "${now.text}" ${now.href || ""}`);
         const loc = pg.locator(now.css).first();
         const box = await loc.boundingBox().catch(() => null);
@@ -255,7 +317,10 @@ async function run() {
             const b2 = await loc.boundingBox().catch(() => null);
             if (b2 && b2.y + b2.height > 0 && b2.x + b2.width > 0 && b2.y < 1000) other += 1;
           } else if (how === "select") { const o = await loc.evaluate((x) => ({ cur: x.value, vals: [...x.options].filter((q) => !q.disabled).map((q) => q.value) })); const nx = o.vals.find((v) => v !== o.cur); if (nx === undefined) error = "select offers no alternative option"; else await loc.selectOption(nx, { timeout: 3000 }); }
-          else if (how === "type") { await loc.fill("zq", { timeout: 3000 }); await pg.waitForTimeout(500); await loc.press("Enter", { timeout: 3000, noWaitAfter: true }); }
+          // Enter goes to the FOCUSED field, not back through the css path: typing can reshape the form (a validation note
+          // shifts every nth-of-type after it — the owner's editable link-type page, 2026-09-28), and re-finding the input by
+          // its old path then timed out and read click_failed for a field that had taken the typing
+          else if (how === "type") { await loc.fill("zq", { timeout: 3000 }); await pg.waitForTimeout(500); await pg.keyboard.press("Enter"); }
           else if (how === "date") { await loc.fill(LIB.dateValueFor(now.type), { timeout: 3000 }); await loc.dispatchEvent("change").catch(() => {}); }
           else if (!["A", "BUTTON", "SELECT", "TEXTAREA", "SUMMARY", "INPUT"].includes(now.tag) && !now.role && !now.onclick) {
             // live-looking only by its pointer cursor (a breadcrumb list, a card): a person clicks its words,
@@ -265,26 +330,48 @@ async function run() {
           } else { await loc.click({ timeout: 3000, noWaitAfter: true }); }
         } catch (e) { error = String(e.message).split("\n")[0].slice(0, 140); }
         await pg.waitForTimeout(1800);
-        let after = await pg.evaluate(PAGE).catch(() => ({ url: "(navigated)", text: "", overlays: 0 }));
+        let after = await pg.evaluate(PAGE, now.css).catch(() => ({ url: "(navigated)", text: "", overlays: 0 }));
         // a click that navigated gets time to render before its landing is judged: a page that loads its data first
         // (the owned Projects page behind the reference sidebar's Files) read as "rendered nothing" at 1.8 s under load
         for (let i = 0; i < 8 && after.url !== before.url && String(after.text || "").trim().length < 40; i++) {
           await pg.waitForTimeout(750);
-          after = await pg.evaluate(PAGE).catch(() => after);
+          after = await pg.evaluate(PAGE, now.css).catch(() => after);
         }
         const st1 = await pg.evaluate(STATES).catch(() => st0);
         if (after.fields !== undefined && (after.fields !== before.fields || (after.focus !== before.focus && /^(INPUT|TEXTAREA):/u.test(after.focus)))) other += 1;
-        const signals = LIB.spaSignals({ urlBefore: before.url, urlAfter: after.url, textBefore: before.text, textAfter: after.text, overlaysBefore: before.overlays, overlaysAfter: after.overlays, requestKeys: keys.slice(k0), restKeys: rest, stateMoved: st0 !== st1, other });
+        const echo = how === "type" && now.contentEditable === true ? { fieldBefore: before.editorText ?? null, fieldAfter: after.editorText ?? null } : {};
+        const signals = LIB.spaSignals({ urlBefore: before.url, urlAfter: after.url, textBefore: before.text, textAfter: after.text, overlaysBefore: before.overlays, overlaysAfter: after.overlays, requestKeys: keys.slice(k0), restKeys: rest, stateMoved: st0 !== st1, other, ...echo });
+        // A NETWORK-ONLY "alive" IS CONFIRMED against a second idle window. The dangerous error here is a false alive: a
+        // background request the rest window missed made pipeline:editor's inert title read alive once under load
+        // (2026-09-29; dead on every other run). If every request the exercise seemed to cause fires again with nobody
+        // touching the page, it was the page's own traffic, not the control's — the control is judged on the other signals.
+        const kMeasured = keys.length;
+        let background = null;
+        if (signals.network && !signals.url && !signals.dom && !signals.state && !signals.other) {
+          const restNow = new Set(rest);
+          const caused = keys.slice(k0, kMeasured).filter((k) => !restNow.has(k));
+          const k2 = keys.length;
+          await pg.waitForTimeout(2500);
+          const idle = new Set(keys.slice(k2));
+          if (caused.length && caused.every((k) => idle.has(k))) { signals.network = false; background = caused.slice(0, 6); }
+        }
         // a link to the page you are on is "self" whatever its trailing slash
         const self = !!now.href && (() => { try { const u = new URL(now.href, `${SERVE}${before.url}`); return u.origin === SERVE && trim(u.pathname) === trim(before.url.split(/[?#]/u)[0]); } catch { return false; } })();
-        let judged = LIB.exerciseVerdict({ ...now, selfLink: now.selfLink || self }, { signals, error });
+        let judged = LIB.exerciseVerdict({ ...now, selfLink: now.selfLink || self }, { signals, error, how });
         const landed = LIB.spaLandingVerdict({ urlChanged: signals.url, text: after.text });
         if (landed) judged = landed;
         // a click that lands on the app's error boundary is a crash, whatever else moved
         const crashed = LIB.crashVerdict({ textBefore: before.text, textAfter: after.text });
         if (crashed) judged = crashed;
+        // a tab it opened must land as well
+        const tabbed = (await Promise.all(popups.splice(0))).map((l) => LIB.popupLandingVerdict(l, SERVE)).find(Boolean);
+        if (tabbed) judged = tabbed;
         if (process.env.IOI_DEAD_CONTROL_DEBUG && judged.verdict !== "alive") console.error(`DEBUG ${judged.verdict} ${now.tag} "${now.text}" css=${now.css} context="${String(now.contextText || "").slice(0, 80)}" at ${before.url}`);
-        rows.push({ surface: t.key, tag: now.tag, text: now.text, cls: now.cls, how, signals: Object.entries(signals).filter(([, v]) => v).map(([k]) => k).join(","), ...judged, url: after.url.slice(0, 120) });
+        // the requests that made "network" move are kept with the row, so a network-only verdict can be read: an action's own
+        // request, or a background poll the rest window missed (pipeline:editor's title read alive once on network alone)
+        const restSet = new Set(rest);
+        const moved = keys.slice(k0, kMeasured).filter((k) => !restSet.has(k)).slice(0, 6);
+        rows.push({ surface: t.key, tag: now.tag, text: now.text, cls: now.cls, how, signals: Object.entries(signals).filter(([, v]) => v).map(([k]) => k).join(","), ...(moved.length ? { requests: moved } : {}), ...(background ? { background } : {}), ...judged, url: after.url.slice(0, 120) });
         dirty = true;
       }
     }

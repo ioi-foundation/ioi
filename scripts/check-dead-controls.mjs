@@ -258,6 +258,17 @@ export function pureFindings(lib) {
   expect("spa-landing/blank", lib.spaLandingVerdict({ urlChanged: true, text: "   " })?.verdict, "bad_landing");
   expect("spa-landing/not-found", lib.spaLandingVerdict({ urlChanged: true, text: "4 0 4 IOI looked everywhere. This page doesn't exist. Back to dashboard" })?.verdict, "bad_landing");
   expect("spa-landing/renders", lib.spaLandingVerdict({ urlChanged: true, text: "Organizations — This deployment hosts one organization, so there is no other to join." }), null);
+  // A TAB A CLICK OPENS MUST LAND TOO — the adopted Approvals app's Documentation opened the shell's not-found page in a
+  // new tab and read alive (2026-09-28). Another origin is not this serve's to judge.
+  const O = "http://127.0.0.1:4173";
+  expect("popup-landing/not-found", lib.popupLandingVerdict({ url: `${O}/docs/foundry/approvals/overview/`, status: 200, text: "4 0 4 IOI looked everywhere. This page doesn't exist. Back to dashboard" }, O)?.verdict, "bad_landing");
+  expect("popup-landing/refused", lib.popupLandingVerdict({ url: `${O}/x`, status: 404, text: "Not found" }, O)?.verdict, "bad_landing");
+  expect("popup-landing/help", lib.popupLandingVerdict({ url: `${O}/__ioi/help?topic=docs%2Ffoundry%2Fapprovals%2Foverview`, status: 200, text: "Help approvals › overview This documentation is not published for this deployment." }, O), null);
+  expect("popup-landing/elsewhere", lib.popupLandingVerdict({ url: "https://example.com/", status: 404, text: "" }, O), null);
+  // A FIELD'S OWN ECHO IS NOT A SIGNAL — typing into a contenteditable moves page text by the typed words alone.
+  expect("echo/typed-only", lib.echoOnly({ textBefore: "Comment Add comment", textAfter: "Comment census probe Add comment", fieldBefore: "", fieldAfter: "census probe" }), true);
+  expect("echo/page-moved", lib.echoOnly({ textBefore: "Comment Add comment", textAfter: "Comment census probe Add comment Saved", fieldBefore: "", fieldAfter: "census probe" }), false);
+  expect("echo/not-an-editor", lib.echoOnly({ textBefore: "a", textAfter: "b", fieldBefore: null, fieldAfter: null }), false);
 
   // A RESIZE HANDLE IS DRAGGED, never clicked — and a drag that moved it is alive by "other".
   expect("drag/exercise", lib.exerciseFor({ tag: "BUTTON", cursor: "ew-resize" }), "drag");
