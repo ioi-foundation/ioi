@@ -2,56 +2,49 @@
 // Memory graph + projection explainability done-bar.
 //
 // Proves the vault is an inspectable graph (derived-only, no new store) and every projection
-// is explainable from vault truth to harness prompt: mixed-sensitivity fixture vault → real
-// compare run over two harnesses → same MemorySpace, DIVERGENT per-harness decisions →
+// is explainable from vault truth to harness prompt: mixed-sensitivity fixture vault → one
+// session's projections for two harnesses → same MemorySpace, DIVERGENT per-harness decisions →
 // explanations reveal reason codes + refs + receipts but never private/secret bodies →
-// graph carries the expected node/edge kinds → Work Ledger + Run Timeline link to explain.
+// graph carries the expected node/edge kinds → Work Ledger links to explain.
 //
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-memory-graph-explainability.mjs (≈2–4 min)
+// RE-TYPED 2026-09-29 (R-240, GoalRun residue). The per-harness projections came from a REAL IOI
+// Agent Compare launch that minted a GoalRun, read back by `goal_run_ref`, and the goal-run Run
+// Timeline linked them to explain. R-192 (S5-1) took goal pursuit out of the Hypervisor — a goal run
+// is an ioi.ai composition over the thread orchestration primitives (standing owner ruling
+// 2026-09-24) — so that lane and its timeline are gone. The projections are now created for a
+// SESSION (the Hypervisor's own work subject) through the projection lane an invocation references,
+// read back by `session_ref`; the retired timeline's link clause is dropped (the Work Ledger and the
+// Memory tab's explain panel below carry the same backlink).
+//
+// Usage: node apps/hypervisor/scripts/verify-hypervisor-memory-graph-explainability.mjs (≈1 min)
+// Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
+// URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
-import http from "node:http";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
-
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-// node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
-// fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
-function jd(method, url, body) {
-  const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
-  const payload = body ? JSON.stringify(body) : null;
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
-      (res) => {
-        let raw = "";
-        res.on("data", (c) => { raw += c; });
-        res.on("end", () => {
-          let j = {};
-          try { j = JSON.parse(raw); } catch { j = {}; }
-          resolve({ status: res.statusCode, j });
-        });
-      },
-    );
-    req.on("error", reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
+// Every request carries the stack operator's session (verifier-stack).
+async function jd(method, url, body) {
+  const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => null);
+  const text = r ? await r.text().catch(() => "") : "";
+  let j = {}; try { j = JSON.parse(text); } catch { j = {}; }
+  return { status: r?.status ?? 0, j };
 }
 
 async function run() {
   const tag = Date.now().toString(16);
   const privBody = `graphpriv-${tag}`;
   const secretBody = `graphsecret-${tag}`;
-  for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/enable`);
 
   // ── Mixed vault fixture ──
   const mk = async (body) => (await jd("POST", "/v1/hypervisor/memory-entries", body)).j?.record || {};
@@ -71,17 +64,18 @@ async function run() {
   const skill = (await jd("POST", "/v1/hypervisor/skill-entries", { title: `g-skill-${tag}`, description: "graph skill" })).j?.record;
   const affinity = (await jd("POST", "/v1/hypervisor/automation-affinities", { title: `g-aff-${tag}`, goal_pattern: `graphtoken-${tag}`, preferred_policy_ref: "ioi-agent-policy://pol_fast_local" })).j?.record;
 
-  // ── Compare run over two harnesses ──
-  const phaseA = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: `Create the file graph-run-${tag}.txt containing the word: explained`, strategy: "compare" });
-  const grant = mintApprovalGrant({ policyHash: phaseA.j.approval.policy_hash, requestHash: phaseA.j.approval.request_hash });
-  const phaseB = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
-  const grid = String(phaseB.j?.advanced?.goal_run_ref || "").replace("goal://", "");
-  const projections = await jd("GET", `/v1/hypervisor/memory-projections?goal_run_ref=goal://${grid}`);
+  // ── One session's projections for two harnesses (R-240, 2026-09-29: a REAL IOI Agent Compare
+  // launch — a GoalRun over both harnesses — stood here) ──
+  const sessionRef = `session://graph-run-${tag}`;
+  for (const harness of ["harness-profile:hp_opencode", "harness-profile:hp_deepseek_tui"]) {
+    await jd("POST", "/v1/hypervisor/memory-projections", { goal: `graph-run-${tag} explained`, harness_profile_ref: harness, model_route_ref: "model-route:mrt_local_default", session_ref: sessionRef });
+  }
+  const projections = await jd("GET", `/v1/hypervisor/memory-projections?session_ref=${encodeURIComponent(sessionRef)}`);
   const byHarness = Object.fromEntries((projections.j?.projections || []).map((p) => [p.harness_profile_ref, p]));
-  const oc = byHarness["harness-profile:hp_opencode"];
-  const ds = byHarness["harness-profile:hp_deepseek_tui"];
-  ok("compare run produced per-harness projections over one MemorySpace",
-    oc && ds && oc.memory_space_ref === ds.memory_space_ref && oc.projection_ref !== ds.projection_ref);
+  const oc = byHarness["harness-profile:hp_opencode"] || {};
+  const ds = byHarness["harness-profile:hp_deepseek_tui"] || {};
+  ok("one session's projections for two harnesses share one MemorySpace",
+    !!oc.projection_ref && !!ds.projection_ref && oc.memory_space_ref === ds.memory_space_ref && oc.projection_ref !== ds.projection_ref);
   ok("projections DIVERGE on harness-scoped decisions",
     (ds.included_entry_refs || []).includes(dsOnly.entry_ref) && !(oc.included_entry_refs || []).includes(dsOnly.entry_ref));
 
@@ -102,7 +96,7 @@ async function run() {
   ok("explanations for the two harnesses differ where compatibility differs",
     decOf(dsx, dsOnly.entry_ref)?.decision === "included" && decOf(ocx, dsOnly.entry_ref)?.decision === "excluded");
   ok("explain carries context refs + receipts (deterministic, receipt-linked)",
-    ocx.context?.goal_run_ref === `goal://${grid}` && ocx.deterministic === true
+    ocx.context?.session_ref === sessionRef && ocx.deterministic === true
     && String((ocx.receipt_refs || [])[0] || "").startsWith("receipt://hypervisor/memory-projection/"));
   const blob = JSON.stringify(ocx) + JSON.stringify(dsx);
   ok("explanations never expose private/secret bodies", !blob.includes(privBody) && !blob.includes(secretBody));
@@ -135,9 +129,8 @@ async function run() {
     !JSON.stringify(fullGraph).includes(privBody) && !JSON.stringify(fullGraph).includes(secretBody));
 
   // ── Proof-surface links ──
-  const tl = await fetch(`${SHELL}/__ioi/run-timeline/goal-run/${grid}`).then((r) => r.text());
-  ok("Run Timeline links projections to their explain view",
-    tl.includes(`/__ioi/intelligence/projections/${oc.projection_id}/explain`) || tl.includes(`/__ioi/intelligence/projections/${ds.projection_id}/explain`));
+  // R-240 (2026-09-29): "Run Timeline links projections to their explain view" read the retired
+  // goal-run timeline page; the ledger row and the Memory tab's explain panel carry the backlink.
   const wl = await fetch(`${SHELL}/__ioi/work-ledger`).then((r) => r.text());
   ok("Work Ledger memory_projection rows can reach explain (backlink lane present)", /Projection explain/.test(wl) || wl.includes("intelligence/projections"));
   const explainPage = await fetch(`${SHELL}/__ioi/intelligence/projections/${oc.projection_id}/explain`).then((r) => r.text());
@@ -147,6 +140,7 @@ async function run() {
   // ── Agent Studio UI ──
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   await page.goto(`${SHELL}/__ioi/agent-studio#memory`, { waitUntil: "networkidle" });
@@ -177,10 +171,10 @@ async function run() {
   }
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skill.skill_id}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affinity.affinity_id}`, { status: "archived" });
-  for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/disable`);
-  const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
-  ok("fixtures archived + drivers restored",
-    (fin.j?.profiles || []).filter((p) => ["opencode", "deepseek_tui"].includes(p.harness)).every((p) => p.lifecycle.status === "disabled"));
+  // R-240 (2026-09-29): the drivers were enabled only to run the retired launch; nothing to restore.
+  const skillAfter = (await jd("GET", `/v1/hypervisor/skill-entries/${skill?.skill_id}`)).j?.record || {};
+  const affAfter = (await jd("GET", `/v1/hypervisor/automation-affinities/${affinity?.affinity_id}`)).j?.record || {};
+  ok("fixtures archived", skillAfter.status === "archived" && affAfter.status === "archived", `${skillAfter.status}/${affAfter.status}`);
 }
 
 run().then(() => {

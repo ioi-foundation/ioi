@@ -1,60 +1,49 @@
 #!/usr/bin/env node
 // Outcome learning done-bar.
 //
-// Proves IOI Agent turns repeated work into skills, policy suggestions, and automation
-// readiness WITHOUT self-modifying behavior: deterministic outcome mining (no LLM judging),
-// durable evidence-bound improvement proposals (pending → approved → applied | rejected),
-// zero mutation before approve+apply, receipted application through the ordinary object
-// lanes, protected seed policies immutable (clone-only), and no private memory leakage.
-//
-// Runs two REAL direct launches with an identical goal to seed the pattern signal (≈30s).
+// Proves repeated work becomes skills and automation readiness WITHOUT self-modifying behavior:
+// deterministic outcome mining (no LLM judging), durable evidence-bound improvement proposals
+// (pending → approved → applied | rejected), zero mutation before approve+apply, receipted
+// application through the ordinary object lanes, and no private memory leakage.
 // GOV-ATTR-1: the policy-apply gate ApprovalRequest is DECIDED by a real authenticated principal —
 // the request body names no reviewer, and the record must report that session's server-derived
 // `user://<principal_id>`. Canon: `identity-access-and-metering.md`.
-// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
-//          node apps/hypervisor/scripts/verify-hypervisor-outcome-learning-proposals.mjs
+//
+// RE-TYPED 2026-09-29 (R-240, GoalRun residue). It seeded its pattern signal with two REAL IOI
+// Agent launches and applied a learned launch-policy suggestion to a CLONE of a protected seed
+// policy. The launch lane and the launch-policy plane left the Hypervisor with goal pursuit in R-192
+// (S5-1) — a goal run is an ioi.ai composition over the thread orchestration primitives (standing
+// owner ruling 2026-09-24) — so it crashed on its first launch. The mined-candidate clauses are
+// dropped (the miner reads only IOI Agent launch records, which nothing produces any more); the
+// proposals bind their evidence to receipted Hypervisor records (memory projections) instead; and
+// the launch-policy suggestion is kept as what it now is: reviewed through the same gate, its apply
+// refused by name (410 `ioi_agent_launch_policy_retired`).
+//
+// Usage: node apps/hypervisor/scripts/verify-hypervisor-outcome-learning-proposals.mjs  (≈1 min)
+// Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
+// URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
-import http from "node:http";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { ANONYMOUS, verifierStack } from "./lib/verifier-stack.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
-
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-// node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
-// fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
-function jd(method, url, body, headers) {
-  const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
-  const payload = body ? JSON.stringify(body) : null;
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(headers || {}), ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
-      (res) => {
-        let raw = "";
-        res.on("data", (c) => { raw += c; });
-        res.on("end", () => {
-          let j = {};
-          try { j = JSON.parse(raw); } catch { j = {}; }
-          resolve({ status: res.statusCode, j });
-        });
-      },
-    );
-    req.on("error", reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
+// Every request carries the stack operator's session (verifier-stack) unless it names its own
+// `authorization` (the reviewer) or opts out with ANONYMOUS (the reviewer's own login).
+async function jd(method, url, body, headers) {
+  const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
+    method,
+    headers: { "content-type": "application/json", ...(headers || {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => null);
+  const text = r ? await r.text().catch(() => "") : "";
+  let j = {}; try { j = JSON.parse(text); } catch { j = {}; }
+  return { status: r?.status ?? 0, j };
 }
-// An authenticated operator session; the existing external-daemon credential convention from
-// `scripts/smoke-product-surfaces.mjs`. Provisioning a principal is org-admin governed even on
-// loopback, so there is no anonymous fixture shortcut to reach for.
-const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
 // GOV-ATTR-1 — a governance decision's reviewer is WHO DECIDED. Canon
 // (`identity-access-and-metering.md`): "Request bodies never select the acting principal." So the
 // gate approval below is approved BY a real principal: provisioned through the operator session,
@@ -63,13 +52,12 @@ const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim(
 // fixture would approve anonymously and prove nothing about the identity seam, so it fails the
 // verifier outright.
 async function admitReviewer(tag) {
-  if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
-  const operator = { authorization: `Bearer ${OPERATOR_SESSION}` };
+  const operator = { authorization: `Bearer ${STACK.token}` };
   const principalId = `usr_vfyout${tag}`;
   const email = `vfyout-${tag}@local`;
   const password = `vfyout-${tag}-reviewer-pass`;
   const created = await jd("POST", "/v1/hypervisor/principals", { email, password, principal_id: principalId }, operator);
-  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email, password })).j || {};
+  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email, password }, { [ANONYMOUS]: "1" })).j || {};
   const token = login.session_token || "";
   const session = { authorization: `Bearer ${token}` };
   const who = token ? (await jd("GET", "/v1/hypervisor/auth/whoami", undefined, session)).j || {} : {};
@@ -77,36 +65,31 @@ async function admitReviewer(tag) {
   if (!derived) throw new Error(`reviewer identity fixture NOT admitted (create ${created.status}, whoami ${JSON.stringify(who).slice(0, 200)}) — the gate approval cannot cross the real identity seam`);
   return { principalId: derived, ref: `user://${derived}`, headers: session, operator };
 }
-const launch = async (goal) => {
-  const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal, strategy: "direct" });
-  const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
-  return jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
-};
 
 async function run() {
   const tag = Date.now().toString(16);
   const privMarker = `olpriv-${tag}`;
   const reviewer = await admitReviewer(tag);
   ok("real principal + login session admitted as the deciding identity", !!reviewer.ref, reviewer.ref);
-  await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/enable");
   const privEntry = (await jd("POST", "/v1/hypervisor/memory-entries", { title: `ol-priv-${tag}`, entry_kind: "fact", body: privMarker, sensitivity: "private" })).j?.record || {};
 
-  // ── Seed repeated identical successful work (REAL launches) ──
-  const goal = `vfyoutcome${tag} produce the demo status artifact`;
-  const l1 = await launch(`${goal} first`);
-  const l2 = await launch(`${goal} second`);
-  ok("two real launches with a shared goal pattern executed", l1.status === 200 && l2.status === 200);
-
-  // ── Mining: deterministic candidates ──
-  const mining = (await jd("GET", "/v1/hypervisor/intelligence/outcome-mining")).j || {};
+  // ── Evidence: two receipted Hypervisor records (R-240, 2026-09-29: two REAL IOI Agent launches
+  // stood here; that lane is retired) ──
   const pattern = `vfyoutcome${tag} produce the demo`;
-  const skillCand = (mining.candidates || []).find((c) => c.candidate_kind === "skill_improvement" && c.pattern === pattern);
-  const autoCand = (mining.candidates || []).find((c) => c.candidate_kind === "automation_readiness" && c.pattern === pattern);
-  const harnessCand = (mining.candidates || []).find((c) => c.signal === "repeated_harness_model_preference");
+  const sessionRef = `session://vfyoutcome-${tag}`;
+  const evidence = [];
+  for (const harness of ["harness-profile:hp_opencode", "harness-profile:hp_deepseek_tui"]) {
+    const p = (await jd("POST", "/v1/hypervisor/memory-projections", { harness_profile_ref: harness, session_ref: sessionRef, goal: `${pattern} status artifact` })).j?.projection || {};
+    if (p.projection_ref) evidence.push(p.projection_ref);
+  }
+  ok("two receipted memory projections recorded as the proposals' evidence", evidence.length === 2 && evidence.every((r) => r.startsWith("memory-projection://")), evidence.join(","));
+
+  // ── Mining: deterministic, derived-only ──
+  // R-240 (2026-09-29): "repeated successful goal pattern mined" and "repeated harness preference
+  // mined" read candidates the miner derives ONLY from IOI Agent launch records; nothing produces
+  // one since the launch lane retired, so those two clauses are dropped rather than faked.
+  const mining = (await jd("GET", "/v1/hypervisor/intelligence/outcome-mining")).j || {};
   ok("mining is deterministic-only and derived-only", mining.deterministic_signals_only === true && mining.derived_only === true);
-  ok("repeated successful goal pattern mined (skill + automation candidates, evidence-bound)",
-    !!skillCand && !!autoCand && skillCand.occurrences >= 2 && (skillCand.evidence_refs || []).length >= 2, skillCand?.pattern);
-  ok("repeated harness preference mined", !!harnessCand && (harnessCand.evidence_refs || []).length >= 3);
   ok("mining leaks no private memory bodies", !JSON.stringify(mining).includes(privMarker));
 
   // ── Proposals: creation changes nothing ──
@@ -117,17 +100,17 @@ async function run() {
   ok("proposals refuse credential material", credProp.status === 403);
 
   const skillProp = (await mkProp({
-    proposal_kind: "skill_improvement", signal: skillCand.signal, evidence_refs: skillCand.evidence_refs,
-    confidence: skillCand.confidence, suggested: { ...skillCand.suggested, title: `Skill: vfyoutcome-${tag}` },
+    proposal_kind: "skill_improvement", signal: "repeated_successful_goal_pattern", evidence_refs: evidence,
+    confidence: 0.8, suggested: { title: `Skill: vfyoutcome-${tag}`, description: "produce the demo status artifact" },
   })).j?.proposal || {};
   const policyProp = (await mkProp({
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
-    target_ref: "ioi-agent-policy://pol_fast_local", evidence_refs: harnessCand.evidence_refs,
+    target_ref: "ioi-agent-policy://pol_fast_local", evidence_refs: evidence,
     suggested: { description: `learned ${tag}`, harness_preferences: { preferred_harness_refs: ["harness-profile:hp_opencode"], excluded_harness_refs: [], allow_fallback: true } },
   })).j?.proposal || {};
   const autoProp = (await mkProp({
-    proposal_kind: "automation_readiness", signal: autoCand.signal, evidence_refs: autoCand.evidence_refs,
-    confidence: autoCand.confidence, suggested: { title: `Affinity: vfyoutcome-${tag}`, goal_pattern: pattern },
+    proposal_kind: "automation_readiness", signal: "repeated_successful_goal_pattern", evidence_refs: evidence,
+    confidence: 0.8, suggested: { title: `Affinity: vfyoutcome-${tag}`, goal_pattern: pattern },
   })).j?.proposal || {};
   const rejectProp = (await mkProp({
     proposal_kind: "skill_improvement", signal: "repeated_manual_correction",
@@ -138,9 +121,8 @@ async function run() {
 
   const skillsBefore = (await jd("GET", `/v1/hypervisor/skill-entries?q=vfyoutcome-${tag}`)).j?.skills || [];
   const affBefore = (await jd("GET", `/v1/hypervisor/automation-affinities?q=vfyoutcome-${tag}`)).j?.affinities || [];
-  const seedBefore = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
-  ok("no mutation on proposal creation (skills/affinities absent, seed unchanged)",
-    skillsBefore.length === 0 && affBefore.length === 0 && seedBefore.protected === true && !String(seedBefore.description || "").includes(`learned ${tag}`));
+  // R-240 (2026-09-29): "seed unchanged" left with the launch-policy seeds.
+  ok("no mutation on proposal creation (skills/affinities absent)", skillsBefore.length === 0 && affBefore.length === 0);
   const applyEarly = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${skillProp.improvement_id}/apply`);
   ok("apply before approval fails closed", applyEarly.status === 409 && applyEarly.j?.error?.code === "improvement_not_approved");
 
@@ -156,10 +138,10 @@ async function run() {
   const studioSkills = await fetch(`${SHELL}/__ioi/agent-studio`).then((r) => r.text());
   ok("applied skill visible in Agent Studio Skills", studioSkills.includes(`Skill: vfyoutcome-${tag}`));
 
-  // ── Launch-policy suggestion: protected seed applies via clone only ──
+  // ── Launch-policy suggestion: reviewed through the gate, its apply refused by name ──
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/approve`);
-  // Governance gates (enforced since the simulation cut): policy improvements need a fresh
-  // saved simulation; if it lands high-impact, an approved ApprovalRequest + open ReleaseControl.
+  // Governance gates: policy improvements need a fresh saved simulation; the gate chain is built
+  // explicitly so the reviewer attribution is measured.
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/simulate`, { save: true });
   const polGate = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: policyProp.proposal_ref, request_kind: "improvement_apply", reason: "verifier gate" })).j?.approval_request || {};
   // The approval is DECIDED by the admitted reviewer session; the body names nobody (GOV-ATTR-1).
@@ -171,16 +153,15 @@ async function run() {
   const polRel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: policyProp.proposal_ref, reason: "verifier gate" })).j?.release_control || {};
   await jd("PATCH", `/v1/hypervisor/governance/release-controls/${polRel.id}`, { transition: "open" });
   await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}`, { approval_request_ref: polGate.ref, release_control_ref: polRel.ref });
-  const policyApplied = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/apply`)).j?.proposal || {};
-  const cloneId = String(policyApplied.applied_ref || "").replace("ioi-agent-policy://", "");
-  const clone = (await jd("GET", `/v1/goal-orchestration/ioi-agent/launch-policies/${cloneId}`)).j?.policy || {};
-  const seedAfter = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
-  ok("policy suggestion applied to a CLONE; protected seed untouched",
-    clone.protected === false && clone.cloned_from === "ioi-agent-policy://pol_fast_local"
-    && String(clone.description || "").includes(`learned ${tag}`)
-    && seedAfter.protected === true && !String(seedAfter.description || "").includes(`learned ${tag}`));
-  const directPatch = await jd("PATCH", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local", { description: "hack" });
-  ok("direct mutation of protected seeds still fails closed", directPatch.status === 409);
+  const policyApply = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/apply`);
+  const policyAfter = (await jd("GET", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}`)).j?.proposal || {};
+  // R-240 (2026-09-29): "applied to a CLONE; protected seed untouched" and "direct mutation of
+  // protected seeds still fails closed" read the retired launch-policy plane; the apply is now
+  // refused before any policy object would be written.
+  ok("the policy suggestion's apply is refused by name (410 ioi_agent_launch_policy_retired) and writes no policy",
+    policyApply.status === 410 && policyApply.j?.error?.code === "ioi_agent_launch_policy_retired"
+    && policyAfter.state === "approved" && !policyAfter.applied_ref,
+    `${policyApply.status} ${policyApply.j?.error?.code} · state ${policyAfter.state}`);
 
   // ── Automation readiness: applies only through the approved path ──
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${autoProp.improvement_id}/approve`);
@@ -196,8 +177,10 @@ async function run() {
 
   // ── Ledger + leakage ──
   const ledger = await jd("GET", "/v1/hypervisor/work-ledger");
-  ok("Work Ledger indexes improvement-applied receipts",
-    (ledger.j?.entries || []).filter((e) => e.kind === "improvement_applied" && [skillApplied, policyApplied, autoApplied].some((p) => e.proposal_ref === p.proposal_ref)).length === 3);
+  const appliedEntries = (ledger.j?.entries || []).filter((e) => e.kind === "improvement_applied");
+  ok("Work Ledger indexes the improvement-applied receipts — the skill and the affinity, and none for the refused policy",
+    appliedEntries.filter((e) => [skillApplied, autoApplied].some((p) => e.proposal_ref === p.proposal_ref)).length === 2
+    && !appliedEntries.some((e) => e.proposal_ref === policyProp.proposal_ref));
   const allProps = await jd("GET", "/v1/hypervisor/intelligence/improvement-proposals");
   ok("no private memory body leaks into proposals, mining, or the improvement UI",
     !JSON.stringify(allProps.j).includes(privMarker)
@@ -207,6 +190,7 @@ async function run() {
   // ── UI panel ──
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   await page.goto(`${SHELL}/__ioi/agent-studio#launch-policies`, { waitUntil: "networkidle" });
@@ -224,18 +208,19 @@ async function run() {
   const ft = await fetch(`${SHELL}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({}));
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
-  // ── Cleanup + posture restore ──
+  // ── Cleanup ──
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skillRef.replace("skill-entry://", "")}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affRef.replace("automation-affinity://", "")}`, { status: "archived" });
-  await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${cloneId}`);
-  await jd("PATCH", `/v1/hypervisor/memory-entries/${privEntry.entry_id}`, { status: "archived" });
+  if (privEntry.entry_id) await jd("PATCH", `/v1/hypervisor/memory-entries/${privEntry.entry_id}`, { status: "archived" });
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/reject`, { reason: "verifier fixture" });
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${polGate.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${polRel.id}`);
   await jd("DELETE", `/v1/hypervisor/principals/${encodeURIComponent(reviewer.principalId)}`, undefined, reviewer.operator);
-  await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");
-  const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
-  ok("fixtures cleaned + drivers restored",
-    (fin.j?.profiles || []).filter((p) => p.harness === "opencode").every((p) => p.lifecycle.status === "disabled"));
+  // R-240 (2026-09-29): the opencode driver was enabled only to run the retired launches, so there
+  // is no driver posture to restore; the fixtures this run applied are what it archives.
+  const skillAfter = (await jd("GET", `/v1/hypervisor/skill-entries/${skillRef.replace("skill-entry://", "")}`)).j?.record || {};
+  const affAfter = (await jd("GET", `/v1/hypervisor/automation-affinities/${affRef.replace("automation-affinity://", "")}`)).j?.record || {};
+  ok("fixtures cleaned (applied skill and affinity archived)", skillAfter.status === "archived" && affAfter.status === "archived", `${skillAfter.status}/${affAfter.status}`);
 }
 
 run().then(() => {

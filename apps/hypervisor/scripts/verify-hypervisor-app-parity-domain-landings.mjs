@@ -212,9 +212,14 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
     "/v1/jobs",
     "/v1/runs",
     "/v1/tasks",
-    "/v1/goal-orchestration/goal-runs",
-    "/v1/goal-orchestration/ioi-agent/launches",
-    "/v1/goal-orchestration/attempts",
+    // R-240 (GoalRun residue, 2026-09-29): three planes stood here — /v1/goal-orchestration/goal-runs,
+    // /ioi-agent/launches and /attempts. The goal-orchestration family left the daemon with goal
+    // pursuit (R-192, S5-1; a goal run is an ioi.ai composition over the thread orchestration
+    // primitives), and the serve's Builds census replaced them with the platform planes that remain:
+    // WorkResults, the work-lifecycle record chain, and attempts as System-record-seam v4 records.
+    "/v1/hypervisor/work-results",
+    "/v1/hypervisor/work-lifecycle/records",
+    "/v1/hypervisor/autonomous-systems/:system_id/records?contract_id=schema://ioi/applications/ioi-ai/attempt/v4",
     "/v1/hypervisor/foundry/run-plans",
     "/v1/hypervisor/odk/transformation-runs",
     "/v1/hypervisor/odk/materializing-runs",
@@ -635,8 +640,9 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
     ["/v1/model-mount/receipts/:id", "/v1/model-mount/receipts/no-receipt-selected", "singleton", "invocation", null],
     ["/v1/usage", "/v1/usage", "collection", "invocation", (b) => b?.usage],
     ["/v1/hypervisor/usage/consumption", "/v1/hypervisor/usage/consumption", "singleton", "invocation", null],
-    ["/v1/goal-orchestration/goal-runs", "/v1/goal-orchestration/goal-runs", "collection", "invocation", (b) => b?.goal_runs],
-    ["/v1/goal-orchestration/ioi-agent/launches", "/v1/goal-orchestration/ioi-agent/launches", "collection", "invocation", (b) => b?.launches],
+    // R-240 (GoalRun residue, 2026-09-29): the goal-run and agent-launch rows left with the
+    // goal-orchestration plane (R-192, S5-1); the serve's census reads the platform's WorkResult lane.
+    ["/v1/hypervisor/work-results", "/v1/hypervisor/work-results", "collection", "invocation", (b) => b?.work_results],
     ["/v1/hypervisor/model-routes", "/v1/hypervisor/model-routes", "collection", "model", (b) => b?.routes],
     ["/v1/hypervisor/model-routes/overview", "/v1/hypervisor/model-routes/overview", "singleton", "model", null],
     ["/v1/hypervisor/model-route-session-bindings", "/v1/hypervisor/model-route-session-bindings", "collection", "model", (b) => b?.bindings],
@@ -670,7 +676,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   const iBy = Object.fromEntries(iDerived.map((d2) => [d2.path, d2]));
   const iProjects = iBy["/v1/hypervisor/projects"].rows;
   const iLedger = iBy["/v1/hypervisor/work-ledger"].rows;
-  const iGoalRuns = iBy["/v1/goal-orchestration/goal-runs"].rows;
+  const iWorkResults = iBy["/v1/hypervisor/work-results"].rows;
   const iReceipts = iBy["/v1/model-mount/receipts"].rows;
   const iUsage = iBy["/v1/usage"].rows;
   const iRoutes = iBy["/v1/hypervisor/model-routes"].rows;
@@ -688,9 +694,12 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   const iLedgerVocab = [...new Set(iLedger.map((e) => str(e?.project_id)).filter((v) => v !== ""))].sort();
   const iLedgerVocabResolving = iLedgerVocab.filter((v) => iProjectIds.has(v));
   const iLedgerVocabDangling = iLedgerVocab.filter((v) => !iProjectIds.has(v));
-  const iGoalVocab = [...new Set(iGoalRuns.map((g) => str(g?.project_ref)).filter((v) => v !== ""))].sort();
+  // The third vocabulary, re-derived after R-192 (S5-1): the WorkResult lane's `project_ref`, and
+  // how many results name their work subject at all.
+  const iGoalVocab = [...new Set(iWorkResults.map((g) => str(g?.project_ref)).filter((v) => v !== ""))].sort();
   const iGoalVocabResolving = iGoalVocab.filter((v) => iProjectIds.has(v));
-  const iGoalRefs = iGoalRuns.reduce((n, g) => n + (Array.isArray(g?.invocation_refs) ? g.invocation_refs.length : 0), 0);
+  const iResultsWithRef = iWorkResults.filter((g) => str(g?.project_ref) !== "").length;
+  const iResultSubjectRefs = iWorkResults.filter((g) => str(g?.work_subject_ref) !== "").length;
   const SPACE_FIELD_RE = /invocation|inference|prompt|completion|model/i;
   const SPACEY_RE = /project|space|tenant|folder|location/i;
   const iProjWithInvField = iProjects.filter((p) => Object.keys(p || {}).some((k) => SPACE_FIELD_RE.test(k))).length;
@@ -741,11 +750,14 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   // The page claims it printed the DAEMON's answers to three real selections. The only way to gate
   // that claim is to put the same three selections to the daemon here.
   ok("inference: the THREE ASKS are the DAEMON'S OWN ANSWERS — the same selections put to the same filter by this gate return exactly what the page printed", [ansA, ansB, ansC].every((a) => a === null || a.readable) && [ansA, ansB, ansC].filter((a) => a !== null).every((a) => t.includes(askLine(a))) && [ansA, ansB, ansC].some((a) => a !== null) && /a re-implemented admission rule is a second answer waiting to disagree with the first/.test(t), `A(${selA})=${ansA ? ansA.entries : "-"}/${ansA ? ansA.invocations : "-"} B(${selB})=${ansB ? ansB.entries : "-"}/${ansB ? ansB.invocations : "-"} C(${selC})=${ansC ? ansC.entries : "-"}/${ansC ? ansC.invocations : "-"}`);
-  ok("inference: the THREE VOCABULARIES are re-derived and the dangling one is named — the ledger's, the goal-run lane's, and how many of each resolve to a real space", new RegExp(`<b>${iGoalRuns.length}</b> records, <b>${iGoalRuns.filter((g) => str(g?.project_ref) !== "").length}</b> of which carry a <code>project_ref</code>`).test(t) && new RegExp(`fanning out into <b>${iGoalRefs}</b> declared invocation refs`).test(t) && new RegExp(`<b>${iGoalVocabResolving.length}</b> of those <b>${iGoalVocab.length}</b> value`).test(t) && new RegExp(`<b>${iLedgerVocabResolving.length}</b> resolve`).test(t) && new RegExp(`<b>${iLedgerVocabDangling.length}</b> dangle`).test(t) && iGoalVocab.every((v) => t.includes(`<code>${v}</code>`)) && iLedgerVocab.every((v) => t.includes(`<code>${v}</code>`)) && /Three planes that would have to agree on what a space is, and no shared vocabulary between them/.test(t), `ledgerVocab=${iLedgerVocab.length}(${iLedgerVocabResolving.length} resolving) goalVocab=${iGoalVocab.length}(${iGoalVocabResolving.length} resolving)`);
+  // R-240 (GoalRun residue, 2026-09-29): the third vocabulary was the goal-run lane's project_ref and
+  // its fan-out into declared invocation refs; that lane retired (R-192, S5-1) and the page measures the
+  // WorkResult lane in its place, naming the retirement rather than reconciling it.
+  ok("inference: the THREE VOCABULARIES are re-derived and the dangling one is named — the ledger's, the WorkResult lane's (the goal-run lane retired), and how many of each resolve to a real space", new RegExp(`<b>${iWorkResults.length}</b> records, <b>${iResultsWithRef}</b> carrying a <code>project_ref</code> and <b>${iResultSubjectRefs}</b> carrying a <code>work_subject_ref</code>`).test(t) && new RegExp(`<b>${iGoalVocabResolving.length}</b> of those <b>${iGoalVocab.length}</b> value`).test(t) && new RegExp(`<b>${iLedgerVocabResolving.length}</b> resolve`).test(t) && new RegExp(`<b>${iLedgerVocabDangling.length}</b> dangle`).test(t) && iGoalVocab.every((v) => t.includes(`<code>${v}</code>`)) && iLedgerVocab.every((v) => t.includes(`<code>${v}</code>`)) && /The planes that would have to agree on what a space is still do not, and one of the three left the estate rather than being reconciled/.test(t), `ledgerVocab=${iLedgerVocab.length}(${iLedgerVocabResolving.length} resolving) goalVocab=${iGoalVocab.length}(${iGoalVocabResolving.length} resolving)`);
   ok("inference: the EDGE is checked from BOTH sides and re-derived — the space side's fields and refs, its write routes, and the invocation side's receipts and meter", new RegExp(`<b>${iProjWithInvField}</b> of the <b>${iProjects.length}</b> live space records carry any field naming an invocation`).test(t) && iProjRefLanes.every((f) => t.includes(`<code>${f}</code>`)) && new RegExp(`hold <b>${iProjRefs.length}</b> refs between them, of which <b>${iProjRefsNamingInv}</b> names an invocation or a model route`).test(t) && new RegExp(`Of the <b>${iProjWriteRoutes.length}</b> published project write routes not one accepts an invocation ref`).test(t) && new RegExp(`the <b>${iMIReceipts.length}</b> model-invocation receipts this identity can read carry <b>${iMIWithSpace}</b> space-`).test(t) && new RegExp(`the <b>${iUsage.length}</b> metered usage records carry <b>${iUsageWithSpace}</b>`).test(t), `projFields=${iProjWithInvField}/${iProjects.length} refs=${iProjRefsNamingInv}/${iProjRefs.length} writes=${iProjWriteRoutes.length} receipts=${iMIWithSpace}/${iMIReceipts.length} usage=${iUsageWithSpace}/${iUsage.length}`);
   ok("inference: the receiving side is counted from the daemon's OWN index — how many routes name a space, and that exactly two accept one as a filter", new RegExp(`of <b>${allRoutes.length}</b> live routes the index publishes, exactly <b>two</b> accept a project as a query filter`).test(t) && t.includes("<code>/v1/hypervisor/work-ledger</code>") && t.includes("<code>/v1/hypervisor/automations</code>") && /handle_work_ledger/.test(t) && /retains only entries whose <code>project_id<\/code> equals it exactly/.test(t), `routes=${allRoutes.length} spaceNaming=${iSpaceNaming}`);
   ok("inference: the finding is stated as the RULE, not as this one route's quirk — and why a wired chooser is WORSE than a missing one", /A selection a route accepts is not a working filter/.test(t) && /the test is whether the key it lands on is written by the records it is meant to scope/.test(t) && /would drop every invocation the estate has ever recorded and report the loss as an empty space/.test(t) && /mints no second mutation spine/.test(t));
-  ok("inference: every plane's state AND shape AND gate-half are CLASSIFIED LIVE — the stamped quadruple equals what the daemon answers to this identity right now", iDerived.length === 27 && iDerived.every((d2) => t.includes(`data-ioi-plane="${d2.path}" data-ioi-plane-state="${d2.state}" data-ioi-plane-shape="${d2.shape}" data-ioi-plane-lane="${d2.lane}"`)), iDerived.map((d2) => `${d2.path.split("/").pop()}=${d2.state}`).join(" "));
+  ok("inference: every plane's state AND shape AND gate-half are CLASSIFIED LIVE — the stamped quadruple equals what the daemon answers to this identity right now", iDerived.length === 26 /* 27 → 26 (R-240, GoalRun residue, 2026-09-29): the goal-run and agent-launch planes left, WorkResults joined */ && iDerived.every((d2) => t.includes(`data-ioi-plane="${d2.path}" data-ioi-plane-state="${d2.state}" data-ioi-plane-shape="${d2.shape}" data-ioi-plane-lane="${d2.lane}"`)), iDerived.map((d2) => `${d2.path.split("/").pop()}=${d2.state}`).join(" "));
   ok("inference: a REFUSAL is rendered as a REFUSAL — the daemon's own words verbatim, and NEVER as a count", iDerived.filter((d2) => d2.state === "refused").length > 0 && iDerived.filter((d2) => d2.state === "refused").every((d2) => { const row = iPlaneRow(d2.path); return row.includes(d2.code) && /REFUSED<\/b> this read/.test(row) && !/\d+<\/b> records?/.test(row); }) && /a refusal is not a zero/i.test(t), `${iDerived.filter((d2) => d2.state === "refused").length} refused`);
   ok("inference: EMPTY, MISSING, NO-READ-ROUTE and UNPUBLISHED are held apart — and the invocation COLLECTION that the index does not publish at all is none of the other three", iDerived.filter((d2) => d2.state === "empty").every((d2) => /EMPTY<\/b> plane, not a missing one/.test(iPlaneRow(d2.path))) && iDerived.filter((d2) => d2.state === "no_read_route").every((d2) => /no GET<\/b>/.test(iPlaneRow(d2.path)) && /not the same as reading nothing/.test(iPlaneRow(d2.path))) && /REFUSED is not EMPTY, EMPTY is not MISSING/.test(t) && iBy["/v1/hypervisor/model-invocations"].state === "no_read_route" && /the index publishes this path at no method at all/.test(iPlaneRow("/v1/hypervisor/model-invocations")) && /<b>MISSING<\/b>/.test(t) && /EMPTY is not MISSING\.<\/b>/.test(t), `empty=${iDerived.filter((d2) => d2.state === "empty").length} noroute=${iDerived.filter((d2) => d2.state === "no_read_route").length}`);
   ok("inference: the chooser lists the REAL space plane — one row per record, capped at 25 with the cap NAMED, and no space is fabricated", (t.match(/class="inf-sprow"/g) || []).length === Math.min(25, iProjects.length) && iProjects.slice(0, 25).every((x) => t.includes(`data-ioi-space="${str(x.project_id)}"`)) && (iProjects.length > 25 ? /cap NAMED, never silent/.test(t) : (iProjects.length === 0 || new RegExp(`All <b>${iProjects.length}</b> spaces the estate actually holds`).test(t))) && t.includes(`data-ioi-lane="space-chooser" data-ioi-plane-state="${iBy["/v1/hypervisor/projects"].state}"`), `rows=${(t.match(/class="inf-sprow"/g) || []).length} plane=${iProjects.length}`);

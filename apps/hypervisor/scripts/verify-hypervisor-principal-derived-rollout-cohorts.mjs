@@ -1,31 +1,40 @@
 #!/usr/bin/env node
-// Principal-derived rollout context + durable cohort objects done-bar.
+// Durable cohort objects + the release gate done-bar — re-typed (R-240, GoalRun residue, 2026-09-29).
 //
-// Proves rollout eligibility is IDENTITY/PROJECT/COHORT-derived — never trusted from
-// arbitrary caller text: launch preview/launch derive context from the authenticated
-// principal (real login session) and daemon-known projects; explicit overrides stay
-// possible but are LABELED and cannot masquerade as authenticated identity; cohorts are
-// durable governance objects (member refs, scope, enable/disable) that ReleaseControls
-// reference by cohort:// (raw member refs still honored but explicitly DEPRECATED);
-// canary bucketing hashes the derived stable seed; every explanation names its source
-// and matched cohort/member; receipts + Work Ledger cite cohort refs.
-// GOV-ATTR-1: the gate ApprovalRequest in that chain is DECIDED by the same authenticated session —
-// the request body names no reviewer, and the record must report the session's server-derived
-// `user://<principal_id>`. Canon: `identity-access-and-metering.md`.
-// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
-//          node apps/hypervisor/scripts/verify-hypervisor-principal-derived-rollout-cohorts.mjs
+// WHAT THIS PROVED. Rollout eligibility derived from identity, project and cohort — never from
+// caller text — read through the IOI Agent launch preview/launch: the authenticated principal, a
+// daemon-known project or a labelled explicit override matched a cohort-scoped learned launch-policy
+// VARIANT; disabled cohorts never matched; canary bucketing hashed the derived seed; the Agent Studio
+// rollout card and the New Session preview explained it; rollout receipts cited the cohort. Every
+// one of those reads ran through the IOI Agent launch lane and its launch-policy plane, and R-192
+// (S5-1) took goal pursuit out of the Hypervisor — a goal run is an ioi.ai composition over the
+// thread orchestration primitives (standing owner ruling 2026-09-24) — so the variant, the preview
+// overlay and the rollout receipts are gone, and this verifier crashed on its first read.
+//
+// WHAT IT PROVES NOW, on a stack it owns as that stack's signed-in operator: cohorts are still
+// durable governance objects (validated member refs and scope, disable/enable on the record) that
+// ReleaseControls reference by cohort:// — raw member refs still honoured but explicitly DEPRECATED —
+// and the Governance cockpit lists and picks them; the gate ApprovalRequest is DECIDED by the
+// authenticated session (GOV-ATTR-1: the body names no reviewer, the record reports that session's
+// server-derived `user://<principal_id>`; canon `identity-access-and-metering.md`); and the one step
+// that would have written a launch-policy variant is refused BY NAME (410
+// `ioi_agent_launch_policy_retired`).
+//
+// Usage: node apps/hypervisor/scripts/verify-hypervisor-principal-derived-rollout-cohorts.mjs  (≈1 min)
+// Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
+// URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
 import { chromium } from "playwright";
+import { ANONYMOUS, verifierStack } from "./lib/verifier-stack.mjs";
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-// An authenticated operator session; the existing external-daemon credential convention from
-// `scripts/smoke-product-surfaces.mjs`. Provisioning a principal is org-admin governed even on
-// loopback, so there is no anonymous fixture shortcut to reach for.
-const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
+// Every request carries the stack operator's session (verifier-stack) unless it names its own
+// `authorization` (the principal's session) or opts out with ANONYMOUS (its own login).
 async function jd(method, url, body, headers) {
   const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
     method, headers: { "content-type": "application/json", ...(headers || {}) },
@@ -34,22 +43,18 @@ async function jd(method, url, body, headers) {
   return { status: r.status, j: await r.json().catch(() => ({})) };
 }
 const BASE = "ioi-agent-policy://pol_fast_local";
-const preview = async (extra, headers) => (await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", {
-  goal: "probe derived rollout context", strategy: "direct", policy_ref: BASE, ...extra,
-}, headers)).j;
 
 async function run() {
   const tag = Date.now().toString(16);
 
-  // ── Real identity: principal + login session (the derivation source, not caller text) ──
+  // ── Real identity: principal + login session ──
   // Provisioning a principal is org-admin governed EVEN ON LOOPBACK, so the fixture is created
-  // through a real operator session and then logs in for itself through the public login endpoint.
-  if (!OPERATOR_SESSION) throw new Error("identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
-  const OPERATOR = { authorization: `Bearer ${OPERATOR_SESSION}` };
+  // through the stack operator's session and then logs in for itself through the public login.
+  const OPERATOR = { authorization: `Bearer ${STACK.token}` };
   const principalId = `usr_vfyroll${tag}`;
   const password = `roll-${tag}-principal-pass`;
   const created = await jd("POST", "/v1/hypervisor/principals", { email: `roll-${tag}@local`, name: `Roll ${tag}`, password, principal_id: principalId }, OPERATOR);
-  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email: `roll-${tag}@local`, password })).j || {};
+  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email: `roll-${tag}@local`, password }, { [ANONYMOUS]: "1" })).j || {};
   const AUTH = { authorization: `Bearer ${login.session_token || ""}` };
   // Ask the daemon WHO this session is; the reviewer ref asserted below is its answer, not a value
   // assembled here. An unadmitted fixture would decide anonymously, so it fails the verifier now.
@@ -57,7 +62,7 @@ async function run() {
   const derivedPrincipalId = who.authenticated === true ? String(who.principal?.principal_id || "") : "";
   const REVIEWER_REF = `user://${derivedPrincipalId}`;
   ok("real principal + login session created", !!login.session_token && login.principal?.principal_id === principalId);
-  if (!derivedPrincipalId) throw new Error(`identity fixture NOT admitted (create ${created.status}, whoami ${JSON.stringify(who).slice(0, 200)}) — the rollout derivation and the gate decision cannot cross the real identity seam`);
+  if (!derivedPrincipalId) throw new Error(`identity fixture NOT admitted (create ${created.status}, whoami ${JSON.stringify(who).slice(0, 200)}) — the gate decision cannot cross the real identity seam`);
 
   // ── Daemon-known project (a caller-named project counts only when it RESOLVES) ──
   await jd("POST", "/v1/hypervisor/projects", { project_name: `vfyroll-${tag}`, repository_url: `https://github.com/ioi-foundation/vfyroll-${tag}` });
@@ -79,10 +84,10 @@ async function run() {
     && badMember.j?.error?.code === "governance_cohort_member_ref_invalid"
     && badScope.j?.error?.code === "governance_cohort_scope_invalid");
 
-  // ── High-impact-capable learned suggestion → gate chain → cohort-scoped apply ──
+  // ── A learned suggestion reaches the gate; the gate is decided by the authenticated session ──
   const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
-    target_ref: BASE, evidence_refs: [`ioi-agent-launch://vfyroll-${tag}`],
+    target_ref: BASE, evidence_refs: [`work-result://vfyroll-${tag}`],
     suggested: { description: `roll-${tag}`, privacy: { local_only: false, forbid_remote_trust: false, forbid_provider_credentials: false } },
   })).j?.proposal || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true });
@@ -104,65 +109,26 @@ async function run() {
     && JSON.stringify(rel.cohort_refs) === JSON.stringify([cohort.ref]) && (rel.deprecated_raw_cohort_refs || []).length === 0);
   await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { transition: "open" });
   await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`, { approval_request_ref: appr.ref, release_control_ref: rel.ref });
-  const applied = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`)).j?.proposal || {};
-  const variantRef = String(applied.applied_ref || "");
-  const variantId = variantRef.replace("ioi-agent-policy://", "");
-  ok("cohort-scoped apply creates the rollout-bound variant", applied.state === "applied" && variantRef.startsWith("ioi-agent-policy://"));
+  const applied = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`);
+  ok("cohort-scoped apply is refused by name — 410 ioi_agent_launch_policy_retired — and writes no variant",
+    applied.status === 410 && applied.j?.error?.code === "ioi_agent_launch_policy_retired" && !applied.j?.proposal?.applied_ref,
+    `${applied.status} ${applied.j?.error?.code}`);
 
-  // ── Eligibility derives from the AUTHENTICATED principal — no caller context passed ──
-  const authed = await preview({}, AUTH);
-  const authNote = authed.policy_rollout || {};
-  ok("authenticated principal gets the overlay WITHOUT any explicit context",
-    authed.policy_ref === variantRef && authed.rollout_context_source === "authenticated_principal"
-    && authNote.rollout_context_source === "authenticated_principal"
-    && authNote.matched_ref === `principal://${principalId}` && authNote.override === false
-    && authNote.cohort_ref === cohort.ref && authNote.cohort_display_name === `Canary team ${tag}`,
-    JSON.stringify(authNote).slice(0, 160));
-
-  // ── Daemon-known project derives; unknown/ineligible contexts stay on base ──
-  const viaProject = await preview({ project_ref: projectId });
-  ok("daemon-known project derives eligibility (source: project, matched member named)",
-    viaProject.policy_ref === variantRef && viaProject.policy_rollout?.rollout_context_source === "project"
-    && viaProject.policy_rollout?.matched_ref === `project://${projectId}`);
-  const anon = await preview({});
-  const unknownProject = await preview({ project_ref: "project:not-a-real-project" });
-  ok("anonymous + unknown-project contexts keep base, with honest posture + skip explanation",
-    anon.policy_ref === BASE && anon.policy_rollout === null && anon.rollout_context_source === "anonymous"
-    && String(anon.rollout_context?.posture_note || "").includes("identity enforcement inactive")
-    && (anon.policy_rollout_skipped || []).some((x) => x.variant_policy_ref === variantRef && x.reason_code === "rollout_cohort_no_match")
-    && unknownProject.rollout_context_source === "anonymous" && unknownProject.policy_ref === BASE);
-
-  // ── Explicit override: still possible for test/dev, but LABELED — never authenticated ──
-  const override = await preview({ rollout_context_ref: `principal://${principalId}` });
-  ok("explicit override matches but is labeled and cannot masquerade as authenticated identity",
-    override.policy_ref === variantRef && override.rollout_context_source === "explicit_override"
-    && override.policy_rollout?.rollout_context_source === "explicit_override" && override.policy_rollout?.override === true);
-
-  // ── Disabled cohorts never match ──
+  // R-240 (2026-09-29): eligibility derivation (authenticated principal, daemon-known project,
+  // anonymous and unknown-project contexts, a labelled explicit override, canary bucketing of the
+  // derived seed) was read off the IOI Agent launch preview's `policy_rollout` overlay. That preview
+  // is retired with goal pursuit; the cohort's own disable/enable is what remains on the record.
+  const cohortRead = async () => ((await jd("GET", "/v1/hypervisor/governance/cohorts")).j?.cohorts || []).find((c) => c.id === cohort.id) || {};
   await jd("PATCH", `/v1/hypervisor/governance/cohorts/${cohort.id}`, { transition: "disable" });
-  const disabled = await preview({}, AUTH);
+  const disabled = await cohortRead();
   await jd("PATCH", `/v1/hypervisor/governance/cohorts/${cohort.id}`, { transition: "enable" });
-  ok("disabled cohort does not match (explained as rollout_cohort_disabled)",
-    disabled.policy_ref === BASE
-    && (disabled.policy_rollout_skipped || []).some((x) => x.variant_policy_ref === variantRef && x.reason_code === "rollout_cohort_disabled"));
+  const enabled = await cohortRead();
+  ok("a cohort disables and re-enables on its own record", disabled.status === "disabled" && enabled.status === "active", `${disabled.status} → ${enabled.status}`);
 
-  // ── Canary buckets the DERIVED stable seed ──
-  await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { rollout_mode: "canary", canary_percent: 100 });
-  const c1 = await preview({}, AUTH);
-  const c2 = await preview({}, AUTH);
-  await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { canary_percent: 0 });
-  const cMiss = await preview({}, AUTH);
-  await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { rollout_mode: "cohort", cohort_refs: [cohort.ref] });
-  ok("canary bucketing hashes the derived principal seed and is stable across calls",
-    c1.policy_ref === variantRef && String(c1.policy_rollout?.reason_code || "").startsWith("rollout_canary_bucket:")
-    && c1.policy_rollout?.reason_code === c2.policy_rollout?.reason_code
-    && c1.policy_rollout?.matched_ref === `principal://${principalId}`
-    && cMiss.policy_ref === BASE
-    && (cMiss.policy_rollout_skipped || []).some((x) => String(x.reason_code || "").startsWith("rollout_canary_bucket_miss:")));
-
-  // ── UI: Cohorts tab, cohort picker on release forms, cohort names on policy cards, modal explanation ──
+  // ── UI: Cohorts tab and the cohort picker on release forms ──
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   await page.goto(`${SHELL}/__ioi/governance?tab=cohorts`, { waitUntil: "networkidle" });
@@ -175,37 +141,16 @@ async function run() {
   ok("ReleaseControl form uses a rollout-mode select + cohort picker (not raw text refs)",
     await page.locator(`select[name="rollout_mode"]`).count() === 1
     && await page.locator(`select[name="cohort_refs"] option[value="${cohort.ref}"]`).count() >= 1);
-  await page.goto(`${SHELL}/__ioi/agent-studio#launch-policies`, { waitUntil: "networkidle" });
-  const card = await page.locator(`.lpcard[data-policy="${variantId}"]`).innerText();
-  ok("Agent Studio rollout card names its cohort audience", new RegExp(`cohort: Canary team ${tag}`, "i").test(card));
-  await page.goto(`${SHELL}/`, { waitUntil: "networkidle" });
-  await page.click('[data-testid="create-session-button"]');
-  // New Session now routes to the composer page; the owned modal opens via Advanced launch.
-  await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });
-  await page.click("#ioi-ns-advanced");
-  await page.waitForSelector("#ioi-ns-modal.open", { timeout: 15000 });
-  await page.selectOption("#ioi-ns-policy", BASE);
-  await page.fill("#ioi-ns-goal", "probe why the rollout does not apply here");
-  await page.waitForFunction(() => /rollout/i.test(document.getElementById("ioi-ns-preview")?.innerText || ""), { timeout: 15000 });
-  const modalText = await page.locator("#ioi-ns-preview").innerText();
-  ok("New Session preview explains why the rollout did NOT apply (anonymous browser context)",
-    /not applied/i.test(modalText) && /rollout_cohort_no_match/.test(modalText) && /context: anonymous/i.test(modalText));
-  await page.keyboard.press("Escape");
-  ok("no console errors", consoleErrors.length === 0, consoleErrors.slice(0, 2).join(" | "));
+  // R-240 (2026-09-29): the Agent Studio rollout card naming its cohort, the New Session preview's
+  // "why the rollout did not apply" and the rollout receipts citing cohort refs all belonged to the
+  // retired launch-policy variant; nothing is left to render them over.
+  ok("no page errors", consoleErrors.length === 0, consoleErrors.slice(0, 2).join(" | "));
   await browser.close();
-
-  // ── Receipts + ledger cite cohort refs ──
-  await jd("POST", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}/rollout/rollback`);
-  const ledger = (await jd("GET", "/v1/hypervisor/work-ledger")).j?.entries || [];
-  const entry = ledger.find((e) => e.kind === "policy_rollout" && e.status === "rollback" && e.policy_ref === variantRef);
-  ok("rollout receipts + Work Ledger cite cohort refs and mode",
-    !!entry && JSON.stringify(entry.cohort_refs) === JSON.stringify([cohort.ref]) && entry.rollout_mode === "cohort"
-    && entry.proposal_ref === prop.proposal_ref && entry.release_control_ref === rel.ref);
   const ft = await fetch(`${SHELL}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({}));
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
   // ── Cleanup (evidence receipts remain by design) ──
-  await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}`);
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/reject`, { reason: "verifier fixture" });
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rawRC.id}`);

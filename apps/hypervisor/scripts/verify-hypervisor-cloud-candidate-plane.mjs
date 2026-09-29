@@ -20,8 +20,13 @@ import { chromium } from "playwright";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve, the operator signed in (R-240, GoalRun residue, 2026-09-29 — the
+// re-point below needed a run, and this verifier read the owner's :8765/:4173 with no caller). An
+// explicit URL naming the owner's stack is refused (lib/verifier-stack.mjs).
+const { verifierStack } = await import(path.join(HERE, "lib/verifier-stack.mjs"));
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -197,11 +202,15 @@ async function run() {
     !!pp.advisory && (pp.advisory.candidate_refs || []).length >= 2
     && JSON.stringify(pp.receipts_expected || []).includes("placement-advisory://")
     && JSON.stringify(pp.receipts_expected || []).includes("cloud-resource-candidate://"));
-  const lp = (await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: `candidate plane probe ${tag}` })).j;
-  ok("launch preview placement block snapshots advisory + candidate refs",
-    lp.placement?.venue === "hypervisor_choose"
-    && String(lp.placement?.advisory_ref || "").startsWith("placement-advisory://")
-    && (lp.placement?.advisory_candidate_refs || []).length >= 2);
+  // R-240 (GoalRun residue, 2026-09-29): this read the IOI Agent launch-preview's placement block.
+  // That lane retired with goal pursuit (R-192, S5-1); the New Session launcher previews placement
+  // from the daemon's placement preview, relayed by the serve it runs on — read here as it reads it.
+  const lp = (await jd("GET", `${SHELL}/v1/hypervisor/placement/preview`)).j;
+  ok("the placement preview the New Session launcher reads snapshots advisory + candidate refs",
+    lp.venue === "hypervisor_choose"
+    && String(lp.advisory?.advisory_ref || "").startsWith("placement-advisory://")
+    && (lp.advisory?.candidate_refs || []).length >= 2,
+    `${lp.venue} · ${lp.advisory?.advisory_ref} · ${(lp.advisory?.candidate_refs || []).length} candidates`);
   const envRes = (await jd("POST", "/v1/hypervisor/environments", { spec: {} })).j;
   const environmentId = envRes.environment?.id;
   ok("environment create snapshots the advisory/candidate refs",
@@ -222,10 +231,14 @@ async function run() {
     && /spend owner: customer/i.test(envHtml));
   const browser = await chromium.launch();
   const page = await browser.newPage();
+  await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   page.on("console", (m) => { if (m.type() === "error" && !/ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED/.test(m.text())) consoleErrors.push(m.text()); });
-  await page.goto(`${SHELL}/`, { waitUntil: "networkidle" });
+  // A signed-in shell holds its event streams open, so it never reaches networkidle: wait for the
+  // document and the sidebar instead (the same premise move 8d63f5240 made for check:native-shell).
+  await page.goto(`${SHELL}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="sidebar"]', { timeout: 60000 });
   await page.click('[data-testid="create-session-button"]');
   // New Session now routes to the composer page; the owned modal opens via Advanced launch.
   await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });

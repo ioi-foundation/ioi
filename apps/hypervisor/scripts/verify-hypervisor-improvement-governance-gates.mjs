@@ -8,54 +8,46 @@
 // release_control_required, release_control_not_open) — while low-impact proposals keep
 // their existing behavior, receipts + Work Ledger cite the full governance chain, and the
 // Agent Studio panel walks the whole gate (posture chip, disabled Apply, one-click
-// request/approve/release). Runs two REAL direct launches to seed replay subjects (≈30s).
+// request/approve/release).
 // GOV-ATTR-1: the gate ApprovalRequest is DECIDED by a real authenticated principal — the request
 // body names no reviewer, and the record must report that session's server-derived
 // `user://<principal_id>`. Canon: `identity-access-and-metering.md`.
-// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
-//          node apps/hypervisor/scripts/verify-hypervisor-improvement-governance-gates.mjs
+//
+// RE-TYPED 2026-09-29 (R-240, GoalRun residue). Its high-impact fixture was a learned launch-policy
+// patch whose what-if introduced blockers into two REAL IOI Agent launches' strategy selection, and
+// its apply landed an `ioi-agent-policy://` variant. R-192 (S5-1) took goal pursuit out of the
+// Hypervisor — a goal run is an ioi.ai composition over the thread orchestration primitives
+// (standing owner ruling 2026-09-24) — so the launch lane and the policy plane are gone and the
+// verifier crashed on its first launch. The gate is unchanged, so the walk now rides a SKILL
+// improvement made deterministically high-impact by three receipted memory projections it changes
+// (the platform's own replay subjects); `simulation_required` is still measured on an unsimulated
+// launch-policy suggestion, the one kind the gate always holds for a simulation.
+//
+// Usage: node apps/hypervisor/scripts/verify-hypervisor-improvement-governance-gates.mjs  (≈1–2 min)
+// Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
+// URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
-import http from "node:http";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { ANONYMOUS, verifierStack } from "./lib/verifier-stack.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
-
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-// node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
-// fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
-function jd(method, url, body, headers) {
-  const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
-  const payload = body ? JSON.stringify(body) : null;
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(headers || {}), ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
-      (res) => {
-        let raw = "";
-        res.on("data", (c) => { raw += c; });
-        res.on("end", () => {
-          let j = {};
-          try { j = JSON.parse(raw); } catch { j = {}; }
-          resolve({ status: res.statusCode, j });
-        });
-      },
-    );
-    req.on("error", reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
+// Every request carries the stack operator's session (verifier-stack) unless it names its own
+// `authorization` (the reviewer) or opts out with ANONYMOUS (the reviewer's own login).
+async function jd(method, url, body, headers) {
+  const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
+    method,
+    headers: { "content-type": "application/json", ...(headers || {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => null);
+  const text = r ? await r.text().catch(() => "") : "";
+  let j = {}; try { j = JSON.parse(text); } catch { j = {}; }
+  return { status: r?.status ?? 0, j };
 }
-// An authenticated operator session; the existing external-daemon credential convention from
-// `scripts/smoke-product-surfaces.mjs`. Provisioning a principal is org-admin governed even on
-// loopback, so there is no anonymous fixture shortcut to reach for.
-const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
 // GOV-ATTR-1 — a governance decision's reviewer is WHO DECIDED. Canon
 // (`identity-access-and-metering.md`): "Request bodies never select the acting principal." So the
 // gate approval below is approved BY a real principal: provisioned through the operator session,
@@ -64,13 +56,12 @@ const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim(
 // fixture would approve anonymously and prove nothing about the identity seam, so it fails the
 // verifier outright.
 async function admitReviewer(tag) {
-  if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
-  const operator = { authorization: `Bearer ${OPERATOR_SESSION}` };
+  const operator = { authorization: `Bearer ${STACK.token}` };
   const principalId = `usr_vfygov${tag}`;
   const email = `vfygov-${tag}@local`;
   const password = `vfygov-${tag}-reviewer-pass`;
   const created = await jd("POST", "/v1/hypervisor/principals", { email, password, principal_id: principalId }, operator);
-  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email, password })).j || {};
+  const login = (await jd("POST", "/v1/hypervisor/auth/login", { email, password }, { [ANONYMOUS]: "1" })).j || {};
   const token = login.session_token || "";
   const session = { authorization: `Bearer ${token}` };
   const who = token ? (await jd("GET", "/v1/hypervisor/auth/whoami", undefined, session)).j || {} : {};
@@ -78,51 +69,55 @@ async function admitReviewer(tag) {
   if (!derived) throw new Error(`reviewer identity fixture NOT admitted (create ${created.status}, whoami ${JSON.stringify(who).slice(0, 200)}) — the gate approval cannot cross the real identity seam`);
   return { principalId: derived, ref: `user://${derived}`, headers: session, operator };
 }
-const launch = async (goal) => {
-  const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal, strategy: "direct" });
-  const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
-  return jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
-};
 const apply = (id) => jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${id}/apply`);
 const getProp = async (id) => (await jd("GET", `/v1/hypervisor/intelligence/improvement-proposals/${id}`)).j?.proposal || {};
 
-// The require_compare + full-exclusion patch: deterministically high impact (blockers introduced).
-const HIGH_IMPACT_SUGGESTED = {
-  display_name: "Gated compare-everything policy (verifier)",
-  description: "deterministically high-impact fixture",
-  harness_preferences: { preferred_harness_refs: [], excluded_harness_refs: ["harness-profile:hp_opencode", "harness-profile:hp_deepseek_tui", "harness-profile:hp_codex", "harness-profile:hp_claude_code"], allow_fallback: false },
-  assurance: { require_compare: true },
-};
+// A skill every replayed projection would carry: deterministically high impact once three
+// projections change (the simulation's own `changed >= 3` rule).
+const highImpactSuggested = (tag, which) => ({
+  title: `Gated skill ${which} vfygov-${tag}`,
+  description: "deterministically high-impact fixture: every replayed projection would include it",
+});
 
 async function run() {
   const tag = Date.now().toString(16);
   const reviewer = await admitReviewer(tag);
   ok("real principal + login session admitted as the deciding identity", !!reviewer.ref, reviewer.ref);
-  await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/enable");
-  const l1 = await launch(`vfygov${tag} exercise the governance gate once`);
-  const l2 = await launch(`vfygov${tag} exercise the governance gate again`);
-  ok("two real launches executed as replay subjects", l1.status === 200 && l2.status === 200);
+  // R-240 (2026-09-29): two REAL IOI Agent launches stood here as replay subjects; that lane is retired.
+  const subjects = [];
+  for (const harness of ["harness-profile:hp_opencode", "harness-profile:hp_deepseek_tui", "harness-profile:hp_codex"]) {
+    const p = (await jd("POST", "/v1/hypervisor/memory-projections", { harness_profile_ref: harness, session_ref: `session://vfygov-${tag}`, goal: `vfygov${tag} exercise the governance gate` })).j?.projection || {};
+    if (p.projection_ref) subjects.push(p.projection_ref);
+  }
+  ok("three receipted memory projections recorded as replay subjects", subjects.length === 3, subjects.join(","));
 
   const mkProp = (payload) => jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", payload);
-  const propA = (await mkProp({
-    proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
-    evidence_refs: [`ioi-agent-launch://vfygov-${tag}`], suggested: HIGH_IMPACT_SUGGESTED,
-  })).j?.proposal || {};
 
   // ── simulation_required: policy improvements cannot apply unsimulated ──
+  const propP = (await mkProp({
+    proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
+    evidence_refs: subjects, suggested: { description: `vfygov-${tag} unsimulated policy suggestion` },
+  })).j?.proposal || {};
   ok("unsimulated policy proposal postures simulation_required",
-    propA.gate?.posture === "simulation_required" || (await getProp(propA.improvement_id)).gate?.posture === "simulation_required");
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propA.improvement_id}/approve`);
-  const noSim = await apply(propA.improvement_id);
+    propP.gate?.posture === "simulation_required" || (await getProp(propP.improvement_id)).gate?.posture === "simulation_required");
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propP.improvement_id}/approve`);
+  const noSim = await apply(propP.improvement_id);
   ok("apply without simulation blocks: simulation_required", noSim.status === 409 && noSim.j?.error?.code === "simulation_required");
 
   // ── High-impact simulation names an ENFORCED gate with its satisfiable targets ──
+  const SUGGESTED_A = highImpactSuggested(tag, "A");
+  const propA = (await mkProp({
+    proposal_kind: "skill_improvement", signal: "repeated_successful_goal_pattern",
+    evidence_refs: subjects, suggested: SUGGESTED_A,
+  })).j?.proposal || {};
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propA.improvement_id}/approve`);
   const sim = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propA.improvement_id}/simulate`, { save: true })).j?.report || {};
   const simRef = String(sim.simulation_ref || "");
   ok("saved simulation is high-impact with an enforced requirement + gate targets",
     sim.governance?.high_impact === true && sim.governance?.enforced === true
     && String(sim.governance?.requirement || "").startsWith("enforced:")
-    && JSON.stringify(sim.governance?.satisfiable_target_refs) === JSON.stringify([propA.proposal_ref, simRef]));
+    && JSON.stringify(sim.governance?.satisfiable_target_refs) === JSON.stringify([propA.proposal_ref, simRef]),
+    JSON.stringify(sim.summary));
 
   // ── approval_required → binding validation → approval_not_approved ──
   const noAppr = await apply(propA.improvement_id);
@@ -155,19 +150,19 @@ async function run() {
   ok("approved + open controls posture READY", (await getProp(propA.improvement_id)).gate?.posture === "ready");
 
   // ── Freshness: mutating the proposal makes the simulation stale even with controls satisfied ──
-  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${propA.improvement_id}`, { suggested: { harness_preferences: { excluded_harness_refs: [] } } });
+  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${propA.improvement_id}`, { suggested: { ...SUGGESTED_A, description: "changed after the simulation" } });
   const staleBlocked = await apply(propA.improvement_id);
   ok("post-simulation mutation blocks: simulation_stale (controls alone cannot pass a stale preview)",
     staleBlocked.status === 409 && staleBlocked.j?.error?.code === "simulation_stale"
     && (await getProp(propA.improvement_id)).gate?.posture === "simulation_stale");
-  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${propA.improvement_id}`, { suggested: HIGH_IMPACT_SUGGESTED });
+  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${propA.improvement_id}`, { suggested: SUGGESTED_A });
   ok("freshness is content identity: restoring the simulated payload restores READY (no re-simulation needed)",
     (await getProp(propA.improvement_id)).gate?.posture === "ready");
 
   // ── Gate satisfied → apply lands, citing the full governance chain ──
   const appliedA = (await apply(propA.improvement_id)).j?.proposal || {};
   ok("fresh simulation + approved approval + open release allow apply",
-    appliedA.state === "applied" && String(appliedA.applied_ref || "").startsWith("ioi-agent-policy://"));
+    appliedA.state === "applied" && String(appliedA.applied_ref || "").startsWith("skill-entry://"));
   const ledger = (await jd("GET", "/v1/hypervisor/work-ledger")).j?.entries || [];
   const entry = ledger.find((e) => e.kind === "improvement_applied" && e.proposal_ref === propA.proposal_ref);
   ok("receipt + Work Ledger cite simulation, approval, and release refs",
@@ -177,7 +172,7 @@ async function run() {
   // ── Low-impact + no-simulation paths keep existing behavior ──
   const propLow = (await mkProp({
     proposal_kind: "automation_readiness", signal: "repeated_successful_goal_pattern",
-    evidence_refs: [`ioi-agent-launch://vfygov-${tag}`], suggested: { title: `Affinity vfygov-${tag}`, goal_pattern: `zzz-nomatch-${tag}` },
+    evidence_refs: subjects, suggested: { title: `Affinity vfygov-${tag}`, goal_pattern: `zzz-nomatch-${tag}` },
   })).j?.proposal || {};
   const lowSim = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propLow.improvement_id}/simulate`, { save: true })).j?.report || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propLow.improvement_id}/approve`);
@@ -186,7 +181,7 @@ async function run() {
     lowSim.governance?.high_impact === false && appliedLow.state === "applied");
   const propSkill = (await mkProp({
     proposal_kind: "skill_improvement", signal: "repeated_successful_goal_pattern",
-    evidence_refs: [`ioi-agent-launch://vfygov-${tag}`], suggested: { title: `Skill vfygov-${tag}`, description: "ungated low-impact lane" },
+    evidence_refs: subjects, suggested: { title: `Skill vfygov-${tag}`, description: "ungated low-impact lane" },
   })).j?.proposal || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propSkill.improvement_id}/approve`);
   const appliedSkill = (await apply(propSkill.improvement_id)).j?.proposal || {};
@@ -195,13 +190,14 @@ async function run() {
 
   // ── UI: full gate walk on a second high-impact proposal ──
   const propB = (await mkProp({
-    proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
-    evidence_refs: [`ioi-agent-launch://vfygov-${tag}`], suggested: HIGH_IMPACT_SUGGESTED,
+    proposal_kind: "skill_improvement", signal: "repeated_successful_goal_pattern",
+    evidence_refs: subjects, suggested: highImpactSuggested(tag, "B"),
   })).j?.proposal || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propB.improvement_id}/simulate`, { save: true });
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propB.improvement_id}/approve`);
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   const studio = `${SHELL}/__ioi/agent-studio#launch-policies`;
@@ -243,13 +239,12 @@ async function run() {
   const ft = await fetch(`${SHELL}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({}));
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
-  // ── Cleanup + posture restore ──
-  for (const prop of [appliedA, bApplied]) {
-    const pid = String(prop.applied_ref || "").replace("ioi-agent-policy://", "");
-    if (pid) await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${pid}`);
-  }
-  await jd("PATCH", `/v1/hypervisor/skill-entries/${String(appliedSkill.applied_ref || "").replace("skill-entry://", "")}`, { status: "archived" });
-  await jd("PATCH", `/v1/hypervisor/automation-affinities/${String(appliedLow.applied_ref || "").replace("automation-affinity://", "")}`, { status: "archived" });
+  // ── Cleanup ──
+  const skillIds = [appliedA, bApplied, appliedSkill].map((p) => String(p.applied_ref || "").replace("skill-entry://", "")).filter(Boolean);
+  for (const id of skillIds) await jd("PATCH", `/v1/hypervisor/skill-entries/${id}`, { status: "archived" });
+  const affId = String(appliedLow.applied_ref || "").replace("automation-affinity://", "");
+  await jd("PATCH", `/v1/hypervisor/automation-affinities/${affId}`, { status: "archived" });
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propP.improvement_id}/reject`, { reason: "verifier fixture" });
   const controls = [
     ["approval-requests", apprA.id],
     ["approval-requests", foreign?.id],
@@ -261,10 +256,12 @@ async function run() {
     if (id) await jd("DELETE", `/v1/hypervisor/governance/${family}/${id}`);
   }
   await jd("DELETE", `/v1/hypervisor/principals/${encodeURIComponent(reviewer.principalId)}`, undefined, reviewer.operator);
-  await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");
-  const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
-  ok("fixtures cleaned + drivers restored",
-    (fin.j?.profiles || []).filter((p) => p.harness === "opencode").every((p) => p.lifecycle.status === "disabled"));
+  // R-240 (2026-09-29): the opencode driver was enabled only for the retired launches; what this run
+  // applied is what it archives.
+  const archived = [];
+  for (const id of skillIds) archived.push(((await jd("GET", `/v1/hypervisor/skill-entries/${id}`)).j?.record || {}).status);
+  archived.push(((await jd("GET", `/v1/hypervisor/automation-affinities/${affId}`)).j?.record || {}).status);
+  ok("fixtures cleaned (applied skills and affinity archived)", archived.length === 4 && archived.every((s) => s === "archived"), archived.join(","));
 }
 
 run().then(() => {

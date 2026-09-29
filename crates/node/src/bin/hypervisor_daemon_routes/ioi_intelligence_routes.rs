@@ -3683,11 +3683,13 @@ pub(crate) async fn handle_improvement_simulate(
                 "privacy_posture": after.get("privacy_posture").cloned().unwrap_or(Value::Null),
                 "policy_constraints_applied": after.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
                 "blocked_reason": after.get("reason_code").cloned().unwrap_or(Value::Null),
-                "expected_receipt_classes": if after.get("planned_execution_kind") == Some(&json!("goal_run")) {
-                    json!(["receipt://goal-run/*/create", "receipt://hypervisor/goal-run-invocation/*", "receipt://hypervisor/goal-run-reconciliation/*"])
-                } else {
-                    json!(["receipt://hypervisor/session-execute/*"])
-                },
+                // R-240 (GoalRun residue, 2026-09-29): a `goal_run` planned-execution kind stood
+                // here, naming three GoalRun receipt classes (create, invocation, reconciliation).
+                // `select` has answered only `goal_pursuit_retired_from_platform` since R-192
+                // (S5-1), so the arm was unreachable, and no producer mints those classes: a goal
+                // run is an ioi.ai composition over thread orchestration primitives, never a kind
+                // this daemon plans. The session-execute class is the only one a replay names.
+                "expected_receipt_classes": json!(["receipt://hypervisor/session-execute/*"]),
                 "failure_policy": after_policy.get("failure_policy").cloned().unwrap_or(Value::Null),
             },
             "changed": changed,
@@ -4082,6 +4084,84 @@ mod improvement_gate_tests {
                 .unwrap()
                 .0,
             "release_control_required"
+        );
+    }
+}
+
+#[cfg(test)]
+mod launch_replay_retirement_tests {
+    use super::*;
+
+    // R-240 (GoalRun residue, 2026-09-29): the launch replay planned a `goal_run` execution kind
+    // and named three GoalRun receipt classes for it. A legacy IOI-Agent launch record still on
+    // disk — one that even recorded `execution_kind: goal_run` — replays with no planned kind, the
+    // typed retirement reason, and only the session-execute receipt class.
+    #[tokio::test]
+    async fn a_replayed_legacy_launch_plans_no_goal_run_and_names_no_goal_run_receipt() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        let st = crate::test_daemon_state(data_dir);
+        persist_record(
+            data_dir,
+            "ioi-agent-launches",
+            "launch_legacy",
+            &json!({
+                "launch_id": "launch_legacy",
+                "state": "executed",
+                "goal": "compare two retry helpers and keep the safer one",
+                "strategy": "compare",
+                "execution_kind": "goal_run",
+                "created_at": "2026-09-01T00:00:00Z",
+            }),
+        )
+        .expect("seed the legacy launch");
+        persist_record(
+            data_dir,
+            IMPROVEMENT_KIND,
+            "imp_legacy",
+            &json!({
+                "improvement_id": "imp_legacy",
+                "proposal_ref": "improvement-proposal://imp_legacy",
+                "proposal_kind": "launch_policy_suggestion",
+                "suggested": { "assurance": { "require_compare": true } },
+                "evidence_refs": ["ioi-agent-launch://launch_legacy"],
+                "state": "pending",
+            }),
+        )
+        .expect("seed the proposal");
+
+        let (status, Json(body)) = handle_improvement_simulate(
+            State(st),
+            AxumPath("imp_legacy".to_string()),
+            Json(json!({})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let replay = body["report"]["scenarios"]
+            .as_array()
+            .expect("scenarios")
+            .iter()
+            .find(|scenario| scenario["scenario_kind"] == "launch_replay")
+            .expect("the legacy launch replays")
+            .clone();
+        for side in ["before", "after"] {
+            assert!(
+                replay[side]["planned_execution_kind"].is_null(),
+                "{side}: {replay}"
+            );
+            assert_eq!(
+                replay[side]["blocked_reason"], "goal_pursuit_retired_from_platform",
+                "{side}: {replay}"
+            );
+        }
+        assert_eq!(
+            replay["after"]["expected_receipt_classes"],
+            json!(["receipt://hypervisor/session-execute/*"])
+        );
+        let report = body["report"].to_string();
+        assert!(
+            !report.contains("receipt://goal-run/") && !report.contains("goal-run-invocation"),
+            "{report}"
         );
     }
 }

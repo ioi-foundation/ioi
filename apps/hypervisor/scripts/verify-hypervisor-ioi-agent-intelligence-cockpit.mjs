@@ -7,60 +7,55 @@
 //   - connector-derived entries carry connector refs and REJECT credential material;
 //   - the projection planner excludes archived/revoked/expired/incompatible records and redacts
 //     private/secret entries with a reason code for every decision;
-//   - IOI Agent preview surfaces the intelligence posture; Direct launch creates a
-//     memory_projection_ref; Compare creates one projection PER harness invocation over the
-//     SAME portable space (harness-scoped inclusion differs when compatibility differs);
-//   - the Work Ledger indexes projection receipts; the Run Timeline shows projection refs
-//     WITHOUT leaking private bodies; Agent Studio renders Connectors/Skills/Memory (+
-//     Automation readiness under Launch policies — Automations remains its own surface);
-//   - source-neutral + fallthrough stay clean; fixtures archived; drivers restored.
+//   - a session's projections are receipted records, one PER harness over the SAME portable
+//     space (harness-scoped inclusion differs when compatibility differs);
+//   - the Work Ledger indexes projection receipts; the projection records carry refs WITHOUT
+//     leaking private bodies; Agent Studio renders Connectors/Skills/Memory (+ Automation
+//     readiness under Launch policies — Automations remains its own surface);
+//   - source-neutral + fallthrough stay clean; fixtures archived.
 //
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-ioi-agent-intelligence-cockpit.mjs (≈2–4 min)
+// RE-TYPED 2026-09-29 (R-240, GoalRun residue). The projections used to come from a REAL IOI Agent
+// Direct launch and a Compare launch that minted a GoalRun with one invocation per harness, read
+// back by `goal_run_ref` and on the goal-run timeline; the IOI Agent preview and the launcher's
+// posture line surfaced the intelligence posture. R-192 (S5-1) took goal pursuit out of the
+// Hypervisor — a goal run is an ioi.ai composition over the thread orchestration primitives
+// (standing owner ruling 2026-09-24) — so that lane, its preview and its timeline are gone and the
+// verifier crashed. The projections are now created for a SESSION (the Hypervisor's own work
+// subject) through the projection lane an invocation references, read back by `session_ref`; the
+// preview/launcher posture clauses are dropped (the projection preview above is the daemon truth
+// they relayed), and the timeline's no-leak claim is asserted on the projection records themselves.
+//
+// Usage: node apps/hypervisor/scripts/verify-hypervisor-ioi-agent-intelligence-cockpit.mjs (≈1 min)
+// Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
+// URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
 import { execSync } from "node:child_process";
-import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
-
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-// node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
-// fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
-function jd(method, url, body) {
-  const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
-  const payload = body ? JSON.stringify(body) : null;
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
-      (res) => {
-        let raw = "";
-        res.on("data", (c) => { raw += c; });
-        res.on("end", () => {
-          let j = {};
-          try { j = JSON.parse(raw); } catch { j = {}; }
-          resolve({ status: res.statusCode, j });
-        });
-      },
-    );
-    req.on("error", reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
+// Every request carries the stack operator's session (verifier-stack).
+async function jd(method, url, body) {
+  const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => null);
+  const text = r ? await r.text().catch(() => "") : "";
+  let j = {}; try { j = JSON.parse(text); } catch { j = {}; }
+  return { status: r?.status ?? 0, j };
 }
 
 async function run() {
   const tag = Date.now().toString(16);
   const privateMarker = `nightjar-${tag}`;
-  for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/enable`);
-
   // ── Records ──
   const spaces = await jd("GET", "/v1/hypervisor/memory-spaces");
   ok("default memory space exists (workspace scope)",
@@ -129,31 +124,23 @@ async function run() {
     && reasonOf(allowed.j?.preview?.redacted_entry_refs, secret.entry_ref) === "sensitivity_secret_always_redacted");
   ok("affinity matches by goal pattern", plan.automation_affinity_match?.affinity_ref === affinity.affinity_ref);
 
-  // ── Launch integration: preview posture + Direct + Compare ──
-  const lpv = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: `vfytoken-${tag} artifact` });
-  ok("IOI Agent preview surfaces the intelligence posture",
-    (lpv.j?.memory_space_refs || [])[0] === "memory-space://ms_workspace_default"
-    && lpv.j?.intelligence_projection_preview?.counts?.included_entries >= 1
-    && lpv.j?.intelligence_projection_preview?.automation_affinity_match?.affinity_ref === affinity.affinity_ref);
-
-  const launch = async (body) => {
-    const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", body);
-    if (a.status !== 403) return { a, b: a };
-    const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
-    const b = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
-    return { a, b };
-  };
-  const direct = await launch({ goal: `Create the file intel-direct-${tag}.txt containing the word: direct`, strategy: "direct" });
-  const directProj = (direct.b.j?.advanced?.memory_projection_refs || [])[0] || "";
-  ok("Direct launch creates memory_projection_ref", direct.b.status === 200 && directProj.startsWith("memory-projection://"), directProj);
-  const compare = await launch({ goal: `Create the file intel-cmp-${tag}.txt containing the word: compared`, strategy: "compare" });
-  const cmpInv = compare.b.j?.advanced?.outcome?.invocations || [];
-  const cmpProjRefs = cmpInv.map((i) => i.memory_projection_ref).filter(Boolean);
-  ok("Compare creates a projection per harness invocation", compare.b.status === 200 && cmpProjRefs.length === 2 && new Set(cmpProjRefs).size === 2, cmpProjRefs.join(","));
+  // ── A session's projections: receipted, one per harness, over one portable space ──
+  // R-240 (2026-09-29): an IOI Agent preview-posture clause and a Direct + Compare launch stood
+  // here; the lane is retired. The projection lane they called is the daemon's own, so it is driven
+  // directly for a session — the Hypervisor's work subject — rather than for a goal run.
+  const sessionRef = `session://vfy-intel-${tag}`;
+  const project = async (harness) => (await jd("POST", "/v1/hypervisor/memory-projections", {
+    goal: `vfytoken-${tag} status artifact`, harness_profile_ref: harness, model_route_ref: "model-route:mrt_local_default", session_ref: sessionRef,
+  })).j?.projection || {};
+  const ocMade = await project("harness-profile:hp_opencode");
+  ok("a session projection is a receipted record (the ref an invocation carries)",
+    String(ocMade.projection_ref || "").startsWith("memory-projection://")
+    && String((ocMade.receipt_refs || [])[0] || "").startsWith("receipt://hypervisor/memory-projection/"), ocMade.projection_ref);
+  const dsMade = await project("harness-profile:hp_deepseek_tui");
+  ok("a second harness gets its own projection for the same session", !!dsMade.projection_ref && dsMade.projection_ref !== ocMade.projection_ref, dsMade.projection_ref);
 
   // Portable space, harness-scoped projections: SAME space; deepseek-only entry included only there.
-  const grid = String(compare.b.j?.advanced?.goal_run_ref || "").replace("goal://", "");
-  const projections = await jd("GET", `/v1/hypervisor/memory-projections?goal_run_ref=goal://${grid}`);
+  const projections = await jd("GET", `/v1/hypervisor/memory-projections?session_ref=${encodeURIComponent(sessionRef)}`);
   const byHarness = Object.fromEntries((projections.j?.projections || []).map((p) => [p.harness_profile_ref, p]));
   const oc = byHarness["harness-profile:hp_opencode"];
   const ds = byHarness["harness-profile:hp_deepseek_tui"];
@@ -166,10 +153,12 @@ async function run() {
   // ── Proof surfaces ──
   const ledger = await jd("GET", "/v1/hypervisor/work-ledger");
   ok("Work Ledger indexes projection receipts",
-    (ledger.j?.entries || []).some((e) => e.kind === "memory_projection" && e.goal_run_ref === `goal://${grid}` && String(e.receipt_ref || "").startsWith("receipt://hypervisor/memory-projection/")));
-  const tl = await fetch(`${SHELL}/__ioi/run-timeline/goal-run/${grid}`).then((r) => r.text());
-  ok("Run Timeline shows projection refs WITHOUT leaking private bodies",
-    /Memory projections/.test(tl) && cmpProjRefs.some((r) => tl.includes(r)) && !tl.includes(privateMarker) && !tl.includes(`sealed-${tag}`));
+    (ledger.j?.entries || []).some((e) => e.kind === "memory_projection" && e.session_ref === sessionRef && String(e.receipt_ref || "").startsWith("receipt://hypervisor/memory-projection/")));
+  // R-240 (2026-09-29): read on the goal-run Run Timeline until that page retired; the records are the proof.
+  const records = [];
+  for (const p of [ocMade, dsMade]) records.push(JSON.stringify((await jd("GET", `/v1/hypervisor/memory-projections/${p.projection_id}`)).j || {}));
+  ok("projection records carry refs WITHOUT leaking private bodies",
+    records.length === 2 && records.every((r) => r.includes("memory-projection://") && !r.includes(privateMarker) && !r.includes(`sealed-${tag}`)));
 
   // ── Agent Studio cockpit (8 tabs; Automations stays its own surface) ──
   const studio = await fetch(`${SHELL}/__ioi/agent-studio`).then((r) => r.text());
@@ -181,25 +170,9 @@ async function run() {
   ok("Memory tab renders categories, search, sensitivity + compatibility chips",
     ["Connector-derived", "Workstreams", "mem-search", "never projected"].every((m) => studio.includes(m)));
 
-  // ── Modal posture line (UI) ──
-  const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  const consoleErrors = [];
-  page.on("pageerror", (e) => consoleErrors.push(String(e)));
-  await page.goto(`${SHELL}/`, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector('[data-testid="sidebar"]', { timeout: 20000 });
-  await page.click('[data-testid="create-session-button"]');
-  // New Session now routes to the composer page; the owned modal opens via Advanced launch.
-  await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });
-  await page.click("#ioi-ns-advanced");
-  await page.waitForSelector("#ioi-ns-goal", { timeout: 10000 });
-  await page.fill("#ioi-ns-goal", `vfytoken-${tag} status file`);
-  await page.waitForFunction(() => /Intelligence/.test(document.getElementById("ioi-ns-preview")?.textContent || ""), null, { timeout: 15000 });
-  const previewText = await page.locator("#ioi-ns-preview").innerText();
-  ok("launcher preview shows the intelligence posture (space, counts, affinity, connector posture)",
-    /memory space/i.test(previewText) && /projected/.test(previewText) && /redacted/.test(previewText) && /affinity/i.test(previewText) && /connector context/i.test(previewText));
-  ok("no console errors", consoleErrors.length === 0, consoleErrors.slice(0, 2).join(" | "));
-  await browser.close();
+  // R-240 (2026-09-29): the launcher's intelligence posture line (and the console-error check of
+  // that browser flow) belonged to the IOI Agent preview; the New Session launcher previews
+  // placement, and the posture it showed is the projection preview asserted above.
 
   // ── Hygiene ──
   let sourceNeutral = false;
@@ -214,10 +187,10 @@ async function run() {
   }
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skill.skill_id}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affinity.affinity_id}`, { status: "archived" });
-  for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/disable`);
-  const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
-  ok("fixtures archived + drivers restored",
-    (fin.j?.profiles || []).filter((p) => ["opencode", "deepseek_tui"].includes(p.harness)).every((p) => p.lifecycle.status === "disabled"));
+  // R-240 (2026-09-29): the drivers were enabled only to run the retired launches; nothing to restore.
+  const skillAfter = (await jd("GET", `/v1/hypervisor/skill-entries/${skill.skill_id}`)).j?.record || {};
+  const affAfter = (await jd("GET", `/v1/hypervisor/automation-affinities/${affinity.affinity_id}`)).j?.record || {};
+  ok("fixtures archived", skillAfter.status === "archived" && affAfter.status === "archived", `${skillAfter.status}/${affAfter.status}`);
 }
 
 run().then(() => {

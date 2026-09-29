@@ -2735,8 +2735,9 @@ async fn async_main() -> anyhow::Result<()> {
         // Domain Apps object plane (foundation) — draft DomainApp candidates over an ODK domain_app
         // surface descriptor. Draft-only: no generated/mounted runtime, no domain-action execution,
         // no marketplace publish.
-        // IOI Agent launch plane — the user-facing product mode; strategy planner decides
-        // direct vs internal GoalRun. Two-phase launch relays the wallet challenge.
+        // R-240 (GoalRun residue, 2026-09-29): the IOI Agent launch plane's note stood here (a
+        // strategy planner choosing direct vs internal GoalRun). Its routes left with goal pursuit
+        // in R-192 (S5-1); nothing is mounted for it.
         // IOI Agent intelligence plane — portable memory/skills/affinities + scoped projections.
         .route(
             "/v1/hypervisor/memory-spaces",

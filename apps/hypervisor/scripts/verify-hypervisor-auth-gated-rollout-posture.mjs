@@ -3,37 +3,51 @@
 //
 // Proves the daemon knows WHICH WORLD it is running in (local_development |
 // exposed_untrusted | authenticated_managed — derived from bind/forwarded exposure and the
-// auth enforcement mode) and that learned-rollout trust follows: explicit overrides work
-// ONLY in local development (labeled), exposed/managed postures fail them closed with
-// rollout_explicit_override_disallowed, anonymous contexts never activate learned overlays
-// outside local dev (rollout_requires_authenticated_context), sensitive endpoints 401
-// unauthenticated when exposed, posture-blocked rollout decisions are receipted into the
-// Work Ledger, and Governance/Operations/New-Session surfaces state the posture honestly.
+// auth enforcement mode) and that the trust it declares follows: explicit rollout overrides are
+// allowed (labeled) only in local development, exposed and managed postures declare them failed
+// closed and require an authenticated principal, sensitive endpoints 401 unauthenticated when
+// exposed, an exposed instance with enforcement OFF refuses global work truth, and the
+// Governance/Operations surfaces state the posture honestly.
 // Exposure is simulated with x-forwarded-host (the daemon's own detection lane).
 // GOV-ATTR-1: the gate ApprovalRequest this chain needs is DECIDED by the member session — the
 // request body names no reviewer, and the record must report that session's server-derived
 // `user://<principal_id>`. Canon: `identity-access-and-metering.md`.
-// Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
-//          node apps/hypervisor/scripts/verify-hypervisor-auth-gated-rollout-posture.mjs
+//
+// RE-TYPED 2026-09-29 (R-240, GoalRun residue). The per-context rollout decisions — an override
+// activating a learned launch-policy VARIANT in local development, an authenticated member matching
+// its cohort, anonymous and overriding contexts failing closed, a posture-blocked launch receipted in
+// the ledger, the New Session preview's identity note — were all read through the IOI Agent launch
+// preview/launch and its launch-policy plane. R-192 (S5-1) took goal pursuit out of the Hypervisor
+// (a goal run is an ioi.ai composition over the thread orchestration primitives; standing owner
+// ruling 2026-09-24), so those reads crashed. Each posture claim is now read from the daemon's own
+// declaration of it (GET /v1/hypervisor/auth/policy under that posture), the blocked-decision claim
+// from the platform's own work-truth refusal, the variant step is asserted refused by name, and the
+// sensitive-endpoint probe names the Hypervisor's own launch lane (session create) instead of the
+// retired IOI Agent routes.
+//
+// Usage: node apps/hypervisor/scripts/verify-hypervisor-auth-gated-rollout-posture.mjs  (≈1 min)
+// Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
+// URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
 import http from "node:http";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
 const EXPOSED = { "x-forwarded-host": "hv.example.com" };
-// An authenticated operator session; the existing external-daemon credential convention from
-// `scripts/smoke-product-surfaces.mjs`. Needed because provisioning a principal is org-admin
-// governed even on loopback — there is no anonymous fixture shortcut, and inventing one is exactly
-// the self-vouching this cut removes.
-const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+// The stack's signed-in operator: provisioning a principal and every control-plane write is
+// org-admin governed even on loopback, so there is no anonymous fixture shortcut.
+const OPERATOR_SESSION = STACK.token;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-// node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
-// fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
+// node:http, not fetch: verifier-stack attaches the operator's session to every fetch on the stack's
+// origins, and the posture reads and exposed probes below must stay ANONYMOUS — a call names its
+// caller explicitly (OPERATOR / MEMBER / OUTSIDER) or it has none.
 function jd(method, url, body, headers) {
   const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
   const payload = body ? JSON.stringify(body) : null;
@@ -93,9 +107,6 @@ const AUTHORIZED_MUTATIONS = AUTH_POLICY_MUTATIONS.filter((text) => /OPERATOR/.t
 const EXPECTED_POLICY_MUTATIONS = 3;
 
 const BASE = "ioi-agent-policy://pol_fast_local";
-const preview = async (extra, headers) => jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", {
-  goal: "posture probe for rollout trust", strategy: "direct", policy_ref: BASE, ...extra,
-}, headers);
 
 async function run() {
   // Runs FIRST and needs no daemon: if a policy mutation ever loses its operator authorization, the
@@ -106,12 +117,10 @@ async function run() {
 
   const tag = Date.now().toString(16);
 
-  // ── Fixtures (built in local posture): member + outsider principals, project, cohort, variant ──
+  // ── Fixtures (built in local posture): member + outsider principals, cohort, the gate chain ──
   // Provisioning a principal is org-admin governed EVEN ON LOOPBACK, so the fixtures are created
-  // through a real operator session (IOI_HYPERVISOR_DAEMON_SESSION — the same external-daemon
-  // credential `scripts/smoke-product-surfaces.mjs` already requires), then each principal logs in
-  // for itself through the public login endpoint.
-  if (!OPERATOR_SESSION) throw new Error("identity fixtures unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
+  // through the stack operator's session, then each principal logs in for itself through the
+  // public login endpoint.
   const OPERATOR = { authorization: `Bearer ${OPERATOR_SESSION}` };
   const memberId = `usr_member${tag}`;
   const outsiderId = `usr_outsider${tag}`;
@@ -138,47 +147,42 @@ async function run() {
   }
   const cohort = (await jd("POST", "/v1/hypervisor/governance/cohorts", {
     display_name: `Posture team ${tag}`, scope: "personal", member_refs: [`principal://${memberId}`],
-  })).j?.cohort || {};
+  }, OPERATOR)).j?.cohort || {};
   const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
-    target_ref: BASE, evidence_refs: [`ioi-agent-launch://vfyauth-${tag}`],
+    target_ref: BASE, evidence_refs: [`work-result://vfyauth-${tag}`],
     suggested: { description: `auth-${tag}`, privacy: { local_only: false, forbid_remote_trust: false, forbid_provider_credentials: false } },
-  })).j?.proposal || {};
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true });
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/approve`);
-  const appr = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: prop.proposal_ref, request_kind: "improvement_apply", reason: `vfyauth-${tag}` })).j?.approval_request || {};
+  }, OPERATOR)).j?.proposal || {};
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true }, OPERATOR);
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/approve`, undefined, OPERATOR);
+  const appr = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: prop.proposal_ref, request_kind: "improvement_apply", reason: `vfyauth-${tag}` }, OPERATOR)).j?.approval_request || {};
   // The approval is DECIDED by the member session — no reviewer named in the body (GOV-ATTR-1).
   await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${appr.id}`, { transition: "approve" }, MEMBER);
-  const apprDecided = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${appr.id}`)).j?.approval_request || {};
+  const apprDecided = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${appr.id}`, undefined, OPERATOR)).j?.approval_request || {};
   ok("the gate approval is attributed to the SERVER-DERIVED principal of the deciding session",
     apprDecided.status === "approved" && apprDecided.reviewer_ref === MEMBER_REVIEWER_REF,
     `reviewer ${apprDecided.reviewer_ref} · expected ${MEMBER_REVIEWER_REF}`);
-  const rel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: prop.proposal_ref, rollout_mode: "cohort", cohort_refs: [cohort.ref], reason: `vfyauth-${tag}` })).j?.release_control || {};
-  await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { transition: "open" });
-  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`, { approval_request_ref: appr.ref, release_control_ref: rel.ref });
-  const applied = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`)).j?.proposal || {};
-  const variantRef = String(applied.applied_ref || "");
-  const variantId = variantRef.replace("ioi-agent-policy://", "");
-  ok("fixtures ready (two principals, cohort, rollout-bound variant)", !!memberTok && !!outsiderTok && variantRef.startsWith("ioi-agent-policy://"));
+  const rel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: prop.proposal_ref, rollout_mode: "cohort", cohort_refs: [cohort.ref], reason: `vfyauth-${tag}` }, OPERATOR)).j?.release_control || {};
+  await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { transition: "open" }, OPERATOR);
+  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`, { approval_request_ref: appr.ref, release_control_ref: rel.ref }, OPERATOR);
+  const applied = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`, undefined, OPERATOR);
+  ok("fixtures ready (two principals, cohort, an open cohort release control) and the variant step refused by name (410 ioi_agent_launch_policy_retired)",
+    !!memberTok && !!outsiderTok && String(cohort.ref || "").startsWith("cohort://") && String(rel.ref || "").startsWith("release-control://")
+    && applied.status === 410 && applied.j?.error?.code === "ioi_agent_launch_policy_retired",
+    `${cohort.ref} · ${rel.ref} · apply ${applied.status} ${applied.j?.error?.code}`);
 
-  // ── local_development: posture stated, override allowed and LABELED ──
+  // ── local_development: posture stated, overrides allowed only LABELED ──
   const polLocal = (await jd("GET", "/v1/hypervisor/auth/policy")).j || {};
   ok("local posture declared with rollout trust semantics",
     polLocal.deployment_auth_posture === "local_development"
     && polLocal.rollout_trust?.explicit_override_allowed === true && polLocal.rollout_trust?.high_trust_required === false);
-  const localOverride = (await preview({ rollout_context_ref: `principal://${memberId}` })).j;
-  ok("local development: explicit override still activates the overlay, labeled as override",
-    localOverride.policy_ref === variantRef && localOverride.deployment_auth_posture === "local_development"
-    && localOverride.policy_rollout?.override === true && localOverride.policy_rollout?.rollout_context_source === "explicit_override");
-  const localAnon = (await preview({})).j;
-  ok("local anonymous posture is honest (deterministic local principal, local-dev-only note)",
-    localAnon.rollout_context?.deployment_posture === "local_development"
-    && String(localAnon.rollout_context?.posture_note || "").includes("local development only"));
+  ok("local development states its deterministic local principal and that an explicit override is allowed only labeled",
+    /deterministic local principal/.test(polLocal.rollout_trust?.note || "") && /allowed and labeled/.test(polLocal.rollout_trust?.note || ""),
+    polLocal.rollout_trust?.note);
 
   // ── exposed + auto: sensitive endpoints fail closed unauthenticated ──
   const sensitive = [
-    ["POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: "probe" }],
-    ["POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: "probe" }],
+    ["POST", "/v1/hypervisor/sessions", {}],
     ["POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`, {}],
     ["POST", "/v1/hypervisor/governance/cohorts", { display_name: "x" }],
     ["POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: "x://y" }],
@@ -186,20 +190,18 @@ async function run() {
   ];
   const rejections = [];
   for (const [m, u, b] of sensitive) rejections.push(await jd(m, u, b, EXPOSED));
-  ok("exposed instance rejects unauthenticated sensitive requests (401 across launch/apply/governance/vault)",
+  ok("exposed instance rejects unauthenticated sensitive requests (401 across session launch/apply/governance/vault)",
     rejections.every((r) => r.status === 401 && r.j?.reason === "authentication_required"),
     rejections.map((r) => r.status).join(","));
 
-  // ── exposed + authenticated: managed posture; authenticated principal activates cohort rollout ──
-  const managed = (await preview({}, { ...EXPOSED, ...MEMBER })).j;
-  ok("authenticated principal activates the cohort rollout under authenticated_managed posture",
-    managed.deployment_auth_posture === "authenticated_managed" && managed.policy_ref === variantRef
-    && managed.policy_rollout?.rollout_context_source === "authenticated_principal"
-    && String(managed.policy_rollout?.reason_code || "").startsWith("rollout_cohort_match"));
-  const managedOverride = (await preview({ rollout_context_ref: `principal://${memberId}` }, { ...EXPOSED, ...OUTSIDER })).j;
-  ok("explicit override fails closed in managed posture: rollout_explicit_override_disallowed",
-    managedOverride.policy_ref === BASE && managedOverride.policy_rollout === null
-    && (managedOverride.policy_rollout_skipped || []).some((x) => x.variant_policy_ref === variantRef && x.reason_code === "rollout_explicit_override_disallowed"));
+  // ── exposed + authenticated: managed posture, high trust required, overrides closed ──
+  const managed = (await jd("GET", "/v1/hypervisor/auth/policy", undefined, { ...EXPOSED, ...MEMBER })).j || {};
+  const managedOutsider = (await jd("GET", "/v1/hypervisor/auth/policy", undefined, { ...EXPOSED, ...OUTSIDER })).j || {};
+  ok("an authenticated principal on the exposed instance reads authenticated_managed: high trust required, explicit overrides fail closed",
+    [managed, managedOutsider].every((p) => p.deployment_auth_posture === "authenticated_managed" && p.effective_enforced === true
+      && p.rollout_trust?.high_trust_required === true && p.rollout_trust?.explicit_override_allowed === false
+      && /explicit overrides fail closed/.test(p.rollout_trust?.note || "")),
+    `${managed.deployment_auth_posture} / ${managedOutsider.deployment_auth_posture}`);
 
   // ── exposed_untrusted (enforcement explicitly off while exposed) ──
   // Setting the enforcement mode is an org-admin-gated MUTATION, so it goes out as the operator.
@@ -211,29 +213,19 @@ async function run() {
     untrustedSet.status === 200 && untrustedSet.j?.policy?.mode === "never",
     `status ${untrustedSet.status} · mode ${untrustedSet.j?.policy?.mode}`);
   try {
-    const untrusted = (await preview({}, EXPOSED)).j;
-    ok("exposed_untrusted posture is declared with an honest warning",
-      untrusted.deployment_auth_posture === "exposed_untrusted"
-      && String(untrusted.rollout_context?.posture_note || "").includes("EXPOSED without enforced authentication"));
-    await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { rollout_mode: "canary", canary_percent: 100 });
-    const anonCanary = (await preview({}, EXPOSED)).j;
-    ok("anonymous context cannot activate a 100% canary outside local development",
-      anonCanary.policy_ref === BASE
-      && (anonCanary.policy_rollout_skipped || []).some((x) => x.reason_code === "rollout_requires_authenticated_context"));
-    await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { rollout_mode: "cohort", cohort_refs: [cohort.ref] });
-    const untrustedOverride = (await preview({ rollout_context_ref: `principal://${memberId}` }, EXPOSED)).j;
-    ok("explicit override fails closed in exposed_untrusted posture",
-      untrustedOverride.policy_ref === BASE
-      && (untrustedOverride.policy_rollout_skipped || []).some((x) => x.reason_code === "rollout_explicit_override_disallowed"));
-
-    // A posture-blocked rollout at LAUNCH time is a receipted security decision.
-    const blockedLaunch = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: `vfyauth${tag} blocked override launch`, strategy: "direct", policy_ref: BASE, rollout_context_ref: `principal://${memberId}` }, EXPOSED);
-    const ledger = (await jd("GET", "/v1/hypervisor/work-ledger")).j?.entries || [];
-    const enforcement = ledger.find((e) => e.kind === "rollout_enforcement" && e.launch_ref === `ioi-agent-launch://${blockedLaunch.j?.launch_id}`);
-    ok("Work Ledger records the blocked rollout decision with posture + reason",
-      blockedLaunch.status === 403 && !!enforcement && enforcement.status === "blocked"
-      && enforcement.deployment_posture === "exposed_untrusted"
-      && (enforcement.blocked || []).some((x) => x.reason_code === "rollout_explicit_override_disallowed"));
+    const untrusted = (await jd("GET", "/v1/hypervisor/auth/policy", undefined, EXPOSED)).j || {};
+    ok("exposed_untrusted posture is declared honestly: exposed, enforcement off, high trust required, explicit overrides fail closed",
+      untrusted.deployment_auth_posture === "exposed_untrusted" && untrusted.exposed === true && untrusted.effective_enforced === false
+      && untrusted.rollout_trust?.high_trust_required === true && untrusted.rollout_trust?.explicit_override_allowed === false,
+      `${untrusted.deployment_auth_posture} · enforced ${untrusted.effective_enforced}`);
+    // A posture-blocked decision is still a typed refusal: the platform's own work truth (WorkResults
+    // and the Work Ledger) is withheld from an exposed instance that enforces no identity.
+    const workResults = await jd("GET", "/v1/hypervisor/work-results", undefined, EXPOSED);
+    const workLedger = await jd("GET", "/v1/hypervisor/work-ledger", undefined, EXPOSED);
+    ok("exposed_untrusted withholds global work truth by name (work results and the work ledger)",
+      workResults.status === 403 && workResults.j?.error?.code === "work_truth_exposed_untrusted_refused"
+      && workLedger.status === 403 && JSON.stringify(workLedger.j).includes("work_ledger_exposed_untrusted_refused"),
+      `work-results ${workResults.status} ${workResults.j?.error?.code} · work-ledger ${workLedger.status} ${workLedger.j?.error?.code ?? workLedger.j?.code}`);
   } finally {
     // Restoring the posture is the same gated mutation as setting it. Anonymous, this leaves the
     // deployment enforcing `never` after the run — the verifier would have disabled authentication
@@ -244,13 +236,14 @@ async function run() {
   ok("auth mode restored to auto (local posture back)", restored.policy?.mode === "auto" && restored.deployment_auth_posture === "local_development");
 
   // ── Governance overview + surfaces ──
-  const ov = (await jd("GET", "/v1/hypervisor/governance/overview")).j || {};
+  const ov = (await jd("GET", "/v1/hypervisor/governance/overview", undefined, OPERATOR)).j || {};
   ok("governance overview declares deployment posture + rollout trust",
     ov.identity_posture?.deployment_auth_posture === "local_development"
     && ov.identity_posture?.rollout_trust?.explicit_override_allowed === true);
 
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   await page.goto(`${SHELL}/__ioi/governance`, { waitUntil: "networkidle" });
@@ -260,30 +253,19 @@ async function run() {
   await page.goto(`${SHELL}/__ioi/operations`, { waitUntil: "networkidle" });
   const opsPosture = await page.locator("#ops-auth-posture").innerText();
   ok("Operations shows the auth posture strip", /local_development/i.test(opsPosture) && /not enforced/i.test(opsPosture));
-  await page.goto(`${SHELL}/`, { waitUntil: "networkidle" });
-  await page.click('[data-testid="create-session-button"]');
-  // New Session now routes to the composer page; the owned modal opens via Advanced launch.
-  await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });
-  await page.click("#ioi-ns-advanced");
-  await page.waitForSelector("#ioi-ns-modal.open", { timeout: 15000 });
-  await page.selectOption("#ioi-ns-policy", BASE);
-  await page.fill("#ioi-ns-goal", "probe the local identity posture note");
-  await page.waitForFunction(() => /identity/i.test(document.getElementById("ioi-ns-preview")?.innerText || ""), { timeout: 15000 });
-  const modalText = await page.locator("#ioi-ns-preview").innerText();
-  ok("New Session preview warns the deterministic local principal is local-development only",
-    /deterministic local principal/i.test(modalText) && /local-development posture only/i.test(modalText));
-  await page.keyboard.press("Escape");
-  ok("no console errors", consoleErrors.length === 0, consoleErrors.slice(0, 2).join(" | "));
+  // R-240 (2026-09-29): the New Session preview's "deterministic local principal" note came from the
+  // retired launch-policy chooser's preview; the launcher now previews placement, and the posture
+  // note is asserted above from the daemon's own declaration.
+  ok("no page errors", consoleErrors.length === 0, consoleErrors.slice(0, 2).join(" | "));
   await browser.close();
   const ft = await fetch(`${SHELL}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({}));
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
   // ── Cleanup (evidence receipts remain by design) ──
-  await jd("POST", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}/rollout/rollback`);
-  await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}`);
-  await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`);
-  await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
-  await jd("DELETE", `/v1/hypervisor/governance/cohorts/${cohort.id}`);
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/reject`, { reason: "verifier fixture" }, OPERATOR);
+  await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`, undefined, OPERATOR);
+  await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`, undefined, OPERATOR);
+  await jd("DELETE", `/v1/hypervisor/governance/cohorts/${cohort.id}`, undefined, OPERATOR);
   await jd("DELETE", `/v1/hypervisor/principals/${memberId}`, undefined, OPERATOR);
   await jd("DELETE", `/v1/hypervisor/principals/${outsiderId}`, undefined, OPERATOR);
   const finalPol = (await jd("GET", "/v1/hypervisor/auth/policy")).j || {};
@@ -308,7 +290,7 @@ run().then(() => {
     headers: { "content-type": "application/json", ...(OPERATOR_SESSION ? { authorization: `Bearer ${OPERATOR_SESSION}` } : {}) },
     body: JSON.stringify({ mode: "auto" }),
   }).then((r) => r.ok).catch(() => false);
-  if (!restored) console.error(`POSTURE NOT RESTORED — the daemon may still be enforcing mode 'never'. Re-send PUT /v1/hypervisor/auth/policy {"mode":"auto"} with an operator session (IOI_HYPERVISOR_DAEMON_SESSION).`);
+  if (!restored) console.error(`POSTURE NOT RESTORED — the daemon may still be enforcing mode 'never'. Re-send PUT /v1/hypervisor/auth/policy {"mode":"auto"} with the stack operator's session.`);
   // Print what was decided before the crash. The static self-check runs first and needs no daemon,
   // so discarding the results here would hide the one assertion that still had an answer.
   for (const r of results) console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);

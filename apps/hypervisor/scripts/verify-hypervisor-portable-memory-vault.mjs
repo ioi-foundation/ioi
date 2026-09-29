@@ -7,49 +7,41 @@
 // constraints intact, both local harnesses consuming ONE restored space through SEPARATE
 // projections, and durable mutation ONLY through the proposal→approve→receipt lane.
 //
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-portable-memory-vault.mjs (≈2–4 min)
+// RE-TYPED 2026-09-29 (R-240, GoalRun residue). "Both harnesses consume the restored space" was
+// proven with a REAL IOI Agent Compare launch that minted a GoalRun, its projections read back by
+// `goal_run_ref`. R-192 (S5-1) took goal pursuit out of the Hypervisor — a goal run is an ioi.ai
+// composition over the thread orchestration primitives (standing owner ruling 2026-09-24) — so that
+// lane is gone and the verifier could not reach the claim. The two projections are now created for a
+// SESSION (the Hypervisor's own work subject) through the projection lane an invocation references,
+// and read back by `session_ref`.
+//
+// Usage: node apps/hypervisor/scripts/verify-hypervisor-portable-memory-vault.mjs (≈1 min)
+// Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
+// URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
-import http from "node:http";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { verifierStack } from "./lib/verifier-stack.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
-
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SHELL = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-// node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
-// fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
-function jd(method, url, body) {
-  const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
-  const payload = body ? JSON.stringify(body) : null;
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
-      (res) => {
-        let raw = "";
-        res.on("data", (c) => { raw += c; });
-        res.on("end", () => {
-          let j = {};
-          try { j = JSON.parse(raw); } catch { j = {}; }
-          resolve({ status: res.statusCode, j });
-        });
-      },
-    );
-    req.on("error", reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
+// Every request carries the stack operator's session (verifier-stack).
+async function jd(method, url, body) {
+  const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => null);
+  const text = r ? await r.text().catch(() => "") : "";
+  let j = {}; try { j = JSON.parse(text); } catch { j = {}; }
+  return { status: r?.status ?? 0, j };
 }
 
 async function run() {
   const tag = Date.now().toString(16);
-  for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/enable`);
 
   // ── Seed a rich row set (tags/refs/sensitivity/compat/connector-derived) ──
   const mk = async (body) => (await jd("POST", "/v1/hypervisor/memory-entries", body)).j?.record || {};
@@ -150,11 +142,12 @@ async function run() {
     && reasonOf(preview.j?.preview?.redacted_entry_refs, secret.entry_ref) === "sensitivity_secret_always_redacted");
 
   // ── Both harnesses consume the SAME restored space via separate projections ──
-  const phaseA = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: `Create the file vault-run-${tag}.txt containing the word: restored`, strategy: "compare" });
-  const grant = mintApprovalGrant({ policyHash: phaseA.j.approval.policy_hash, requestHash: phaseA.j.approval.request_hash });
-  const phaseB = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
-  const grid = String(phaseB.j?.advanced?.goal_run_ref || "").replace("goal://", "");
-  const projections = await jd("GET", `/v1/hypervisor/memory-projections?goal_run_ref=goal://${grid}`);
+  // R-240 (2026-09-29): a REAL IOI Agent Compare launch (a GoalRun over both harnesses) stood here.
+  const sessionRef = `session://vault-run-${tag}`;
+  for (const harness of ["harness-profile:hp_opencode", "harness-profile:hp_deepseek_tui"]) {
+    await jd("POST", "/v1/hypervisor/memory-projections", { goal: `vault-run-${tag} restored`, harness_profile_ref: harness, model_route_ref: "model-route:mrt_local_default", session_ref: sessionRef });
+  }
+  const projections = await jd("GET", `/v1/hypervisor/memory-projections?session_ref=${encodeURIComponent(sessionRef)}`);
   const byHarness = Object.fromEntries((projections.j?.projections || []).map((p) => [p.harness_profile_ref, p]));
   const oc = byHarness["harness-profile:hp_opencode"];
   const ds = byHarness["harness-profile:hp_deepseek_tui"];
@@ -197,6 +190,7 @@ async function run() {
   ok("no stale Workflows child-tab language", !/data-astab="workflows"|data-astab="automations"/.test(studio) && !/Workflows</.test(studio));
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
   await page.goto(`${SHELL}/__ioi/agent-studio#memory`, { waitUntil: "networkidle" });
@@ -212,10 +206,10 @@ async function run() {
   await jd("PATCH", `/v1/hypervisor/memory-entries/${lostId}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skill.skill_id}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affinity.affinity_id}`, { status: "archived" });
-  for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/disable`);
-  const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
-  ok("fixtures archived + drivers restored",
-    (fin.j?.profiles || []).filter((p) => ["opencode", "deepseek_tui"].includes(p.harness)).every((p) => p.lifecycle.status === "disabled"));
+  // R-240 (2026-09-29): the drivers were enabled only to run the retired launch; nothing to restore.
+  const skillAfter = (await jd("GET", `/v1/hypervisor/skill-entries/${skill?.skill_id}`)).j?.record || {};
+  const affAfter = (await jd("GET", `/v1/hypervisor/automation-affinities/${affinity?.affinity_id}`)).j?.record || {};
+  ok("fixtures archived", skillAfter.status === "archived" && affAfter.status === "archived", `${skillAfter.status}/${affAfter.status}`);
 }
 
 run().then(() => {
