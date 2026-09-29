@@ -1894,6 +1894,14 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run test:adopted-seeds --workspace=@ioi/hypervisor-app
 
+      # No verifier writes the owner's data (R-240, verifier hygiene): verifier-stack refuses the
+      # owner's :8765/:36173/:4173 and data dir by name, and the owner-data guard fails any verifier,
+      # check or mutation battery that names ~/.ioi/hypervisor outside its read-only audits. Pure
+      # source/unit tests — no daemon, no serve.
+      - name: Verify verifier hygiene — test:verifier-hygiene
+        if: ${{ !cancelled() }}
+        run: npm run test:verifier-hygiene --workspace=@ioi/hypervisor-app
+
       - name: UX seed depth census — check:seed-depth
         if: ${{ !cancelled() }}
         run: npm run check:seed-depth --workspace=@ioi/hypervisor-app
