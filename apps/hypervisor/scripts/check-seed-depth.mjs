@@ -114,7 +114,18 @@ const PINS = {
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
   "ontology-manager": { total: 65, bound: 31, refused: 8, named_gap: 25, open: 1 },
-  // 2026-09-29 (R-241, Data Connection D7): 51 → 60. Edit syncs' chunk reached the mirror, and the open row splits in
+  // 2026-09-29 (R-241, Data Connection D8): 60 → 63. The schedule editor's chunk (51877) reached the mirror, and the open
+  // row splits in three, driven by check:adopted-data-connection over daemon truth: choosing "On a schedule" renders the
+  // reference's schedule editor, each cron expression it composes checked by the daemon's own cron parser (the automation
+  // scheduler's GET /v1/hypervisor/cron-preview) — bound; a sync saved on a schedule, in Edit syncs and on its
+  // Configuration page, refused by name at its checkpoint read and its create-schedules before anything is written (no
+  // schedule runs a sync: each run takes its own wallet-authority grant, and the scheduler's Time triggers fire automation
+  // steps, none of which admits a materializing run) — refused; Duplicate sync on a schedule declares the new sync and its
+  // schedule is refused — refused. A REST source's Edit syncs, reached by URL, joins as bound: its lease plans (none) and
+  // its New — the source's Create webhook — off, its tooltip the runtime reason D5 made true (never a permission). bound
+  // 36 → 38, refused 8 → 10, named 15, open 1 → 0.
+  "data-connection": { total: 63, bound: 38, refused: 10, named_gap: 15, open: 0 },
+  // Before that, 2026-09-29 (R-241, Data Connection D7): 51 → 60. Edit syncs' chunk reached the mirror, and the open row splits in
   // eight, driven by check:adopted-data-connection over daemon truth: the page (the source's lease plans, each its dataset
   // in the source's folder; a sync's panel: schedule Manually, build policy Always, the plan's configuration), a panel's
   // Save (the plan's PATCH) and Bulk edit with the schedule Manually (what is already true: nothing written) bound; what
@@ -164,7 +175,6 @@ const PINS = {
   // and Delete refused by name; Versions' history, Created by, the output dataset, the live banner and the build report
   // named; a failed run (needs a grant to drive) and New / Duplicate / Save (undriven) open. The splash row's proof text
   // (stale since D3, so this gate was red) now cites the assertion. 30 → 41.
-  "data-connection": { total: 60, bound: 36, refused: 8, named_gap: 15, open: 1 },
   // 2026-09-28 (R-241, Approvals A2): the two open rows become five, all driven live by check:adopted-approvals over daemon
   // truth. A challenge Approved (the operator's passphrase on the daemon's decision route mints one grant), Completed (the
   // requester's retry consumes it; a replay is refused) and Closed (a restarted daemon with a shortened pending window —

@@ -11259,6 +11259,20 @@ async function handleEstateRequest(req, res, body) {
         if (build) return sendO(200, build);
       }
       if (onDataConnectionSurface() && req.method === "POST" && pathname === "/scheduler/api/scheduler/get-schedules-by-affected-dataset3") return sendO(200, []);
+      // (cut D8) "On a schedule": the schedule editor's cron check is the daemon's own cron parser (the automation
+      // scheduler's), never a recorded answer; a daemon that does not answer fails the check rather than passing it
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/scheduler/api/scheduler/validate-cron-expression") {
+        let cron = ""; try { cron = String(JSON.parse(body.toString() || "\"\"") ?? ""); } catch { /* not a string */ }
+        return sendO(200, DATA_CONNECTION.cronValidationOf(await planeRead(`/v1/hypervisor/cron-preview?cron=${encodeURIComponent(cron)}&tz=UTC&n=1`)));
+      }
+      // …a save on a schedule first asks which schedules build the sync's dataset (none here), then creates one: refused
+      // by name before anything is written — no schedule runs a sync (each run takes its own wallet-authority grant)
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/scheduler/api/scheduler/get-schedules-by-run-build-dataset") return sendO(200, DATA_CONNECTION.SCHEDULES_BY_DATASET);
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/scheduler/api/scheduler/create-schedules") {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const refusal = DATA_CONNECTION.scheduleCreateRefusalOf(asked, await callerSyncs());
+        return dataConnectionRefusal(refusal.status, refusal.code, refusal.message);
+      }
       // a sync's output dataset keeps no schema (the reference answers a dataset without one with 204)
       if (onDataConnectionSurface() && req.method === "GET" && /^\/foundry-metadata\/api\/schemas\/datasets\/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}\/branches\/[^/]+$/u.test(pathname)
         && (await callerSyncs()).some((y) => y.datasetRid === pathname.split("/")[5])) { res.writeHead(204); return res.end(); }

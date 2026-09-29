@@ -510,8 +510,8 @@ assertion in its verifier.
   in the mirror's traffic dir (`data-connection-flow/operations`).
 - **Still to harvest.** A succeeded run and its dataset (they need working credentials), and the setup wizard's
   remaining steps (export configuration, code import configuration, summary). The schedule editor behind "On a
-  schedule" (chunk 51877): the mirror stubs `48569533b328abb5e18a312b31b5fd962c76c5b6dfa572d6886f09779431e49d.js`, so
-  choosing it crashes Edit syncs and a sync's Configuration (D7 found it; its stylesheet `7730042e…` is present).
+  schedule" (chunk 51877, `48569533…js`; its stylesheet `7730042e…`) was fed on 2026-09-29 (D7 found it missing; D8
+  drove it). It loads no further chunk.
   The checkpoint prompt's chunks (`49952070…`, `26003ca7…`, `b88e3924…`, `6cfee11d…`) were fed on 2026-09-29, with a
   harvest of Save's checkpoint read and body (`.artifacts/live-tenant-atlas/r241-dc-checkpoint-save/`). Edit syncs'
   chunk 98867 (`8112b6f7…js` and `4deea896…css`, `SourceEditSyncsPage`) was fed the same day.
@@ -619,6 +619,40 @@ assertion in its verifier.
     message at the top level, where the reference's toast reads it (the build-policy refusal had toasted only its
     code). `check:adopted-data-connection` 39/39, `adopted-data-connection.test` 24/24; seed depth 60 = 36 bound / 8
     refused / 15 named gaps / 1 open (ledger CCXLVIII). The open row is "On a schedule" (chunk 51877 above).
+  - D8: "On a schedule", and a REST source's Edit syncs. Done 2026-09-29, once the schedule editor's chunk was in the
+    mirror. The Hypervisor has a scheduler, but it is the automation plane's (ADR 0056 put Builds and Schedules under
+    Automations): an automation's Time trigger (`schedule_spec`) fires its steps — agent, command, function, proposal —
+    and none admits a materializing run. And a sync's run cannot be scheduled at all: each run obtains its lease with
+    its own exact wallet-authority grant, and no standing execution authority exists for a schedule to hold. So a
+    schedule does not apply to a lease plan, and the flows are:
+    - **The editor.** Choosing "On a schedule" (the schedule block's Manually menu) renders the reference's schedule
+      editor (Schedule Details, Run every … At …). Each cron expression it composes is checked with the scheduler
+      service (`POST scheduler/api/scheduler/validate-cron-expression`, a bare JSON string, answered `{ error }`). That
+      check is now the daemon's own cron parser — the one its automation scheduler fires by (`GET
+      /v1/hypervisor/cron-preview`): no error when the daemon finds a next fire, else the daemon's reason (an
+      out-of-range minute reads `value out of range [0,59] in '61'`). The fenced 501 had left Save disabled.
+    - **Save on a schedule, in Edit syncs and on a sync's Configuration.** The reference first asks which schedules
+      build the sync's dataset (`get-schedules-by-run-build-dataset`: none — no schedule builds any dataset here), then
+      which checkpoints gate creating one (`getConfigsV5`, `SCHEDULE_CREATE`), then creates it (`create-schedules`).
+      The checkpoint read and the create are refused by name (`Hypervisor:DataConnectionScheduleNotBound`, 409), and
+      the toast says why. Only the schedule changed, so no PUT is sent, and the plan keeps its revision; no automation
+      and no run appear. (A save that also changes the configuration sends its PUT in parallel, as the reference does;
+      that PUT is the bound D5 Save.)
+    - **Duplicate sync on a schedule.** Create sync declares the new sync (the bound D6 create) and lands on it, then
+      the reference asks for a schedule on the dataset its page was answered. That is refused by name, so the new plan
+      runs Manually. The toasts read "Sync created" and the refusal.
+    - **A REST source's Edit syncs.** The reference offers a REST source no Edit syncs tab. Reached by URL, it lists the
+      source's lease plans (none, per the daemon) under "No syncs for source". Its New is the source's primary action,
+      Create webhook, not a new sync. It is off, and its tooltip is the runtime reason D5 made true at the wire ("the
+      Hypervisor has no webhook plane … no other runtime"). The reference would name a missing permission only for a
+      runtime that supports webhooks, which none does here, so nothing false shows and nothing changed.
+
+    Observation, not changed: a 409 whose body is an object reaches the reference's toast through its generic
+    "Unknown error occurred: {type} {details}" template. So every Data Connection refusal toast (D5–D8) starts
+    "Unknown error occurred: STATUS" before its message. `check:adopted-data-connection` 39 → 44/44 (the D7 bulk-edit
+    assertion now waits for each selected sync's PUT; under load the first refusal's toast landed before the second PUT
+    was answered), `adopted-data-connection.test` 24 → 26/26; seed depth 63 = 38 bound / 10 refused / 15 named gaps /
+    0 open (ledger CCXLIX).
 
 ### Approvals — harvest and the adoption path (2026-09-28)
 

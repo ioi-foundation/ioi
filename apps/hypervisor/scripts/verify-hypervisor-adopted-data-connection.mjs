@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D7).
+// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D8).
 //
 // The reference Data Connection (booted by the local mirror, routed at /workspace/data-ingestion-app) answers from the
 // Hypervisor's data-source plane (adopted-data-connection.mjs), in a real browser against an ISOLATED daemon + serve:
@@ -25,6 +25,10 @@
 //     reference's own panel (Save re-declares the plan), Bulk edit and Run N syncs — what a plan cannot hold (another
 //     transaction type, a build policy but Always, a maximum duration, a run) refused by name; and a source sits in the
 //     folder it is filed in (its project's, else the owner's organization folder) on its Overview and output-folder page;
+//   - "On a schedule" (cut D8): the reference's schedule editor renders, each cron expression it composes checked by the
+//     daemon's own cron parser; a save on a schedule — in Edit syncs, on a sync's Configuration, after Duplicate's Create
+//     sync — is refused by name (no schedule runs a sync: each run takes its own wallet-authority grant), nothing written;
+//     a REST source's Edit syncs, reached by URL, lists its lease plans and its New (Create webhook) says truly why it is off;
 //   - New source (cut D3), driven as a person does it: pick REST API, name it, file it in a project, create — a draft
 //     data source — give it its domain (the draft becomes declared, with that endpoint), and walk the remaining steps;
 //   - an existing REST source's connection settings: its declarer's new domain becomes its endpoint, path kept;
@@ -582,6 +586,8 @@ async function run() {
     await pg.waitForTimeout(600);
     await saveButton().click({ timeout: 8000 }).catch(() => {});
     let durationToast = ""; for (let i = 0; i < 15 && !/holds none of a maximum duration/u.test(durationToast); i++) { await pg.waitForTimeout(600); durationToast = await text(); }
+    // (each selected sync's PUT is its own request: the first refusal's toast can land before the second is answered)
+    for (let i = 0; i < 15 && d7.slice(d7Mark).filter((w) => w.m === "PUT").length < 2; i++) await pg.waitForTimeout(600);
     const durationPuts = d7.slice(d7Mark).filter((w) => w.m === "PUT");
     await pg.getByRole("button", { name: /^Remove$/u }).first().click({ timeout: 8000 }).catch(() => {});
     await pg.getByRole("button", { name: /^Edit$/u }).first().click({ timeout: 8000 }).catch(() => {});
@@ -631,6 +637,115 @@ async function run() {
     ok("no Edit syncs or folder flow met a fenced read, a page error or an unbound GraphQL operation",
       fenced.size === fencedBeforeD7 && pageErrors.length === pageErrorsBeforeD7 && gqlErrors.size === gqlBeforeD7 && unnamed.size === 0 && htmlAnswers.size === 0,
       `fenced ${[...fenced].slice(fencedBeforeD7).join(",") || "none"} · page ${pageErrors.slice(pageErrorsBeforeD7, pageErrorsBeforeD7 + 1).join("") || "none"} · gql ${[...gqlErrors].slice(gqlBeforeD7, gqlBeforeD7 + 2).join(" | ") || "none"}`);
+
+    // ---- (cut D8) "On a schedule": the reference's schedule editor (its chunk is in the mirror now) renders, and each cron
+    // expression it composes is checked by the daemon's own cron parser; but no schedule runs a sync — each run takes its
+    // own wallet-authority grant, and the Hypervisor's scheduler fires automation steps, none of which admits a
+    // materializing run — so a save on a schedule is refused by name, before anything is written
+    const d8 = [];
+    const D8_ROUTE = /\/scheduler\/api\/|getConfigsV5|\/extract-store\/extract\/ri\.|\/set-policies|\/add-extract|\/build\/trigger\/|\/createDataset2/u;
+    const onD8 = async (r) => { const u = new URL(r.url()); if (D8_ROUTE.test(u.pathname) && r.request().method() !== "GET") d8.push({ p: u.pathname, m: r.request().method(), s: r.status(), req: r.request().postData() || "", body: await r.text().catch(() => "") }); };
+    pg.on("response", onD8);
+    const fencedBeforeD8 = fenced.size, pageErrorsBeforeD8 = pageErrors.length, gqlBeforeD8 = gqlErrors.size;
+    const automations = async () => ((await d("GET", "/v1/hypervisor/automations")).j.automations || []).length;
+    const runCount = async () => ((await d("GET", "/v1/hypervisor/odk/materializing-runs")).j.materializing_runs || []).length;
+    const chooseSchedule = async () => {
+      await pg.locator("[class*=popover-button]").filter({ hasText: /Manually/u }).first().click({ timeout: 8000 }).catch(() => {});
+      await pg.getByRole("menuitem", { name: "On a schedule" }).first().click({ timeout: 8000 }).catch(() => {});
+      let t = ""; for (let i = 0; i < 20 && !/Schedule Details Run every/u.test(t); i++) { await pg.waitForTimeout(600); t = await text(); }
+      // (Save waits for the cron check)
+      for (let i = 0; i < 15 && (await saveButton().getAttribute("aria-disabled").catch(() => "true")) === "true"; i++) await pg.waitForTimeout(500);
+      return t;
+    };
+    const SCHEDULE_TOAST = /No schedule runs a sync here: each run is its plan's materializing run/u;
+    const importBeforeD8 = await planOf(planId);
+    const automationsBefore = await automations(), runsBeforeD8 = await runCount();
+
+    // in Edit syncs, a sync's panel
+    await visit(editUrl, /\(Plants import objects\)/u);
+    await pg.getByText("(Plants import objects)", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let schedPanel = ""; for (let i = 0; i < 20 && !/Configure Plants import[\s\S]*Build policy/u.test(schedPanel); i++) { await pg.waitForTimeout(700); schedPanel = await text(); }
+    const editorShown = await chooseSchedule();
+    const checkMark = d8.length;
+    const cronCheck = d8.find((w) => /validate-cron-expression/u.test(w.p));
+    const cronAsked = jsonOf(cronCheck?.req);
+    const daemonCron = await d("GET", `/v1/hypervisor/cron-preview?cron=${encodeURIComponent(String(cronAsked ?? ""))}&tz=UTC&n=1`);
+    const badCron = await serveJ("POST", "/scheduler/api/scheduler/validate-cron-expression", "61 * * * *");
+    const daemonBad = await d("GET", `/v1/hypervisor/cron-preview?cron=${encodeURIComponent("61 * * * *")}&tz=UTC&n=1`);
+    ok("choosing On a schedule renders the reference's schedule editor (Schedule Details, Run every), and each cron expression it composes is checked by the daemon's own cron parser — the one its automation scheduler fires by: the editor's expression passes because the daemon finds its next fire, an out-of-range minute fails with the daemon's own reason",
+      /Run this import On a schedule Schedule Details Run every/u.test(editorShown) && cronCheck?.s === 200 && typeof cronAsked === "string" && cronAsked.split(" ").length === 5
+        && daemonCron.j.ok === true && (daemonCron.j.runs || []).length === 1 && jsonOf(cronCheck.body)?.error === null
+        && badCron.status === 200 && daemonBad.j.ok === false && typeof daemonBad.j.error === "string" && badCron.j?.error === daemonBad.j.error,
+      `${after(editorShown, "Run this import", 60)} · check ${cronCheck?.s ?? "NOT SENT"} "${cronAsked}" → ${cronCheck?.body || ""} (daemon next ${(daemonCron.j.runs || [])[0] || daemonCron.j.error}) · "61 * * * *" → ${JSON.stringify(badCron.j)} (daemon "${daemonBad.j.error}")`);
+
+    await saveButton().click({ timeout: 8000 }).catch(() => {});
+    let schedToast = ""; for (let i = 0; i < 15 && !SCHEDULE_TOAST.test(schedToast); i++) { await pg.waitForTimeout(600); schedToast = await text(); }
+    const editSave = d8.slice(checkMark);
+    const importAfterEdit = await planOf(planId);
+    // …and on the sync's own Configuration page
+    await visit(`${syncBase}/configuration`, /Run this import Manually/u);
+    await chooseSchedule();
+    const configMark = d8.length;
+    await saveButton().click({ timeout: 8000 }).catch(() => {});
+    let configToast = ""; for (let i = 0; i < 15 && !SCHEDULE_TOAST.test(configToast); i++) { await pg.waitForTimeout(600); configToast = await text(); }
+    const configSave = d8.slice(configMark);
+    const importAfterConfig = await planOf(planId);
+    const automationsAfter = await automations(), runsAfterD8 = await runCount();
+    const refusedSave = (ws) => {
+      const byDataset = ws.find((w) => /get-schedules-by-run-build-dataset/u.test(w.p));
+      const gate = ws.find((w) => /getConfigsV5/u.test(w.p) && /SCHEDULE_CREATE/u.test(w.req));
+      const create = ws.find((w) => /create-schedules/u.test(w.p));
+      return byDataset?.s === 200 && JSON.stringify(jsonOf(byDataset.body)) === "[]" && (jsonOf(byDataset.req)?.datasetRids || []).includes(syncDatasetRidOf(planId))
+        && gate?.s === 409 && jsonOf(gate.body)?.errorName === "Hypervisor:DataConnectionScheduleNotBound"
+        && create?.s === 409 && jsonOf(create.body)?.errorName === "Hypervisor:DataConnectionScheduleNotBound" && jsonOf(create.req)?.[0]?.trigger?.type === "time"
+        && jsonOf(create.req)?.[0]?.action?.runBuild?.jobSpecSelections?.[0]?.single?.datasetRid === syncDatasetRidOf(planId)
+        && !ws.some((w) => /extract-store\/extract\/ri\.|set-policies|add-extract|build\/trigger/u.test(w.p));
+    };
+    const saveTrail = (ws) => ws.map((w) => `${w.p.split("/").pop()} ${w.s}${/getConfigsV5/u.test(w.p) ? ` ${jsonOf(w.req)?.checkpointType}` : ""}`).join(", ") || "NOTHING SENT";
+    ok("a sync saved on a schedule — in Edit syncs and on its own Configuration page — is refused by name before anything is written: no schedule builds its dataset, creating one is refused at its checkpoint read and at its create (each run takes its own wallet-authority grant; the scheduler fires automation steps, none of which admits a materializing run), the toast says why, and the plan keeps its revision — no automation, no run",
+      refusedSave(editSave) && refusedSave(configSave) && SCHEDULE_TOAST.test(schedToast) && SCHEDULE_TOAST.test(configToast)
+        && importAfterEdit.revision === importBeforeD8.revision && importAfterConfig.revision === importBeforeD8.revision && importAfterConfig.ttl_seconds === importBeforeD8.ttl_seconds
+        && automationsAfter === automationsBefore && runsAfterD8 === runsBeforeD8,
+      `edit syncs: ${saveTrail(editSave)} "${toastOf(schedToast, SCHEDULE_TOAST).slice(0, 70)}" · configuration: ${saveTrail(configSave)} · plan r${importBeforeD8.revision} → r${importAfterEdit.revision} → r${importAfterConfig.revision} · automations ${automationsBefore} → ${automationsAfter} · runs ${runsBeforeD8} → ${runsAfterD8}`);
+
+    // Duplicate sync on a schedule: the new sync is Duplicate's declaration (bound, cut D6) and lands on it; the schedule
+    // the reference asks for after it — for the dataset the page was answered — is refused by name, so it runs Manually
+    await visit(`${syncBase}/configuration`, /Duplicate sync/u);
+    await pg.getByText("Duplicate sync", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let dupSched = ""; for (let i = 0; i < 25 && !/exact duplicate of Plants import[\s\S]*leaseTtlSeconds/u.test(dupSched); i++) { await pg.waitForTimeout(800); dupSched = await text(); }
+    await pg.locator("input[placeholder='Dataset name']").first().fill("Plants nightly").catch(() => {});
+    await chooseSchedule();
+    const dupMark = d8.length;
+    await pg.getByRole("button", { name: /^Create sync$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let dupSchedLanded = ""; for (let i = 0; i < 25 && !(/Sync created/u.test(dupSchedLanded) && SCHEDULE_TOAST.test(dupSchedLanded)); i++) { await pg.waitForTimeout(700); dupSchedLanded = await text(); }
+    const dupSchedWrites = d8.slice(dupMark);
+    const nightly = (await plans()).find((x) => x.name === "Plants nightly");
+    const nightlyAdd = dupSchedWrites.find((w) => /add-extract/u.test(w.p));
+    const nightlyCreate = dupSchedWrites.find((w) => /create-schedules/u.test(w.p));
+    const nightlyAsked = jsonOf(nightlyCreate?.req)?.[0]?.action?.runBuild?.jobSpecSelections?.[0]?.single?.datasetRid;
+    const nightlySyncs = await serveJ("POST", "/magritte-coordinator/api/extract-store/extracts/bulk", [String(jsonOf(nightlyAdd?.body))]);
+    ok("Duplicate sync on a schedule declares the new sync and lands on it (Sync created), and the schedule the reference asks for after it — for the dataset its page was answered — is refused by name, so the new plan runs Manually; no automation appears",
+      nightly?.status === "declared" && nightly?.revision === 1 && nightlyAdd?.s === 200 && new URL(pg.url()).pathname === `${BASE}/syncs/${String(jsonOf(nightlyAdd?.body))}/overview`
+        && nightlyCreate?.s === 409 && jsonOf(nightlyCreate.body)?.errorName === "Hypervisor:DataConnectionScheduleNotBound" && nightlyAsked === jsonOf(dupSchedWrites.find((w) => /createDataset2/u.test(w.p))?.body)?.rid
+        && /Sync created/u.test(dupSchedLanded) && SCHEDULE_TOAST.test(dupSchedLanded) && !!nightlySyncs.j?.[String(jsonOf(nightlyAdd?.body))] && (await automations()) === automationsBefore,
+      `plan ${nightly ? `${nightly.status} r${nightly.revision}` : "NONE"} · add-extract ${nightlyAdd?.s ?? "NOT SENT"} · create-schedules ${nightlyCreate?.s ?? "NOT SENT"} ${jsonOf(nightlyCreate?.body)?.errorName || ""} · ${new URL(pg.url()).pathname.replace(/ri\.[\w.-]+/u, "<rid>")} · ${/Sync created/u.test(dupSchedLanded) ? "Sync created" : "NOT CREATED"} + ${SCHEDULE_TOAST.test(dupSchedLanded) ? "refusal toast" : "NO REFUSAL TOAST"}`);
+
+    // a REST source's Edit syncs, reached by URL (the reference offers a REST source no such tab): its syncs are its lease
+    // plans (none), and its New is the source's primary action — Create webhook — off, saying why in words true here
+    const ordersId = orders.j.data_source?.source_id;
+    const restPlans = (await plans()).filter((x) => x.data_source_id === ordersId && x.status !== "revoked");
+    const restEdit = await visit(`${srcBase}/edit-syncs`, /No syncs for source|Failed to load syncs|An error occurred/u);
+    const restNew = await pg.evaluate(() => [...document.querySelectorAll("a,button,[role=button]")].filter((e) => (e.innerText || "").trim() === "New").map((e) => e.disabled === true || e.getAttribute("aria-disabled") === "true" || /bp[56]-disabled/u.test(e.className)));
+    await pg.getByText("New", { exact: true }).first().hover({ force: true, timeout: 5000 }).catch(() => {});
+    let restWhy = []; for (let i = 0; i < 10 && !restWhy.length; i++) { await pg.waitForTimeout(400); restWhy = await pg.evaluate(() => [...document.querySelectorAll(".bp5-tooltip, .bp6-tooltip, [role=tooltip]")].map((e) => e.innerText.trim()).filter(Boolean)); }
+    ok("a REST source's Edit syncs, reached by URL, lists its lease plans — none — and its New (the source's Create webhook, not a sync) is off, saying why in words true here (no webhook plane, no other runtime), never that the person lacks permission",
+      restPlans.length === 0 && /No syncs No syncs for source/u.test(restEdit) && !/Failed to load syncs|An error occurred/u.test(restEdit) && restNew.length === 1 && restNew[0] === true
+        && restWhy.some((w) => /^Webhooks are not supported here: the Hypervisor has no webhook plane/u.test(w)) && !restWhy.some((w) => /permission|representative|switch to a different runtime/iu.test(w)),
+      `daemon ${restPlans.length} plans · ${after(restEdit, "No syncs", 32)} · New ${restNew.length ? (restNew.every(Boolean) ? "off" : "OFFERED") : "ABSENT"} · "${(restWhy[0] || "NO TOOLTIP").slice(0, 80)}"`);
+    pg.off("response", onD8);
+    ok("no On a schedule or REST Edit syncs flow met a fenced read, a page error or an unbound GraphQL operation",
+      fenced.size === fencedBeforeD8 && pageErrors.length === pageErrorsBeforeD8 && gqlErrors.size === gqlBeforeD8 && unnamed.size === 0 && htmlAnswers.size === 0,
+      `fenced ${[...fenced].slice(fencedBeforeD8).join(",") || "none"} · page ${pageErrors.slice(pageErrorsBeforeD8, pageErrorsBeforeD8 + 1).join("") || "none"} · gql ${[...gqlErrors].slice(gqlBeforeD8, gqlBeforeD8 + 2).join(" | ") || "none"}`);
 
     // ---- refused by name: a type this plane cannot create, and a write the app would send that is not bound ----------
     const H = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}${BASE}/sources/new` };

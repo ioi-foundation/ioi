@@ -1,4 +1,4 @@
-// The adopted Data Connection's pure answers (R-241, Data Connection D1–D7): the caller's data sources as the reference
+// The adopted Data Connection's pure answers (R-241, Data Connection D1–D8): the caller's data sources as the reference
 // app's sources, the bootstrap reads over them, and their syncs (lease plans) with their builds (materializing runs).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -406,4 +406,31 @@ test("a source sits in the folder it is filed in — its project's, else the own
   const why = DC.TRUTHFUL_MESSAGES.find((m) => m.id === "ec37e6b26788.insufficientPermissions");
   assert.match(DC.truthfulBundle(`x={id:"ec37e6b26788.insufficientPermissions",defaultMessage:"You do not have sufficient permissions"}`), /the folder it is filed in/u, "Change default output folder says why it is off — not a permission");
   assert.ok(!/'/u.test(why.to.replace(/[a-z]'s\b/gu, "")));
+});
+
+// ---- cut D8: "On a schedule"
+test("the schedule editor's cron check is the daemon's cron parser: no error when it finds a next fire, else its own reason — never a pass when it did not answer", () => {
+  assert.deepEqual(DC.cronValidationOf({ ok: true, runs: ["2026-09-30T00:00:00Z"] }), { error: null });
+  assert.deepEqual(DC.cronValidationOf({ ok: false, error: "value out of range [0,59] in '61'" }), { error: "value out of range [0,59] in '61'" });
+  assert.notEqual(DC.cronValidationOf(null).error, null, "no answer is no pass");
+  assert.notEqual(DC.cronValidationOf({ ok: true, runs: [] }).error, null, "no next fire is no pass");
+});
+
+test("a sync saved on a schedule is refused by name — its checkpoint read and its create — while no schedule builds any dataset; a schedule for a dataset no sync of the caller's writes is not found", () => {
+  const projects = [];
+  const sources = DC.callerSourcesOf([bucket, stranger], "user://me", []);
+  const syncs = DC.callerSyncsOf([plan, strangersPlan], [], sources, "org://local", projects);
+  const ask = (rid) => [{ action: { type: "runBuild", runBuild: { branch: "master", branchFallbacks: [], finishOnFailure: true, ignoreStaleness: true, jobSpecSelections: [{ type: "single", single: { datasetRid: rid } }] } },
+    projectRids: [], trigger: { type: "time", time: { time: { cronExpression: "0 0 */1 * *", timeZone: "America/New_York" } } }, tokenMode: "SCOPED_TOKEN" }];
+  assert.deepEqual(DC.SCHEDULES_BY_DATASET, [], "no schedule builds a sync's dataset");
+  assert.deepEqual(DC.scheduleCreateRefusalOf(ask(DC.syncDatasetRidOf(plan.id)), syncs), DC.SCHEDULE_REFUSAL);
+  assert.equal(DC.SCHEDULE_REFUSAL.status, 409, "never 403: the app words every 403 as a missing permission");
+  assert.match(DC.SCHEDULE_REFUSAL.message, /wallet-authority grant[\s\S]*none admits a materializing run[\s\S]*Nothing was changed\.$/u);
+  const reserved = syncs[0].reservedDatasetRid;
+  assert.deepEqual(DC.scheduleCreateRefusalOf(ask(reserved), syncs), DC.SCHEDULE_REFUSAL, "a new sync's schedule names the dataset its page was answered");
+  assert.equal(DC.scheduleCreateRefusalOf(ask(DC.syncDatasetRidOf(strangersPlan.id)), syncs).code, "Hypervisor:DataConnectionDatasetNotFound");
+  assert.equal(DC.scheduleCreateRefusalOf([{ action: { type: "runBuild", runBuild: { jobSpecSelections: [{ type: "upstream", upstream: {} }] } } }], syncs).code, "Hypervisor:DataConnectionDatasetNotFound");
+  assert.equal(DC.scheduleCreateRefusalOf([], syncs).code, "Hypervisor:DataConnectionDatasetNotFound");
+  const code = (fn) => { try { fn(); return null; } catch (e) { return e.code; } };
+  assert.equal(code(() => DC.syncCheckpointConfigsOf({ checkpointedItems: [], checkpointType: "SCHEDULE_CREATE" }, sources, { catalog: [], checkpoints: [] })), DC.SCHEDULE_REFUSAL.code, "refused at its first step");
 });

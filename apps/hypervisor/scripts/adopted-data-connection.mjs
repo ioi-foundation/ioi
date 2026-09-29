@@ -200,6 +200,34 @@ export const SYNC_WRITE_REFUSALS = {
 };
 // the refusal as the reference's error body, its message also at the top level (where the app reads it)
 export const syncRefusalBodyOf = (refusal) => ({ errorCode: "CONFLICT", errorName: refusal.code, errorInstanceId: "", parameters: { message: refusal.message }, message: refusal.message });
+// (cut D8) "On a schedule". The reference's schedule editor (chunk 51877) checks each cron expression it composes with the
+// scheduler service — POST scheduler/api/scheduler/validate-cron-expression, a bare JSON string, answered { error } (none
+// when valid). The Hypervisor's cron parser is the daemon's own, the one its automation scheduler fires by (GET
+// /v1/hypervisor/cron-preview), so the answer is the daemon's: no error when it finds a next fire, else its reason.
+// preview: the daemon's { ok, runs } or { ok: false, error }.
+export const cronValidationOf = (preview) => ({ error: preview?.ok === true && (preview.runs || []).length ? null : String(preview?.error || "the Hypervisor's cron parser found no next run") });
+// …but no schedule runs a sync. A sync's run is its plan's materializing run, and every run obtains its lease with its
+// own exact wallet-authority grant (no standing execution authority exists for a schedule to hold). The Hypervisor's
+// scheduler is the automation plane's (ADR 0056 put Builds and Schedules under Automations): its Time triggers fire an
+// automation's steps — agent, command, function, proposal — and none admits a materializing run. So saving a sync on a
+// schedule is refused by name, before anything is written; Manually stays what is true.
+export const SCHEDULE_REFUSAL = { status: 409, code: "Hypervisor:DataConnectionScheduleNotBound",
+  message: "No schedule runs a sync here: each run is its plan's materializing run, and every run obtains its lease with its own wallet-authority grant — no standing authority exists for a schedule to hold. The Hypervisor's scheduler fires automations (agent, command, function and proposal steps), and none admits a materializing run. The sync runs Manually. Nothing was changed." };
+// REST: POST scheduler/api/scheduler/get-schedules-by-run-build-dataset — the schedules that build the asked datasets:
+// none (no schedule builds any dataset here), so a save on a schedule goes on to create one
+export const SCHEDULES_BY_DATASET = [];
+// REST: POST scheduler/api/scheduler/create-schedules — each asked schedule's run-build action names the datasets it
+// would build (single selections); each must be a sync of the caller's, and then the whole ask is refused by name
+export function scheduleCreateRefusalOf(requests, syncs) {
+  const rids = (Array.isArray(requests) ? requests : [requests]).flatMap((q) => {
+    const sels = q?.action?.type === "runBuild" ? q.action.runBuild?.jobSpecSelections || [] : [null];
+    return sels.map((s) => (s?.type === "single" ? s.single?.datasetRid : null));
+  });
+  // (a new sync's schedule names the dataset its page was answered — its reserved rid — as a sync's own does)
+  if (!rids.length || rids.some((rid) => !rid || !syncOfDatasetRid(rid, syncs)))
+    return { status: 404, code: "Hypervisor:DataConnectionDatasetNotFound", message: "No sync of yours writes this dataset. Nothing was changed." };
+  return SCHEDULE_REFUSAL;
+}
 // (cut D7) Edit syncs' "Run N syncs" asks the build service to build the selected syncs' datasets (POST
 // build2/api/manager/submitBuild) rather than triggering each sync: a sync's dataset is built only by its plan's
 // materializing run, so the same refusal applies — each named dataset must be one a sync of the caller's writes.
@@ -330,6 +358,9 @@ export const SYNC_CHECKPOINT_INTERACTIONS = { DATA_CONNECTION_SYNC_EDIT: "capabi
 export const NO_CHECKPOINTS = { checkpointConfigs: [], classificationInferabilityStatus: { type: "uninferableClassifcation", uninferableClassifcation: "CBAC_NOT_ENABLED" } };
 // plane: the daemon's GET /v1/hypervisor/justification-checkpoints answer ({ checkpoints, catalog })
 export function syncCheckpointConfigsOf(request, sources, plane) {
+  // (cut D8) a save on a schedule first asks which checkpoints gate creating the schedule: the schedule is refused by name
+  // at that first step, as its create is (no schedule runs a sync)
+  if (request?.checkpointType === "SCHEDULE_CREATE") throw new DataConnectionRefusal(SCHEDULE_REFUSAL.code, SCHEDULE_REFUSAL.message);
   const kind = SYNC_CHECKPOINT_INTERACTIONS[request?.checkpointType];
   if (!kind) throw new DataConnectionRefusal("Hypervisor:DataConnectionCheckpointTypeNotBound", `The checkpoint type ${request?.checkpointType || "(none)"} is not a Data Connection sync write here.`);
   const items = (request?.checkpointedItems || []).map((i) => i?.checkpointedItemId?.checkpointedResourceRid);
