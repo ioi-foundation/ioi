@@ -248,3 +248,32 @@ test("the list names every new state in its pill, from the same record reading a
   assert.match(list.inner, /data-ioi-challenge-state="grant_expired">Approved — grant expired unused; the action must be asked again</u);
   assert.match(list.inner, /data-ioi-challenge-count="0">0 waiting for the operator · 3 in all/u, "none of them waits on the operator's approve");
 });
+
+test("a challenge a pasted grant completed reads Completed, names that grant, was never decided here, and its history says so (R-240, authority follow-ups)", () => {
+  const GRANT = "wallet.network://grant/approval/" + "ab".repeat(32);
+  const settled = page(record({
+    state: "consumed", consumed_at: "2026-09-28T11:30:00Z", consumed_by: "system-lifecycle-authority-consumption://aslac_1", completed_by_grant_ref: GRANT,
+    history: [{ state: "completed_by_presented_grant", closed_at: "2026-09-28T11:30:00Z", prior_state: "pending", grant_ref: GRANT, consumption_ref: "system-lifecycle-authority-consumption://aslac_1" }],
+  }));
+  assert.match(settled.inner, /data-ioi-challenge-state="completed">Completed — the effect ran once</u);
+  assert.ok(settled.inner.includes(`under a grant presented directly for exactly these coordinates — <code data-ioi-challenge-completed-by-grant>${GRANT}</code>`), "names the grant it ran under");
+  assert.match(settled.inner, /It was never decided here/u);
+  assert.doesNotMatch(settled.inner, /The requester's retry ran it once under its one-use grant/u);
+  assert.match(settled.inner, /<h2>History of this challenge<\/h2>/u);
+  assert.ok(settled.inner.includes(`<tr data-ioi-challenge-history="completed_by_presented_grant"><td>Completed by a presented grant</td><td>2026-09-28T11:30:00Z</td><td>none — the step ran under the presented grant <code>${GRANT}</code> (admitted as <code>system-lifecycle-authority-consumption://aslac_1</code>) while this challenge was pending</td></tr>`), "the history entry names it");
+  assert.doesNotMatch(settled.inner, /<form/u, "nothing to decide");
+  // A challenge completed by its own claimed grant keeps its sentence.
+  const claimed = page(record({ state: "consumed", consumed_at: "2026-09-28T11:30:00Z", consumed_by: "x" }));
+  assert.match(claimed.inner, /The requester's retry ran it once under its one-use grant at 2026-09-28T11:30:00Z/u);
+});
+
+test("a consumed challenge a later crossing asked again links its successor, and the successor says it is a new crossing of an effect that already ran once (R-240, authority follow-ups)", () => {
+  const NEXT = "wac_" + "fedcba9876543210".repeat(2);
+  const ran = page(record({ state: "consumed", consumed_at: "2026-09-28T11:30:00Z", consumed_by: "authority-admission-intents/aai_1", superseded_by: NEXT }));
+  assert.match(ran.inner, /data-ioi-challenge-state="completed"/u);
+  assert.ok(ran.inner.includes(`A later crossing of the same effect was asked again as <span data-ioi-challenge-superseded-by><a href="/__ioi/authority/challenges/${NEXT}">a new challenge</a> (<code>${NEXT}</code>)</span>.`), "links the successor");
+  assert.doesNotMatch(ran.inner, /<form/u, "a consumed challenge is never decided again");
+  const next = page(record({ challenge_id: NEXT, approval_ref: `wallet-approval-challenge://${NEXT}`, request_hash: HASH("d"), base_request_hash: HASH("b"), ask_nonce: "0e".repeat(16), supersedes: ID, supersedes_reason: "consumed" }));
+  assert.ok(next.inner.includes(`data-ioi-challenge-supersedes="${ID}" data-ioi-challenge-supersedes-reason="consumed">This asks the effect again: an earlier crossing of it (<a href="/__ioi/authority/challenges/${ID}">${ID}</a>) ran once under its one-use grant, and a new crossing is a new decision`), "names the consumed ask it follows");
+  assert.match(next.inner, /data-ioi-challenge-decision="approve">/u, "the successor is decided as a new ask");
+});

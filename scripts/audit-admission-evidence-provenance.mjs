@@ -580,10 +580,17 @@ const H_BASELINE = [
   "recipe_routes.rs::handle_recipe_create",
   "system_amendment_routes.rs::handle_amendment",
   "system_continuity_routes.rs::handle_migration_destination_acknowledgement",
-  "system_continuity_routes.rs::handle_transition",
+  // "system_continuity_routes.rs::handle_transition" and
+  // "system_protected_transition_routes.rs::handle_transition" — LEFT the baseline 2026-09-29
+  // (R-240, authority follow-ups). Both now take `HeaderMap` and call `resolve_principal`. Read
+  // exactly what that means: the principal names the REQUESTER of the challenge a grantless
+  // refusal parks, the same way activation's initialize/activate do (8371625f6). Authority is
+  // unchanged: it is still the governed wallet decision these handlers verify and consume, and
+  // the middleware still covers the route. So the entries leave because the census now sees an
+  // in-handler identity call, not because a new authorization was added. Removed rather than
+  // re-pinned: an entry asserts NO in-handler identity call, and that is now false.
   "system_membership_routes.rs::handle_declare_desired_topology",
   "system_membership_routes.rs::handle_transition",
-  "system_protected_transition_routes.rs::handle_transition",
   "system_writer_routes.rs::handle_declare_failover_profile",
   "system_writer_routes.rs::handle_lost_suffix_resolution",
   "system_writer_routes.rs::handle_transition",

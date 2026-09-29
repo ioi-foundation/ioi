@@ -5,7 +5,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import http from "node:http";
-import { ladderExpectations, systemLimits, SYSTEM_DATA_ATTACHMENT_CONTRACT, SYSTEM_DATA_ATTACHMENT_CONTRACT_V1, TYPED_LADDER_FIELDS, TYPED_LIFECYCLE_GAP } from "./system-genesis-surfaces.mjs";
+import { headExpectations, ladderExpectations, PROTECTED_TRANSITION_OPS, renderOutcome, systemLimits, SYSTEM_DATA_ATTACHMENT_CONTRACT, SYSTEM_DATA_ATTACHMENT_CONTRACT_V1, TYPED_HEAD_FIELDS, TYPED_LADDER_FIELDS, TYPED_LIFECYCLE_GAP } from "./system-genesis-surfaces.mjs";
+import { readFileSync } from "node:fs";
 import { renderGovernanceLimits } from "./governance-limits.mjs";
 
 // The daemon's own JCS-sha256 domains (system_sequence_zero_routes.rs / the journey gate's helpers).
@@ -104,4 +105,71 @@ test("a System's limits read both attachment generations: a v2 connector subject
   assert.match(html, /data-system-limits-authority="deployment"/u);
   assert.match(html, /data-system-limits-bound-runs="absent"/u);
   assert.doesNotMatch(html, /SystemDataAttachment v2\)/u, "the connector gap is closed");
+});
+
+// ---- R-240, authority follow-ups: re-ask, a pasted grant's settlement, a grant for other coordinates ----
+const OLD = "wac_" + "0".repeat(32);
+const NEXT = "wac_" + "1".repeat(32);
+const OTHER = "wac_" + "2".repeat(32);
+const RESUBMIT = { action: "/__ioi/systems/asg_x/initialize", declaration: "{}", declarationField: "declaration" };
+
+test("a resume refused because its approval's grant expired unused offers the operator's card for the challenge the daemon asked again — nothing ran", () => {
+  const out = renderOutcome({ status: 410, body: { error: {
+    code: "approval_ref_expired", message: "this approval's one-use grant expired unused …",
+    approval_ref: `wallet-approval-challenge://${OLD}`,
+    approval_challenge: { challenge_id: NEXT, challenge_state: "pending", supersedes: OLD, decidable: true, request_hash: "sha256:" + "d".repeat(64) },
+  } } }, { resubmit: RESUBMIT, actionLabel: "initialize" });
+  assert.match(out, /<h2>Asked again — approve the new challenge<\/h2>/u);
+  assert.match(out, new RegExp(`data-approval-reasked="${NEXT}"`, "u"));
+  assert.match(out, new RegExp(`which supersedes <code data-approval-supersedes>${OLD}</code>`, "u"));
+  assert.match(out, new RegExp(`data-approval-card="1" data-approval-challenge="${NEXT}"`, "u"), "the card is the successor's");
+  assert.match(out, new RegExp(`name="approval_challenge_id" value="${NEXT}"`, "u"));
+  assert.match(out, /Nothing ran\./u);
+  // A refusal with no parked challenge stays the verbatim refusal.
+  const plain = renderOutcome({ status: 410, body: { error: { code: "approval_ref_expired", message: "expired" } } }, { resubmit: RESUBMIT });
+  assert.match(plain, /<h2>Daemon refusal \(HTTP 410\)<\/h2>/u);
+  assert.doesNotMatch(plain, /data-approval-card=/u);
+});
+
+test("a grant for other coordinates: the refusal names the challenge parked for this step as left pending, with its card", () => {
+  const out = renderOutcome({ status: 403, body: { error: {
+    code: "system_lifecycle_host_authority_required", message: "grant binding mismatch",
+    approval: { policy_hash: "sha256:" + "a".repeat(64), request_hash: "sha256:" + "b".repeat(64), effect_hash: "sha256:" + "c".repeat(64) },
+    approval_challenge_pending: { challenge: { challenge_id: OLD, challenge_state: "pending", decidable: true }, reason: "the presented grant does not bind this step's coordinates, so the challenge parked for them is left pending" },
+  } } }, { resubmit: RESUBMIT });
+  assert.match(out, new RegExp(`data-approval-challenge-pending="${OLD}">the presented grant does not bind this step's coordinates, so the challenge parked for them is left pending\\.`, "u"));
+  assert.match(out, new RegExp(`data-approval-card="1" data-approval-challenge="${OLD}"`, "u"));
+});
+
+test("a committed step lists what it did with this step's parked challenges: completed by the grant it ran under, or left pending — each linked, with the daemon's reason", () => {
+  const out = renderOutcome({ status: 200, body: {
+    operation: "initialize", autonomous_system_chain: { status: "initialized", latest_sequence: 1 },
+    approval_challenges: [
+      { challenge_id: OLD, challenge_state: "consumed", settled: true, reason: "this step ran under the presented grant g for exactly the coordinates this challenge was parked for" },
+      { challenge_id: OTHER, challenge_state: "pending", settled: false, reason: "this challenge was parked for this step with other coordinates" },
+      { challenge_id: "not-a-challenge", settled: true },
+    ],
+  } });
+  assert.match(out, /data-approval-challenges="1"/u);
+  assert.match(out, new RegExp(`data-approval-challenge-note="${OLD}" data-approval-challenge-settled="1"><a href="/__ioi/authority/challenges/${OLD}"><code>${OLD}</code></a> — completed by the grant this step ran under: this step ran under the presented grant g`, "u"));
+  assert.match(out, new RegExp(`data-approval-challenge-note="${OTHER}" data-approval-challenge-settled="0">.*— left pending: this challenge was parked for this step with other coordinates`, "u"));
+  assert.doesNotMatch(out, /not-a-challenge<\/code><\/a>/u, "only daemon challenge ids are linked");
+  const none = renderOutcome({ status: 200, body: { operation: "initialize", autonomous_system_chain: { status: "initialized", latest_sequence: 1 } } });
+  assert.doesNotMatch(none, /data-approval-challenges=/u);
+});
+
+test("the protected transitions are typed: their request is exactly the two head roots, prefilled from the daemon's projection; an absent or malformed root stays empty, never guessed", () => {
+  assert.deepEqual(TYPED_HEAD_FIELDS.transitions, ["expected_chain_head_root", "expected_predecessor_state_root"]);
+  const chain = "sha256:" + "a".repeat(64), state = "sha256:" + "b".repeat(64);
+  assert.deepEqual(headExpectations({ canonical_roots: { chain_root: chain, latest_state_root: state } }), { expected_chain_head_root: chain, expected_predecessor_state_root: state });
+  assert.deepEqual(headExpectations(null), { expected_chain_head_root: null, expected_predecessor_state_root: null });
+  assert.deepEqual(headExpectations({ canonical_roots: { chain_root: "sha256:short", latest_state_root: 7 } }), { expected_chain_head_root: null, expected_predecessor_state_root: null });
+  // The daemon's own request shape (validate_protected_request) admits exactly these two roots and the grant.
+  const rust = readFileSync(new URL("../../../crates/node/src/bin/hypervisor_daemon_routes/system_protected_transition_routes.rs", import.meta.url), "utf8");
+  const allowed = /fn validate_protected_request[\s\S]*?const ALLOWED: &\[&str\] = &\[([\s\S]*?)\];/u.exec(rust)[1].match(/"([a-z_]+)"/gu).map((q) => q.slice(1, -1));
+  assert.deepEqual(allowed.filter((name) => name !== "wallet_approval_grant"), TYPED_HEAD_FIELDS.transitions);
+  // The op list is the daemon's canonical table (ProtectedTransitionOp::ALL), in order.
+  const types = readFileSync(new URL("../../../crates/types/src/app/system_lifecycle_transitions.rs", import.meta.url), "utf8");
+  const table = /impl ProtectedTransitionOp \{[\s\S]*?pub fn as_str\(self\) -> &'static str \{\s*match self \{([\s\S]*?)\}/u.exec(types)[1].match(/=> "([a-z_]+)"/gu).map((m) => m.slice(4, -1));
+  assert.deepEqual([...PROTECTED_TRANSITION_OPS], table);
 });

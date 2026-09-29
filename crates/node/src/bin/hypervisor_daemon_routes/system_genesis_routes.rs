@@ -2179,10 +2179,13 @@ pub(crate) async fn handle_admit(
             return classify(verr("system_genesis_intent_unreadable", message));
         }
     };
+    // What the consumption did with this step's parked challenges (a pasted grant settles the one
+    // an earlier grantless attempt parked for its coordinates; one for others is left pending).
+    let mut approval_challenges = Vec::new();
     let wallet_receipt = match consume_wallet_grant_for_intent(&reconstructed).await {
         Ok(value) => {
             // The wallet consumed the grant for this admission: a claimed approval is spent.
-            approval_claim.consumed(&wallet_consumption_ref);
+            approval_challenges = approval_claim.consumed(&wallet_consumption_ref);
             value
         }
         Err(error) if error.0 == "system_genesis_wallet_consumption_precondition_refused" => {
@@ -2247,9 +2250,8 @@ pub(crate) async fn handle_admit(
         complete_intent_locked(&state.data_dir, &intent_tail, &stored_intent)
     };
     match completion {
-        Ok(()) => (
-            StatusCode::CREATED,
-            Json(json!({
+        Ok(()) => {
+            let mut answer = json!({
                 "autonomous_system_genesis_admission": final_record,
                 "autonomous_system_genesis_receipt": receipt,
                 "wallet_grant_consumption_receipt": wallet_receipt,
@@ -2261,8 +2263,12 @@ pub(crate) async fn handle_admit(
                     "runtime_effect": false,
                     "systems_product_surface": false
                 }
-            })),
-        ),
+            });
+            if !approval_challenges.is_empty() {
+                answer["approval_challenges"] = json!(approval_challenges);
+            }
+            (StatusCode::CREATED, Json(answer))
+        }
         Err(error) => classify(error),
     }
 }

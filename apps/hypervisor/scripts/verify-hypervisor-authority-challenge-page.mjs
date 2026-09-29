@@ -495,11 +495,20 @@ async function run() {
     const ran = await execute(intentD, E1.approval_ref);
     const E2 = await challenge(idE);
     const replayOld = await execute(intentD, D3.approval_ref);
-    ok("the operator approves the successor through its page: the authority mints a grant for the NEW request hash, the requester's retry naming it runs the effect once (consumed by its admission), and a replay of the old approval_ref is still refused approval_ref_expired, pointing at the successor, now completed",
+    // R-240, authority follow-ups: the effect has now run once under the successor, so the replay is a NEW crossing of
+    // it. It is still refused approval_ref_expired (nothing runs), and it is asked again as the consumed successor's own
+    // successor — pending, a request hash the authority has never decided — never the consumed record (which read
+    // `consumed` here until this change, and which a decision could only answer 409 challenge_consumed).
+    const idNext = String(replayOld.j.approval_challenge?.challenge_id || "");
+    const [E3, N0] = await Promise.all([challenge(idE), idNext ? challenge(idNext) : Promise.resolve({})]);
+    ok("the operator approves the successor through its page: the authority mints a grant for the NEW request hash, the requester's retry naming it runs the effect once (consumed by its admission), and a replay of the old approval_ref is still refused approval_ref_expired — the effect having run once, the replay is asked again as the consumed successor's own successor, pending under a new request hash, and the consumed one stays consumed",
       (eAsk.status === 202 || eAsk.status === 303) && E1.state === "approved" && !!E1.grant_ref && E1.request_hash === E0.request_hash
         && E2.state === "consumed" && String(E2.consumed_by || "").startsWith("authority-admission-intents/")
-        && replayOld.status === 403 && replayOld.j.reason === "approval_ref_expired" && replayOld.j.approval_challenge?.challenge_id === idE && replayOld.j.approval_challenge?.challenge_state === "consumed",
-      `approve ${eAsk.status} · daemon ${E1.state} grant ${JSON.stringify(E1.grant_ref)} · retry ${ran.status} ${ran.j.decision || ran.j.reason || ""} · ${E2.state} by ${E2.consumed_by} · old replay ${replayOld.status} ${replayOld.j.reason} → ${replayOld.j.approval_challenge?.challenge_id} ${replayOld.j.approval_challenge?.challenge_state}`);
+        && replayOld.status === 403 && replayOld.j.reason === "approval_ref_expired"
+        && /^wac_[0-9a-f]{32}$/u.test(idNext) && idNext !== idE && idNext !== idD && replayOld.j.approval_challenge?.challenge_state === "pending"
+        && replayOld.j.approval_challenge?.supersedes === idE && N0.supersedes_reason === "consumed" && N0.request_hash && N0.request_hash !== E0.request_hash && N0.request_hash !== D0.request_hash
+        && E3.state === "consumed" && E3.superseded_by === idNext,
+      `approve ${eAsk.status} · daemon ${E1.state} grant ${JSON.stringify(E1.grant_ref)} · retry ${ran.status} ${ran.j.decision || ran.j.reason || ""} · ${E2.state} by ${E2.consumed_by} · old replay ${replayOld.status} ${replayOld.j.reason} → ${idNext} ${replayOld.j.approval_challenge?.challenge_state} supersedes ${replayOld.j.approval_challenge?.supersedes} (${N0.supersedes_reason}) · successor ${E3.state} → ${E3.superseded_by}`);
 
     // ---- the passphrase: in no serve output, no page, no file of the daemon's data dir ---------------------------------
     const leaks = filesHolding(planeDir, [Buffer.from(OPERATOR_PASS), Buffer.from(WRONG_PASS)]);

@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use ioi_services::agentic::runtime::kernel::approval::{
     ApprovalScopeContext, AuthorityScopeMatcher,
@@ -1945,6 +1945,7 @@ pub(crate) async fn handle_migration_destination_acknowledgement(
 pub(crate) async fn handle_transition(
     AxumPath((key, op_name)): AxumPath<(String, String)>,
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     if !canonical_system_key(&key) {
@@ -2005,6 +2006,30 @@ pub(crate) async fn handle_transition(
     let genesis_ref = required(&source.base.activation_effect, "/genesis_ref").unwrap_or_default();
     let governing =
         required(&plan.authority_effect, "/source_governing_authority_ref").unwrap_or_default();
+    // R-240, authority follow-ups: the operator's approval by ref, claimed for these exact
+    // coordinates; a refusal for want of a grant parks this exact effect's challenge (the same
+    // park/claim/resume as the governed ladder, 8371625f6).
+    let decision = governed::GovernedDecision {
+        contract: AUTHORITY,
+        governance: Governance::Host,
+        context: AuthorityPolicyContext::SystemGenesis {
+            system_id: &system_id,
+            genesis_id: &genesis_ref,
+        },
+        required_authority: &governing,
+        subject_ref: &system_id,
+        op: op.as_str(),
+        revision: plan.sequence,
+        effect: &plan.authority_effect,
+    };
+    let (body, approval_claim) =
+        match governed::claim_governed_approval(&state.data_dir, &body, &decision) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+    let grant_presented = body
+        .get("wallet_approval_grant")
+        .is_some_and(|grant| !grant.is_null());
     let authorized = match governed::authorize_decision_with_context(
         AUTHORITY,
         &body,
@@ -2022,7 +2047,17 @@ pub(crate) async fn handle_transition(
     .await
     {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => {
+            let requester = super::lifecycle_routes::resolve_principal(&state.data_dir, &headers)
+                .and_then(|principal| principal["principal_ref"].as_str().map(str::to_owned));
+            return governed::park_governed_refusal(
+                &state.data_dir,
+                response,
+                &decision,
+                grant_presented,
+                requester.as_deref(),
+            );
+        }
     };
     if op == ContinuityTransitionOp::CompleteSuccession {
         let Some(successor_binding) = successor_binding.as_ref() else {
@@ -2112,13 +2147,23 @@ pub(crate) async fn handle_transition(
             "test-forced interruption after durable continuity intent",
         ));
     }
+    // What the consumption did with this step's parked challenges (a pasted grant settles the one
+    // an earlier grantless attempt parked for its coordinates; one for others is left pending).
+    let mut approval_challenges = Vec::new();
     let wallet_receipt =
         match super::wallet_network_capability_client::consume_approval_grant_for_effect_v2(
             evidence.wallet_params.clone(),
         )
         .await
         {
-            Ok(value) => value,
+            Ok(value) => {
+                // The wallet consumed the grant for this step: a claimed approval is spent.
+                approval_challenges = approval_claim.consumed(&format!(
+                    "{AUTHORITY_CONSUMPTION_DIR}/{}",
+                    evidence.wallet_consumption_tail
+                ));
+                value
+            }
             Err(
                 super::wallet_network_capability_client::ResolveError::NotConfigured(message)
                 | super::wallet_network_capability_client::ResolveError::Unavailable(message),
@@ -2215,15 +2260,14 @@ pub(crate) async fn handle_transition(
     if let Err(error) = result {
         return classify(error);
     }
-    (
-        StatusCode::OK,
-        Json(
-            json!({"op":op.as_str(),"sequence":plan.sequence,"lifecycle_state":artifacts.step.state,
+    let mut answer = json!({"op":op.as_str(),"sequence":plan.sequence,"lifecycle_state":artifacts.step.state,
         "transition":artifacts.step.transition,"receipt":artifacts.step.receipt,"operation_log":artifacts.operation_log,
         "autonomous_system_chain":artifacts.chain,"network_enrollment":plan.network_enrollment,
-        "nonclaims":{"network_assurance":false,"runtime_effect":false,"membership":false,"writer":false,"settlement":false}}),
-        ),
-    )
+        "nonclaims":{"network_assurance":false,"runtime_effect":false,"membership":false,"writer":false,"settlement":false}});
+    if !approval_challenges.is_empty() {
+        answer["approval_challenges"] = json!(approval_challenges);
+    }
+    (StatusCode::OK, Json(answer))
 }
 
 /// Read-only named-continuity projection. This never fabricates eligibility:

@@ -577,7 +577,7 @@ fn reconstruct_sealed_authority_context(
         OP,
     );
     let effect_hash = governed::decision_effect_hash(AUTHORITY, authority_effect);
-    let request_hash = governed::decision_request_hash(
+    let decision_request_hash = governed::decision_request_hash(
         AUTHORITY,
         Governance::Host,
         subject_ref,
@@ -586,8 +586,21 @@ fn reconstruct_sealed_authority_context(
         governing_authority_ref,
         &effect_hash,
     );
+    // The sealed request hash is the decision's own, or one of its re-asks (an approval of it
+    // expired unused and it was asked again) — both recomputed from these coordinates alone.
+    let request_hash = receipt
+        .get("input_hash")
+        .and_then(Value::as_str)
+        .and_then(|sealed| {
+            governed::presented_decision_request_hash(&decision_request_hash, sealed)
+        });
+    let Some(request_hash) = request_hash else {
+        return Err(verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            "sealed policy, request, effect, or subject does not reconstruct from the exact M1.3 source and M1.4 plan",
+        ));
+    };
     if receipt.get("policy_hash").and_then(Value::as_str) != Some(policy_hash.as_str())
-        || receipt.get("input_hash").and_then(Value::as_str) != Some(request_hash.as_str())
         || receipt.get("effect_hash").and_then(Value::as_str) != Some(effect_hash.as_str())
         || receipt.get("authorized_effect") != Some(authority_effect)
         || receipt.get("subject_ref").and_then(Value::as_str) != Some(subject_ref)
@@ -2192,10 +2205,13 @@ pub(crate) async fn handle_materialize(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
+    // What the consumption did with this step's parked challenges (a pasted grant settles the one
+    // an earlier grantless attempt parked for its coordinates; one for others is left pending).
+    let mut approval_challenges = Vec::new();
     let wallet_receipt = match consume_wallet_grant(&reconstructed).await {
         Ok(value) => {
             // The wallet consumed the grant for this materialization: a claimed approval is spent.
-            approval_claim.consumed(&reconstructed.wallet_consumption_ref);
+            approval_challenges = approval_claim.consumed(&reconstructed.wallet_consumption_ref);
             value
         }
         Err(error) if error.0 == "system_sequence_zero_wallet_consumption_precondition_refused" => {
@@ -2247,9 +2263,8 @@ pub(crate) async fn handle_materialize(
         complete_intent_locked(&state.data_dir, &intent_tail, &stored)
     });
     match completed {
-        Ok(value) => (
-            StatusCode::CREATED,
-            Json(json!({
+        Ok(value) => {
+            let mut answer = json!({
                 "autonomous_system_sequence_zero_materialization": value.materialization,
                 "autonomous_system_sequence_zero_materialization_receipt": value.receipt,
                 "component_registry_snapshot": value.component_registry,
@@ -2264,8 +2279,12 @@ pub(crate) async fn handle_materialize(
                     "runtime_effect": false,
                     "systems_product_surface": false
                 }
-            })),
-        ),
+            });
+            if !approval_challenges.is_empty() {
+                answer["approval_challenges"] = json!(approval_challenges);
+            }
+            (StatusCode::CREATED, Json(answer))
+        }
         Err(error) => classify(error),
     }
 }
@@ -3073,6 +3092,60 @@ mod system_sequence_zero_tests {
                 "org://acme/research",
                 subject_ref,
                 &receipt["authorized_effect"],
+            )
+            .unwrap_err()
+            .0,
+            "system_sequence_zero_receipt_evidence_mismatch"
+        );
+
+        // R-240, authority follow-ups: an approval of this materialization that expired unused is
+        // asked again, and the grant that answers the re-ask binds the decision's request hash
+        // under an ask ordinal's nonce. Its sealed receipt still reconstructs from these
+        // coordinates alone, and hands back the request hash the grant binds…
+        use super::super::authority_challenge_routes::{reask_nonce, reask_request_hash};
+        let reasked_hash = reask_request_hash(&request_hash, &reask_nonce(&request_hash, 1));
+        let mut reasked = receipt.clone();
+        reasked["input_hash"] = json!(reasked_hash);
+        let (_, sealed_request_hash, _) = reconstruct_sealed_authority_context(
+            &reasked,
+            "system://acme/system-a",
+            "genesis://acme/system-a/zero",
+            "org://acme/research",
+            subject_ref,
+            &reasked["authorized_effect"],
+        )
+        .expect("a re-ask of this exact decision reconstructs");
+        assert_eq!(sealed_request_hash, reasked_hash);
+        // …but a re-ask under a nonce its coordinates cannot recompute, or another pair's re-ask,
+        // never does.
+        for foreign in [
+            reask_request_hash(&request_hash, "0123456789abcdef0123456789abcdef"),
+            reask_request_hash(&request_hash, &reask_nonce(&request_hash, 65)),
+        ] {
+            let mut moved = receipt.clone();
+            moved["input_hash"] = json!(foreign);
+            assert_eq!(
+                reconstruct_sealed_authority_context(
+                    &moved,
+                    "system://acme/system-a",
+                    "genesis://acme/system-a/zero",
+                    "org://acme/research",
+                    subject_ref,
+                    &moved["authorized_effect"],
+                )
+                .unwrap_err()
+                .0,
+                "system_sequence_zero_receipt_evidence_mismatch"
+            );
+        }
+        assert_eq!(
+            reconstruct_sealed_authority_context(
+                &reasked,
+                "system://acme/system-b",
+                "genesis://acme/system-b/zero",
+                "org://acme/research",
+                subject_ref,
+                &reasked["authorized_effect"],
             )
             .unwrap_err()
             .0,

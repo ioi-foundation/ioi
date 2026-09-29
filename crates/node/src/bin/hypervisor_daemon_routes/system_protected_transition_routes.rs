@@ -20,7 +20,7 @@ use serde_json::Value;
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use ioi_services::wallet_network::{
     ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
@@ -1599,6 +1599,7 @@ fn persist_protected_graph(
 pub(crate) async fn handle_transition(
     AxumPath((key, op_name)): AxumPath<(String, String)>,
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     if !canonical_system_key(&key) {
@@ -1643,6 +1644,30 @@ pub(crate) async fn handle_transition(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
+    // R-240, authority follow-ups: the operator's approval by ref, claimed for these exact
+    // coordinates; a refusal for want of a grant parks this exact effect's challenge (the same
+    // park/claim/resume as the governed ladder, 8371625f6).
+    let decision = governed::GovernedDecision {
+        contract: AUTHORITY,
+        governance: Governance::Host,
+        context: AuthorityPolicyContext::SystemGenesis {
+            system_id: &system_id,
+            genesis_id: &genesis_ref,
+        },
+        required_authority: &governing,
+        subject_ref: &system_id,
+        op: op.as_str(),
+        revision: plan.sequence,
+        effect: &plan.authority_effect,
+    };
+    let (body, approval_claim) =
+        match governed::claim_governed_approval(&state.data_dir, &body, &decision) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+    let grant_presented = body
+        .get("wallet_approval_grant")
+        .is_some_and(|grant| !grant.is_null());
     let authorized = match governed::authorize_decision_with_context(
         AUTHORITY,
         &body,
@@ -1659,7 +1684,17 @@ pub(crate) async fn handle_transition(
     )
     .await
     {
-        Err(response) => return response,
+        Err(response) => {
+            let requester = super::lifecycle_routes::resolve_principal(&state.data_dir, &headers)
+                .and_then(|principal| principal["principal_ref"].as_str().map(str::to_owned));
+            return governed::park_governed_refusal(
+                &state.data_dir,
+                response,
+                &decision,
+                grant_presented,
+                requester.as_deref(),
+            );
+        }
         Ok(value) => value,
     };
     let mut evidence = match prepare_node_evidence_for(
@@ -1761,13 +1796,23 @@ pub(crate) async fn handle_transition(
             "test-forced interruption after durable intent",
         ));
     }
+    // What the consumption did with this step's parked challenges (a pasted grant settles the one
+    // an earlier grantless attempt parked for its coordinates; one for others is left pending).
+    let mut approval_challenges = Vec::new();
     let wallet_receipt =
         match super::wallet_network_capability_client::consume_approval_grant_for_effect_v2(
             evidence.wallet_params.clone(),
         )
         .await
         {
-            Ok(value) => value,
+            Ok(value) => {
+                // The wallet consumed the grant for this step: a claimed approval is spent.
+                approval_challenges = approval_claim.consumed(&format!(
+                    "{AUTHORITY_CONSUMPTION_DIR}/{}",
+                    evidence.wallet_consumption_tail
+                ));
+                value
+            }
             Err(
                 super::wallet_network_capability_client::ResolveError::NotConfigured(message)
                 | super::wallet_network_capability_client::ResolveError::Unavailable(message),
@@ -1862,19 +1907,20 @@ pub(crate) async fn handle_transition(
     if let Err(error) = result {
         return classify(error);
     }
-    (
-        StatusCode::OK,
-        Json(json!({
-            "op": op.as_str(),
-            "sequence": plan.sequence,
-            "lifecycle_state": artifacts.step.state,
-            "lifecycle_transition": artifacts.step.transition,
-            "lifecycle_receipt": artifacts.step.receipt,
-            "operation_log": artifacts.operation_log,
-            "autonomous_system_chain": artifacts.chain,
-            "nonclaims": {"runtime_effect":false,"network_effect":false,"membership":false,"writer":false,"settlement":false,"constitution_change":false,"profile_set_change":false}
-        })),
-    )
+    let mut answer = json!({
+        "op": op.as_str(),
+        "sequence": plan.sequence,
+        "lifecycle_state": artifacts.step.state,
+        "lifecycle_transition": artifacts.step.transition,
+        "lifecycle_receipt": artifacts.step.receipt,
+        "operation_log": artifacts.operation_log,
+        "autonomous_system_chain": artifacts.chain,
+        "nonclaims": {"runtime_effect":false,"network_effect":false,"membership":false,"writer":false,"settlement":false,"constitution_change":false,"profile_set_change":false}
+    });
+    if !approval_challenges.is_empty() {
+        answer["approval_challenges"] = json!(approval_challenges);
+    }
+    (StatusCode::OK, Json(answer))
 }
 
 /// GET /v1/hypervisor/autonomous-systems/:id/transitions/:op

@@ -558,7 +558,7 @@ pub(crate) fn prepare_node_evidence_under(
         source_governing_authority_ref,
         op_name,
     );
-    let expected_request_hash = governed::decision_request_hash(
+    let decision_request_hash = governed::decision_request_hash(
         AUTHORITY,
         Governance::Host,
         binding.subject_ref,
@@ -567,6 +567,13 @@ pub(crate) fn prepare_node_evidence_under(
         source_governing_authority_ref,
         &effect_hash,
     );
+    // The decision's own request hash, or one of its re-asks (an approval of it expired unused and
+    // it was asked again) — both recomputed from these coordinates alone. Anything else is refused.
+    let expected_request_hash = governed::presented_decision_request_hash(
+        &decision_request_hash,
+        &authorized.evidence.request_hash,
+    )
+    .unwrap_or(decision_request_hash);
     if authorized.evidence.grant_ref != wallet_grant_ref
         || authorized.evidence.policy_hash != expected_policy_hash
         || authorized.evidence.request_hash != expected_request_hash
@@ -2431,6 +2438,9 @@ async fn post(
             "test-forced interruption after durable intent",
         ));
     }
+    // What the consumption did with this step's parked challenges (a pasted grant settles the one
+    // an earlier grantless attempt parked for its coordinates; one for others is left pending).
+    let mut approval_challenges = Vec::new();
     let wallet_receipt =
         match super::wallet_network_capability_client::consume_approval_grant_for_effect_v2(
             evidence.wallet_params.clone(),
@@ -2439,7 +2449,7 @@ async fn post(
         {
             Ok(value) => {
                 // The wallet consumed the grant for this step: a claimed approval is spent.
-                approval_claim.consumed(&format!(
+                approval_challenges = approval_claim.consumed(&format!(
                     "{AUTHORITY_CONSUMPTION_DIR}/{}",
                     evidence.wallet_consumption_tail
                 ));
@@ -2538,20 +2548,21 @@ async fn post(
     if let Err(error) = result {
         return classify(error);
     }
-    (
-        StatusCode::OK,
-        Json(json!({
-            "operation": operation.as_str(),
-            "autonomous_system_activation_state": graph.step.state,
-            "lifecycle_transition": graph.step.transition,
-            "lifecycle_receipt": graph.step.receipt,
-            "active_profile_set": graph.active_set,
-            "home_domain_binding": graph.home_binding,
-            "operation_log": graph.operation_log,
-            "autonomous_system_chain": graph.chain,
-            "nonclaims": {"runtime_effect":false,"network_effect":false,"membership":false,"writer":false,"settlement":false,"m2_state_transition_commitment":false}
-        })),
-    )
+    let mut answer = json!({
+        "operation": operation.as_str(),
+        "autonomous_system_activation_state": graph.step.state,
+        "lifecycle_transition": graph.step.transition,
+        "lifecycle_receipt": graph.step.receipt,
+        "active_profile_set": graph.active_set,
+        "home_domain_binding": graph.home_binding,
+        "operation_log": graph.operation_log,
+        "autonomous_system_chain": graph.chain,
+        "nonclaims": {"runtime_effect":false,"network_effect":false,"membership":false,"writer":false,"settlement":false,"m2_state_transition_commitment":false}
+    });
+    if !approval_challenges.is_empty() {
+        answer["approval_challenges"] = json!(approval_challenges);
+    }
+    (StatusCode::OK, Json(answer))
 }
 
 pub(crate) async fn handle_initialize(

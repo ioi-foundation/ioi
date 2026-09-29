@@ -37,6 +37,11 @@ const BASE = "/__ioi/systems";
 const GENESIS_API = "/v1/hypervisor/autonomous-systems";
 const KEY_RE = /^asg_[0-9a-f]{64}$/;
 const OP_RE = /^[a-z_]{1,64}$/;
+// M1.5b generic protected transition ops (ProtectedTransitionOp::ALL, canonical table order).
+export const PROTECTED_TRANSITION_OPS = Object.freeze([
+  "pause", "resume", "suspend", "reinstate", "enter_dormancy", "wake", "begin_recovery",
+  "complete_recovery", "quarantine", "release_quarantine", "retire", "archive", "revoke", "decommission",
+]);
 // M1.5d continuity wire ops (ContinuityTransitionOp::ALL) — the :op whitelist for the proxy.
 const CONTINUITY_OPS = [
   "initiate_succession",
@@ -139,7 +144,7 @@ function pill(text, cls = "muted", attrs = "") {
 // refusal verbatim. `resubmit` (optional) re-offers the SAME composed declaration with a
 // wallet-grant field so an operator can attach existing authority; the grant travels to the
 // daemon untouched.
-function renderOutcome(result, { resubmit = null, backHref = null, actionLabel = "request" } = {}) {
+export function renderOutcome(result, { resubmit = null, backHref = null, actionLabel = "request" } = {}) {
   const back = backHref ? `<p><a href="${esc(backHref)}">← back</a></p>` : "";
   if (result.networkError) {
     return stateBlock(
@@ -167,7 +172,7 @@ function renderOutcome(result, { resubmit = null, backHref = null, actionLabel =
     return stateBlock(
       "completed",
       null,
-      `<h2>Committed</h2><p class="sub">${headline}. The full daemon response below is the owner truth — receipts and roots come from it, never from this page.</p>${detailLink}${jsonPre(body)}${back}`,
+      `<h2>Committed</h2><p class="sub">${headline}. The full daemon response below is the owner truth — receipts and roots come from it, never from this page.</p>${detailLink}${challengesSettled(body.approval_challenges)}${jsonPre(body)}${back}`,
     );
   }
   if (error && error.blocker_report) {
@@ -186,7 +191,14 @@ function renderOutcome(result, { resubmit = null, backHref = null, actionLabel =
   }
   if (error && error.approval) {
     const approval = error.approval;
-    const card = approvalCard(error, resubmit);
+    // A presented grant that binds other coordinates leaves this step's parked challenge pending,
+    // and the daemon names it (`approval_challenge_pending`): its card is offered with the reason.
+    const pending = !error.approval_challenge && error.approval_challenge_pending?.challenge && typeof error.approval_challenge_pending.challenge === "object"
+      ? error.approval_challenge_pending
+      : null;
+    const card = pending
+      ? `<p class="sub" data-approval-challenge-pending="${esc(String(pending.challenge.challenge_id || ""))}">${esc(pending.reason || "the challenge parked for this step is left pending")}.</p>${approvalCard({ approval_challenge: pending.challenge }, resubmit)}`
+      : approvalCard(error, resubmit);
     const resubmitForm = resubmit
       ? `<h3 style="margin:16px 0 6px">Attach existing authority</h3>
          <p class="sub">${card ? "Or attach a grant minted outside this deployment: " : "Approving is a wallet act, not a surface act: "}paste a wallet approval grant minted for the EXACT policy/request hashes above. The declaration below is resubmitted verbatim to the daemon route.</p>
@@ -209,6 +221,20 @@ function renderOutcome(result, { resubmit = null, backHref = null, actionLabel =
          <dt>request_hash</dt><dd><code data-approval="request_hash">${esc(approval.request_hash || "")}</code></dd>
          <dt>effect_hash</dt><dd><code data-approval="effect_hash">${esc(approval.effect_hash || "")}</code></dd>
        </dl>${card}${resubmitForm}${jsonPre(body)}${back}`,
+    );
+  }
+  // An approval whose grant expired unused is asked again, never decided again (R-240, authority
+  // follow-ups): the resume is refused (approval_ref_expired) and the daemon has parked this exact
+  // step again as a new challenge — the same effect under the next ask's single-use nonce, a new
+  // request hash. The operator's card is offered for THAT challenge; nothing ran.
+  if (error && error.approval_challenge && typeof error.approval_challenge === "object" && CHALLENGE_ID_RE.test(String(error.approval_challenge.challenge_id || ""))) {
+    const parked = error.approval_challenge;
+    return stateBlock(
+      "ready_or_proposed",
+      error.code || "",
+      `<h2>Asked again — approve the new challenge</h2>
+       <p class="sub" data-approval-reasked="${esc(parked.challenge_id)}">The daemon refused the resume — <code>${esc(error.code || "")}</code>: ${esc(error.message || "")}. It asked this exact step again as challenge <code>${esc(parked.challenge_id)}</code>${parked.supersedes ? `, which supersedes <code data-approval-supersedes>${esc(parked.supersedes)}</code>` : ""}. Nothing ran.</p>
+       ${approvalCard(error, resubmit)}${jsonPre(body)}${back}`,
     );
   }
   const code = error?.code || body?.code || "";
@@ -250,6 +276,15 @@ const PASSPHRASE_INPUT = `<input type="password" name="operator_passphrase" auto
 // The declaration a governed form re-offers, carried unchanged into the next form.
 function carriedDeclaration(resubmit) {
   return `<textarea name="${esc(resubmit.declarationField || "declaration")}" style="display:none">${esc(resubmit.declaration)}</textarea>${resubmit.extraHidden || ""}`;
+}
+
+// What a committed step did with the challenges parked for it (R-240, authority follow-ups): a step
+// run under a pasted grant settles the challenge an earlier grantless attempt parked for exactly
+// those coordinates, and leaves one of another declaration pending — the daemon names each.
+function challengesSettled(notes) {
+  const rows = (Array.isArray(notes) ? notes : []).filter((n) => n && CHALLENGE_ID_RE.test(String(n.challenge_id || "")));
+  if (!rows.length) return "";
+  return `<h3 style="margin:12px 0 6px">Parked challenges of this step</h3><ul data-approval-challenges="1">${rows.map((n) => `<li data-approval-challenge-note="${esc(n.challenge_id)}" data-approval-challenge-settled="${n.settled === true ? "1" : "0"}"><a href="${esc(challengePagePath(n.challenge_id))}"><code>${esc(n.challenge_id)}</code></a> — ${n.settled === true ? "completed by the grant this step ran under" : `left ${esc(String(n.challenge_state || "pending"))}`}: ${esc(n.reason || "")}</li>`).join("")}</ul>`;
 }
 
 // The operator's approval card for the challenge the daemon parked (or why none can be offered).
@@ -664,9 +699,22 @@ export const TYPED_LADDER_FIELDS = Object.freeze({
   initialize: ["expected_sequence_zero_materialization_root", "expected_sequence_zero_materialization_receipt_root"],
   activate: ["expected_initialize_proposal_root", "expected_initialize_decision_root", "expected_initialize_state_root", "expected_initialize_transition_root", "expected_initialize_receipt_root"],
 });
-// What still takes raw JSON: the continuity, protected-transition and amendment forms (their routes park
-// no challenge yet, so they keep the pasted grant), and initialize's pinned deployment profile revision.
+// What still takes raw JSON: the continuity form (its two head roots are prefilled from the daemon's
+// projection; its other members — trigger evidence, successor, migration, dissolution — have no plane
+// that names them for a person), the amendment form (its route parks no challenge yet: it carries two
+// grants, the constitution's amendment decision and the execution), and initialize's pinned deployment
+// profile revision. The protected transitions ARE typed: their request is exactly the two head roots,
+// and the daemon's own projection names both (R-240, authority follow-ups). The label is the journey
+// gate's probe marker, so it stays as it was while any of it is open.
 export const TYPED_LIFECYCLE_GAP = "typed lifecycle forms (continuity, transitions, amendments, the initialize deployment revision)";
+// The expected head roots a continuity or protected transition binds, as the projection names them:
+// the chain head the daemon checks (`chain_root`) and the state the last step admitted.
+export const TYPED_HEAD_FIELDS = Object.freeze({ transitions: ["expected_chain_head_root", "expected_predecessor_state_root"] });
+export function headExpectations(projected) {
+  const roots = projected && typeof projected === "object" ? projected.canonical_roots || {} : {};
+  const str = (v) => (typeof v === "string" && /^sha256:[0-9a-f]{64}$/u.test(v) ? v : null);
+  return { expected_chain_head_root: str(roots.chain_root), expected_predecessor_state_root: str(roots.latest_state_root) };
+}
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value !== null && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
@@ -729,6 +777,27 @@ function typedLadderForm(action, subPath, label, note, expected, { admitted, nex
       <input type="hidden" name="request_form" value="typed">
       ${fields}${revision}
       <p class="sub">Submitting asks the daemon for this step: it re-derives every root above from its own records and refuses a stale or foreign one. Without an approval it parks this exact effect for the operator and the answer carries the approval card.</p>
+      <button class="act" type="submit">Submit to daemon route</button>
+    </form></details>`;
+}
+
+const HEAD_FIELD_LABELS = {
+  expected_chain_head_root: "The chain head it moves",
+  expected_predecessor_state_root: "The state the last step admitted",
+};
+
+// A protected transition (M1.5b) as a typed form: the op, and the two head roots prefilled from the
+// daemon's projection above. Without an approval the daemon parks this exact effect for the operator
+// and the answer carries the approval card; a stale root is refused by the daemon by name.
+function typedTransitionForm(action, head) {
+  const fields = TYPED_HEAD_FIELDS.transitions.map((name) => `<div class="field"><label>${esc(HEAD_FIELD_LABELS[name] || name)} <span class="sub" style="display:inline;margin:0;text-transform:none;letter-spacing:0">${head[name] ? "(from the daemon's projection above)" : "(the projection names no live chain for this System yet)"}</span></label><input name="${esc(name)}" value="${esc(head[name] || "")}" required spellcheck="false" autocomplete="off" data-transition-root="${esc(name)}" data-transition-root-source="${head[name] ? "daemon" : "absent"}" style="font-family:ui-monospace,monospace;font-size:12px"></div>`).join("");
+  const options = PROTECTED_TRANSITION_OPS.map((op) => `<option value="${op}">${op}</option>`).join("");
+  return `<details class="card" style="display:block" data-transition-form="typed"><summary style="cursor:pointer"><b>Protected transition (M1.5b)</b> <span class="sub" style="display:inline;margin:0;text-transform:none;letter-spacing:0">one of the 14 generic protected ops</span></summary>
+    <form method="post" action="${esc(action)}" style="margin-top:10px">
+      <input type="hidden" name="request_form" value="typed">
+      <div class="field"><label>Operation</label><select name="op">${options}</select></div>
+      ${fields}
+      <p class="sub">Submitting asks the daemon for this transition: it checks both roots against the live chain and refuses a stale one. Without an approval it parks this exact effect for the operator and the answer carries the approval card.</p>
       <button class="act" type="submit">Submit to daemon route</button>
     </form></details>`;
 }
@@ -797,6 +866,9 @@ async function detailParts(daemonUrl, tail, view, viewHref) {
   <p class="sub">Continuity ladder statuses render verbatim from the chain head below — dissolution runs <code>dissolution_pending</code> → <code>dissolving</code> → <code>dissolved</code>; succession, migration, and enrollment carry their own named statuses and scopes.</p>`;
 
   let projection;
+  // The System's own compact projection entry, when the daemon's projection carries it: the source of
+  // the continuity and protected-transition forms' expected head roots.
+  let projected = null;
   const chosenCensus = censusState(chosen);
   const viewTabs = `<div class="tabs">
     <a class="tab${view === "advanced" ? "" : " active"}" href="${viewHref("compact")}">Compact preview</a>
@@ -815,6 +887,7 @@ async function detailParts(daemonUrl, tail, view, viewHref) {
       );
     } else {
       const compact = view === "advanced" ? mine.compact || {} : mine;
+      projected = compact;
       const status = compact.status || "";
       projection = viewTabs + stateBlock(
         "completed",
@@ -836,22 +909,23 @@ async function detailParts(daemonUrl, tail, view, viewHref) {
   }
 
   const expected = ladderExpectations({ admission, sequenceZero, initialize });
+  const heads = headExpectations(projected);
   const continuityOptions = CONTINUITY_OPS.map((op) => `<option value="${op}">${op}</option>`).join("");
   const actions = `<h2>Governed lifecycle actions</h2>
   <p class="sub">Each form proxies ONE declaration verbatim to its owning daemon route. Without a grant the daemon answers its authority challenge (rendered as a preview); with a grant it commits or refuses — always shown verbatim. The serve layer never mutates state itself.</p>
   ${typedLadderForm(`${BASE}/${encodeURIComponent(tail)}/sequence-zero-materialization`, "sequence-zero-materialization", "Materialize sequence zero (M1.4)", "byte-verifies the admission you inspected above", expected, { admitted: sequenceZero.status === 200, next: sequenceZero.status !== 200 })}
   ${typedLadderForm(`${BASE}/${encodeURIComponent(tail)}/initialize`, "initialize", "Initialize (sequence 1)", "binds the exact M1.4 artifact + pinned deployment revision", expected, { admitted: initialize.status === 200, next: sequenceZero.status === 200 && initialize.status !== 200 })}
   ${typedLadderForm(`${BASE}/${encodeURIComponent(tail)}/activate`, "activate", "Activate (sequence 2)", "refused by the daemon unless initialize is admitted", expected, { admitted: activate.status === 200, next: initialize.status === 200 && activate.status !== 200 })}
-  ${namedGap(TYPED_LIFECYCLE_GAP, "Typed forms for the continuity, protected-transition and amendment steps below (they take a raw JSON declaration, and their routes park no challenge yet, so a grant is pasted), and a source for initialize's pinned deployment profile revision")}
+  ${namedGap(TYPED_LIFECYCLE_GAP, "Typed forms for the continuity and amendment steps below — continuity takes a JSON declaration whose two head roots are prefilled from the daemon's projection (its route parks the challenge and takes the approval like the ladder; no plane names its trigger evidence, successor, migration or dissolution members for a person), and the amendment's route parks no challenge yet (it carries two grants: the constitution's amendment decision and the execution), so its grants are pasted — and a source for initialize's pinned deployment profile revision")}
   <details class="card" style="display:block"><summary style="cursor:pointer"><b>Continuity transition (M1.5d)</b> <span class="sub" style="display:inline;margin:0;text-transform:none;letter-spacing:0">succession · migration · dissolution ladder · enrollment</span></summary>
     <form method="post" action="${BASE}/${encodeURIComponent(tail)}/continuity" style="margin-top:10px">
       <div class="field"><label>Operation</label><select name="op">${continuityOptions}</select></div>
       <div class="field"><label>Request declaration (JSON)</label>
-        <textarea name="request" style="min-height:110px">${esc(JSON.stringify({ expected_chain_head_root: "", expected_predecessor_state_root: "", trigger_evidence_refs: [] }, null, 2))}</textarea></div>
+        <textarea name="request" style="min-height:110px" data-continuity-head-source="${heads.expected_chain_head_root && heads.expected_predecessor_state_root ? "daemon" : "absent"}">${esc(JSON.stringify({ expected_chain_head_root: heads.expected_chain_head_root || "", expected_predecessor_state_root: heads.expected_predecessor_state_root || "", trigger_evidence_refs: [] }, null, 2))}</textarea></div>
       <div class="field"><label>wallet_approval_grant (optional JSON)</label><textarea name="wallet_approval_grant"></textarea></div>
       <button class="act" type="submit">Submit to daemon route</button>
     </form></details>
-  ${actionForm(`${BASE}/${encodeURIComponent(tail)}/transitions`, "Protected transition (M1.5b)", { op: "", expected_chain_head_root: "", expected_predecessor_state_root: "" }, "one of the 14 generic protected ops; 'op' selects the route")}
+  ${typedTransitionForm(`${BASE}/${encodeURIComponent(tail)}/transitions`, heads)}
   ${actionForm(`${BASE}/${encodeURIComponent(tail)}/amendments`, "Amendment execution (M1.5c)", {}, "executes an approved amendment exactly once under the constitution's own governance")}`;
 
   return { identity, ladder, projection, actions, systemId, record };
@@ -897,12 +971,13 @@ async function handleDetailAction(daemonUrl, shell, tail, subPath, form) {
     return null;
   }
   let request;
-  const typed = form.get("request_form") === "typed" && TYPED_LADDER_FIELDS[subPath];
+  const typed = form.get("request_form") === "typed" && (TYPED_LADDER_FIELDS[subPath] || TYPED_HEAD_FIELDS[subPath]);
   try {
     if (typed) {
-      // A typed ladder form: each expected root is its own field (prefilled from the daemon's reads);
-      // initialize's deployment profile revision is still a pasted declaration (a named gap).
-      request = Object.fromEntries(TYPED_LADDER_FIELDS[subPath].map((name) => [name, String(form.get(name) || "").trim()]));
+      // A typed ladder or protected-transition form: each expected root is its own field (prefilled
+      // from the daemon's reads); initialize's deployment profile revision is still a pasted
+      // declaration (a named gap).
+      request = Object.fromEntries(typed.map((name) => [name, String(form.get(name) || "").trim()]));
       if (subPath === "initialize") request.deployment_profile_revision = JSON.parse(form.get("deployment_profile_revision") || "");
     } else {
       request = JSON.parse(form.get("request") || "{}");

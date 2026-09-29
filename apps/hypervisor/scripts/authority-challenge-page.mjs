@@ -129,14 +129,19 @@ function stateSays(c, s, nowMs, dir) {
     case "approved": return `The operator approved it and the deployment authority minted one one-use grant for exactly these hashes. It has not run: the requester's retry names ${code(c.approval_ref || "")} and runs it once.`;
     case "grant_expired": return `The operator approved it, but its one-use grant expired at ${esc(iso(c.grant_expires_at_ms) || "—")} before any retry ran it. The deployment authority keeps one decision per request, so this approval can never be renewed and a retry naming it is refused (approval_ref_expired): the action must be asked again. The requester's retry of the effect parks a new challenge — the same effect under a fresh single-use nonce, so a new request hash — ${c.superseded_by ? `and has: <span data-ioi-challenge-superseded-by>${pageLink(c.superseded_by, "the new challenge")} (${code(c.superseded_by)})</span>.` : "and none has been parked yet."}`;
     case "consuming": return "A retry is presenting its one-use grant to the authority right now; it reads Completed once the run is admitted.";
-    case "completed": return `The requester's retry ran it once under its one-use grant${c.consumed_at ? ` at ${esc(c.consumed_at)}` : ""}; the grant is spent and a replay is refused.`;
+    case "completed": return c.completed_by_grant_ref
+      ? `It was never decided here: the step ran once${c.consumed_at ? ` at ${esc(c.consumed_at)}` : ""} under a grant presented directly for exactly these coordinates — <code data-ioi-challenge-completed-by-grant>${esc(String(c.completed_by_grant_ref))}</code> — so the daemon settled this challenge as completed by that grant. A retry naming it is refused.`
+      : `The requester's retry ran it once under its one-use grant${c.consumed_at ? ` at ${esc(c.consumed_at)}` : ""}; the grant is spent and a replay is refused.${c.superseded_by ? ` A later crossing of the same effect was asked again as <span data-ioi-challenge-superseded-by>${pageLink(c.superseded_by, "a new challenge")} (${code(c.superseded_by)})</span>.` : ""}`;
     case "denied": return "The operator denied it; nothing may run under it. Re-running the effect asks again.";
     default: return "The daemon records a state this page does not know; nothing is inferred from it.";
   }
 }
 // A successor names the ask whose approval expired unused; it binds a new request hash for the same exact effect.
+// A successor of a CONSUMED ask is a new crossing of an effect that already ran once (R-240, authority follow-ups).
 const supersedesSays = (c) => (c?.supersedes
-  ? `<div class="meta" data-ioi-challenge-supersedes="${esc(c.supersedes)}">This asks the effect again: its earlier approval (${pageLink(c.supersedes, c.supersedes)}) expired unused, and the authority never decides one request twice — so this ask binds the same effect under a fresh single-use nonce (a new request hash).</div>`
+  ? c.supersedes_reason === "consumed"
+    ? `<div class="meta" data-ioi-challenge-supersedes="${esc(c.supersedes)}" data-ioi-challenge-supersedes-reason="consumed">This asks the effect again: an earlier crossing of it (${pageLink(c.supersedes, c.supersedes)}) ran once under its one-use grant, and a new crossing is a new decision — the authority never decides one request twice, so this ask binds the same effect under a fresh single-use nonce (a new request hash).</div>`
+    : `<div class="meta" data-ioi-challenge-supersedes="${esc(c.supersedes)}">This asks the effect again: its earlier approval (${pageLink(c.supersedes, c.supersedes)}) expired unused, and the authority never decides one request twice — so this ask binds the same effect under a fresh single-use nonce (a new request hash).</div>`
   : "");
 // While a decision is being recorded the page reads the daemon again on its own (never a re-POST: it loads the page's own
 // GET address, whether it was reached by a link or as a decision's answer).
@@ -210,8 +215,10 @@ function historyRows(history, dir) {
   return history.map((h) => {
     const state = String(h?.state || "");
     const attempt = h?.reconciliation?.attempt && typeof h.reconciliation.attempt === "object" ? h.reconciliation.attempt : null;
-    const closedAs = state === "interrupted" ? "Interrupted" : state === "expired" ? "Expired undecided" : state === "denied" ? "Denied" : state || "—";
-    const decision = state === "interrupted"
+    const closedAs = state === "interrupted" ? "Interrupted" : state === "expired" ? "Expired undecided" : state === "denied" ? "Denied" : state === "completed_by_presented_grant" ? "Completed by a presented grant" : state || "—";
+    const decision = state === "completed_by_presented_grant"
+      ? `none — the step ran under the presented grant <code>${esc(String(h.grant_ref || ""))}</code>${h.consumption_ref ? ` (admitted as <code>${esc(String(h.consumption_ref))}</code>)` : ""} while this challenge was ${esc(String(h.prior_state || "pending"))}`
+      : state === "interrupted"
       ? `none — the daemon stopped mid-approve${attempt ? ` (started ${esc(attempt.started_at || "earlier")} by ${personOf(dir, attempt.decided_by)})` : ""}; the authority recorded ${esc(h.reconciliation?.authority_record === "absent" ? "nothing" : String(h.reconciliation?.authority_record || "nothing"))} for this request hash, so the operator decides afresh`
       : h?.decision && typeof h.decision === "object" ? `${esc(h.decision.decision || "—")} by ${personOf(dir, h.decision.decided_by)}${h.decision.reason ? ` — ${esc(h.decision.reason)}` : ""}` : "none";
     return `<tr data-ioi-challenge-history="${esc(state || "unknown")}"><td>${esc(closedAs)}</td><td>${esc(h?.closed_at || "—")}</td><td>${decision}</td></tr>`;
@@ -284,7 +291,7 @@ export function renderChallengePage({ id, read, who, principals = [], refusal = 
     <dl class="grid">${row("Requested by", `<span data-ioi-challenge-requester>${personOf(dir, c.requester_ref)}</span>`)}${row("Asked", esc(c.created_at || "—"))}${row("Asked again", c.last_parked_at && Date.parse(c.last_parked_at) - Date.parse(c.created_at) > 1000 ? esc(c.last_parked_at) : null)}${row(s.key === "expired" ? "Expired" : "Expires", `<span data-ioi-challenge-expires>${esc(iso(c.expires_at_ms) || "—")}</span>`)}</dl>
     ${decided || c.grant_ref || c.consumed_at ? `<h2>Decision</h2><dl class="grid" data-ioi-challenge-decision-record>${decided ? row("Decided", `<span data-ioi-challenge-decided>${esc(decided.decision || "—")} by ${personOf(dir, decided.decided_by)} at ${esc(decided.decided_at || "—")}</span>`) : ""}${decided?.reason ? row("Reason", `<span data-ioi-challenge-reason>${esc(decided.reason)}</span>`) : ""}${decided?.reconciled_from ? row("Recorded", `<span data-ioi-challenge-reconciled>adopted from the authority's own record (${esc(decided.reconciled_from)}) after an interrupted approve — never minted twice</span>`) : ""}${decided?.outcome_unknown_at_denial?.reason ? row("Denied while", `<span data-ioi-challenge-denied-while-unknown>an interrupted approval's outcome was unknown (${code(decided.outcome_unknown_at_denial.reason)}); whatever the authority recorded, the daemon never presents it</span>`) : ""}${row("Grant", c.grant_ref ? `<code data-ioi-challenge-grant-ref>${esc(typeof c.grant_ref === "string" ? c.grant_ref : JSON.stringify(c.grant_ref))}</code>` : null)}${row("Grant expires", c.grant_expires_at_ms ? esc(iso(c.grant_expires_at_ms)) : null)}${row("Ran", c.consumed_at ? `<span data-ioi-challenge-consumed>${esc(c.consumed_at)}</span>` : null)}${row("Admitted as", c.consumed_by ? `<code data-ioi-challenge-consumed-by>${esc(c.consumed_by)}</code>` : null)}</dl>` : ""}
     ${decideSection(c, s, me, { passphraseField, dir })}
-    ${history.length ? `<h2>${history.some((h) => h?.state === "interrupted") ? "Earlier asks and interrupted decisions" : "Earlier asks for this exact effect"}</h2><table data-ioi-challenge-history-list><thead><tr><th>Closed as</th><th>When</th><th>Decision</th></tr></thead><tbody>${historyRows(history, dir)}</tbody></table>` : ""}
+    ${history.length ? `<h2>${history.some((h) => h?.state === "interrupted") ? "Earlier asks and interrupted decisions" : history.some((h) => h?.state === "completed_by_presented_grant") ? "History of this challenge" : "Earlier asks for this exact effect"}</h2><table data-ioi-challenge-history-list><thead><tr><th>Closed as</th><th>When</th><th>Decision</th></tr></thead><tbody>${historyRows(history, dir)}</tbody></table>` : ""}
     ${s.key === "deciding" ? refreshScript(c.challenge_id) : ""}`;
   return { status: refusal ? refusal.status || 409 : 200, title: s.key === "pending" ? "Approve this effect?" : "Parked effect", inner: pageOf(inner) };
 }
