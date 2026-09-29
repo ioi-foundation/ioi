@@ -192,6 +192,23 @@ fn scoped_ref(record: &Value, key: &str, scheme: &str) -> Value {
     }
 }
 
+/// The row's project, from whichever spelling the owner's record carries (R-240 Arm A). A project's
+/// canonical id is `project:<slug>` — what the project create kernel mints and what a session or an
+/// automation names when it is created in one — and `project://<slug>` is the same project spelled as
+/// a tenant ref (the adopted Data Connection files `project://project:<slug>`). This reader accepted
+/// only `project://`, so every Work row for a session created in a project dropped its project. The
+/// owner's record keeps its own spelling; the row carries the project the way its registered contract
+/// spells one (`project://<slug>`), resolved by the same slug rule the data-source plane uses.
+fn project_ref_of(record: &Value) -> Value {
+    record
+        .get("project_ref")
+        .and_then(Value::as_str)
+        .and_then(super::data_source_routes::project_slug)
+        .filter(|slug| !slug.chars().any(char::is_whitespace))
+        .map(|slug| json!(format!("project://{slug}")))
+        .unwrap_or(Value::Null)
+}
+
 /// One family's admitted record becomes one typed row plus the ordering key the recents view
 /// needs. The row carries no owner-specific payload — the deep link is where the payload lives.
 struct Derived {
@@ -214,7 +231,7 @@ fn derive_row(
         "subject_kind": subject_kind,
         "subject_ref": subject_ref,
         "org_ref": scoped_ref(record, "owner_ref", "org://"),
-        "project_ref": scoped_ref(record, "project_ref", "project://"),
+        "project_ref": project_ref_of(record),
         "system_ref": scoped_ref(record, "system_ref", "system://"),
         "canonical_detail_route": detail_route(subject_kind, subject_ref),
         "display_facets": {
@@ -925,6 +942,64 @@ mod work_projection_tests {
             .unwrap()
             .contains("subject attachment"));
         assert_eq!(answer["policy"]["applied_before"][0], json!("search"));
+    }
+
+    #[test]
+    fn a_session_created_in_a_project_shows_that_project_on_its_work_row_whichever_spelling_it_carries(
+    ) {
+        // R-240 Arm A: the New Session composer creates a session in `project:<slug>` (the project
+        // create kernel's canonical id); the reader took only `project://`, so the row dropped it.
+        // The canonical id, its tenant spelling and the adopted Data Connection's nested spelling
+        // all name one project, and the row carries it as its contract spells a project.
+        let mut rows = Vec::new();
+        for (i, named) in [
+            "project:walk-asj1x2",
+            "project://walk-asj1x2",
+            "project://project:walk-asj1x2",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let subject = format!("session:hyp-{i}");
+            let session = json!({ "session_ref": subject, "owner_ref": "user://operator", "project_ref": named, "lifecycle_state": "provisioned", "created_at": "2026-09-29T10:00:00Z" });
+            let derived = derive_row(
+                "session",
+                &subject,
+                &session,
+                "provisioned",
+                "2026-09-29T10:00:00Z",
+                "lifecycle_routes::sessions_for_request",
+            );
+            validate(SUBJECT_CONTRACT_ID, "session", &derived.row).unwrap();
+            assert_eq!(
+                derived.row["project_ref"],
+                json!("project://walk-asj1x2"),
+                "{named}"
+            );
+            rows.push(derived);
+        }
+        // …and the served Sessions view carries it on the row.
+        let answer = assemble("sessions", &HashMap::new(), rows, Vec::new(), Vec::new()).unwrap();
+        let served = answer["rows"].as_array().unwrap();
+        assert_eq!(served.len(), 3);
+        assert!(served
+            .iter()
+            .all(|row| row["project_ref"] == json!("project://walk-asj1x2")));
+        // A ref that names no project — or one the contract cannot carry — is no project, never a
+        // row that fails the contract and takes the whole projection down.
+        for named in [
+            "",
+            "project:",
+            "project://",
+            "walk-asj1x2",
+            "org://acme",
+            "project:has space",
+        ] {
+            let session = json!({ "session_ref": "session:hyp-x", "project_ref": named });
+            let row = derive_row("session", "session:hyp-x", &session, "provisioned", "", "t").row;
+            validate(SUBJECT_CONTRACT_ID, "session", &row).unwrap();
+            assert_eq!(row["project_ref"], Value::Null, "{named:?}");
+        }
     }
 
     #[test]

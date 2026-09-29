@@ -102,6 +102,7 @@
   .ioi-ns-cx span{color:#878a93;font-size:11.5px;}
   .ioi-ns-cx-off{opacity:.6;cursor:not-allowed;}
   .ioi-ns-cx-empty{font-size:12px;color:#878a93;padding:2px 0;}
+  .ioi-ns-why{font-size:12px;color:#e2b93d;margin-top:6px;line-height:1.4;}
   #ioi-ns-venues{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px;}
   .ioi-ns-venue-opt{border:1px solid #2a2c33;border-radius:9px;background:#101116;color:#c9ccd4;padding:7px 12px;font-size:12.5px;cursor:pointer;}
   .ioi-ns-venue-opt:hover{background:#15171c;}

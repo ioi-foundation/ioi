@@ -165,6 +165,32 @@ async function run() {
   ok("canonical /governance/approvals renders rows + the cross-plane band",
     canonical.status === 200 && canonical.text.includes("ap-crossplane") && canonical.text.includes(idA),
     `status ${canonical.status}`);
+  // R-240 Arm A: every chip links where its plane lives. The band keyed its links by plane names the daemon never
+  // publishes (improvement_change, memory_promotion), so two chips rendered as unlinked text. Judged here over the
+  // planes THIS daemon's inbox names: each chip links to its plane's page (or names why there is none) and each page
+  // answers the signed-in operator with 200, not a redirect.
+  {
+    const { APPROVAL_PLANE_SURFACES } = await import("../surfaces/approvals/index.mjs");
+    const { escHtml } = await import("../surfaces/kit.mjs");
+    const band = (canonical.text.match(/<div class="ap-xplane"[\s\S]*?<span class="ap-xreadonly">/u) || [""])[0];
+    const planes = (inbox.body?.planes || []).map((p) => p.plane);
+    const faults = [];
+    for (const plane of planes) {
+      const surface = APPROVAL_PLANE_SURFACES[plane];
+      const label = escHtml(plane.replace(/_/g, " "));
+      if (!surface) { faults.push(`${plane}: the band has no entry for a plane the daemon publishes`); continue; }
+      if (!surface.href) {
+        if (!band.includes(`<span class="ap-xchip ap-xnolink" title="${escHtml(surface.reason)}">${label} <b>`)) faults.push(`${plane}: no link and no stated reason`);
+        continue;
+      }
+      if (!band.includes(`<a class="ap-xchip" href="${escHtml(surface.href)}">${label} <b>`)) faults.push(`${plane}: the chip does not link to ${surface.href}`);
+      const landed = await fetch(`${SERVE}${surface.href.split("#")[0]}`, { headers: { cookie: `ioi_session=${SESSION}` }, redirect: "manual" }).then((r) => r.status).catch(() => 0);
+      if (landed !== 200) faults.push(`${plane}: ${surface.href} answered ${landed}`);
+    }
+    ok("every cross-plane chip links to the page its plane lives on, and each page answers 200",
+      planes.length >= 7 && planes.includes("improvement_proposal") && faults.length === 0,
+      faults.join(" · ") || `${planes.length} planes: ${planes.join(", ")}`);
+  }
 
   // -- approve: daemon-resolved reviewer, receipt, readback -------------------
   const approved = await transition(idA, "approve");

@@ -226,7 +226,7 @@ fn finalize_data_source_persist(
 /// resolves one to the other), while a source filed through the adopted Data Connection names it
 /// `project://project:<slug>`. All three spellings name the same project record, so they compare
 /// by slug.
-fn project_slug(project_ref: &str) -> Option<&str> {
+pub(crate) fn project_slug(project_ref: &str) -> Option<&str> {
     let tail = project_ref
         .strip_prefix("project://")
         .or_else(|| project_ref.strip_prefix("project:"))?;

@@ -79,31 +79,45 @@ export function render(model, ctx) {
   });
 }
 
+// Where each decision plane lives, keyed by the plane name the DAEMON's approvals-inbox projection
+// publishes (governance_routes::handle_approvals_inbox, `"plane": …`) — the one spelling, never a
+// second one here. R-240 Arm A: this map keyed improvements `improvement_change` and memory
+// proposals `memory_promotion`, while the daemon names `improvement_proposal` and
+// `memory_mutation_proposal`, so both chips rendered as unlinked text; two planes the daemon never
+// publishes (`domain_app_mount`, `foundry_run`) were listed for nothing. approvals-planes.test.mjs
+// reads the daemon's source and fails when a plane is added, renamed or dropped on either side. A
+// plane with nothing to open names why (`href: null` + `reason`), never a silent unlinked chip.
+export const APPROVAL_PLANE_SURFACES = Object.freeze({
+  governance_approval_request: Object.freeze({ href: "/governance/approvals" }),
+  // a pending tool call parks its run: the run is approved or denied on Sessions
+  thread_approval: Object.freeze({ href: "/__ioi/sessions" }),
+  // the Upgrade Assistant inbox — the improvement plane's certified projection; decisions run on Agent Studio
+  improvement_proposal: Object.freeze({ href: "/__ioi/improvement/changes" }),
+  // memory-mutation proposals are approved or rejected on Agent Studio's Memory section
+  memory_mutation_proposal: Object.freeze({ href: "/__ioi/agent-studio#memory" }),
+  marketplace_admission_review: Object.freeze({ href: "/__ioi/marketplace" }),
+  // a parked effect (a wallet challenge): each is approved with the operator passphrase, or denied, on its own page
+  wallet_approval_challenge: Object.freeze({ href: "/__ioi/authority/challenges" }),
+  admission_planners: Object.freeze({ href: null, reason: "synchronous planners: each POST returns its admission decision to the caller, so nothing ever waits here to be opened" }),
+});
+
 // The unified cross-plane band (W2.1): every source plane's pending count from the
 // approvals-inbox projection, each linking to that plane's own surface. Read-only — decisions
 // execute on each plane's route, never here. Honest absence when the projection is degraded.
-function crossPlaneBand(inbox, degraded, esc) {
+export function crossPlaneBand(inbox, degraded, esc) {
   if (degraded) {
     return `<div class="ap-xplane ap-xdeg" data-testid="ap-crossplane"><span class="ap-xlabel">Cross-plane inbox</span><span class="ap-xnote">the unified approvals-inbox projection is unavailable (<code>${esc(degraded.code || "unavailable")}</code>) — this surface shows only the governance approval-requests plane; nothing is fabricated.</span></div>`;
   }
   if (!inbox || !Array.isArray(inbox.planes)) return "";
-  const PLANE_HREF = {
-    governance_approval_request: "/governance/approvals",
-    marketplace_admission_review: "/__ioi/marketplace",
-    domain_app_mount: "/__ioi/domain-apps",
-    foundry_run: "/__ioi/foundry",
-    improvement_change: "/__ioi/improvement/changes",
-    thread_approval: "/__ioi/sessions",
-    memory_promotion: "/__ioi/vertex",
-    // a parked effect (a wallet challenge): each is approved with the operator passphrase, or denied, on its own page
-    wallet_approval_challenge: "/__ioi/authority/challenges",
-  };
   const chips = inbox.planes.map((pl) => {
     const key = pl.plane || pl.source_plane || "";
     const n = pl.pending ?? pl.pending_total ?? pl.count ?? 0;
-    const href = PLANE_HREF[key] || null;
+    const surface = Object.prototype.hasOwnProperty.call(APPROVAL_PLANE_SURFACES, key) ? APPROVAL_PLANE_SURFACES[key] : null;
     const label = `${esc(String(key).replace(/_/g, " "))} <b>${esc(String(n))}</b>`;
-    return href ? `<a class="ap-xchip" href="${esc(href)}">${label} →</a>` : `<span class="ap-xchip ap-xnolink" title="no owning surface bound yet">${label}</span>`;
+    if (surface?.href) return `<a class="ap-xchip" href="${esc(surface.href)}">${label} →</a>`;
+    // A plane this build does not know is named as such — the daemon published it, this surface has no home for it yet.
+    const why = surface?.reason || `the daemon publishes the plane "${key}" and this surface binds no page for it yet`;
+    return `<span class="ap-xchip ap-xnolink" title="${esc(why)}">${label}</span>`;
   }).join("");
   return `<div class="ap-xplane" data-testid="ap-crossplane"><span class="ap-xlabel">Cross-plane inbox <span class="ap-xtot">${esc(String(inbox.pending_total ?? 0))} pending</span></span><span class="ap-xchips">${chips || '<span class="ap-xnote">no pending decisions on any plane.</span>'}</span><span class="ap-xreadonly">read-only projection — each decision executes on its own plane's route</span></div>`;
 }

@@ -236,6 +236,57 @@ export function standingLeaseRecorderMode() {
   return process.env.IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF ? "daemon" : "none";
 }
 
+// Whether THIS deployment can record limits, from the daemon's own answer (R-240 Arm A). The serve's
+// environment is not the daemon's: a serve that names an authority principal in front of a daemon with
+// no deployment authority offered limit fields that could only be refused, and only after the
+// connection had registered. The daemon's standing-envelope list says whether it can decide one
+// (`decidable`: its authority binary and node state are configured); the fixture approver is the one
+// test posture that records serve-side. Any other answer — a refusal, an older daemon, no daemon — is
+// "none", with the reason, so a form never offers what it cannot keep.
+export const STANDING_RECORDER_NONE_REASON = "Setting limits records a standing grant on an authority node; this deployment's daemon has none configured to record it (IOI_WALLET_AUTHORITY_BINARY and IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR)";
+export async function standingRecorderOf(daemonFetch) {
+  if (fixtureApproverEnabled()) return { mode: "fixture", reason: "" };
+  let status = 0;
+  let body = {};
+  try {
+    const res = await daemonFetch(STANDING_ENVELOPE_ROUTE);
+    status = res.status;
+    body = await readDaemonReply(res);
+  } catch { /* no daemon: said below */ }
+  if (status === 200 && body?.decidable === true) return { mode: "daemon", reason: "" };
+  if (status === 200 && body?.decidable === false) return { mode: "none", reason: STANDING_RECORDER_NONE_REASON };
+  const code = body?.error?.code || body?.code || (status ? `http_${status}` : "daemon_unreachable");
+  return { mode: "none", reason: `The daemon did not say whether it can record limits (${code}), so none can be set from here` };
+}
+
+// The Add API key form's limit fields, as the form names them.
+export const ATTACH_LIMIT_FIELDS = Object.freeze({ standing_max_usages: "max_usages", standing_budget_usd: "budget_usd", standing_expires_hours: "expires_hours" });
+
+/**
+ * Decide, BEFORE anything is written, what an add-connection submission may do about limits (R-240 Arm
+ * A, N7 fail closed). Limits were refused only after the connector had registered and its token had
+ * been sealed, so a refused submission left an unbounded connection behind. Returns `{ ok:true,
+ * limits:null }` (none asked for), `{ ok:true, limits }` (bounds to relay once the connection exists),
+ * or `{ ok:false, code, message }` — a refusal of the WHOLE submission, by name, with nothing written.
+ */
+export function attachLimitsPlan(params = {}, recorder = { mode: "none", reason: STANDING_RECORDER_NONE_REASON }) {
+  const given = Object.fromEntries(Object.entries(ATTACH_LIMIT_FIELDS)
+    .map(([field, bound]) => [bound, String(params[field] ?? "").trim()])
+    .filter(([, value]) => value !== ""));
+  if (!Object.keys(given).length) return { ok: true, limits: null };
+  if (recorder.mode === "none") return { ok: false, code: "standing_lease_recorder_not_configured", message: recorder.reason || STANDING_RECORDER_NONE_REASON };
+  if (!given.max_usages) return { ok: false, code: "standing_lease_bounds_invalid", message: "limits need a number of usages — a budget or an expiry alone bounds nothing; leave all three empty to add the connection without limits" };
+  try {
+    parseBounds(given);
+  } catch (error) {
+    return { ok: false, code: "standing_lease_bounds_invalid", message: String(error?.message || error) };
+  }
+  if (recorder.mode === "daemon" && !String(params.operator_passphrase || "")) {
+    return { ok: false, code: "operator_passphrase_required", message: "setting limits takes the operator passphrase: the deployment authority signs the standing grant with it" };
+  }
+  return { ok: true, limits: given };
+}
+
 // The bounds a caller may send the daemon. Anything else (an envelope, a grant, a hash, a window)
 // the daemon derives itself and refuses by name.
 const RELAYED_BOUNDS = ["max_usages", "budget_usd", "expires_hours", "per_operation_usd", "tools", "operations", "reason"];

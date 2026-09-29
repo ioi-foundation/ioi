@@ -23,13 +23,50 @@
     if (p.lifecycle_status !== "active") return "not enabled — run the admitted enable in Studio";
     if (p.execution_wiring === "terminal_pty") return "terminal lane — not an execution binding target";
     if (p.execution_wiring !== "lane_a_host_spawn") return "adapter slot — execution wiring not built";
-    if (p.runnability_state !== "runnable" && p.runnability_state !== "not_probed") return "not runnable on this host (" + p.runnability_state + ")";
+    if (p.runnability_state !== "runnable" && p.runnability_state !== "not_probed") return "not runnable on this host (" + p.runnability_state + (p.runnability_note ? " — " + p.runnability_note : "") + ")";
     return "";
   }
   function nsRouteReason(r) {
     if (r.lifecycle !== "active") return "not enabled";
     if (r.availability !== "available") return "not available (" + (r.availability || "declared") + ")";
     return "";
+  }
+  // R-240 Arm A: the launcher preselected the registry default whenever its STORED runnability was not
+  // a refusal — "not probed" included — so on a plane with no reachable model upstream Start was refused
+  // harness_profile_not_runnable by the live probe the bind runs. The context now carries that live probe
+  // (the daemon's own answer), and only a harness it says RUNS, over a model route that is available (the
+  // bind needs both), is ever preselected: the registry default first, else the first runnable one. With
+  // none, the launcher starts with no binding and says why before Start is pressed.
+  function nsRouteAvailable(routes) { return (routes || []).some(function (r) { return !nsRouteReason(r); }); }
+  function nsDefaultHarness(profiles, routes) {
+    if (!nsRouteAvailable(routes)) return null;
+    var runnable = (profiles || []).filter(function (p) { return !nsHarnessReason(p) && p.runnability_state === "runnable"; });
+    return runnable.find(function (p) { return p.default; }) || runnable[0] || null;
+  }
+  function nsNoHarnessWhy(profiles, routes) {
+    var runnable = (profiles || []).filter(function (p) { return !nsHarnessReason(p) && p.runnability_state === "runnable"; });
+    var tail = " The session starts with no harness binding — execution uses the daemon's default at execute time.";
+    if (runnable.length && !nsRouteAvailable(routes)) return "No model route is available, so no harness can be bound (a harness executes over one)." + tail;
+    var def = (profiles || []).find(function (p) { return p.default; }) || (profiles || [])[0];
+    return "No harness can run on this host right now" + (def ? " — " + (def.display_name || def.harness) + ": " + (nsHarnessReason(def) || "runnability not probed yet") : "") + "." + tail;
+  }
+  // A chosen harness needs an available model route; without one Start could only be refused, so it says so first.
+  function nsStartGate() {
+    var btn = document.getElementById("ioi-ns-launch");
+    if (!btn) return "";
+    var routeSel = document.getElementById("ioi-ns-model");
+    var routeOpt = routeSel && routeSel.selectedOptions && routeSel.selectedOptions[0];
+    var why = nsProfile() && !(routeOpt && routeOpt.value && !routeOpt.disabled)
+      ? "The chosen harness executes over a model route and none is available — choose None, or enable a route under Models"
+      : "";
+    if (why) {
+      btn.setAttribute("aria-disabled", "true"); btn.setAttribute("data-ioi-disabled-reason", why); btn.title = why;
+      btn.style.opacity = ".62"; btn.style.cursor = "not-allowed";
+    } else {
+      btn.removeAttribute("aria-disabled"); btn.removeAttribute("data-ioi-disabled-reason"); btn.removeAttribute("title");
+      btn.style.opacity = ""; btn.style.cursor = "";
+    }
+    return why;
   }
   function newSessionModal() {
     let el = document.getElementById("ioi-ns-modal");
@@ -122,7 +159,7 @@
       '<div class="ioi-ns-pane url"><div class="ioi-ns-field"><label>Repository / PR / issue URL</label><input id="ioi-ns-url" placeholder="https://…"></div></div>' +
       '<div class="ioi-ns-pane scratch"><div class="ioi-ns-field"><label>Workspace</label><select id="ioi-ns-env">' + envOpts + "</select></div></div>" +
       '<div class="ioi-ns-grid">' +
-      '<div class="ioi-ns-field"><label>Preferred harness (advanced · daemon registry)</label><select id="ioi-ns-harness">' + hpOpts + "</select></div>" +
+      '<div class="ioi-ns-field"><label>Preferred harness (advanced · daemon registry)</label><select id="ioi-ns-harness">' + hpOpts + '</select><div class="ioi-ns-why" id="ioi-ns-harness-why" style="display:none"></div></div>' +
       '<div class="ioi-ns-field"><label>Model route (daemon registry)</label><select id="ioi-ns-model">' + mrOpts + "</select></div>" +
       '<div class="ioi-ns-field"><label>Editor target (daemon registry)</label><select id="ioi-ns-editor">' + etOpts + "</select></div>" +
       '<div class="ioi-ns-field"><label>Reasoning</label><select id="ioi-ns-reasoning"></select></div>' +
@@ -132,10 +169,19 @@
       '<div class="ioi-ns-preview" id="ioi-ns-preview"></div>' +
       '<button class="ioi-ns-btn" id="ioi-ns-launch">Start session</button>' +
       '<div id="ioi-ns-result" style="display:none"></div>';
-    // Preselect the registry default profile when it is actually selectable.
+    // Preselect only what the daemon's live probe says runs, over an available route (nsDefaultHarness);
+    // otherwise None, and the reason is said under the select before Start is pressed.
     const hp = document.getElementById("ioi-ns-harness");
-    const def = profiles.find((p) => p.default && !nsHarnessReason(p));
-    if (def) hp.value = def.profile_ref;
+    const def = nsDefaultHarness(profiles, routes);
+    const why = document.getElementById("ioi-ns-harness-why");
+    if (def) {
+      hp.value = def.profile_ref;
+      hp.setAttribute("data-ioi-harness-default", def.profile_ref);
+    } else {
+      hp.value = "";
+      hp.setAttribute("data-ioi-harness-default", "none");
+      if (why) { why.textContent = nsNoHarnessWhy(profiles, routes); why.style.display = "block"; }
+    }
     nsRenderVenueDetail();
     renderNsKnobs();
   }
@@ -322,6 +368,7 @@
     lines.push('<span class="nsp-k">Restore</span> the session persists in the daemon estate; reopen it from Workbench — nothing here is UI-only state');
     box.innerHTML = lines.join("<br>") + '<div data-nsp-placement><span class="nsp-k">Placement</span> reading the venue policy…</div>';
     renderNsPlacementPreview(box, seq);
+    nsStartGate();
   }
   function nsLaunch() {
     const el = document.getElementById("ioi-ns-modal");
@@ -329,6 +376,8 @@
     const btn = document.getElementById("ioi-ns-launch");
     if (!el || !result) return;
     const branch = el.getAttribute("data-branch") || "project";
+    const gated = nsStartGate();
+    if (gated) { result.style.display = "block"; result.innerHTML = '<div class="ioi-ns-err">' + esc(gated) + ".</div>"; return; }
     const body = {};
     if (branch === "project") {
       body.project_ref = (document.getElementById("ioi-ns-project") || {}).value || "";

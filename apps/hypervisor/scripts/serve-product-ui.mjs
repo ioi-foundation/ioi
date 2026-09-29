@@ -47,7 +47,7 @@ import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { renderSplashLanding } from "./splash-landing-grammar.mjs";
-import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, standingLeaseRecorderMode, STANDING_LEASE_CUSTODY_TIER_UNRULED, operatorDecisionFrom, relayChallengeDecision } from "./lib/wallet-authority.mjs";
+import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, standingRecorderOf, attachLimitsPlan, STANDING_LEASE_CUSTODY_TIER_UNRULED, operatorDecisionFrom, relayChallengeDecision } from "./lib/wallet-authority.mjs";
 import { PROVIDER_APPROVAL_KIND, projectProviderChallenge, renderProviderFacetsCard, operatorPassphraseField } from "./lib/approval-card-facets.mjs";
 import * as CHALLENGE_PAGE from "./authority-challenge-page.mjs";
 import { relayEditorEffect } from "./lib/editor-challenge-relay.mjs";
@@ -702,6 +702,8 @@ function connectionsShell(inner) {
 ${inner}</div></body></html>`;
 }
 function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
+  // Whether this deployment can record limits — the daemon's answer, read by the route (standingRecorderOf).
+  const recorder = devFacts?.recorder || { mode: "none", reason: "the daemon's answer on recording limits was not read" };
   const leasesFor = (id) => (leases || []).filter((l) => String(l.backing_provider || "").includes(id) || String(l.resource_refs || "").includes(id));
   // M08.16 — POSTURE COMES FROM THE CONNECTION, NOT FROM A CREDENTIAL STAMP. `auth_posture` says only
   // that a credential is bound; it says nothing about whether the provider still answers, whether the
@@ -795,12 +797,13 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
       ? `<div class="meta" data-ioi-standing-lease="${CX_ESC(sl.status || "")}" data-ioi-standing-usages="${CX_ESC(String(slb.max_usages ?? ""))}">limits: <b>${CX_ESC(sl.status || "")}</b> · ${CX_ESC(String(slb.max_usages ?? "?"))} uses · budget $${CX_ESC((Number(slb.max_cumulative_spend_microusd || 0) / 1_000_000).toFixed(4))} · ${CX_ESC((slb.operations || []).join("+"))} · tools ${CX_ESC((slb.allowed_tools || []).join(", ") || "—")} · expires ${CX_ESC(slb.expires_at_ms ? new Date(Number(slb.expires_at_ms)).toISOString() : "—")}${sl.status === "active" ? ` <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease/revoke" style="display:inline" onclick="event.stopPropagation()">${sl.standing_envelope_id ? '<input name="operator_passphrase" type="password" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase style="width:150px"> ' : ""}<button class="act ghost" type="submit">Remove limits</button></form>` : ""}</div>`
       // A limit is a STANDING GRANT recorded on an authority node. With none configured, every "Set
       // limits" was refused after the person had filled it in (501 standing_lease_recorder_not_configured);
-      // the page knows at render time, so it says so where the form would be (R-240).
-      : standingLeaseRecorderMode() === "none"
-      ? `<div class="meta" data-ioi-standing-lease="absent" data-ioi-standing-recorder="none">no limits set — sessions cannot use this connection until limits are set, and this deployment runs no authority node to record them <span class="act ghost" role="button" tabindex="0" aria-disabled="true" title="Setting limits records a standing grant on an authority node; none is configured for this deployment (IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR)" data-ioi-disabled-reason="Setting limits records a standing grant on an authority node; none is configured for this deployment (IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR)" style="opacity:.62;cursor:not-allowed">Set limits</span></div>`
+      // the page knows at render time, so it says so where the form would be (R-240). Whether one is
+      // configured is the DAEMON's answer (standingRecorderOf), never this serve's environment.
+      : recorder.mode === "none"
+      ? `<div class="meta" data-ioi-standing-lease="absent" data-ioi-standing-recorder="none">no limits set — sessions cannot use this connection until limits are set, and this deployment runs no authority node to record them <span class="act ghost" role="button" tabindex="0" aria-disabled="true" title="${CX_ESC(recorder.reason)}" data-ioi-disabled-reason="${CX_ESC(recorder.reason)}" style="opacity:.62;cursor:not-allowed">Set limits</span></div>`
       // The daemon decides the envelope: the bounds and the operator passphrase go to it once; the
       // deployment authority's sealed approver signs the standing grant (the App signs nothing).
-      : `<div class="meta" data-ioi-standing-lease="absent">no limits set — sessions cannot use this connection until you set them <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Recording on the authority node — this can take a minute or two…';"><input name="max_usages" type="number" min="1" required placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <input name="expires_hours" type="number" min="1" max="2160" placeholder="hours (24)" style="width:90px">${standingLeaseRecorderMode() === "daemon" ? ' <input name="operator_passphrase" type="password" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase style="width:150px">' : ""} <button class="act ghost" type="submit">Set limits</button></form></div>`;
+      : `<div class="meta" data-ioi-standing-lease="absent">no limits set — sessions cannot use this connection until you set them <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Recording on the authority node — this can take a minute or two…';"><input name="max_usages" type="number" min="1" required placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <input name="expires_hours" type="number" min="1" max="2160" placeholder="hours (24)" style="width:90px">${recorder.mode === "daemon" ? ' <input name="operator_passphrase" type="password" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase style="width:150px">' : ""} <button class="act ghost" type="submit">Set limits</button></form></div>`;
     push(connectionCategory(c), `<div class="card cncard" data-cn="${i}"><div class="main">
       <div class="name">${CX_ESC(c.name || c.service)}${bound ? "" : '<span class="pill warn">needs auth</span>'}<span class="pill risk">risk: ${CX_ESC(risk)}</span>${sl?.status === "active" ? '<span class="pill ok">bounded</span>' : '<span class="pill warn">unbounded</span>'}</div>
       <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${myLeases.length ? ` · ${myLeases.length} active grant${myLeases.length > 1 ? "s" : ""}` : ""}</div>
@@ -15825,7 +15828,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
       const J = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => ({}));
-      const [pj, envs, arp, mr, et, lp, plVenues, plPolicy, cx] = await Promise.all([
+      const [pj, envs, arp, mr, et, lp, plVenues, plPolicy, cx, hpLive] = await Promise.all([
         J("/v1/hypervisor/projects"),
         J("/v1/hypervisor/environments"),
         J("/v1/hypervisor/agent-runner-profiles"),
@@ -15838,7 +15841,13 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/placement/venues"),
         J("/v1/hypervisor/placement/venue-policy"),
         J("/v1/hypervisor/connectors"),
+        // R-240 Arm A: the launcher preselected the registry default from its STORED runnability ("not
+        // probed" read as selectable), and on a plane with no reachable model upstream Start was refused
+        // harness_profile_not_runnable by the live probe the bind runs. The launcher reads the same live
+        // probe the bind will (the daemon's own answer) before it offers or preselects a harness.
+        J("/v1/hypervisor/harness-profiles?live=1"),
       ]);
+      const liveRunnability = new Map((hpLive.profiles || []).map((p) => [p.profile_ref, p.runnability || null]));
       const environments = (envs.environments || [])
         .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
         .slice(0, 15)
@@ -15852,7 +15861,12 @@ async function handleEstateRequest(req, res, body) {
       res.end(JSON.stringify({
         projects: (pj.projects || []).map((p) => ({ project_id: p.project_id, name: p.name, repository_url: p.repository_url })),
         environments,
-        harness_profiles: arp.profiles || [],
+        harness_profiles: (arp.profiles || []).map((p) => {
+          const live = liveRunnability.get(p.profile_ref);
+          return live && live.state
+            ? { ...p, runnability_state: live.state, runnability_live: true, runnability_note: (live.evidence && (live.evidence.note || (live.evidence.required_binary ? `${live.evidence.required_binary} not on PATH` : ""))) || "" }
+            : { ...p, runnability_live: false };
+        }),
         model_routes: (mr.routes || []).map((r) => ({
           route_ref: r.route_ref,
           display_name: r.display_name,
@@ -17582,7 +17596,7 @@ async function handleEstateRequest(req, res, body) {
         // verification, its revocation epoch and the scopes the provider actually returned were served by
         // the daemon and read by nobody. Posture comes from the connection record through the shared
         // projection; the connector record keeps only what it owns (identity, endpoint, tool contracts).
-        const [c, s, l, mcpTools, authPol, scimStatus, conns] = await Promise.all([
+        const [c, s, l, mcpTools, authPol, scimStatus, conns, recorder] = await Promise.all([
           daemonFetch(`/v1/hypervisor/connectors`).then((r) => r.json()).catch(() => ({})),
           daemonFetch(`/v1/hypervisor/scm-connectors`).then((r) => r.json()).catch(() => ({})),
           daemonFetch(`/v1/hypervisor/capability-leases`).then((r) => r.json()).catch(() => ({})),
@@ -17590,6 +17604,7 @@ async function handleEstateRequest(req, res, body) {
           daemonFetch(`/v1/hypervisor/auth/policy`).then((r) => r.json()).catch(() => null),
           daemonFetch(`/scim/v2/ServiceProviderConfig`).then((r) => r.status).catch(() => 0),
           daemonFetch(`/v1/hypervisor/auth/connections`).then((r) => r.json()).catch(() => ({})),
+          standingRecorderOf(daemonFetch),
         ]);
         // The LIST is a summary — six members, no provider verification and no returned scopes — so the
         // detail route is read for each connection it names. The App fetches and projects; it does not
@@ -17606,7 +17621,7 @@ async function handleEstateRequest(req, res, body) {
         // A typed standing-envelope refusal from the attach pass renders verbatim (the custody-tier
         // refusal included) — the operator sees the daemon's/authority node's reason, never a blank.
         const leaseError = new URL(req.url, "http://x").searchParams.get("standing_lease_error") || "";
-        const page = renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus, connections: connectionRecords });
+        const page = renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus, connections: connectionRecords, recorder });
         res.end(leaseError ? page.replace(/<div class="add">/u, `<div class="empty" data-ioi-standing-lease-error="1" style="border-color:#5c4a23;color:#d6a13a">Limits not set — ${CX_ESC(leaseError)}</div><div class="add">`) : page);
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -17654,6 +17669,15 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/connections/add" && req.method !== "POST") {
       const type = new URL(req.url, "http://x").searchParams.get("type") || "mcp";
       const inp = 'style="width:100%;box-sizing:border-box;margin:4px 0 12px;padding:10px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"';
+      // R-240 Arm A: the limit fields were offered on a deployment with no authority node to record them,
+      // and a submission carrying limits was refused only AFTER the connection had registered. Whether
+      // limits can be recorded is the daemon's answer; with none, the fields render disabled with the
+      // reason (the unified gap contract) and — natively disabled — are never sent.
+      const recorder = type === "mcp" ? null : await standingRecorderOf(daemonFetch);
+      const noRecorder = recorder?.mode === "none";
+      const limitInp = (name, attrs) => noRecorder
+        ? `<input name="${name}" ${attrs} disabled aria-disabled="true" title="${CX_ESC(recorder.reason)}" data-ioi-disabled-reason="${CX_ESC(recorder.reason)}" style="width:100%;box-sizing:border-box;margin:4px 0 12px;padding:10px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;opacity:.62;cursor:not-allowed">`
+        : `<input name="${name}" ${attrs} ${inp}>`;
       const form = type === "mcp"
         ? `<h2>Add MCP server</h2><p class="sub">Register an MCP server URL — the daemon auto-discovers its tools and OAuth (Dynamic Client Registration) when you connect. No vendor app needed.</p>
            <form method="post" action="/__ioi/connections/add?type=mcp">
@@ -17667,12 +17691,14 @@ async function handleEstateRequest(req, res, body) {
              <input name="tool_name" placeholder="tool name (e.g. create_issue)" required ${inp}>
              <input name="tool_path" placeholder="/v1/issues" required ${inp}>
              <input name="token" type="password" placeholder="API token (sealed)" required ${inp}>
-             <p class="sub" style="margin:12px 0 4px">Limits — set once here, then used silently by the sessions that name this connection, never widened in a run. Leave usages empty to attach for your own direct use only (a session cannot name an unbounded connection).</p>
-             <input name="standing_max_usages" type="number" min="1" placeholder="max usages (e.g. 20)" ${inp}>
-             <input name="standing_budget_usd" type="number" min="0" step="0.01" placeholder="budget USD (e.g. 1.00)" ${inp}>
-             <input name="standing_expires_hours" type="number" min="1" placeholder="expires in hours (default 24)" ${inp}>
-             ${standingLeaseRecorderMode() === "daemon" ? `<input name="operator_passphrase" type="password" autocomplete="off" placeholder="operator passphrase (needed to set limits)" aria-label="Operator passphrase" data-ioi-operator-passphrase ${inp}>` : ""}
-             <button class="act" type="submit">Add + seal token + set limits</button></form>`;
+             ${noRecorder
+               ? `<p class="sub" style="margin:12px 0 4px" data-ioi-standing-recorder="none">Limits — this deployment's daemon has no authority node to record them, so the connection is added without limits: you can use it directly, and a session cannot name it until limits are set. ${CX_ESC(recorder.reason)}.</p>`
+               : `<p class="sub" style="margin:12px 0 4px">Limits — set once here, then used silently by the sessions that name this connection, never widened in a run. Leave usages empty to attach for your own direct use only (a session cannot name an unbounded connection). A limit the authority refuses adds nothing: the connection is kept only with its limits.</p>`}
+             ${limitInp("standing_max_usages", 'type="number" min="1" placeholder="max usages (e.g. 20)"')}
+             ${limitInp("standing_budget_usd", 'type="number" min="0" step="0.01" placeholder="budget USD (e.g. 1.00)"')}
+             ${limitInp("standing_expires_hours", 'type="number" min="1" max="2160" placeholder="expires in hours (default 24)"')}
+             ${recorder?.mode === "daemon" ? `<input name="operator_passphrase" type="password" autocomplete="off" placeholder="operator passphrase (needed to set limits)" aria-label="Operator passphrase" data-ioi-operator-passphrase ${inp}>` : ""}
+             <button class="act" type="submit">${noRecorder ? "Add + seal token" : "Add + seal token + set limits"}</button></form>`;
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(connectionsShell(`<p><a href="/__ioi/connections" style="color:#9a9da6;text-decoration:none">← Connections</a></p>${form}`));
       return;
@@ -17686,6 +17712,19 @@ async function handleEstateRequest(req, res, body) {
       const couldNot = (why) => { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }); res.end(connectionsShell(`<div class="empty">Couldn't add: ${CX_ESC(why)}</div><p><a href="/__ioi/connections/add?type=${encodeURIComponent(type)}">← back</a></p>`)); };
       const givenUrl = String((type === "mcp" ? p.get("mcp_url") : p.get("base_url")) || "").trim();
       if (!/^https?:\/\/\S{1,500}$/u.test(givenUrl)) return couldNot("the URL must start with http:// or https:// and contain no spaces.");
+      // R-240 Arm A (N7 fail closed): what the submission may do about limits is decided BEFORE anything is
+      // written. A limit this deployment cannot record (the daemon's own answer), a bound that cannot be one,
+      // or a missing passphrase refuses the WHOLE submission by name, and nothing is registered.
+      // (The MCP form offers no limits — an MCP server's are set on its card once it is connected.)
+      const limitsPlan = type === "mcp" ? { ok: true, limits: null } : attachLimitsPlan(Object.fromEntries(p), await standingRecorderOf(daemonFetch));
+      if (!limitsPlan.ok) return couldNot(`limits not set — ${limitsPlan.code}: ${limitsPlan.message}. Nothing was registered.`);
+      // Undo THIS pass's registration when a later step of the same pass is refused, so a refused
+      // submission never leaves a connection behind that the person did not get (a sealed token without
+      // its limits, or a connection without its token).
+      const undo = async (connectorId) => {
+        const r = await daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(connectorId)}`, { method: "DELETE" }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+        return r.status === 200 && r.j?.ok === true ? "" : (r.j?.code || r.j?.error?.code || `http_${r.status}`);
+      };
       try {
         if (type === "mcp") {
           const reg = await post("/v1/hypervisor/connectors", { service: "mcp", kind: "mcp", name: p.get("name"), base_url: p.get("mcp_url") });
@@ -17695,14 +17734,23 @@ async function handleEstateRequest(req, res, body) {
           const svc = (p.get("name") || "service").toLowerCase().replace(/[^a-z0-9]+/g, "-");
           const reg = await post("/v1/hypervisor/connectors", { service: svc, kind: "http", name: p.get("name"), base_url: p.get("base_url"), allowed_tools: [{ name: p.get("tool_name"), method: "POST", path: p.get("tool_path") }] });
           if (!reg.connector?.connector_id) return couldNot(whyRefused(reg));
-          if (reg.connector?.connector_id) await post(`/v1/hypervisor/connectors/${encodeURIComponent(reg.connector.connector_id)}/credential`, { token: p.get("token") });
+          const connectorId = reg.connector.connector_id;
+          const sealed = await post(`/v1/hypervisor/connectors/${encodeURIComponent(connectorId)}/credential`, { token: p.get("token") }).catch((e) => ({ ok: false, reason: String(e?.message || e) }));
+          if (sealed?.ok !== true) {
+            const left = await undo(connectorId);
+            return couldNot(`the token was not sealed — ${whyRefused(sealed)}. ${left ? `Removing the connection this attempt registered failed too (${left}); it is on Connections with no token.` : "Nothing was kept."}`);
+          }
           // M13.3: the SAME pass mints the scoped standing bound when the operator declared one.
-          if (reg.connector?.connector_id && p.get("standing_max_usages")) {
-            const bound = await bindStandingLease({ connector: reg.connector, bounds: { max_usages: p.get("standing_max_usages"), budget_usd: p.get("standing_budget_usd") || 0, expires_hours: p.get("standing_expires_hours") || 24 }, operatorPassphrase: p.get("operator_passphrase") || "", daemonFetch });
+          if (limitsPlan.limits) {
+            const bound = await bindStandingLease({ connector: reg.connector, bounds: { ...limitsPlan.limits, budget_usd: limitsPlan.limits.budget_usd || 0, expires_hours: limitsPlan.limits.expires_hours || 24 }, operatorPassphrase: p.get("operator_passphrase") || "", daemonFetch });
             p.delete("operator_passphrase");
             if (!bound.ok) {
-              res.writeHead(303, { Location: `/__ioi/connections?standing_lease_error=${encodeURIComponent(`${bound.code}: ${bound.message}`)}`, "Cache-Control": "no-cache" });
-              return res.end();
+              const left = await undo(connectorId);
+              if (left) {
+                res.writeHead(303, { Location: `/__ioi/connections?standing_lease_error=${encodeURIComponent(`${bound.code}: ${bound.message} — and removing the connection this attempt registered failed (${left}), so it is listed without limits`)}`, "Cache-Control": "no-cache" });
+                return res.end();
+              }
+              return couldNot(`limits not set — ${bound.code}: ${bound.message}. Nothing was kept: the connection this attempt registered was removed.`);
             }
           }
         }
