@@ -509,7 +509,9 @@ assertion in its verifier.
   The local mirror boots the app with no failed asset. The GraphQL bodies (documents and streamed answers) are recorded
   in the mirror's traffic dir (`data-connection-flow/operations`).
 - **Still to harvest.** A succeeded run and its dataset (they need working credentials), and the setup wizard's
-  remaining steps (export configuration, code import configuration, summary).
+  remaining steps (export configuration, code import configuration, summary). The chunks the reference's save loads for
+  its checkpoint prompt (`49952070…`, `26003ca7…`, `b88e3924…` and the stylesheet `6cfee11d…`): the mirror answers them
+  with a stub, so a sync's Save and Duplicate sync's Create sync reject inside the app and send nothing (D5).
 - **Backing truth.** Data sources (`/v1/hypervisor/data-sources`: kind `rest_api`, endpoint, credential posture),
   connectors with their credentials, and the materialization ladder (connector mapping → projection → lease plan →
   materializing run → materialized object set). That ladder is the Hypervisor's import, the analog of a sync.
@@ -544,6 +546,22 @@ assertion in its verifier.
     Named gaps: Created by (a plan records no declarer), earlier versions, and the dataset and build report apps.
     Trap paid: the Configuration page loads the reference's CustomSourceAdapter chunk, which the mirror had never
     recorded; it was fed to the mirror from the tenant's current build.
+  - D2 part 3 and D5: the rest of a source's pages, a failed run, and a sync's writes. Done 2026-09-28. A source's
+    Virtual tables are bound (none is registered and none can be), and so are its Logs: the reference's own log viewer
+    over the receipts of the source's sync runs, with its level filter and time range evaluated over them — a refused
+    execute shows as an ERROR with the daemon's reason. Explore source (no explore plane) and the Webhooks callout (no
+    webhook plane, no other runtime) are named. Where the reference's words sent a person down a path that does not
+    exist here — contact a representative, switch runtime, configure a catalog, enable imports — the adopted layer
+    replaces them at the wire, matched by message id and exact text (`TRUTHFUL_MESSAGES`). A failed run is driven live
+    by `check:adopted-data-connection-runs` on an isolated stack with a sealed authority: the lease and the sealed
+    session are each granted through the daemon's parked challenge and the operator's passphrase, the daemon refuses
+    the execute that carries no grant for the source contact, and the sync reads Failed with the refusal as its build's
+    status detail. A run whose source contact failed, or whose batch was rejected, now reads Failed too (it read
+    Running). Duplicate sync opens over the original plan, whose configuration now names its ladder. The writes are
+    bound at the adopted layer: Save re-declares the plan (the daemon's PATCH), and a new sync declares a plan on the
+    ladder its configuration names. But a click cannot reach them yet (the checkpoint chunks above), so that row stays
+    open. `check:adopted-data-connection` 24/24, `check:adopted-data-connection-runs` 4/4, `adopted-data-connection.test`
+    18/18; seed depth 43 = 25 bound / 3 refused / 14 named gaps / 1 open (ledger CCXXIX).
 
 ### Approvals — harvest and the adoption path (2026-09-28)
 

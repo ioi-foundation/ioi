@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D4).
+// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D5).
 //
 // The reference Data Connection (booted by the local mirror, routed at /workspace/data-ingestion-app) answers from the
 // Hypervisor's data-source plane (adopted-data-connection.mjs), in a real browser against an ISOLATED daemon + serve:
@@ -9,7 +9,13 @@
 //     its filters, the bucket's Batch syncs table, the sync's Overview, Configuration and Versions); its runs are the
 //     plan's materializing runs (Never ran, then Waiting when one is admitted, Canceled once cancelled); Run needs a
 //     wallet-authority grant and is refused by name, as is Delete;
-//   - a source's own pages: its Overview, Code imports and Webhooks (off, and nothing turns them on);
+//   - a source's own pages: its Overview, Code imports and Webhooks (off, and nothing turns them on); its Virtual tables
+//     (none, and none can be) and Explore source (nothing browses a source), each saying why in words made true here
+//     (cut D5 — the reference's advice to contact a representative, switch runtime or configure a catalog is gone); its
+//     Logs, which are the receipts of its syncs' runs (a refused execute shows as an ERROR, with the daemon's reason);
+//   - Duplicate sync opens over the original's plan (cut D5); a sync's writes — its configuration's Save, a new sync —
+//     are its plan's re-declaration and declaration, asserted through the serve (a click cannot reach them yet: the
+//     reference's save first loads its checkpoint prompt, whose chunks the local mirror lacks);
 //   - New source (cut D3), driven as a person does it: pick REST API, name it, file it in a project, create — a draft
 //     data source — give it its domain (the draft becomes declared, with that endpoint), and walk the remaining steps;
 //   - an existing REST source's connection settings: its declarer's new domain becomes its endpoint, path kept;
@@ -120,7 +126,8 @@ async function run() {
     const visit = async (p, until) => { await pg.goto(`${SERVE}${p}`, { waitUntil: "domcontentloaded", timeout: 60000 }); let t = ""; for (let i = 0; i < 25; i++) { await pg.waitForTimeout(800); t = await text(); if (!until || until.test(t)) break; } return t; };
     const after = (t, marker, n = 200) => (t.includes(marker) ? t.slice(t.indexOf(marker), t.indexOf(marker) + n) : `(no "${marker}")`);
 
-    const sources = await visit(`${BASE}/sources`, /Orders API|No sources|could not|Failed/u);
+    // (waited for until both rows' sync counts have loaded — they load after the names)
+    const sources = await visit(`${BASE}/sources`, /(?=[\s\S]*Orders API REST API .{0,30}?\b\d+ syncs?\b)(?=[\s\S]*Plants bucket S3 .{0,30}?\b\d+ syncs?\b)|No sources|could not|Failed/u);
     const table = after(sources, "Sources Name Connection type", 260);
     ok("the Sources list is the caller's declared data sources, each under its connection type, with its syncs counted from its lease plans",
       /Orders API REST API .{0,30}\b0 syncs/u.test(table) && /Plants bucket S3 .{0,30}\b1 sync(?!s)/u.test(table) && !/No sources/u.test(sources), table);
@@ -131,12 +138,13 @@ async function run() {
     await visit(`${BASE}/sources`, /Plants bucket/u);
     await pg.getByText("Plants bucket", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
     let s3Page = ""; for (let i = 0; i < 25 && !/Plants bucket \(S3\)|An error occurred/u.test(s3Page); i++) { await pg.waitForTimeout(800); s3Page = await text(); }
+    const s3Base = new URL(pg.url()).pathname.replace(/\/overview$/u, "");
     ok("a source opens from the list on its own page over daemon truth: its name, its connection type and what it can do, with nothing it cannot",
       /\/sources\/ri\.magritte\.\.source\.[0-9a-f-]{36}\/overview$/u.test(restUrl) && /Orders API \(REST API\)/u.test(restPage) && /Explore source capabilities/u.test(restPage)
         && /Plants bucket \(S3\)/u.test(s3Page) && !/An error occurred/u.test(restPage + s3Page),
       `${restUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(restPage, "Orders API (", 20)} · ${after(s3Page, "Plants bucket (", 20)}`);
     // the bucket's Overview lists its syncs (cut D4): its lease plan, the plan's output dataset, Never ran and Manual
-    for (let i = 0; i < 20 && !/Plants import \(Plants import objects\)|Failed to load batch syncs/u.test(s3Page); i++) { await pg.waitForTimeout(700); s3Page = await text(); }
+    for (let i = 0; i < 25 && !/Plants import \(Plants import objects\) .{0,60}?Manual|Failed to load batch syncs/u.test(s3Page); i++) { await pg.waitForTimeout(700); s3Page = await text(); }
     ok("a source's Overview lists its syncs: the bucket's Batch syncs table is its lease plan, with the plan's output dataset, Never ran and next run Manual",
       /Batch syncs 1 /u.test(s3Page) && /Plants import \(Plants import objects\) Never ran Manual/u.test(s3Page) && !/Failed to load batch syncs/u.test(s3Page),
       after(s3Page, "Batch syncs", 220));
@@ -156,6 +164,20 @@ async function run() {
       /Enable code imports/u.test(imports) && !/Failed to load configuration/u.test(imports) && importSwitches.every((c) => c.off) && configurable.length === 3 && configurable.every((c) => !c.on)
         && /No webhooks found/u.test(hooks) && /Webhooks 0/u.test(hooks) && newHook.length >= 1 && newHook.every((c) => c.off),
       `imports ${importSwitches.map((c) => `${c.label.replace(/^Allow (this source to be imported into|the usage of) /u, "")}:${c.on ? "on" : "off"}${c.off ? "" : "(LIVE)"}`).join(", ")} · ${after(hooks, "Webhooks 0", 40)} · New ${JSON.stringify(newHook)}`);
+    ok("a source's Webhooks callout says why there are none — the Hypervisor has no webhook plane and no other runtime — never the reference's advice to contact a representative or switch runtime",
+      /Webhooks are not supported here: the Hypervisor has no webhook plane/u.test(hooks) && !/representative|switch to a different runtime|when connecting via direct connection/u.test(hooks),
+      after(hooks, "Webhooks are not", 180));
+    // (cut D5) the bucket's Virtual tables and Explore source: nothing is registered, queried in place or browsed here
+    const vt = await visit(`${s3Base}/virtual-tables`, /No virtual tables found on this source|Failed loading|An error occurred/u);
+    const vtControls = (await controlsOf()).filter((c) => /^(Create virtual table|Enable)$/u.test(c.label));
+    ok("a source's Virtual tables are none — none is registered and none can be — and the page says why in words that are true here (nothing queries a source in place, no table catalog exists)",
+      /No virtual tables found on this source/u.test(vt) && /Virtual tables are not supported here: the Hypervisor never queries a source in place/u.test(vt) && /no table catalog exists for a source here/u.test(vt)
+        && !/Go to Connection settings to enable these|No catalog is configured in Connection settings|Failed loading|An error occurred/u.test(vt) && vtControls.length >= 3 && vtControls.every((c) => c.off),
+      `${after(vt, "Virtual tables are", 100)} · ${vtControls.map((c) => `${c.label}${c.off ? "" : "(LIVE)"}`).join(", ")}`);
+    const explore = await visit(`${s3Base}/explore`, /Source exploration is unavailable|An error occurred/u);
+    ok("a source's Explore source says nothing browses it — the Hypervisor reads a source only in a sync run — never that this instance lacks a worker",
+      /Source exploration is unavailable\. The Hypervisor never browses a source: it reads one only in a sync run/u.test(explore) && !/This instance of|Foundry Worker|An error occurred/u.test(explore),
+      after(explore, "Source exploration", 190));
     const agents = await visit(`${BASE}/agents`, /No agents found|Unable to load agents/u);
     const listeners = await visit(`${BASE}/listeners`, /No listeners found|Failed to load listeners/u);
     ok("Agents and Listeners say none — no agent or listener exists",
@@ -192,8 +214,24 @@ async function run() {
         && /Run this import Manually/u.test(configuration) && /type: capability-lease-plan/u.test(configuration) && /subject: agent:\/\/materializer/u.test(configuration)
         && /Version 1 Current/u.test(versions) && /extractName: Plants import/u.test(versions) && /purpose: plant catalog/u.test(versions) && !/An error occurred/u.test(overview + configuration + versions),
       `${syncUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(overview, "Properties", 150)} · ${after(configuration, "Run this import", 30)} · ${after(versions, "SYNC VERSIONS", 40)}`);
+    // (cut D5) Duplicate sync, from the sync's Configuration as a person opens it: the new sync starts as the plan's exact
+    // duplicate — its configuration naming the plan's ladder and lease shape — and naming it enables Create sync
+    await visit(`${syncBase}/configuration`, /Duplicate sync/u);
+    await pg.getByText("Duplicate sync", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let dup = ""; for (let i = 0; i < 25 && !/exact duplicate of Plants import[\s\S]*leaseTtlSeconds|An error occurred/u.test(dup); i++) { await pg.waitForTimeout(800); dup = await text(); }
+    const dupUrl = new URL(pg.url()).pathname;
+    const createSync = pg.getByRole("button", { name: /^Create sync$/u }).first();
+    await pg.locator("input[placeholder='Dataset name']").first().fill("Plants copy").catch(() => {});
+    let named = "", createAfter = false;
+    for (let i = 0; i < 15 && !(createAfter && /Plants copy Syncing data from Plants bucket/u.test(named)); i++) { await pg.waitForTimeout(500); named = await text(); createAfter = await createSync.isEnabled().catch(() => false); }
+    ok("Duplicate sync opens over the original's plan: the new sync starts as its exact duplicate, its configuration naming the plan's ladder and lease shape, its dataset in the owner's folder — and naming it names the new sync, with Create sync offered",
+      /\/extracts\/duplicate\/ri\.magritte\.\.extract\.[0-9a-f-]{36}$/u.test(dupUrl) && /This sync is an exact duplicate of Plants import/u.test(dup) && dup.includes(`connectorMapping: ${mappingId}`) && dup.includes(`transformationRun: ${transformId}`)
+        && /subject: agent:\/\/materializer/u.test(dup) && /Syncing data from Plants bucket/u.test(dup) && /Plants copy Syncing data from Plants bucket/u.test(named) && createAfter === true && !/An error occurred/u.test(dup + named),
+      `${dupUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(dup, "This sync is", 60)} · ${dup.includes(`connectorMapping: ${mappingId}`) ? "ladder named" : "LADDER ABSENT"} · ${after(named, "Plants copy", 50)} · Create sync ${createAfter ? "offered" : "NOT OFFERED"}`);
     // a run is the plan's materializing run: admitted, it waits for its lease; cancelled (no grant needed), it is Canceled
     const admitted = await d("POST", "/v1/hypervisor/odk/materializing-runs", { capability_lease_plan_id: planId, name: "plants-run-1" });
+    // (and an execute of it, which the daemon refuses: the run holds no lease — a receipt the source's Logs show)
+    const refusedExecute = await d("POST", `/v1/hypervisor/odk/materializing-runs/${admitted.j.materializing_run?.id}/execute`, {});
     const waiting = after(await visit(`${BASE}/syncs`, /Plants import objects \/\S+ Plants bucket Waiting/u), "Next run Actions", 140);
     const banner = await visit(`${syncBase}/configuration`, /waiting to run|An error occurred/u);
     const cancelled = await d("POST", `/v1/hypervisor/odk/materializing-runs/${admitted.j.materializing_run?.id}/cancel`);
@@ -201,6 +239,18 @@ async function run() {
     ok("a sync's run is its plan's materializing run, over daemon truth: an admitted run shows Waiting (for its lease) with the running banner, and once cancelled the sync shows Canceled",
       admitted.status === 201 && /Plants bucket Waiting/u.test(waiting) && /This dataset is waiting to run/u.test(banner) && cancelled.j.materializing_run?.status === "cancelled" && /Plants bucket Canceled/u.test(canceled),
       `run ${admitted.status} ${admitted.j.materializing_run?.status} · ${waiting.slice(0, 110)} · banner ${/waiting to run/u.test(banner) ? "shown" : "ABSENT"} · cancel ${cancelled.j.materializing_run?.status} · ${canceled.slice(0, 110)}`);
+    // (cut D5) the bucket's Logs: its syncs' run receipts in the reference's own log viewer — by default (INFO hidden) the
+    // refused execute, with the daemon's reason and outcome; with the level filter cleared, the admission and the cancel too
+    const receipts = (await d("GET", `/v1/hypervisor/odk/materializing-runs/${admitted.j.materializing_run?.id}/history`)).j.receipts || [];
+    const refusalReceipt = receipts.find((r) => r.op === "execution_refused");
+    const logs = await visit(`${s3Base}/logs`, /execution requires a HELD lease|No logs|Failed to load logs|Unable to load/u);
+    await pg.getByRole("button", { name: "Clear all", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let allLogs = ""; for (let i = 0; i < 15 && !/MaterializingRun admitted/u.test(allLogs); i++) { await pg.waitForTimeout(700); allLogs = await text(); }
+    ok("a source's Logs are its syncs' run receipts: the daemon's refusal of an execute shows as an ERROR with its reason and outcome (INFO hidden by default), and with the level filter cleared the admission and the cancel show too",
+      refusedExecute.status === 400 && refusedExecute.j.error?.code === "execution_lease_not_obtained" && !!refusalReceipt
+        && logs.includes(`ERROR`) && logs.includes(String(refusalReceipt?.summary)) && /"outcome": "execution_lease_not_obtained"/u.test(logs) && /"sync": "Plants import"/u.test(logs) && !/MaterializingRun admitted/u.test(logs)
+        && /MaterializingRun admitted/u.test(allLogs) && /cancel/iu.test(after(allLogs, "level time message", 2000)) && !/Failed to load logs|Unable to load/u.test(logs + allLogs),
+      `execute ${refusedExecute.status} ${refusedExecute.j.error?.code} · ${after(logs, "ERROR", 120)} · cleared: ${/MaterializingRun admitted/u.test(allLogs) ? "admission shown" : "admission ABSENT"}`);
     // Run and Delete, as a person presses them: each refused by name — nothing runs, the plan is untouched
     const syncWrites = [];
     const onSyncWrite = async (r) => { if (/\/magritte-coordinator\/api\/build\//u.test(r.url())) syncWrites.push({ status: r.status(), j: await r.json().catch(() => ({})) }); };
@@ -278,6 +328,28 @@ async function run() {
     ok("an existing REST source's connection settings show its domain, and its declarer's change becomes the source's endpoint, keeping its path — receipted",
       shownHost === "api.example.test" && edited?.endpoint === "https://orders.example.test/orders" && (edited?.receipt_refs || []).length === 2,
       `shown ${shownHost || "(none)"} · endpoint ${edited?.endpoint} · ${(edited?.receipt_refs || []).length} receipts`);
+
+    // ---- (cut D5) a sync's writes, through the serve with the page's own bodies. A click cannot reach them yet — the
+    // reference's save first loads its checkpoint prompt, whose chunks the local mirror lacks — so they are asserted here
+    const SH = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}${syncBase}/configuration` };
+    const serveJ = (method, p, body) => fetch(`${SERVE}${p}`, { method, headers: SH, body: body === undefined ? undefined : JSON.stringify(body) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => null) }));
+    const syncRid = syncBase.split("/").pop();
+    const stored = (await serveJ("POST", "/magritte-coordinator/api/extract-store/extracts/bulk", [syncRid])).j?.[syncRid] || {};
+    const withAdapter = (a, extra = {}) => ({ ...stored, ...extra, extractConfig: { ...stored.extractConfig, sourceAdapter: { ...stored.extractConfig?.sourceAdapter, ...a } } });
+    const saved = await serveJ("PUT", `/magritte-coordinator/api/extract-store/extract/${syncRid}`, withAdapter({ leaseTtlSeconds: 600 }));
+    const planSaved = (await d("GET", `/v1/hypervisor/odk/capability-lease-plans/${planId}`)).j.capability_lease_plan || {};
+    const wrongPurpose = await serveJ("PUT", `/magritte-coordinator/api/extract-store/extract/${syncRid}`, withAdapter({ leaseTtlSeconds: 600, purpose: "anything else" }));
+    const planKept = (await d("GET", `/v1/hypervisor/odk/capability-lease-plans/${planId}`)).j.capability_lease_plan || {};
+    const dupDeclared = await serveJ("POST", "/magritte-coordinator/api/build/add-extract?branchName=master", { ...stored, extractName: "Plants copy" });
+    const noLadder = await serveJ("POST", "/magritte-coordinator/api/build/add-extract?branchName=master", withAdapter({ connectorMapping: null }, { extractName: "Plants orphan" }));
+    const plansNow = (await d("GET", "/v1/hypervisor/odk/capability-lease-plans")).j.capability_lease_plans || [];
+    const copy = plansNow.find((x) => x.name === "Plants copy");
+    ok("a sync's configuration is its plan: Save re-declares it (the daemon's receipted revision), a purpose its policy view does not grant is the daemon's own refusal by name, a new sync declares a plan on the ladder its configuration names, and one naming no ladder is refused by name",
+      saved.status === 200 && planSaved.revision === 2 && planSaved.ttl_seconds === 600 && (planSaved.history || []).at(-1)?.op === "patched"
+        && wrongPurpose.status === 409 && wrongPurpose.j?.errorName === "Hypervisor:lease_plan_purpose_mismatch" && planKept.revision === 2 && planKept.purpose === "plant catalog"
+        && dupDeclared.status === 200 && /^ri\.magritte\.\.extract\.[0-9a-f-]{36}$/u.test(String(dupDeclared.j)) && copy?.data_source_id === plantsId && copy?.connector_mapping_id === mappingId && copy?.status === "declared"
+        && noLadder.status === 409 && noLadder.j?.errorName === "Hypervisor:DataConnectionSyncLadderRequired" && !plansNow.some((x) => x.name === "Plants orphan"),
+      `save ${saved.status} → plan r${planSaved.revision} ttl ${planSaved.ttl_seconds} · purpose ${wrongPurpose.status} ${wrongPurpose.j?.errorName} (plan r${planKept.revision}) · new ${dupDeclared.status} ${copy ? `plan ${copy.status} on ${copy.connector_mapping_id}` : "NO PLAN"} · no ladder ${noLadder.status} ${noLadder.j?.errorName}`);
 
     // ---- refused by name: a type this plane cannot create, and a write the app would send that is not bound ----------
     const H = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}${BASE}/sources/new` };

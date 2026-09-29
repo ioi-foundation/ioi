@@ -8,8 +8,8 @@
 //
 // Two proof layers:
 //   1. STATIC ASSET PARITY — a JS asset served through /__apps is byte-identical to the same asset
-//      from the capture server EXCEPT the narrow declared wire transforms (origin-fold + capitalized
-//      brand-token rewrite). Any other divergence fails.
+//      from the capture server EXCEPT the narrow declared wire transforms (origin-fold, the reference
+//      messages made true, capitalized brand-token rewrite). Any other divergence fails.
 //   2. RUNTIME UX PARITY — Playwright boots each route and classifies the UX class, control
 //      inventory, panels; screenshots; classifies console/network failures.
 //
@@ -43,8 +43,10 @@ if (SHOTS) { try { mkdirSync(SHOTS, { recursive: true }); } catch { /* */ } }
 
 const sha = (buf) => createHash("sha256").update(buf).digest("hex");
 // The EXACT declared wire transform the serve proxy applies to a content-addressable JS asset
-// (asset-path requests are not fold-flagged, so brand-token rewrite only). Used to prove parity.
-const brandTransform = (buf) => Buffer.from(buf.toString("utf8").replace(/Palantir/g, "IOI"), "utf8");
+// (asset-path requests are not fold-flagged, so the reference messages made true — adopted-data-connection.mjs
+// TRUTHFUL_MESSAGES, matched by id and exact text — then the brand-token rewrite). Used to prove parity.
+const { truthfulBundle } = await import(path.join(HERE, "adopted-data-connection.mjs"));
+const brandTransform = (buf) => Buffer.from(truthfulBundle(buf.toString("utf8")).replace(/Palantir/g, "IOI"), "utf8");
 
 // Decide the UX class from DOM signals; local capture only. A page that renders nothing or an
 // error boundary is "blocked_missing_capture" — the static capture lacks a chunk / API response /

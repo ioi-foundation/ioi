@@ -91,13 +91,17 @@ export function callerSyncsOf(plans, runs, sources, ownerRef = null) {
 }
 // A materializing run as the reference's build: its job status (what the Syncs list shows) and its build status. A
 // planned run waits for its lease (a wallet grant); one holding its lease is running; an executed run registered its
-// object set; a run whose last execute was refused failed (it may be tried again while it holds its lease); a run
-// cancelled, or whose lease was released unexecuted, is canceled.
+// object set; a run whose last execute ended without registering one failed — refused (no authority, a stale binding or
+// credential), its source contact failed, or its batch was rejected — and it may be tried again while it holds its lease;
+// a run cancelled, or whose lease was released unexecuted, is canceled.
+const FAILED_EXECUTE_OPS = new Set(["execution_refused", "source_contact_failed", "validation_result"]);
 export function runStatusOf(run) {
   const last = (run?.history || []).at(-1)?.op;
   switch (run?.status) {
     case "planned": return { build: "RUNNING", job: "WAITING" };
-    case "lease_obtained": return last === "execution_refused" ? { build: "FAILED", job: "FAILED" } : { build: "RUNNING", job: "RUNNING" };
+    // (a validated batch goes on to register its set in the same execute, so a held lease whose last act was a
+    // validation result was rejected)
+    case "lease_obtained": return FAILED_EXECUTE_OPS.has(last) ? { build: "FAILED", job: "FAILED" } : { build: "RUNNING", job: "RUNNING" };
     case "executed": return { build: "SUCCEEDED", job: "SUCCEEDED" };
     case "cancelled": case "lease_released": return { build: "CANCELED", job: "CANCELED" };
     default: return { build: null, job: null };
@@ -137,9 +141,11 @@ export function buildByRidOf(rid, syncs) {
 function extractOf(sync) {
   const p = sync.plan;
   return { sourceId: sourceRidOf(p.data_source_id), datasetId: sync.datasetRid, branchName: BRANCH, extractName: p.name || p.id,
-    // the plan's lease shape: what a run may obtain, for whom and why
-    extractConfig: { sourceAdapter: { type: SYNC_ADAPTER, ontology: p.ontology_ref || null, objectType: p.object_type_id || null, subject: p.subject || null, purpose: p.purpose || null,
-      operations: p.requested_operations || [], properties: p.requested_properties || [], leaseTtlSeconds: p.ttl_seconds ?? null }, transforms: [], completionStrategies: [],
+    // the plan's import ladder (cut D5: a new sync names the ladder it plans a lease on) and its lease shape: what a run
+    // may obtain, for whom and why
+    extractConfig: { sourceAdapter: { type: SYNC_ADAPTER, ontology: p.ontology_ref || null, objectType: p.object_type_id || null,
+      connectorMapping: p.connector_mapping_id || null, policyView: p.policy_view_id || null, transformationRun: p.transformation_run_id || null, ontologyProjection: p.ontology_projection_id || null,
+      subject: p.subject || null, purpose: p.purpose || null, operations: p.requested_operations || [], properties: p.requested_properties || [], leaseTtlSeconds: p.ttl_seconds ?? null }, transforms: [], completionStrategies: [],
       outputOptions: { transactionType: "SNAPSHOT", outputConstraints: [], schemaOptions: { timestampOptions: { useTimestampType: false } } } },
     maxAllowedDuration: null, sparkProfiles: [] };
 }
@@ -171,12 +177,12 @@ function syncDatasetResourceOf(y, base) {
   return base(y.datasetRid, y.datasetName, at, { path: y.datasetPath, urlVariables: { "compass:isProject": "false" },
     branches: [{ name: BRANCH, rid: `ri.foundry.main.branch.${uuidOf(`lease-plan-dataset:${y.plan.id}`)}.${Buffer.from(BRANCH).toString("base64")}`, urlVariables: { build: {} }, classificationRids: [] }] });
 }
-// A sync can be run, duplicated, deleted or created only through the ladder's own planes, never from this page. A run
-// needs a wallet-authority grant to obtain its lease. (409, never 403: the app words every 403 as "You do not have
-// sufficient permissions", a false reason, and prints a 409's top-level message.)
+// A sync is run or deleted only through the ladder's own planes, never from this page. A run needs a wallet-authority
+// grant to obtain its lease. (409, never 403: the app words every 403 as "You do not have sufficient permissions", a false
+// reason, and prints a 409's top-level message.) Saving a sync's configuration and adding a sync are bound (cut D5, below).
 export const SYNC_WRITE_REFUSALS = {
   run: { status: 409, code: "Hypervisor:DataConnectionRunNeedsApproval", message: "A sync's run is a materializing run: it obtains its lease only with a wallet-authority grant, issued through the Hypervisor's approval flow — never from this page. Nothing was run." },
-  write: { status: 409, code: "Hypervisor:DataConnectionSyncWriteNotBound", message: "A sync is a capability-lease plan on the import ladder: creating, duplicating, changing or deleting one is not bound here yet. Nothing was changed." },
+  write: { status: 409, code: "Hypervisor:DataConnectionSyncWriteNotBound", message: "A sync is a capability-lease plan on the import ladder: deleting one, or changing it outside its configuration, is not bound here yet. Nothing was changed." },
   // (and a preview of inbound data, which would read the source)
   preview: { status: 409, code: "Hypervisor:DataConnectionPreviewNeedsLease", message: "A preview reads the source, and reading a source needs a materializing run holding its lease (a wallet-authority grant). Nothing was read." },
 };
@@ -185,10 +191,76 @@ export const syncRefusalBodyOf = (refusal) => ({ errorCode: "CONFLICT", errorNam
 export function syncWriteRefusalOf(method, route) {
   if (method === "POST" && /^build\/trigger\/ri\.magritte\.\.extract\.[0-9a-f-]{36}$/u.test(route)) return SYNC_WRITE_REFUSALS.run;
   if (method === "POST" && route === "preview/source-adapter") return SYNC_WRITE_REFUSALS.preview;
-  if ((method === "DELETE" && /^build\/delete-extract\//u.test(route)) || (method === "POST" && route === "build/add-extract")
+  // (a configuration's Save — PUT extract-store/extract/<rid> — and a new sync — POST build/add-extract — are bound)
+  if (method === "PUT" && /^extract-store\/extract\/ri\.magritte\.\.extract\.[0-9a-f-]{36}$/u.test(route)) return null;
+  if ((method === "DELETE" && /^build\/delete-extract\//u.test(route))
     || (/^extract-store\/extract(\/|$)/u.test(route) && ["POST", "PUT", "DELETE"].includes(method) && route !== "extract-store/extract/history")) return SYNC_WRITE_REFUSALS.write;
   return null;
 }
+
+// ---- a sync's writes (cut D5). A sync's configuration IS its plan, so a configuration's Save re-declares the plan (the
+// daemon's PATCH, which re-validates the whole plan against its current ladder and receipts the revision), and a new
+// sync — Duplicate's, or New's — declares a plan on the ladder its configuration names (the daemon's create, validated
+// the same way). The daemon's refusals come back under their own codes. Only a source's declarer changes its syncs here
+// (as only they change its connection details), and what a plan does not hold — another adapter, transforms, another
+// transaction type, a duration or Spark profile, another dataset or source — is refused by name, never dropped.
+const LADDER_KEYS = { connectorMapping: "connector_mapping_id", policyView: "policy_view_id", transformationRun: "transformation_run_id", ontologyProjection: "ontology_projection_id" };
+const SHAPE_KEYS = { subject: "subject", purpose: "purpose", operations: "requested_operations", properties: "requested_properties", leaseTtlSeconds: "ttl_seconds" };
+const refuseSync = (code, message) => { throw new DataConnectionRefusal(`Hypervisor:${code}`, message); };
+function checkPlanShaped(extract) {
+  const cfg = extract?.extractConfig || {};
+  const adapter = cfg.sourceAdapter || {};
+  if (adapter.type !== SYNC_ADAPTER) refuseSync("DataConnectionSyncAdapterFixed", `A sync here is a capability-lease plan: its adapter is ${SYNC_ADAPTER}, not ${adapter.type || "none"}. Nothing was changed.`);
+  const extra = [];
+  if ((cfg.transforms || []).length) extra.push("transforms");
+  if ((cfg.completionStrategies || []).length) extra.push("completion strategies");
+  if (cfg.outputOptions?.transactionType && cfg.outputOptions.transactionType !== "SNAPSHOT") extra.push(`the ${cfg.outputOptions.transactionType} transaction type`);
+  if ((cfg.outputOptions?.outputConstraints || []).length) extra.push("output constraints");
+  if (extract?.maxAllowedDuration != null) extra.push("a maximum duration");
+  if ((extract?.sparkProfiles || []).length) extra.push("Spark profiles");
+  if (extract?.branchName && extract.branchName !== BRANCH) extra.push(`the branch ${extract.branchName}`);
+  if (extra.length) refuseSync("DataConnectionSyncFieldNotBound", `A capability-lease plan holds none of ${extra.join(", ")}: a run obtains a lease and registers one object set. Nothing was changed.`);
+  return adapter;
+}
+// the plan fields an extract's configuration names (only those present), ladder refs and lease shape
+function planFieldsOf(adapter) {
+  const out = {};
+  for (const [k, f] of Object.entries({ ...LADDER_KEYS, ...SHAPE_KEYS })) if (adapter[k] !== undefined) out[f] = adapter[k];
+  return out;
+}
+const sameJson = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+// PUT extract-store/extract/<rid> → the plan's PATCH body: only what changed ({} when nothing did)
+export function planPatchOf(extract, sync) {
+  if (!sync) refuseSync("DataConnectionSyncNotFound", "No sync of yours has this id.");
+  if (!sync.source?.caller_may_change) refuseSync("DataConnectionSyncNotYours", "Only the declarer of a sync's source changes its syncs here. Nothing was changed.");
+  const adapter = checkPlanShaped(extract);
+  if ((extract.sourceId && extract.sourceId !== sourceRidOf(sync.plan.data_source_id)) || (extract.datasetId && extract.datasetId !== sync.datasetRid))
+    refuseSync("DataConnectionSyncFieldNotBound", "A sync keeps its source and its output dataset (its plan's own). Nothing was changed.");
+  if ((adapter.ontology !== undefined && !sameJson(adapter.ontology, sync.plan.ontology_ref || null)) || (adapter.objectType !== undefined && !sameJson(adapter.objectType, sync.plan.object_type_id || null)))
+    refuseSync("DataConnectionSyncDerivedField", "A sync's ontology and object type follow its connector mapping: name another mapping to change them. Nothing was changed.");
+  const patch = {};
+  const name = String(extract.extractName ?? "").trim();
+  if (extract.extractName !== undefined && name !== (sync.plan.name || "")) { if (!name) refuseSync("DataConnectionSyncNameRequired", "A sync needs a name. Nothing was changed."); patch.name = name; }
+  for (const [f, v] of Object.entries(planFieldsOf(adapter))) if (!sameJson(v, sync.plan[f] ?? null)) patch[f] = v;
+  return patch;
+}
+// POST build/add-extract → the plan plane's declaration body: a plan on the caller's source, over the ladder its
+// configuration names
+export function planDeclarationOf(extract, sources) {
+  const src = sourceOf(sources, extract?.sourceId);
+  if (!src) refuseSync("DataConnectionSourceNotFound", "No source of yours has this id. Nothing was created.");
+  if (!src.caller_may_change) refuseSync("DataConnectionSyncNotYours", "Only a source's declarer adds syncs to it here. Nothing was created.");
+  const adapter = checkPlanShaped(extract);
+  const RUNG = { connectorMapping: "connector mapping (connectorMapping)", policyView: "policy-bound view (policyView)", transformationRun: "transformation run (transformationRun)", ontologyProjection: "ontology projection (ontologyProjection)" };
+  const missing = Object.keys(LADDER_KEYS).filter((k) => !String(adapter[k] || "").trim());
+  if (missing.length) refuseSync("DataConnectionSyncLadderRequired", `A sync is a lease plan over its import ladder: its configuration names its ${missing.map((k) => RUNG[k]).join(", ")}. Nothing was created.`);
+  const name = String(extract?.extractName ?? "").trim();
+  if (!name) refuseSync("DataConnectionSyncNameRequired", "A sync needs a name. Nothing was created.");
+  return { data_source_id: src.source_id, name, ...planFieldsOf(adapter) };
+}
+// POST foundry-catalog/api/catalog/createDataset2 → a new sync's output dataset is its plan's own, made with the plan by the
+// add-extract that follows; nothing is created here, and the answer names the dataset by the folder and name asked
+export const reservedDatasetRidOf = (parentRid, name) => `ri.foundry.main.dataset.${uuidOf(`sync-dataset-reservation:${parentRid}:${name}`)}`;
 // REST: the agent and external-stack reads — none exists, and none can be made here
 export const EXTERNAL_STACK_PRELOAD = { enabledAsSource: false, enabledAsDestination: false, canCreateExternalStacks: false };
 export const AGENTS = [];
@@ -250,7 +322,7 @@ function sourceDetailOf(src, syncs = []) {
     exportState: { __typename: "MagritteSourceExportState", isEnabled: false, isEnabledWithoutMarkingsValidation: false, markingsAllowedForExport: [], markingsAllowedForExportCount: 0 },
     codeResourceImportUsageRestrictionsV2: { __typename: "CodeResourceImportUsageRestrictions", allowStemmaRepositoriesUsage: false, allowDeployedApplicationsUsage: false },
     streamingExtracts: [], exports: [], changeDataCaptureStreamingExtract: null, importingCodeResources: [], streamingMediaExtracts: [], mediaExtracts: [], hyperAutoIntegrations: [],
-    tables: { __typename: "MagritteTablePage", values: [] }, magritteIcebergExtractsV2: { __typename: "MagritteIcebergExtractPage", totalNumberOfResults: 0 },
+    tables: { __typename: "MagritteTablePage", values: [], nextPageToken: null }, tableIndexSettings: null, magritteIcebergExtractsV2: { __typename: "MagritteIcebergExtractPage", totalNumberOfResults: 0 },
     webhooks: { __typename: "WebhooksPage", totalNumberOfResults: 0, values: [], nextPageToken: null }, lastKnownCdataOauthAuthenticationStatus: null, userUploadedJdbcDrivers: [],
     // a declared source syncs nothing, so no folder receives its datasets
     outputFolder: null,
@@ -383,7 +455,7 @@ export function authzOperationsOf(rids, sources, { signedIn = false } = {}) {
 
 export const SOURCE_PAGE_OPERATIONS = new Set(["SourcePageQuery", "SourcePageHelperQuery", "SourceBadConfigurationCalloutQuery", "CdataSourceInformationQuery", "ActiveResourceQuery", "WalkthroughsForResourceQuery", "SourceOutputFolderCondensedQuery",
   "SourceSettingsPageQuery", "SourceEditorQuery", "SourceEgressSelectPanelQuery", "SourceWebhooksPageQuery", "SourceWebhooksSectionQuery", "CodeImportsStepQuery", "ResourceMetadataQuery",
-  "ExportConfigurationStepQuery"]);
+  "ExportConfigurationStepQuery", "SourceVirtualTablesPageQuery", "VirtualTablesForSourceQuery", "SourceExplorerPageQuery"]);
 // no service a source's settings name exists here: no compute service, no egress or on-prem proxy
 const SERVICE_AVAILABILITY = { __typename: "MagritteServiceAvailability", computeService: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false },
   egressProxy: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false }, onPremProxy: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false } };
@@ -392,7 +464,8 @@ const sourceOf = (sources, rid) => (sources || []).find((s) => sourceRidOf(s.sou
 // a sync's pages (cut D4): its name, its source, its output dataset's health checks, its configuration and whether a
 // run of it is in progress
 // (and a source's Batch syncs table)
-export const SYNC_PAGE_OPERATIONS = new Set(["BatchExtractPageHelperQuery", "SourceNameAndTypeQuery", "ExtractOverviewQuery", "BatchExtractConfigurationPageQuery", "RunningBuildBannerQuery", "BatchExtractsForSourceTableQuery"]);
+export const SYNC_PAGE_OPERATIONS = new Set(["BatchExtractPageHelperQuery", "SourceNameAndTypeQuery", "ExtractOverviewQuery", "BatchExtractConfigurationPageQuery", "RunningBuildBannerQuery", "BatchExtractsForSourceTableQuery",
+  "NewDuplicateExtractPageQuery", "GetOrCreateSourceOutputFolder"]);
 const jobReportOf = (y, run) => ({ __typename: "JobReport", _id: cid(`JobReport:${run.id}`), status: runStatusOf(run).job, build: { __typename: "Build", _id: cid(`Build:${run.id}`), rid: buildRidOf(run.id) } });
 // a run as the table's build report: its status, and its one job's
 const buildReportOf = (run) => ({ __typename: "BuildReport", _id: cid(`BuildReport:${run.id}`), rid: buildRidOf(run.id), status: runStatusOf(run).build,
@@ -408,6 +481,8 @@ function datasetMetadataOf(y) {
 const extractNodeOf = (y) => ({ __typename: "MagritteExtract", _id: cid(`MagritteExtract:${y.rid}`), rid: y.rid, extractName: y.plan.name || y.plan.id, extractConfig: extractOf(y).extractConfig,
   dataset: { __typename: "CatalogDataset", _id: cid(`CatalogDataset:${y.datasetRid}`), rid: y.datasetRid, metadata: datasetMetadataOf(y) },
   branch: { __typename: "CatalogBranch", _id: cid(`CatalogBranch:${y.datasetRid}:${BRANCH}`), jobs: { __typename: "JobSearchResultPage", results: y.runs.slice(0, 1).map((r) => ({ __typename: "JobReport", _id: cid(`JobReport:${r.id}`), build: buildReportOf(r) })) } } });
+// the operations whose answer names the owner's organization folder (the serve reads the owner for these)
+export const OWNER_REF_OPERATIONS = new Set(["ResourceMetadataQuery", "GetOrCreateSourceOutputFolder"]);
 export const DATA_CONNECTION_GRAPHQL_OPERATIONS = new Set([...SOURCE_PAGE_OPERATIONS, ...CREATE_PAGE_OPERATIONS, ...SYNC_PAGE_OPERATIONS,
   "SourcesListQuery", "CreateSourceButtonQuery", "SplashTableQuery", "TargetsListQuery", "GetRemoteStoreRid", "RecentInstallationsPopoverQuery",
   "CommunicationChannelsQuery", "FoundryProvidedDriverQuery", "HasAipEnabledQuery", "CreatePolicyDialogQuery",
@@ -448,7 +523,10 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
       me: { __typename: "User", _id: cid("User:me"), organization: { __typename: "Organization", _id: cid("Organization:me"), enrollment: { __typename: "Enrollment", _id: cid("Enrollment:me"), administratorCommunicationControls: { __typename: "AdministratorCommunicationControls", disallowedCommunicationChannels: [] } } } } };
     // a source's page
     case "SourcePageQuery": case "SourcePageHelperQuery": case "SourceBadConfigurationCalloutQuery": case "CdataSourceInformationQuery": case "SourceOutputFolderCondensedQuery":
-    case "SourceSettingsPageQuery": case "SourceEditorQuery": case "SourceWebhooksPageQuery": case "SourceWebhooksSectionQuery": case "ExportConfigurationStepQuery": {
+    case "SourceSettingsPageQuery": case "SourceEditorQuery": case "SourceWebhooksPageQuery": case "SourceWebhooksSectionQuery": case "ExportConfigurationStepQuery":
+    // (cut D5) Virtual tables: none is registered on a source here, and none can be (canRegisterTable is false); Explore
+    // source: no compute service browses a source (the explorer says so, in words the adopted layer makes true)
+    case "SourceVirtualTablesPageQuery": case "VirtualTablesForSourceQuery": case "SourceExplorerPageQuery": {
       const src = sourceOf(ctx.sources, variables?.sourceRid || variables?.rid);
       // no identity provider federates a source's outbound calls
       return { ...root, source: src ? sourceDetailOf(src, ctx.syncs) : null, magritteServiceAvailability: SERVICE_AVAILABILITY, oidcMetadata: null };
@@ -498,6 +576,22 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
         branch: { __typename: "CatalogBranch", _id: cid(`CatalogBranch:${y.datasetRid}:${BRANCH}`), indirectlyRelevantSchedules: [] },
         source: { __typename: "MagritteSource", _id: cid(`MagritteSource:${sourceRidOf(y.plan.data_source_id)}`), type: sourceTypeOf(y.source.kind), runtimePlatform: { __typename: "CloudRuntimePlatform" } } } : null };
     }
+    // Duplicate sync: the original sync (its plan) as the new sync's starting state — no schedule runs it, and its source
+    // is the plan's
+    case "NewDuplicateExtractPageQuery": {
+      const y = (ctx.syncs || []).find((x) => x.rid === variables?.originalExtractRid);
+      return { ...root, extract: y ? { __typename: "MagritteExtract", _id: cid(`MagritteExtract:${y.rid}`), rid: y.rid,
+        branch: { __typename: "CatalogBranch", _id: cid(`CatalogBranch:${y.datasetRid}:${BRANCH}`), indirectlyRelevantSchedules: [] },
+        source: { __typename: "MagritteSource", _id: cid(`MagritteSource:${sourceRidOf(y.plan.data_source_id)}`), type: sourceTypeOf(y.source.kind), runtimePlatform: { __typename: "CloudRuntimePlatform" } } } : null };
+    }
+    // a new sync's output folder: a sync's dataset is placed in the owner's organization folder (where every plan's
+    // dataset is), which exists — nothing is created
+    case "GetOrCreateSourceOutputFolder": {
+      const src = sourceOf(ctx.sources, variables?.sourceRid);
+      const folder = ctx.ownerRef ? namespaceRidOf(ctx.ownerRef) : null;
+      return { ...root, getOrCreateSourceOutputFolderV2: { __typename: "GetOrCreateSourceOutputFolderResult", error: src && folder ? null : "NOT_FOUND",
+        source: src ? { __typename: "MagritteSource", _id: cid(`MagritteSource:${sourceRidOf(src.source_id)}`), outputFolder: folder ? { __typename: "CompassFolder", _id: cid(`CompassFolder:${folder}`), rid: folder } : null } : null } };
+    }
     // a source's Batch syncs table: its lease plans, newest first (no sync can be created here yet)
     case "BatchExtractsForSourceTableQuery": {
       const src = sourceOf(ctx.sources, variables?.sourceRid);
@@ -526,3 +620,97 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
     default: return null;
   }
 }
+
+// ---- the reference's own words, made true (cut D5). Where the reference tells a person to do something that does not
+// exist here — contact a representative, switch runtime, configure a catalog, enable imports that enable nothing — its
+// message is replaced at the wire in the reference's bundle (the seam the brand rewrite uses), matched by its id AND its
+// exact default text: a build whose text differs is left alone, and the verifier's assertion on the page goes red.
+export const TRUTHFUL_MESSAGES = [
+  // a source's Webhooks page, for a source reached directly (every source here)
+  { id: "d01b03c8f42d.webhooksDisabledCloudRuntime",
+    from: "Webhooks are not supported for this source when connecting via direct connection. To use webhooks, contact your Palantir representative or switch to a different runtime in <link>connection settings</link>.",
+    to: "Webhooks are not supported here: the Hypervisor has no webhook plane, so a source never makes a request on behalf of an action, and there is no other runtime to switch to." },
+  // Virtual tables: the callout above the page, and the auto-registration card (three builds of it)
+  { id: "43b60fbef911.codeRepositoriesCallout",
+    from: "To use virtual tables in code repositories you must enable <strong>code imports</strong> and <strong>exports</strong> in the source connection settings and then import the source into your code repository. Go to <here>Connection settings</here> to enable these.",
+    to: "Virtual tables are not supported here: the Hypervisor never queries a source in place. A source is read only by a sync run that holds its lease, into that sync's output dataset." },
+  ...["14f693b2335f.disabled", "69d8da344657.disabled", "1aeed661f579.disabled"].map((id) => ({ id,
+    from: "Auto-registration of tables is not available. No catalog is configured in <href>Connection settings</href>.",
+    to: "Auto-registration of tables is not available: no table catalog exists for a source here." })),
+  // Explore source, for a source reached directly
+  { id: "387c90f6857f.explorationsAreUnavailableDescription",
+    from: "This instance of Foundry does not support source exploration with Foundry Worker connections.",
+    to: "The Hypervisor never browses a source: it reads one only in a sync run, as one bounded, receipted batch under a wallet-authority lease." },
+];
+const messageLiteral = (id, text) => `{id:${JSON.stringify(id)},defaultMessage:${JSON.stringify(text)}}`;
+export function truthfulBundle(js) {
+  if (typeof js !== "string" || !js.includes("defaultMessage")) return js;
+  let out = js;
+  for (const m of TRUTHFUL_MESSAGES) { const from = messageLiteral(m.id, m.from); if (out.includes(from)) out = out.split(from).join(messageLiteral(m.id, m.to)); }
+  return out;
+}
+
+// ---- a source's Logs (cut D5): its log is what the daemon receipted for the runs of its syncs — each materializing run's
+// receipts (admitted, lease requested, obtained or refused, execution requested, source contact, validation, output,
+// cancel), in the reference telemetry viewer's own shape. A source with no run has no log. The viewer asks per time
+// range and filter; the filter is evaluated here over the entries. Nothing else is logged: no source process runs.
+export const sourceLogContainerRidOf = (sourceId) => `ri.foundry-telemetry-service.main.telemetry-container.${uuidOf(`source-log:${sourceId}`)}`;
+export const sourceLogSessionOf = (sourceId) => uuidOf(`source-log-session:${sourceId}`);
+// REST: GET /magritte-coordinator/api/source/telemetry/<rid>/details
+export function sourceTelemetryDetailsOf(rid, sources) {
+  const s = sourceOf(sources, rid);
+  return s ? { details: { containerRid: sourceLogContainerRidOf(s.source_id), sessionId: sourceLogSessionOf(s.source_id), sessionTags: [] } } : null;
+}
+// the caller's source a telemetry container and session name, or null
+export const sourceOfLogSession = (containerRid, sessionId, sources) => (sources || []).find((s) => sourceLogContainerRidOf(s.source_id) === containerRid && sourceLogSessionOf(s.source_id) === sessionId) || null;
+const ERROR_OPS = new Set(["execution_refused", "source_contact_failed", "lease_refused"]);
+export function logLevelOf(receipt) {
+  if (ERROR_OPS.has(receipt?.op) || (receipt?.op === "validation_result" && receipt?.outcome !== "ok")) return "ERROR";
+  return receipt?.outcome && receipt.outcome !== "ok" ? "WARN" : "INFO";
+}
+// the source's log entries: runs = [{ run, plan, receipts }] for the source's syncs
+export function sourceLogEntriesOf(runs) {
+  const out = [];
+  for (const { run, plan, receipts } of runs || []) for (const r of receipts || []) {
+    if (!r?.at) continue;
+    out.push({ level: logLevelOf(r), time: r.at, message: String(r.summary || r.op || ""), origin: "materializing-run",
+      params: { sync: String(plan?.name || plan?.id || ""), run: String(run?.name || run?.id || ""), op: String(r.op || ""), outcome: String(r.outcome || ""), receipt: String(r.receipt_ref || "") } });
+  }
+  return out;
+}
+// a field by name: a top-level field, a param (by its name or as params.<name>)
+const fieldOf = (e, field) => { const f = String(field || ""); if (f in e) return e[f]; const p = f.startsWith("params.") ? f.slice(7) : f; return e.params?.[p]; };
+// a contains filter's snippet: *x* contains, x* starts with, *x ends with, x equals (the viewer's own wildcards)
+const snippetMatches = (value, snippet) => {
+  const v = String(value ?? "").toLowerCase(), sn = String(snippet ?? "").toLowerCase();
+  const lead = sn.startsWith("*"), trail = sn.endsWith("*") && sn.length > 1, core = sn.replace(/^\*|\*$/gu, "");
+  return lead && trail ? v.includes(core) : trail ? v.startsWith(core) : lead ? v.endsWith(core) : v === core;
+};
+// A log filter as the viewer sends it (a tagged union); a filter this layer does not know is refused by name rather than
+// ignored (an ignored filter would show entries the person excluded).
+export class LogFilterRefusal extends Error { constructor(type) { super(`the log filter ${type || "(untyped)"} is not bound here`); this.code = "Hypervisor:DataConnectionLogFilterNotBound"; } }
+export function logFilterMatches(filter, e) {
+  if (filter == null) return true;
+  const inner = filter[filter.type];
+  switch (filter.type) {
+    case "andLogFilter": return (inner?.filters || []).every((f) => logFilterMatches(f, e));
+    case "orLogFilter": return (inner?.filters || []).some((f) => logFilterMatches(f, e));
+    case "notLogFilter": return !logFilterMatches(inner?.filter, e);
+    case "exactMatchOnFieldLogFilter": return String(fieldOf(e, inner?.field) ?? "") === String(inner?.value ?? "");
+    case "containsInFieldLogFilter": return snippetMatches(fieldOf(e, inner?.field), inner?.snippet);
+    case "isEmptyLogFilter": { const v = fieldOf(e, inner?.field); return v == null || v === ""; }
+    default: throw new LogFilterRefusal(filter.type);
+  }
+}
+const micros = (iso) => { const ms = Date.parse(iso); if (!Number.isFinite(ms)) return null; const frac = /\.(\d+)/u.exec(iso)?.[1] || ""; return ms * 1000 + Number((frac.slice(3, 6) || "0").padEnd(3, "0")); };
+// REST: POST /foundry-telemetry-service/api/containers/<c>/sessions/<s>/logs/read/v3 — a page of the entries in
+// [fromInclusive, toExclusive) (microseconds) that match the filter, newest first unless chronological
+export function sourceLogPageOf(entries, request) {
+  const from = Number(request?.fromInclusive), to = Number(request?.toExclusive);
+  const chrono = request?.chronological === true;
+  const rows = (entries || []).map((e) => ({ e, t: micros(e.time) })).filter(({ e, t }) => t != null && (!Number.isFinite(from) || t >= from) && (!Number.isFinite(to) || t < to) && logFilterMatches(request?.filter, e));
+  rows.sort((a, b) => (chrono ? a.t - b.t : b.t - a.t));
+  const size = Math.max(1, Math.min(1000, Number(request?.pageSizeLimit) || 100));
+  return { logEntries: rows.slice(0, size).map(({ e }) => ({ payload: { type: "serviceLogV1", serviceLogV1: { ...e, unsafeParams: {}, stacktrace: null } } })) };
+}
+export const LOG_THROTTLE_STATUS = { hasDroppedLogs: false, approximateDroppedRecordCount: 0 };

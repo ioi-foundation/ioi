@@ -82,7 +82,16 @@ const PINS = {
   // 2026-09-27 (R-241, Sessions cut 1): first rows — rename, auto-stop, Goal mode and the page's own port sync
   // refused by name; services and tasks named (absent planes); logs bound in the adapter but not yet live-asserted.
   sessions: { total: 24, bound: 12, refused: 7, named_gap: 5, open: 0 },
-  // 2026-09-28 (R-240 Arm A, dead-control census): Monitor this object type no longer opens the shell's not-found page — the
+  // 2026-09-28 (R-241, Ontology Manager O7): four open rows over the daemon's `caller_may_change` (the ODK list and get now say
+  // per read whether the caller may change an ontology: its owner or an administrator of its organization). Editing splits
+  // in four — who may edit (a member reads the reference's own "You do not have edit permissions", the owner gets the
+  // editable page) and the owner's Review changes bound; an object type's save named (the reference's "Backing datasource is
+  // missing"); an action type's save refused by name (Hypervisor:OntologyEditNotBound). New splits in three — disabled for a
+  // member with the reference's own, now true, permission reason (bound); the owner's creation wizard, stopped at its
+  // backing datasource, and the kinds the model keeps none of, named. Object views named ("Object views are not enabled": the
+  // Hypervisor keeps no object views); the migration assistant named (nothing to move into project permissions).
+  // 60 → 65; bound 28 → 31, refused 7 → 8, named 20 → 25, open 5 → 1 (Explorer's object search stays open).
+  // Before that, 2026-09-28 (R-240 Arm A, dead-control census): Monitor this object type no longer opens the shell's not-found page — the
   // reference's Data Health links open Operations → Health. Its row becomes a named gap: an object type is not a health-check
   // target and holds no objects to observe. named 19 → 20; open 6 → 5.
   // Before that, 2026-09-28 (R-241, Ontology Manager O6, proposals): the one open Proposals row becomes twenty over ODK's proposal plane.
@@ -104,7 +113,16 @@ const PINS = {
   // gaps (what an ODK model does not hold, in the reference's own empty states; Cleanup's usage read); 8 open (Functions
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
-  "ontology-manager": { total: 60, bound: 28, refused: 7, named_gap: 20, open: 5 },
+  "ontology-manager": { total: 65, bound: 31, refused: 8, named_gap: 25, open: 1 },
+  // 2026-09-28 (R-241, Data Connection D2 part 3 / D5): 41 → 43. A source's Virtual tables (none, and none can be) and
+  // Logs (the reference's log viewer over its syncs' run receipts) bound; Explore source (no explore plane) and the Webhooks
+  // callout (no webhook plane, no other runtime) named, each shown in the reference's words made true at the wire; a failed
+  // run bound by check:adopted-data-connection-runs (a sealed authority grants the lease and the session, the daemon refuses
+  // the grantless execute, and the sync reads Failed). Duplicate sync's page joins as bound and its destination crumb as a
+  // named gap. The writes (New, Duplicate's Create sync, Save) stay open: bound at the adopted layer and asserted through
+  // the serve, but a click never reaches them — the reference's checkpoint prompt chunks are missing from the local mirror.
+  // bound 21 → 25, named 11 → 14, open 6 → 1.
+  // Earlier, in order:
   // 2026-09-28 (R-241, Data Connection D0): the harvest — 22 flow states, all open until the app is adopted. Examples
   // built on the tenant at the owner's direction (a REST API source; the "Connecting to AWS S3" example, its sync run —
   // it fails without the training bucket's credentials) gave a source's and a sync's pages.
@@ -127,7 +145,7 @@ const PINS = {
   // and Delete refused by name; Versions' history, Created by, the output dataset, the live banner and the build report
   // named; a failed run (needs a grant to drive) and New / Duplicate / Save (undriven) open. The splash row's proof text
   // (stale since D3, so this gate was red) now cites the assertion. 30 → 41.
-  "data-connection": { total: 41, bound: 21, refused: 3, named_gap: 11, open: 6 },
+  "data-connection": { total: 43, bound: 25, refused: 3, named_gap: 14, open: 1 },
   // 2026-09-28 (R-241, Approvals A2): the two open rows become five, all driven live by check:adopted-approvals over daemon
   // truth. A challenge Approved (the operator's passphrase on the daemon's decision route mints one grant), Completed (the
   // requester's retry consumes it; a replay is refused) and Closed (a restarted daemon with a shortened pending window —

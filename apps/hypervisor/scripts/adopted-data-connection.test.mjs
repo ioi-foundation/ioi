@@ -115,6 +115,8 @@ test("a run's status is the reference build's: planned waits, a held lease runs,
   assert.deepEqual(DC.runStatusOf({ status: "planned" }), { build: "RUNNING", job: "WAITING" });
   assert.deepEqual(DC.runStatusOf({ status: "lease_obtained", history: [{ op: "lease_obtained" }] }), { build: "RUNNING", job: "RUNNING" });
   assert.deepEqual(DC.runStatusOf({ status: "lease_obtained", history: [{ op: "lease_obtained" }, { op: "execution_refused" }] }), { build: "FAILED", job: "FAILED" });
+  assert.deepEqual(DC.runStatusOf({ status: "lease_obtained", history: [{ op: "execution_requested" }, { op: "source_contact_started" }, { op: "source_contact_failed" }] }), { build: "FAILED", job: "FAILED" }, "a failed source contact fails the run");
+  assert.deepEqual(DC.runStatusOf({ status: "lease_obtained", history: [{ op: "source_contact_completed" }, { op: "validation_result" }] }), { build: "FAILED", job: "FAILED" }, "a rejected batch fails the run");
   assert.deepEqual(DC.runStatusOf({ status: "executed" }), { build: "SUCCEEDED", job: "SUCCEEDED" });
   assert.deepEqual(DC.runStatusOf({ status: "cancelled" }), { build: "CANCELED", job: "CANCELED" });
   assert.deepEqual(DC.runStatusOf({ status: "lease_released" }), { build: "CANCELED", job: "CANCELED" });
@@ -166,7 +168,7 @@ test("a sync's pages answer in the reference's own documents: its name, its sour
   assert.deepEqual([res.name, res.path, res.branches[0].name], ["Plants import objects", "/local/Plants import objects", "master"]);
 });
 
-test("a sync's writes are refused by name: Run needs a wallet-authority grant (the approval flow), and create, duplicate, change or delete are not bound", () => {
+test("a sync's Run and Delete are refused by name — Run needs a wallet-authority grant (the approval flow) — while its configuration's Save and a new sync are bound (cut D5)", () => {
   const rid = DC.extractRidOf("clp_1");
   const run = DC.syncWriteRefusalOf("POST", `build/trigger/${rid}`);
   assert.deepEqual([run.status, run.code], [409, "Hypervisor:DataConnectionRunNeedsApproval"], "never 403: the app words any 403 as a missing permission");
@@ -174,8 +176,9 @@ test("a sync's writes are refused by name: Run needs a wallet-authority grant (t
   assert.equal(DC.syncRefusalBodyOf(run).message, run.message, "the app prints a refusal's top-level message");
   assert.equal(DC.syncWriteRefusalOf("POST", "preview/source-adapter").code, "Hypervisor:DataConnectionPreviewNeedsLease", "a preview would read the source");
   assert.equal(DC.syncWriteRefusalOf("DELETE", `build/delete-extract/${rid}`).code, "Hypervisor:DataConnectionSyncWriteNotBound");
-  assert.equal(DC.syncWriteRefusalOf("POST", "build/add-extract").code, "Hypervisor:DataConnectionSyncWriteNotBound");
-  assert.equal(DC.syncWriteRefusalOf("PUT", `extract-store/extract/${rid}`).code, "Hypervisor:DataConnectionSyncWriteNotBound");
+  assert.equal(DC.syncWriteRefusalOf("DELETE", `extract-store/extract/${rid}`).code, "Hypervisor:DataConnectionSyncWriteNotBound");
+  assert.equal(DC.syncWriteRefusalOf("POST", "build/add-extract"), null, "a new sync is a plan declaration (bound)");
+  assert.equal(DC.syncWriteRefusalOf("PUT", `extract-store/extract/${rid}`), null, "a configuration's Save is a plan re-declaration (bound)");
   assert.equal(DC.syncWriteRefusalOf("POST", "extract-store/extract/history"), null, "reading a sync's versions is not a write");
   assert.equal(DC.syncWriteRefusalOf("POST", "extract-store/extracts/bulk"), null);
 });
@@ -198,4 +201,97 @@ test("changing a source: only its declarer, only a REST source's one domain, nev
   const saved = DC.updatedSourceOf({ ...mine, endpoint: "https://example.com" });
   assert.equal(saved.updatedSource.sourceConfig.config.domains[0].host, "example.com");
   assert.deepEqual(saved.updatedSource.mavenCoordinates, { userProvided: [], foundryProvided: [] });
+});
+
+// ---- cut D5: a source's own pages, a sync's writes, and the reference's words made true
+test("a source's Virtual tables and Explore pages answer from its record: no table is registered and none can be, and nothing browses it", () => {
+  const rid = DC.sourceRidOf("ds_2");
+  const vt = DC.dataConnectionGraphqlFacts("SourceVirtualTablesPageQuery", { sourceRid: rid }, { sources: [bucket] }).source;
+  assert.deepEqual([vt.type, vt.permissions.canRegisterTable, vt.tableIndexSettings], ["s3-direct", false, null]);
+  const list = "query VirtualTablesForSourceQuery($rid: RID!, $pageSize: Int!) { source(rid: $rid) { type tables(pageSize: $pageSize) { values { rid __typename } nextPageToken __typename } _id __typename } __typename }";
+  assert.deepEqual(answerDocument(list, DC.dataConnectionGraphqlFacts("VirtualTablesForSourceQuery", { rid, pageSize: 15 }, { sources: [bucket] }), null, "VirtualTablesForSourceQuery").source.tables, { values: [], nextPageToken: null, __typename: "MagritteTablePage" });
+  const ex = DC.dataConnectionGraphqlFacts("SourceExplorerPageQuery", { sourceRid: rid }, { sources: [bucket] });
+  assert.deepEqual([ex.source.permissions.canExploreSource, ex.magritteServiceAvailability.computeService.isAvailable], [false, false], "no compute service browses a source");
+  assert.equal(DC.dataConnectionGraphqlFacts("SourceExplorerPageQuery", { sourceRid: DC.sourceRidOf("ds_4") }, { sources: [bucket] }).source, null, "another's source is not answered");
+});
+
+test("the reference's words are made true at the wire — matched by message id and exact text, so another build's text is left alone", () => {
+  const cloud = DC.TRUTHFUL_MESSAGES.find((m) => m.id === "d01b03c8f42d.webhooksDisabledCloudRuntime");
+  const chunk = `let s={id:"d01b03c8f42d.webhooksDisabledCloudRuntime",defaultMessage:${JSON.stringify(cloud.from)}};let o={id:"x.other",defaultMessage:"Webhooks are not supported for this source when connecting via agent."};`;
+  const out = DC.truthfulBundle(chunk);
+  assert.ok(out.includes(JSON.stringify(cloud.to)) && !out.includes("contact your Palantir representative"), "the false runtime advice is gone");
+  assert.ok(out.includes("x.other"), "other messages are untouched");
+  const drifted = chunk.replace("contact your Palantir representative", "contact your account team");
+  assert.equal(DC.truthfulBundle(drifted), drifted, "a build whose text differs is left alone (the verifier's page assertion goes red)");
+  assert.ok(DC.TRUTHFUL_MESSAGES.every((m) => !/'/u.test(m.to.replace(/[a-z]'s\b/gu, ""))), "no ICU quote character slips into a replacement");
+  assert.equal(DC.truthfulBundle("no messages here"), "no messages here");
+});
+
+test("a source's Logs are its syncs' run receipts in the telemetry viewer's shape, filtered as the viewer asks, and only for the caller's source", () => {
+  const rid = DC.sourceRidOf("ds_2");
+  const details = DC.sourceTelemetryDetailsOf(rid, [bucket]).details;
+  assert.equal(DC.sourceOfLogSession(details.containerRid, details.sessionId, [bucket]).source_id, "ds_2");
+  assert.equal(DC.sourceTelemetryDetailsOf(DC.sourceRidOf("ds_4"), [bucket]), null, "another's source keeps no log here");
+  assert.equal(DC.sourceOfLogSession(details.containerRid, "other-session", [bucket]), null);
+  const receipts = [
+    { op: "created", outcome: "ok", summary: "MaterializingRun admitted (no lease yet)", at: "2026-09-28T10:00:00.100000000Z", receipt_ref: "agentgres://r/1" },
+    { op: "execution_refused", outcome: "execution_lease_not_obtained", summary: "run is 'planned' — execution requires a HELD lease", at: "2026-09-28T10:00:01.250000000Z", receipt_ref: "agentgres://r/2" },
+    { op: "patch_rejected", outcome: "materializing_run_scope_frozen", summary: "scope frozen", at: "2026-09-28T10:00:02Z", receipt_ref: "agentgres://r/3" },
+  ];
+  const entries = DC.sourceLogEntriesOf([{ run: { id: "mrun_1", name: "plants-run-1" }, plan, receipts }]);
+  assert.deepEqual(entries.map((e) => e.level), ["INFO", "ERROR", "WARN"]);
+  assert.deepEqual(entries[1].params, { sync: "Plants import", run: "plants-run-1", op: "execution_refused", outcome: "execution_lease_not_obtained", receipt: "agentgres://r/2" });
+  const notInfo = { andLogFilter: { filters: [{ notLogFilter: { filter: { exactMatchOnFieldLogFilter: { field: "level", value: "INFO" }, type: "exactMatchOnFieldLogFilter" } }, type: "notLogFilter" }] }, type: "andLogFilter" };
+  const from = Date.parse("2026-09-28T09:55:00Z") * 1000, to = Date.parse("2026-09-28T10:05:00Z") * 1000;
+  const page = DC.sourceLogPageOf(entries, { fromInclusive: from, toExclusive: to, pageSizeLimit: 100, chronological: false, filter: notInfo });
+  assert.deepEqual(page.logEntries.map((e) => e.payload.serviceLogV1.level), ["WARN", "ERROR"], "the viewer's default hides INFO; newest first");
+  assert.equal(page.logEntries[1].payload.type, "serviceLogV1");
+  const chrono = DC.sourceLogPageOf(entries, { fromInclusive: from, toExclusive: to, chronological: true, filter: { andLogFilter: { filters: [] }, type: "andLogFilter" } });
+  assert.deepEqual(chrono.logEntries.map((e) => e.payload.serviceLogV1.params.op), ["created", "execution_refused", "patch_rejected"]);
+  const contains = { containsInFieldLogFilter: { field: "message", snippet: "*HELD*" }, type: "containsInFieldLogFilter" };
+  assert.deepEqual(DC.sourceLogPageOf(entries, { fromInclusive: from, toExclusive: to, filter: contains }).logEntries.length, 1);
+  const byParam = { exactMatchOnFieldLogFilter: { field: "params.outcome", value: "ok" }, type: "exactMatchOnFieldLogFilter" };
+  assert.deepEqual(DC.sourceLogPageOf(entries, { fromInclusive: from, toExclusive: to, filter: byParam }).logEntries.map((e) => e.payload.serviceLogV1.params.op), ["created"]);
+  const window = DC.sourceLogPageOf(entries, { fromInclusive: Date.parse("2026-09-28T10:00:01Z") * 1000, toExclusive: Date.parse("2026-09-28T10:00:02Z") * 1000, filter: null });
+  assert.deepEqual(window.logEntries.map((e) => e.payload.serviceLogV1.params.op), ["execution_refused"], "only the asked time range");
+  assert.throws(() => DC.sourceLogPageOf(entries, { filter: { type: "regexLogFilter", regexLogFilter: {} } }), (e) => e.code === "Hypervisor:DataConnectionLogFilterNotBound", "an unknown filter is refused, never ignored");
+  assert.deepEqual(DC.sourceLogEntriesOf([]), [], "no run: no log");
+});
+
+test("Duplicate sync opens over the original's plan, and its output folder is the owner's organization folder", () => {
+  const syncs = DC.callerSyncsOf([plan], [], [bucket], "org://local");
+  const dup = DC.dataConnectionGraphqlFacts("NewDuplicateExtractPageQuery", { originalExtractRid: syncs[0].rid }, { sources: [bucket], syncs });
+  assert.deepEqual([dup.extract.rid, dup.extract.branch.indirectlyRelevantSchedules, dup.extract.source.type], [syncs[0].rid, [], "s3-direct"]);
+  assert.equal(DC.dataConnectionGraphqlFacts("NewDuplicateExtractPageQuery", { originalExtractRid: "ri.magritte..extract.other" }, { sources: [bucket], syncs }).extract, null);
+  const folder = DC.dataConnectionGraphqlFacts("GetOrCreateSourceOutputFolder", { sourceRid: DC.sourceRidOf("ds_2") }, { sources: [bucket], ownerRef: "org://local" }).getOrCreateSourceOutputFolderV2;
+  assert.deepEqual([folder.error, folder.source.outputFolder.rid], [null, syncs[0].folder.rid], "the folder every plan's dataset sits in");
+  assert.equal(DC.dataConnectionGraphqlFacts("GetOrCreateSourceOutputFolder", { sourceRid: DC.sourceRidOf("ds_4") }, { sources: [bucket], ownerRef: "org://local" }).getOrCreateSourceOutputFolderV2.error, "NOT_FOUND");
+  assert.ok(DC.OWNER_REF_OPERATIONS.has("GetOrCreateSourceOutputFolder"));
+});
+
+test("a sync's configuration is its plan: Save re-declares only what changed, a new sync declares a plan on the ladder it names, and what a plan does not hold is refused by name", () => {
+  const theirs = DC.callerSourcesOf([bucket, teamProject], "user://me", ["project://team"]);
+  const laddered = { ...plan, connector_mapping_id: "cmap_1", policy_view_id: "pbdv_1", transformation_run_id: "trun_1", ontology_projection_id: "oproj_1" };
+  const [sync] = DC.callerSyncsOf([laddered], [], theirs, "org://local");
+  const stored = DC.extractsBulkOf([sync.rid], [sync])[sync.rid];
+  assert.deepEqual(stored.extractConfig.sourceAdapter.connectorMapping, "cmap_1", "the configuration names the plan's ladder");
+  assert.deepEqual(DC.planPatchOf(stored, sync), {}, "an unchanged configuration changes nothing");
+  const edit = (adapter, extra = {}) => ({ ...stored, ...extra, extractConfig: { ...stored.extractConfig, sourceAdapter: { ...stored.extractConfig.sourceAdapter, ...adapter } } });
+  assert.deepEqual(DC.planPatchOf(edit({ leaseTtlSeconds: 600, operations: ["read"] }, { extractName: "Plants nightly" }), sync), { name: "Plants nightly", ttl_seconds: 600, requested_operations: ["read"] });
+  const code = (fn) => { try { fn(); return null; } catch (e) { return e.code; } };
+  assert.equal(code(() => DC.planPatchOf(edit({ type: "file-based-source-adapter" }), sync)), "Hypervisor:DataConnectionSyncAdapterFixed");
+  assert.equal(code(() => DC.planPatchOf({ ...stored, extractConfig: { ...stored.extractConfig, transforms: [{ type: "x" }] } }, sync)), "Hypervisor:DataConnectionSyncFieldNotBound", "transforms are never dropped silently");
+  assert.equal(code(() => DC.planPatchOf({ ...stored, extractConfig: { ...stored.extractConfig, outputOptions: { transactionType: "APPEND" } } }, sync)), "Hypervisor:DataConnectionSyncFieldNotBound");
+  assert.equal(code(() => DC.planPatchOf(edit({ objectType: "tree" }), sync)), "Hypervisor:DataConnectionSyncDerivedField", "ontology and object type follow the mapping");
+  assert.equal(code(() => DC.planPatchOf({ ...stored, datasetId: "ri.foundry.main.dataset.other" }, sync)), "Hypervisor:DataConnectionSyncFieldNotBound");
+  assert.equal(code(() => DC.planPatchOf(stored, { ...sync, source: { ...sync.source, caller_may_change: false } })), "Hypervisor:DataConnectionSyncNotYours");
+  assert.equal(code(() => DC.planPatchOf(stored, undefined)), "Hypervisor:DataConnectionSyncNotFound");
+  assert.equal(code(() => DC.planPatchOf(stored, sync)), null);
+  assert.deepEqual(DC.planDeclarationOf({ ...stored, extractName: " Plants copy " }, theirs), { data_source_id: "ds_2", name: "Plants copy", connector_mapping_id: "cmap_1", policy_view_id: "pbdv_1", transformation_run_id: "trun_1",
+    ontology_projection_id: "oproj_1", subject: "agent://materializer", purpose: "plant catalog", requested_operations: ["read", "transform"], requested_properties: ["plant_id"], ttl_seconds: 900 });
+  assert.equal(code(() => DC.planDeclarationOf(edit({ connectorMapping: null, policyView: "" }, { extractName: "x" }), theirs)), "Hypervisor:DataConnectionSyncLadderRequired");
+  assert.equal(code(() => DC.planDeclarationOf({ ...stored, extractName: "  " }, theirs)), "Hypervisor:DataConnectionSyncNameRequired");
+  assert.equal(code(() => DC.planDeclarationOf({ ...stored, sourceId: DC.sourceRidOf("ds_3"), extractName: "x" }, theirs)), "Hypervisor:DataConnectionSyncNotYours", "a source filed in a visible project is not the caller's to add syncs to");
+  assert.equal(code(() => DC.planDeclarationOf({ ...stored, sourceId: DC.sourceRidOf("ds_4"), extractName: "x" }, theirs)), "Hypervisor:DataConnectionSourceNotFound");
+  assert.match(DC.reservedDatasetRidOf("ri.compass.main.folder.x", "Plants copy"), /^ri\.foundry\.main\.dataset\.[0-9a-f-]{36}$/u);
 });

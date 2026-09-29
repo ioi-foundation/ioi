@@ -96,6 +96,7 @@
     "check:adopted-pipeline": "node scripts/verify-hypervisor-adopted-pipeline.mjs",
     "check:adopted-ontology": "node scripts/verify-hypervisor-adopted-ontology.mjs",
     "check:adopted-data-connection": "node scripts/verify-hypervisor-adopted-data-connection.mjs",
+    "check:adopted-data-connection-runs": "node scripts/verify-hypervisor-adopted-data-connection-runs.mjs",
     "check:adopted-approvals": "node scripts/verify-hypervisor-adopted-approvals.mjs",
     "check:sessions-shell": "node scripts/verify-hypervisor-sessions-shell.mjs",
     "check:adopted-dead-controls": "node scripts/verify-hypervisor-adopted-dead-controls.mjs",

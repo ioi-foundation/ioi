@@ -9510,7 +9510,7 @@ async function handleEstateRequest(req, res, body) {
           const sources = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.CREATE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.SYNC_PAGE_OPERATIONS.has(name) ? await callerDataSources() : [];
           // a source's sync count and a sync's pages read its lease plans and their runs (cut D4)
           const syncs = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.SYNC_PAGE_OPERATIONS.has(name) ? await callerSyncs(sources) : [];
-          const ownerRef = name === "ResourceMetadataQuery" ? ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) : null;
+          const ownerRef = DATA_CONNECTION.OWNER_REF_OPERATIONS.has(name) ? ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) : null;
           return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources, syncs, ownerRef }), null, name) };
         }
         // The Approvals app's list rows and a request's page (on its surface only), over the daemon's own asks
@@ -11118,6 +11118,26 @@ async function handleEstateRequest(req, res, body) {
         if (rt) { const platform = DATA_CONNECTION.sourceRuntimePlatformOf(rt[1], await callerDataSources()); if (platform) return sendO(200, platform); }
         const certs = /^source-certificates\/source\/(ri\.magritte\.\.source\.[0-9a-f-]{36})\/redacted$/u.exec(route);
         if (certs && DATA_CONNECTION.sourceRuntimePlatformOf(certs[1], await callerDataSources())) return sendO(200, DATA_CONNECTION.SOURCE_CERTIFICATES);
+        // a source's Logs (cut D5): the telemetry session that names it
+        const tele = /^source\/telemetry\/(ri\.magritte\.\.source\.[0-9a-f-]{36})\/details$/u.exec(route);
+        if (tele) { const details = DATA_CONNECTION.sourceTelemetryDetailsOf(tele[1], await callerDataSources()); if (details) return sendO(200, details); }
+      }
+      // …and its entries: the receipts of its syncs' materializing runs (never another principal's source)
+      const logRoute = onDataConnectionSurface() && /^\/foundry-telemetry-service\/api\/containers\/([^/]+)\/sessions\/([^/]+)\/logs\/(throttle-status|read\/v3)$/u.exec(pathname);
+      if (logRoute) {
+        const sources = await callerDataSources();
+        const src = DATA_CONNECTION.sourceOfLogSession(decodeURIComponent(logRoute[1]), decodeURIComponent(logRoute[2]), sources);
+        if (!src) return dataConnectionRefusal(404, "Hypervisor:DataConnectionLogNotFound", "No source of yours keeps this log.");
+        if (logRoute[3] === "throttle-status" && req.method === "GET") return sendO(200, DATA_CONNECTION.LOG_THROTTLE_STATUS);
+        if (logRoute[3] === "read/v3" && req.method === "POST") {
+          let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+          const runs = [];
+          for (const y of (await callerSyncs(sources)).filter((x) => x.plan.data_source_id === src.source_id)) {
+            for (const run of y.runs) runs.push({ run, plan: y.plan, receipts: (await planeRead(`/v1/hypervisor/odk/materializing-runs/${encodeURIComponent(run.id)}/history`)).receipts || [] });
+          }
+          try { return sendO(200, DATA_CONNECTION.sourceLogPageOf(DATA_CONNECTION.sourceLogEntriesOf(runs), asked)); }
+          catch (e) { if (e instanceof DATA_CONNECTION.LogFilterRefusal) return dataConnectionRefusal(400, e.code, e.message); throw e; }
+        }
       }
       if (onDataConnectionSurface() && req.method === "POST" && pathname.startsWith("/magritte-coordinator/api/")) {
         const route = pathname.slice("/magritte-coordinator/api/".length);
@@ -11150,8 +11170,47 @@ async function handleEstateRequest(req, res, body) {
           return sendO(200, DATA_CONNECTION.sourceRidOf(j.data_source.source_id));
         }
       }
+      // a sync's writes (cut D5): its configuration's Save re-declares its plan (the daemon's PATCH), and a new sync —
+      // Duplicate's or New's — declares a plan on the ladder its configuration names; each refusal carries its own code
+      if (onDataConnectionSurface() && ((req.method === "PUT" && /^\/magritte-coordinator\/api\/extract-store\/extract\/ri\.magritte\.\.extract\.[0-9a-f-]{36}$/u.test(pathname))
+        || (req.method === "POST" && pathname === "/magritte-coordinator/api/build/add-extract"))) {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const refused = (code, message) => sendO(409, DATA_CONNECTION.syncRefusalBodyOf({ code, message }));
+        const sources = await callerDataSources();
+        const plane = async (route, method, payload) => {
+          const r = await daemonFetch(route, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+          const j = await r.json().catch(() => ({}));
+          const why = String(j.error?.message || j.message || j.reason || `the capability-lease plan plane answered ${r.status}`).replace(/[.\s]*$/u, ".");
+          return (!r.ok || j.ok === false) ? { refusal: [`Hypervisor:${j.error?.code || j.code || "LeasePlanRefused"}`, `${why} Nothing was ${method === "POST" ? "created" : "changed"}.`] } : { j };
+        };
+        try {
+          if (req.method === "PUT") {
+            const rid = pathname.split("/").pop();
+            const sync = (await callerSyncs(sources)).find((y) => y.rid === rid);
+            const patch = DATA_CONNECTION.planPatchOf(asked, sync);
+            if (Object.keys(patch).length) { const out = await plane(`/v1/hypervisor/odk/capability-lease-plans/${encodeURIComponent(sync.plan.id)}`, "PATCH", patch); if (out.refusal) return refused(...out.refusal); }
+            return sendO(200, DATA_CONNECTION.extractsBulkOf([rid], await callerSyncs(sources))[rid] || null);
+          }
+          const out = await plane("/v1/hypervisor/odk/capability-lease-plans", "POST", DATA_CONNECTION.planDeclarationOf(asked, sources));
+          if (out.refusal) return refused(...out.refusal);
+          return sendO(200, DATA_CONNECTION.extractRidOf(out.j.capability_lease_plan.id));
+        } catch (e) { if (e instanceof DATA_CONNECTION.DataConnectionRefusal) return refused(e.code, e.message); throw e; }
+      }
+      // a new sync's destination folder (the owner's organization folder) sits in no project here
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/compass/api/batch/hierarchy/projects/decorated") {
+        let asked = []; try { asked = JSON.parse(body.toString() || "[]"); } catch { /* none */ }
+        const owner = ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+        if (owner && Array.isArray(asked) && asked.length && asked.every((r) => r === ONTOLOGY.namespaceRidOf(owner))) return sendO(200, {});
+      }
+      // …and its output dataset is the plan's own: the dataset a new sync asks for first is named, not created
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/foundry-catalog/api/catalog/createDataset2") {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const named = asked?.requestWithName;
+        if (!named?.parentRid || !String(named.name || "").trim()) return dataConnectionRefusal(400, "Hypervisor:DataConnectionDatasetNameRequired", "A sync's output dataset is named for the sync: give the sync a name.");
+        return sendO(200, { rid: DATA_CONNECTION.reservedDatasetRidOf(named.parentRid, String(named.name).trim()) });
+      }
       // a sync's writes (cut D4): Run needs a wallet-authority grant (refused by name, pointing at the approval flow);
-      // creating, duplicating, changing or deleting a sync is refused by name. Nothing is written.
+      // deleting a sync is refused by name. Nothing is written.
       if (onDataConnectionSurface() && pathname.startsWith("/magritte-coordinator/api/")) {
         const refusal = DATA_CONNECTION.syncWriteRefusalOf(req.method, pathname.slice("/magritte-coordinator/api/".length));
         if (refusal) return sendO(refusal.status, DATA_CONNECTION.syncRefusalBodyOf(refusal));
@@ -11310,6 +11369,9 @@ async function handleEstateRequest(req, res, body) {
         } else if (/javascript|ecmascript/.test(ct)) {
           let js = buf.toString("utf8");
           if (foldOrigin) js = js.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):9225/g, "");
+          // (c) the reference's own words made true where they send a person down a path that does not exist here
+          // (adopted-data-connection.mjs TRUTHFUL_MESSAGES: each matched by message id and exact text)
+          js = DATA_CONNECTION.truthfulBundle(js);
           buf = Buffer.from(js.replace(/Palantir/g, "IOI"), "utf8");
         }
         // A response the serve did NOT answer from Hypervisor truth says so (the adopted-seed audits read it).
