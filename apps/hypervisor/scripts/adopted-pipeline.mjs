@@ -44,6 +44,9 @@ export function pipelinesOf(families, changeSets) {
   };
   for (const f of families || []) Object.assign(ensure(f.family_ref), { revisions: Array.isArray(f.revisions) ? f.revisions : [], runs: Array.isArray(f.runs) ? f.runs : [] });
   for (const cs of changeSets || []) {
+    // A pipeline is a DataRecipe family; the change-set plane also carries other subjects (a Studio
+    // blueprint, since change-set v2), which are no pipeline.
+    if (cs?.subject?.kind !== "data_recipe") continue;
     const familyRef = cs?.subject?.family_ref;
     if (!familyRef) continue;
     const known = byFamily.has(familyRef);

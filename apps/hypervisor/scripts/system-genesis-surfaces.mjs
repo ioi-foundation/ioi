@@ -790,6 +790,18 @@ export async function handleSystemGenesisSurfaces(req, res, pathname, body, { da
     await handleAttachData(daemonUrl, res, form());
     return true;
   }
+  if (pathname === CHANGE_SET_ACTIONS.propose && req.method === "POST") {
+    await handleProposeChangeSet(daemonUrl, res, form());
+    return true;
+  }
+  if (pathname === CHANGE_SET_ACTIONS.merge && req.method === "POST") {
+    await handleMergeChangeSet(daemonUrl, res, form());
+    return true;
+  }
+  if (pathname === CHANGE_SET_ACTIONS.abandon && req.method === "POST") {
+    await handleAbandonChangeSet(daemonUrl, res, form());
+    return true;
+  }
   const rest = pathname.slice(BASE.length + 1).split("/");
   const tail = rest[0] || "";
   if (!KEY_RE.test(tail)) {
@@ -997,8 +1009,9 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
       + handOffs([["/studio", "Studio"], ["/ontology", "Ontology"], ["/data", "Data"], ["/automations", "Automations"]]));
   }
   if (mode === "improve") {
-    return shell(title, head + pending + namedGap("System-scoped improvement (ADR 0056 P4 change sets)", "Improvement campaigns and change sets for this System — the improvement plane refuses a System scope by name today")
-      + handOffs([["/improvement", "Improvement"], ["/foundry", "Foundry"]]));
+    return shell(title, head + pending + await systemImprove(daemonUrl, systemId, parsed.query)
+      + `<h2>Improvement campaigns</h2>` + namedGap(IMPROVEMENT_CAMPAIGN_GAP, "An improvement campaign scoped to this System — the campaign plane refuses a System scope by name (improvement_campaign_system_scope_not_admitted) until the constitution's protected profile binding exists; campaigns stay owner-scoped")
+      + handOffs([["/improvement", "Improvement"], ["/foundry", "Foundry"], ["/studio", "Studio"]]));
   }
   return shell(title, head + pending + namedGap("interface-binding plane (W3)", "Generated and bound interfaces for this System")
     + handOffs([["/packages", "Packages"], ["/__ioi/developer-console", "Developer Console"]]));
@@ -1135,4 +1148,195 @@ async function handleAttachData(daemonUrl, res, form) {
     return back({ acted: "attach-data", record: attachmentId, receipt: result.body.receipt_ref, result: result.body.replayed ? "replayed" : "attached" });
   }
   return back({ refused: refusalCodeOf(result.body || {}, result.status) || `http_${result.status}`, reason: String(refusalMessageOf(result.body || {}) || "").slice(0, 200) });
+}
+
+// ---- Improve mode: change sets on the System's blueprints (R-240 journey WP-C2) ----------------
+// A System improves through change sets on the blueprints bound to it (change-set v2, subject kind
+// `blueprint`). A person proposes a draft over one of them — the daemon validates it with the
+// blueprint's own successor checks — and merges it, which admits the draft through the blueprint's
+// own compare-and-swap PATCH with the head the change set pinned; a moved head is refused by name.
+// Both reads are the caller's own: Studio's plane narrowed to the System, and the change-set plane
+// narrowed to blueprint subjects. Every write is one daemon route as the caller; nothing is signed
+// or cached here. A campaign scoped to the System is a separate, named gap: the improvement campaign
+// plane refuses a System scope by name until the constitution's protected profile binding exists,
+// which needs an ADR.
+export const IMPROVEMENT_CAMPAIGN_GAP = "System-scoped improvement campaigns (the constitution's protected profile binding — an ADR)";
+const CHANGE_SET_ACTIONS = { propose: `${BASE}/change-sets/propose`, merge: `${BASE}/change-sets/merge`, abandon: `${BASE}/change-sets/abandon` };
+const CHANGE_SET_RESULTS = { "propose-change-set": "Proposed", "merge-change-set": "Merged", "abandon-change-set": "Abandoned" };
+const changeSetId = (ref) => (/^change:\/\/(cs_[0-9a-f]{16})$/u.exec(String(ref || "")) || [])[1] || null;
+
+async function systemImprove(daemonUrl, systemId, query) {
+  const [blueprints, changeSets] = await Promise.all([
+    daemonJson(daemonUrl, "GET", `/v1/hypervisor/studio/blueprints?system_ref=${encodeURIComponent(systemId)}`),
+    daemonJson(daemonUrl, "GET", "/v1/hypervisor/change-sets?kind=blueprint"),
+  ]);
+  const actedAs = CHANGE_SET_RESULTS[query?.get("acted") || ""];
+  const acted = actedAs
+    ? stateBlock("completed", null, `<div class="empty" data-system-change-set-result="${esc(query.get("acted"))}">${esc(actedAs)} <code>${esc(query.get("record") || "")}</code>${query.get("head") ? ` · the blueprint's admitted head is now <code>${esc(query.get("head"))}</code>` : ""}</div>`)
+    : query?.get("refused")
+      ? stateBlock("denied_or_revoked", query.get("refused"), `<div class="empty" data-system-change-set-result="refused">Not done — <code>${esc(query.get("refused"))}</code>: ${esc(query.get("reason") || "")}. ${query.get("record") ? `The change set <code>${esc(query.get("record"))}</code> is listed below as the daemon holds it.` : "Nothing changed."}</div>`)
+      : "";
+  const bpCode = unreadCode(blueprints);
+  const csCode = unreadCode(changeSets);
+  const bps = bpCode ? [] : (Array.isArray(blueprints.body?.blueprints) ? blueprints.body.blueprints : []).filter((b) => b.system_ref === systemId);
+  const byRef = new Map(bps.map((b) => [b.ref, b]));
+  const sets = csCode ? [] : (Array.isArray(changeSets.body?.change_sets) ? changeSets.body.change_sets : [])
+    .filter((c) => c.subject?.kind === "blueprint" && byRef.has(c.subject?.family_ref));
+  const hidden = (name, value) => `<input type="hidden" name="${esc(name)}" value="${esc(value)}">`;
+  const rowActions = (c) => {
+    const forms = [];
+    if (c.status === "proposed") {
+      forms.push(`<form method="post" action="${CHANGE_SET_ACTIONS.merge}" data-change-set-merge="${esc(c.change_set_ref)}" style="display:inline">${hidden("system_id", systemId)}${hidden("change_set_ref", c.change_set_ref)}<button class="act" type="submit">Merge into the blueprint</button></form>`);
+    }
+    if (c.status === "open" || c.status === "proposed") {
+      forms.push(`<form method="post" action="${CHANGE_SET_ACTIONS.abandon}" data-change-set-abandon="${esc(c.change_set_ref)}" style="display:inline">${hidden("system_id", systemId)}${hidden("change_set_ref", c.change_set_ref)}<button type="submit">Abandon</button></form>`);
+    }
+    return forms.join(" ") || `<span class="sub" style="margin:0">${esc(c.status)} — nothing more to do</span>`;
+  };
+  const validationOf = (c) => {
+    const v = c.validation;
+    if (!v) return `<span class="sub" style="margin:0">not validated</span>`;
+    const findings = (v.findings || []).map((f) => `<br><code>${esc(f.code)}</code> ${esc(f.message)}`).join("");
+    return `${pill(v.outcome, v.outcome === "valid" ? "ok" : "warn")} draft ${esc(String(v.draft_ordinal))}${findings}`;
+  };
+  const headsOf = (c) => `pinned <code>${esc(c.subject?.base_head_ref || "")}</code>${c.merge ? `<br>resulting <code data-change-set-resulting-head="${esc(c.merge.resulting_head_ref || "")}">${esc(c.merge.resulting_head_ref || "")}</code><br>content <code>${esc(c.merge.resulting_revision_ref || "")}</code><br>plan <code>${esc(c.merge.branch_merge_plan_ref || "")}</code>` : ""}`;
+  const table = csCode || bpCode
+    ? stateBlock(stateForErrorCode(csCode || bpCode), csCode || bpCode, `<div class="empty" data-system-change-sets-unavailable="1">The change sets on this System's blueprints could not be read — <code>${esc(csCode || bpCode)}</code>. Nothing is shown in their place.</div>`)
+    : sets.length
+      ? stateBlock("ready_or_proposed", null, `<table data-system-change-sets="${esc(systemId)}"><thead><tr><th>Change set</th><th>Blueprint</th><th>Status</th><th>Validation</th><th>Heads</th><th></th></tr></thead><tbody>${sets.map((c) => {
+        const b = byRef.get(c.subject.family_ref) || {};
+        return `<tr data-system-change-set="${esc(c.change_set_ref)}" data-change-set-status="${esc(c.status)}" data-change-set-blueprint="${esc(c.subject.family_ref)}"><td><b>${esc(c.title || "")}</b>${c.description ? `<br><span class="sub" style="margin:0">${esc(c.description)}</span>` : ""}<br><code>${esc(c.change_set_ref)}</code></td><td>${esc(b.name || b.id || "")}<br><code>${esc(c.subject.family_ref)}</code></td><td>${pill(c.status, c.status === "merged" ? "ok" : c.status === "proposed" ? "warn" : "muted")}</td><td>${validationOf(c)}</td><td>${headsOf(c)}</td><td>${rowActions(c)}</td></tr>`;
+      }).join("")}</tbody></table>`)
+      : stateBlock("honest_empty", "no_change_set_on_system_blueprints", `<div class="empty" data-system-change-sets="${esc(systemId)}">No change set has been proposed on this System's blueprints yet.</div>`);
+  const proposeForm = bps.length
+    ? `<form method="post" action="${CHANGE_SET_ACTIONS.propose}" data-system-propose-change-set="1">
+        ${hidden("system_id", systemId)}${hidden("form_nonce", globalThis.crypto.randomUUID())}
+        <div class="field"><label>Blueprint</label><select name="blueprint">${bps.map((b) => `<option value="${esc(b.id || "")}">${esc(b.name || b.id || "")} — ${esc(b.ref || "")}</option>`).join("")}</select></div>
+        <div class="field"><label>Change set title</label><input name="title" maxlength="200" required></div>
+        <div class="field"><label>Why (description)</label><textarea name="description" maxlength="4000"></textarea></div>
+        <p class="sub">The draft — leave a field blank to keep what the blueprint says. The daemon checks it with the blueprint's own successor checks before it is proposed.</p>
+        <div class="field"><label>New name</label><input name="draft_name" maxlength="200"></div>
+        <div class="field"><label>New description</label><textarea name="draft_description" maxlength="2000"></textarea></div>
+        <div class="field"><label>New graph (a JSON object)</label><textarea name="draft_graph_json"></textarea></div>
+        <button class="act" type="submit">Propose this change</button>
+      </form>`
+    : bpCode
+      ? ""
+      : `<div class="empty" data-system-propose-none="1">No blueprint is bound to this System yet, so there is nothing to change — draft one for it in Studio from its <b>Design</b> mode.</div>`;
+  return `${acted}<h2>Change sets on this System's blueprints</h2>${table}<h2>Propose a change to a blueprint</h2>${proposeForm}`
+    + `<p class="sub">A change set grants nothing: proposing records a draft; merging admits it through the blueprint's own compare-and-swap, and a blueprint whose head moved since the change set was opened is never merged over.</p>`;
+}
+
+// The workspace's Improve answers return here, carrying the record or the refusal.
+function improveBack(res, systemId, params) {
+  const tailPath = String(systemId || "").startsWith("system://") ? systemId.slice("system://".length) : "";
+  res.writeHead(303, { Location: `${tailPath ? modeHref(tailPath, "improve") : "/systems"}?${new URLSearchParams(params).toString()}`, "Cache-Control": "no-cache" });
+  res.end();
+}
+const daemonRefusal = (result, fallback) => (result.networkError
+  ? { refused: "daemon_unreachable", reason: result.networkError }
+  : { refused: refusalCodeOf(result.body || {}, result.status) || fallback || `http_${result.status}`, reason: String(refusalMessageOf(result.body || {}) || "").slice(0, 300) });
+
+// POLICY FIRST: the System must be in the caller's filtered projection, and the blueprint one the
+// Studio plane lists as bound to it for this caller, before anything is written.
+async function improvableBlueprint(daemonUrl, systemId, blueprintRef) {
+  if (!String(systemId).startsWith("system://") || /\s/u.test(systemId)) return { refusal: { refused: "system_workspace_path_invalid", reason: "system_id is not a system:// ref" } };
+  const gate = await fetchCensus(daemonUrl, "compact", systemId);
+  const row = !gate.networkError && gate.status === 200 && gate.body?.state === "ready" ? (gate.body.systems || []).find((s) => s.system_id === systemId) : null;
+  if (!row) {
+    const code = gate.networkError ? "daemon_unreachable" : gate.status === 200 ? "system_not_in_inventory" : refusalCodeOf(gate.body || {}, gate.status);
+    return { refusal: { refused: code, reason: "improving needs a System in your inventory" } };
+  }
+  const listed = await daemonJson(daemonUrl, "GET", `/v1/hypervisor/studio/blueprints?system_ref=${encodeURIComponent(systemId)}`);
+  const listCode = unreadCode(listed);
+  if (listCode) return { refusal: { refused: listCode, reason: "the System's blueprints could not be read" } };
+  const blueprint = (listed.body.blueprints || []).find((b) => b.system_ref === systemId && (b.ref === blueprintRef || b.id === blueprintRef));
+  if (!blueprint) return { refusal: { refused: "change_set_subject_not_bound", reason: "that blueprint is not one bound to this System that you can read" } };
+  return { blueprint };
+}
+
+// POST /__ioi/systems/change-sets/propose — open a blueprint change set with the form's draft,
+// validate it (the blueprint's own successor checks) and propose it: three daemon writes as the
+// caller, each with its own idempotency key derived from the rendered form's nonce, so a resubmitted
+// form replays rather than opening a second change set.
+async function handleProposeChangeSet(daemonUrl, res, form) {
+  const systemId = (form.get("system_id") || "").trim();
+  const back = (params) => improveBack(res, systemId, params);
+  const nonce = (form.get("form_nonce") || "").trim();
+  const title = (form.get("title") || "").trim();
+  if (!nonce) return back({ refused: "change_set_form_nonce_required", reason: "submit the form the Improve mode rendered" });
+  if (!title) return back({ refused: "change_set_title_required", reason: "a change set has a title" });
+  const draft = {};
+  const draftName = (form.get("draft_name") || "").trim();
+  const draftDescription = (form.get("draft_description") || "").trim();
+  const graphJson = (form.get("draft_graph_json") || "").trim();
+  if (draftName) draft.name = draftName;
+  if (draftDescription) draft.description = draftDescription;
+  if (graphJson) {
+    let graph;
+    try { graph = JSON.parse(graphJson); } catch { graph = undefined; }
+    if (!graph || typeof graph !== "object" || Array.isArray(graph)) return back({ refused: "change_set_draft_graph_invalid", reason: "the new graph must be a JSON object" });
+    draft.graph = graph;
+  }
+  if (!Object.keys(draft).length) return back({ refused: "change_set_draft_empty", reason: "a change says what it changes: fill a new name, description or graph" });
+  const { blueprint, refusal } = await improvableBlueprint(daemonUrl, systemId, (form.get("blueprint") || "").trim());
+  if (refusal) return back(refusal);
+  const key = `system-change-set-${sha256Hex(`${systemId}\u0000${blueprint.ref}\u0000${nonce}`).slice(0, 32)}`;
+  const owner = blueprint.owner_ref;
+  const opened = await daemonJson(daemonUrl, "POST", "/v1/hypervisor/change-sets", {
+    owner_ref: owner, idempotency_key: key, subject: { kind: "blueprint", family: blueprint.id }, title, description: (form.get("description") || "").trim(), draft,
+  });
+  const cs = opened.body?.change_set;
+  if (opened.networkError || ![200, 201].includes(opened.status) || !cs) return back(daemonRefusal(opened, "change_set_open_refused"));
+  const record = cs.change_set_ref;
+  const id = changeSetId(record);
+  // A replayed form lands on the change set it opened, wherever that change set now stands.
+  if (cs.status !== "open") return back({ acted: "propose-change-set", record });
+  const validated = await daemonJson(daemonUrl, "POST", `/v1/hypervisor/change-sets/${id}/validate`, { owner_ref: owner, idempotency_key: `${key}-validate` });
+  if (validated.networkError || validated.status !== 200) return back({ ...daemonRefusal(validated, "change_set_validate_refused"), record });
+  const validation = validated.body?.change_set?.validation || {};
+  if (validation.outcome !== "valid") {
+    const finding = (validation.findings || [])[0] || {};
+    return back({ refused: "change_set_draft_invalid", reason: `${finding.code || "invalid"}: ${String(finding.message || "the blueprint's own checks refused the draft").slice(0, 240)}`, record });
+  }
+  const proposed = await daemonJson(daemonUrl, "POST", `/v1/hypervisor/change-sets/${id}/propose`, { owner_ref: owner, idempotency_key: `${key}-propose` });
+  if (proposed.networkError || proposed.status !== 200) return back({ ...daemonRefusal(proposed, "change_set_propose_refused"), record });
+  return back({ acted: "propose-change-set", record });
+}
+
+// The change set a row form names, read as the caller, over a blueprint bound to this System.
+async function improvableChangeSet(daemonUrl, systemId, changeSetRef) {
+  const id = changeSetId(changeSetRef);
+  if (!id) return { refusal: { refused: "change_set_not_found", reason: "that is not a change set ref" } };
+  const read = await daemonJson(daemonUrl, "GET", `/v1/hypervisor/change-sets/${id}`);
+  const cs = read.body?.change_set;
+  if (read.networkError || read.status !== 200 || !cs) return { refusal: daemonRefusal(read, "change_set_not_found") };
+  if (cs.subject?.kind !== "blueprint") return { refusal: { refused: "change_set_subject_not_bound", reason: "that change set is not over a blueprint" } };
+  const { refusal } = await improvableBlueprint(daemonUrl, systemId, cs.subject.family_ref);
+  return refusal ? { refusal } : { cs, id };
+}
+
+// POST /__ioi/systems/change-sets/merge — merge a proposed change set: the daemon admits its latest
+// validated draft through the blueprint's own PATCH with the head the change set pinned.
+async function handleMergeChangeSet(daemonUrl, res, form) {
+  const systemId = (form.get("system_id") || "").trim();
+  const back = (params) => improveBack(res, systemId, params);
+  const { cs, id, refusal } = await improvableChangeSet(daemonUrl, systemId, (form.get("change_set_ref") || "").trim());
+  if (refusal) return back(refusal);
+  const ordinal = (cs.drafts || []).at(-1)?.ordinal || 0;
+  const merged = await daemonJson(daemonUrl, "POST", `/v1/hypervisor/change-sets/${id}/merge`, { owner_ref: cs.owner_ref, idempotency_key: `system-change-set-merge-${id}-${ordinal}` });
+  const after = merged.body?.change_set;
+  if (merged.networkError || merged.status !== 200 || after?.status !== "merged") return back({ ...daemonRefusal(merged, "change_set_merge_refused"), record: cs.change_set_ref });
+  return back({ acted: "merge-change-set", record: cs.change_set_ref, head: after.merge?.resulting_head_ref || "" });
+}
+
+// POST /__ioi/systems/change-sets/abandon — close an open or proposed change set without merging it.
+async function handleAbandonChangeSet(daemonUrl, res, form) {
+  const systemId = (form.get("system_id") || "").trim();
+  const back = (params) => improveBack(res, systemId, params);
+  const { cs, id, refusal } = await improvableChangeSet(daemonUrl, systemId, (form.get("change_set_ref") || "").trim());
+  if (refusal) return back(refusal);
+  const closed = await daemonJson(daemonUrl, "POST", `/v1/hypervisor/change-sets/${id}/abandon`, { owner_ref: cs.owner_ref, idempotency_key: `system-change-set-abandon-${id}`, note: "abandoned from the System's Improve mode" });
+  if (closed.networkError || closed.status !== 200) return back({ ...daemonRefusal(closed, "change_set_abandon_refused"), record: cs.change_set_ref });
+  return back({ acted: "abandon-change-set", record: cs.change_set_ref });
 }

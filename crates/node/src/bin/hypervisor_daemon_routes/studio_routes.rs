@@ -23,6 +23,10 @@
 //! it designs (`system_ref`): set at create, only to an active System in the creating caller's
 //! inventory, and never moved by a successor. A blueprint's identity is its `ref`; its tip is the
 //! admitted head of its own stream (`admitted_head` on GET), which every successor names.
+//!
+//! A blueprint is also a change-set subject (ADR 0056 P4, change-set v2 — R-240 journey WP-C2): a
+//! change set drafts successor requests over it, validates a draft with the same successor builder
+//! PATCH uses, and merges by PATCH with its pinned head as the expected head.
 
 use axum::http::HeaderMap;
 use std::collections::HashMap;
@@ -180,6 +184,19 @@ fn studio_derived_id(prefix: &str, owner_ref: &str, idempotency_key: &str) -> St
     format!("{prefix}_{digest:x}")[..(prefix.len() + 17)].to_string()
 }
 
+/// The payload an admission carries: the record with the admission-stamped timestamps removed and
+/// its owner set. Wall-clock never enters the admitted payload: a retry could never be
+/// byte-identical, and the substrate would refuse the replay as same-key-different-bytes, making
+/// the key meaningless.
+fn admitted_payload(mut record: Value, owner_ref: &str) -> Value {
+    if let Some(object) = record.as_object_mut() {
+        object.remove("created_at");
+        object.remove("updated_at");
+        object.insert("owner_ref".into(), json!(owner_ref));
+    }
+    record
+}
+
 /// One owner-scoped admission path for the blueprint family — a deliberate mirror of
 /// `odk_routes::odk_admit`, so the studio plane cannot drift into a second mutation contract.
 /// The caller validates its own shape and hands over a finished record; this does identity,
@@ -249,14 +266,8 @@ fn studio_admit(
         );
     }
 
-    // Wall-clock never enters the admitted payload: a retry could never be byte-identical, and the
-    // substrate would refuse the replay as same-key-different-bytes, making the key meaningless.
     let created_at = previous.map(|existing| existing["created_at"].clone());
-    if let Some(object) = record.as_object_mut() {
-        object.remove("created_at");
-        object.remove("updated_at");
-        object.insert("owner_ref".into(), json!(owner_ref));
-    }
+    record = admitted_payload(record, &owner_ref);
     // THE ADMITTED PAYLOAD IS THE REGISTERED CONTRACT, checked before anything is bound or written:
     // a record the contract refuses is refused by name, never admitted and corrected later.
     if let Err(reason) = validate_architecture_contract(spec.contract_id, &record) {
@@ -316,12 +327,15 @@ fn studio_admit(
                 } else {
                     StatusCode::CREATED
                 },
+                // The head this admission left is the one the next successor names; a change set's
+                // merge records it as the blueprint's resulting head (ADR 0056 P4).
                 Json(json!({
                     "ok": true,
                     spec.reply_key: admitted,
                     "replayed": commit.replayed,
                     "receipt_ref": commit.receipt_ref,
-                    "operation_ref": commit.operation_ref
+                    "operation_ref": commit.operation_ref,
+                    "admitted_head": commit.projection.head
                 })),
             )
         }
@@ -788,6 +802,166 @@ pub(crate) async fn handle_studio_blueprint_get(
     Json(reply)
 }
 
+/// The successor a PATCH body would admit over `previous`: the authored fields it edits applied,
+/// the System binding held where it was. The ONE successor builder — PATCH and a change set's draft
+/// validation both use it, so there is never a second validator.
+fn successor_fields(previous: &Value, body: &Value) -> Result<Value, VErr> {
+    let mut d = previous.clone();
+    d["system_ref"] = successor_system_ref(previous, body)?;
+    if let Some(name) = validated_name(body, false)? {
+        d["name"] = json!(name);
+    }
+    if let Some(description) = str_opt_bounded(body, "description", DESCRIPTION_MAX)? {
+        d["description"] = json!(description);
+    }
+    if let Some(graph) = validated_graph(body)? {
+        d["graph"] = graph;
+    }
+    match validated_layout_ref(body)? {
+        LayoutRefEdit::Set(value) => d["layout_ref"] = json!(value),
+        LayoutRefEdit::Clear => d["layout_ref"] = Value::Null,
+        LayoutRefEdit::Unchanged => {}
+    }
+    Ok(d)
+}
+
+/// Content identity is recomputed from the RESULTING fields, so the stored hash always names what
+/// the record now says — a stale hash would be a second, quietly wrong source of truth.
+fn with_content_hash(mut d: Value) -> Result<Value, String> {
+    let hash = blueprint_content_hash(
+        d["name"].as_str().unwrap_or(""),
+        d["description"].as_str().unwrap_or(""),
+        &d["graph"],
+        &d["layout_ref"],
+    )?;
+    d["content_hash"] = json!(hash);
+    Ok(d)
+}
+
+// ---------------------------- a blueprint as a change-set subject (ADR 0056 P4) ------------------
+
+/// The members a change set's blueprint draft may carry: the four authored fields a successor
+/// edits. Everything else is the blueprint's own (identity, owner, System binding, status) or the
+/// merge's to supply (idempotency key, expected head).
+pub(crate) const BLUEPRINT_AUTHORED_MEMBERS: &[&str] =
+    &["name", "description", "graph", "layout_ref"];
+
+/// A blueprint as a change set sees it: its owner, its content hash (what its admitted head says —
+/// a blueprint has no numbered revisions) and that admitted head.
+pub(crate) struct BlueprintTip {
+    pub(crate) owner_ref: String,
+    pub(crate) content_hash: String,
+    pub(crate) head: String,
+}
+
+fn blueprint_id_is_canonical(id: &str) -> bool {
+    id.strip_prefix("bp_").is_some_and(|hex| {
+        !hex.is_empty()
+            && hex.len() <= 64
+            && hex
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    })
+}
+
+/// The blueprint `id` a change set would draft over, read as `identity`: None when it does not
+/// exist or when the caller holds neither its owner tenant nor its own admission scope — a
+/// stranger's blueprint answers exactly as a missing one. A visible blueprint whose admitted head
+/// cannot be read is refused by name, never given a guessed head.
+fn visible_blueprint(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    id: &str,
+) -> Result<Option<Value>, (String, String)> {
+    if !blueprint_id_is_canonical(id) {
+        return Err((
+            "studio_blueprint_ref_invalid".into(),
+            "a blueprint is named by its id, bp_ and lowercase hex".into(),
+        ));
+    }
+    let Some(record) = load(data_dir, KIND_BLUEPRINT, id) else {
+        return Ok(None);
+    };
+    let owner_held = record
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|owner| identity.authorizes_tenant(owner));
+    if owner_held {
+        return Ok(Some(record));
+    }
+    let held = super::substrate_store::authorized_request_resource_refs(
+        data_dir,
+        identity,
+        BLUEPRINT_SCOPE_KIND,
+    )
+    .map_err(|error| (error.code().to_string(), error.message().to_string()))?;
+    Ok(held
+        .contains(&format!("{BLUEPRINT_REF_PREFIX}{id}"))
+        .then_some(record))
+}
+
+/// A change set's tip for the blueprint `id`: None when the caller cannot read one (a change set
+/// never founds a blueprint — Studio's create does).
+pub(crate) fn blueprint_change_subject(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    id: &str,
+) -> Result<Option<BlueprintTip>, (String, String)> {
+    let Some(record) = visible_blueprint(data_dir, identity, id)? else {
+        return Ok(None);
+    };
+    let tail = studio_hash_tail(BLUEPRINT_SCOPE_KIND, &format!("{BLUEPRINT_REF_PREFIX}{id}"));
+    let head =
+        super::substrate_store::read_event_stream_operation(data_dir, STUDIO_NAMESPACE, &tail)
+            .map_err(|error| {
+                (
+                    "studio_blueprint_head_unreadable".to_string(),
+                    format!("the blueprint's admitted head could not be read: {error}"),
+                )
+            })?
+            .map(|projection| projection.head)
+            .ok_or_else(|| {
+                (
+                    "studio_blueprint_head_unreadable".to_string(),
+                    "the blueprint has no admitted head; nothing can compare-and-swap against it"
+                        .to_string(),
+                )
+            })?;
+    Ok(Some(BlueprintTip {
+        owner_ref: record["owner_ref"].as_str().unwrap_or("").to_string(),
+        content_hash: record["content_hash"].as_str().unwrap_or("").to_string(),
+        head,
+    }))
+}
+
+/// Judge a change set's blueprint draft by the blueprint's own successor checks, without
+/// persisting: the successor its PATCH would build over the current record, checked against the
+/// registered contract exactly as admission checks it. Answers the successor's content hash.
+pub(crate) fn validate_blueprint_draft(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    id: &str,
+    draft: &Value,
+) -> Result<String, (String, String)> {
+    let previous = visible_blueprint(data_dir, identity, id)?.ok_or_else(|| {
+        (
+            "studio_blueprint_not_found".to_string(),
+            "blueprint not found".to_string(),
+        )
+    })?;
+    let successor = with_content_hash(successor_fields(&previous, draft)?)
+        .map_err(|error| ("studio_blueprint_content_hash_failed".to_string(), error))?;
+    let owner_ref = previous["owner_ref"].as_str().unwrap_or("").to_string();
+    let payload = admitted_payload(successor, &owner_ref);
+    validate_architecture_contract(BLUEPRINT_CONTRACT_ID, &payload).map_err(|reason| {
+        (
+            "studio_blueprint_contract_invalid".to_string(),
+            format!("the successor would not satisfy {BLUEPRINT_CONTRACT_ID}: {reason}"),
+        )
+    })?;
+    Ok(payload["content_hash"].as_str().unwrap_or("").to_string())
+}
+
 /// PATCH /v1/hypervisor/studio/blueprints/:id — successor revision with required `expected_head`
 /// compare-and-swap. An identical-content successor is admitted like any other; the substrate's
 /// byte-level idempotency handles replays, and no local replay cache second-guesses it.
@@ -800,44 +974,14 @@ pub(crate) async fn handle_studio_blueprint_patch(
     let Some(previous) = load(&st.data_dir, KIND_BLUEPRINT, &id) else {
         return not_found();
     };
-    let mut d = previous.clone();
-    match successor_system_ref(&previous, &body) {
-        Ok(system_ref) => d["system_ref"] = system_ref,
+    let d = match successor_fields(&previous, &body) {
+        Ok(d) => d,
         Err((c, m)) => return bad(&c, &m),
-    }
-    match validated_name(&body, false) {
-        Ok(Some(name)) => d["name"] = json!(name),
-        Ok(None) => {}
-        Err((c, m)) => return bad(&c, &m),
-    }
-    match str_opt_bounded(&body, "description", DESCRIPTION_MAX) {
-        Ok(Some(description)) => d["description"] = json!(description),
-        Ok(None) => {}
-        Err((c, m)) => return bad(&c, &m),
-    }
-    match validated_graph(&body) {
-        Ok(Some(graph)) => d["graph"] = graph,
-        Ok(None) => {}
-        Err((c, m)) => return bad(&c, &m),
-    }
-    match validated_layout_ref(&body) {
-        Ok(LayoutRefEdit::Set(value)) => d["layout_ref"] = json!(value),
-        Ok(LayoutRefEdit::Clear) => d["layout_ref"] = Value::Null,
-        Ok(LayoutRefEdit::Unchanged) => {}
-        Err((c, m)) => return bad(&c, &m),
-    }
-    // Content identity is recomputed from the RESULTING fields, so the stored hash always names
-    // what the record now says — a stale hash would be a second, quietly wrong source of truth.
-    let recomputed = blueprint_content_hash(
-        d["name"].as_str().unwrap_or(""),
-        d["description"].as_str().unwrap_or(""),
-        &d["graph"],
-        &d["layout_ref"],
-    );
-    match recomputed {
-        Ok(hash) => d["content_hash"] = json!(hash),
+    };
+    let d = match with_content_hash(d) {
+        Ok(d) => d,
         Err(error) => return content_hash_failed(error),
-    }
+    };
     studio_admit(
         &st.data_dir,
         &headers,

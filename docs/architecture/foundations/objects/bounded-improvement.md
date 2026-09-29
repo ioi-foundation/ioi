@@ -664,3 +664,52 @@ ChangeSetEnvelope:
   abandoned`; a new draft on a proposed change set returns it to `open`;
   `merged`, `rejected` and `abandoned` are terminal. Every transition is an
   owner-scoped operation on the change set's own chain.
+
+### ChangeSetEnvelope v2
+
+`ioi.change-set.v2` is the change set with a generic subject. Every change set
+the daemon opens is v2; a v1 record stays valid, keeps reading, and takes its
+remaining transitions as v1. v2 differs from v1 in three members:
+
+```yaml
+ChangeSetEnvelope:
+  schema_version: ioi.change-set.v2
+  owner_ref: org://... | project://...      # the subject's owner
+  subject:
+    kind: data_recipe | blueprint            # ONE table in the daemon; grows one subject at a time
+    family_ref: data-recipe://<family> | blueprint://bp_<hex>
+    base_revision_ref: data-recipe://<family>/revision/<n> | sha256:<hex> | null
+    base_head_ref: string | null
+  basis_refs: []                             # reserved: the evidence a change is proposed on
+  merge: { ..., resulting_revision_ref: data-recipe://<family>/revision/<n> | sha256:<hex>, ... } | null
+  # every other member exactly as v1
+```
+
+- **The subject kinds are data.** The daemon holds one table of subject kinds
+  (`change_set_routes.rs` `SUBJECT_KINDS`); a kind is one adapter — its ref
+  scheme, whether a change set may found it, the draft members its merge
+  supplies, its tip, its draft validation (the subject admission's own checks)
+  and its merge (the subject admission itself). A kind outside the table is
+  refused `change_set_subject_unsupported`. `automation` joins the table only
+  with ADR 0058.
+- **`blueprint`.** The subject is one Studio blueprint
+  (`schema://ioi/components/hypervisor/studio-blueprint/v1`). Its tip is its
+  admitted head; its revision is named by its content hash, since a blueprint
+  has no numbered revisions. A change set never founds a blueprint — Studio's
+  create does — so a blueprint subject always pins a head
+  (`change_set_subject_not_found` otherwise), and the change set is owned by
+  the blueprint's owner (`change_set_subject_owner_mismatch` otherwise). A
+  draft is a blueprint successor request of the four authored members (`name`,
+  `description`, `graph`, `layout_ref`); anything else is refused, and the
+  System binding never moves. Validation builds the successor the blueprint's
+  own PATCH would build and checks it against the blueprint contract; merge IS
+  that PATCH, with the pinned head as its expected head, so a moved head is
+  refused `change_set_base_moved` before admission and by the blueprint's own
+  compare-and-swap after it. The merge names the resulting content hash and
+  the blueprint's new admitted head.
+- **`basis_refs` is reserved.** A change is proposed on evidence — an
+  evaluation result, for one. The daemon admits a basis only when it can
+  resolve it through that evidence's own reader, which it does not yet; until
+  then any basis is refused `change_set_basis_unresolvable`, and every record
+  carries an empty list (the journey names this
+  `change_set_evaluation_basis_absent`).

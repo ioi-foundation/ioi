@@ -2196,9 +2196,11 @@ per-System daemon reads by storage key do not yet resolve the caller.
 - Live: Overview (identity and read projection), Govern (the lifecycle ladder
   and its governed forms), Evidence (genesis and lifecycle receipts and the
   operation log), Design (the blueprints and data bound to the System, below),
-  plus a read-only desired-versus-observed topology on Operate.
-- Named gaps: Improve, Interfaces, health and limits each name the plane that
-  is missing, and hand off to the surface that owns that work today.
+  Improve (change sets on the System's blueprints, below), plus a read-only
+  desired-versus-observed topology on Operate.
+- Named gaps: Interfaces, an improvement campaign scoped to the System, health
+  and limits each name the plane that is missing, and hand off to the surface
+  that owns that work today.
 
 ### Design mode: blueprints and data bound to a System
 
@@ -2239,6 +2241,37 @@ journey WP-C1).
   under a System grants no sight of the System.
 
 Not yet built: detaching (a successor with `status: detached`) has no form yet.
+
+### Improve mode: change sets on a System's blueprints
+
+A System improves through change sets on the blueprints bound to it
+(2026-09-29, R-240 journey WP-C2). The change set is the v2 envelope with a
+`blueprint` subject (bounded-improvement.md §ChangeSetEnvelope v2); nothing
+new is stored for the System.
+
+- **The list.** Improve mode reads the blueprints bound to the System
+  (`GET /v1/hypervisor/studio/blueprints?system_ref=`) and the caller's
+  blueprint change sets (`GET /v1/hypervisor/change-sets?kind=blueprint`), and
+  lists each change set over one of those blueprints: its status, its last
+  validation, the head it pinned and, once merged, the blueprint's resulting
+  head, content hash and BranchMergePlan.
+- **Propose.** The Propose form names one of the System's blueprints and a draft
+  of its authored members (name, description, graph). The serve opens the
+  change set as the caller, owned by the blueprint's owner, then asks the
+  daemon to validate the draft with the blueprint's own successor checks and,
+  when it validates, to propose it. An invalid draft stays open with the
+  daemon's finding named.
+- **Merge and abandon.** A proposed change set offers Merge: the daemon admits
+  its latest validated draft through the blueprint's own compare-and-swap
+  PATCH with the pinned head, so a blueprint whose head moved is never merged
+  over (`change_set_base_moved`). An open or proposed one offers Abandon.
+  Before any write the serve checks that the System is in the caller's
+  inventory and that the change set's blueprint is bound to it.
+- **Campaigns stay a named gap.** An improvement campaign or governance profile
+  scoped to a System is refused by the campaign plane
+  (`improvement_campaign_system_scope_not_admitted`): it binds through the
+  constitution's protected profile path, which needs an ADR. Improve mode names
+  that gap and hands off to Improvement, where campaigns stay owner-scoped.
 
 ## Hypervisor Work
 

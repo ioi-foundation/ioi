@@ -93,8 +93,11 @@ export const REQUIRED_GAPS = Object.freeze({
   "run/legs/session-subject-system": "session_system_subject_absent",
   // ADR 0056 P6 (2026-09-29): system_telemetry_absent is closed — observe/legs/telemetry is live.
   "evaluate/legs/evaluation-ui": "evaluation_ui_consumer_absent",
-  "improve/legs/change-sets": "change_set_blueprint_subject_absent",
-  "improve/legs/system-scope": "improvement_system_scope_refused",
+  // WP-C2 (2026-09-29): change_set_blueprint_subject_absent is closed — improve/legs/change-sets and
+  // improve/legs/improve-mode are live; the campaign refusal is named as its own gap (an ADR), and the
+  // hand-off to release names what is missing there (system_release_absent).
+  "improve/legs/system-scope": "improvement_campaign_system_scope_absent",
+  "improve/handoff/successor-offered-for-release": "system_release_absent",
   "release/legs/system-release": "system_release_absent",
   "operate/legs/typed-lifecycle": "lifecycle_forms_raw_json",
 });
@@ -106,7 +109,7 @@ export const REQUIRED_PROBES = Object.freeze({
   // Connections names it on the connection's own card, where Set limits would be.
   "limits/handoff/lease-gates-connection-picker": 'data-ioi-standing-recorder="none"',
   "run/legs/session-subject-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
-  "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement (ADR 0056 P4 change sets)"',
+  "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement campaigns (the constitution\'s protected profile binding — an ADR)"',
 });
 
 // The legs the walk measures today. Turning one back into a TODO is a regression, not a table edit.
@@ -149,6 +152,9 @@ export const REQUIRED_LIVE = Object.freeze([
   "limits/handoff/unleased-connection-withheld",
   // …and THIS walk's improvement through Agent Studio's own forms.
   "improve/legs/walk-improvement",
+  // WP-C2 (2026-09-29): THE System improved through a change set on its blueprint, from its Improve mode.
+  "improve/legs/change-sets",
+  "improve/legs/improve-mode",
 ]);
 
 // The gap map's "Composes (does not re-prove)" list, plus the two R-240 lanes the walk leans on.
@@ -1205,6 +1211,45 @@ async function liveLeg() {
         && !!walkSkill && walkSkill.quality_state === "accepted" && walkCorrections.every((r) => (walkSkill.source_refs || []).includes(r))
         && improvementInbox.status === 200 && improvementInbox.text.includes(appliedRecord.proposal_ref || "@@"),
       `corrections ${recordedCorrections.map((r) => r.status).join("/")} held ${walkCorrections.length} · propose ${proposedImp.status} ${impId || "no proposal from the walk's corrections"} ${proposedRecord.state || ""} · simulate ${simulatedImp.status} ${simulatedRecord.gate?.posture || "no posture"} high-impact ${simulatedRecord.latest_simulation_high_impact} governance offered ${offersGovernance} · approve ${approvedImp.status} ${approvedRecord.state || ""} by ${approvedRecord.reviewed_by_ref === operatorRef ? "the operator" : approvedRecord.reviewed_by_ref || "nobody"} · apply ${appliedImp.status} ${appliedRecord.state || ""} ${appliedRecord.applied_ref || ""} · skill ${walkSkill ? `${walkSkill.quality_state} from ${(walkSkill.source_refs || []).length} source(s)` : "absent"} · inbox lists it ${improvementInbox.text.includes(appliedRecord.proposal_ref || "@@")}`);
+    // THIS walk's change set over THIS walk's blueprint (WP-C2), from THE System's Improve mode: the
+    // Propose form (the blueprint offered as an option, the draft revising its description and graph),
+    // then the Merge form on the change set's own row. Each outcome is read back from daemon truth —
+    // the change set, and the blueprint's record and admitted head — never from the page.
+    const improveRoute = LIB.fill("/systems/{system}/improve", vars);
+    const csTitle = `cs-${vars.tag}`;
+    const csDraft = { description: `the journey walk's improved design for ${ids.systemId} (${vars.tag})`, graph: { nodes: [{ id: "system", kind: "concept" }, { id: "review", kind: "concept" }], edges: [{ from: "system", to: "review" }] } };
+    const bpBefore = bpId ? ((await read(ctx, `/v1/hypervisor/studio/blueprints/${encodeURIComponent(bpId)}`)).json || {}) : {};
+    const csProposed = outcomeOf(await submitRenderedForm(ctx, { id: "change-set-propose", page: await page(ctx, improveRoute), from: improveRoute, action: "/__ioi/systems/change-sets/propose",
+      fields: { blueprint: bpId, title: csTitle, description: `walk ${vars.tag}: the System gains its review step`, draft_description: csDraft.description, draft_graph_json: JSON.stringify(csDraft.graph) } }));
+    const csRef = csProposed.q.get("record") || "";
+    const csPath = `/v1/hypervisor/change-sets/${encodeURIComponent(csRef.replace(/^change:\/\//u, ""))}`;
+    const csOpen = csRef ? (((await read(ctx, csPath)).json || {}).change_set || {}) : {};
+    const csMergeMarker = `data-change-set-merge="${csRef}"`;
+    const csMerged = csRef && csOpen.status === "proposed"
+      ? outcomeOf(await submitRenderedForm(ctx, { id: "change-set-merge", page: await page(ctx, improveRoute), from: improveRoute, action: "/__ioi/systems/change-sets/merge", marker: csMergeMarker, fields: {} }))
+      : { status: 0, q: new URLSearchParams(), redirected: false, refused: "not proposed" };
+    const csRead = csRef ? ((await read(ctx, csPath)).json || {}) : {};
+    const csAfter = csRead.change_set || {};
+    const bpAfter = bpId ? ((await read(ctx, `/v1/hypervisor/studio/blueprints/${encodeURIComponent(bpId)}`)).json || {}) : {};
+    claimLive("improve/legs/change-sets",
+      csProposed.redirected && !csProposed.refused && csProposed.q.get("acted") === "propose-change-set" && !!csRef
+        && csOpen.schema_version === "ioi.change-set.v2" && csOpen.subject?.kind === "blueprint" && csOpen.subject?.family_ref === bpRead.blueprint?.ref
+        && !!bpBefore.admitted_head && csOpen.subject?.base_head_ref === bpBefore.admitted_head && csOpen.subject?.base_revision_ref === bpBefore.blueprint?.content_hash
+        && csOpen.status === "proposed" && csOpen.validation?.outcome === "valid" && (csOpen.basis_refs || [null]).length === 0
+        && csMerged.redirected && !csMerged.refused && csMerged.q.get("acted") === "merge-change-set"
+        && csAfter.status === "merged" && csRead.branch_merge_plan?.decision === "admit" && csRead.branch_merge_plan?.resulting_main_head === csAfter.merge?.resulting_head_ref
+        && !!bpAfter.admitted_head && bpAfter.admitted_head !== bpBefore.admitted_head && bpAfter.admitted_head === csAfter.merge?.resulting_head_ref
+        && bpAfter.blueprint?.content_hash === csAfter.merge?.resulting_revision_ref && bpAfter.blueprint?.description === csDraft.description
+        && canonicalJson(bpAfter.blueprint?.graph ?? null) === canonicalJson(csDraft.graph) && bpAfter.blueprint?.system_ref === ids.systemId,
+      `propose ${csProposed.status} ${csProposed.refused ? `refused ${csProposed.refused}: ${csProposed.q.get("reason") || ""}` : csRef || "no record"} · opened ${csOpen.schema_version || "?"} ${csOpen.subject?.kind || "?"} ${csOpen.status || "?"} validation ${csOpen.validation?.outcome || "none"} pinned ${csOpen.subject?.base_head_ref === bpBefore.admitted_head ? "the blueprint's head" : csOpen.subject?.base_head_ref || "nothing"} · merge ${csMerged.status} ${csMerged.refused ? `refused ${csMerged.refused}: ${csMerged.q.get("reason") || ""}` : csAfter.status || ""} · blueprint head ${bpAfter.admitted_head === csAfter.merge?.resulting_head_ref ? "at the merge's result" : "not moved to the merge's result"} content ${bpAfter.blueprint?.content_hash === csAfter.merge?.resulting_revision_ref ? "the merge's" : "not the merge's"} · description ${bpAfter.blueprint?.description === csDraft.description ? "the draft's" : "not the draft's"} · graph ${canonicalJson(bpAfter.blueprint?.graph ?? null) === canonicalJson(csDraft.graph) ? "the draft's" : "not the draft's"} · plan ${csRead.branch_merge_plan?.decision || "none"}`);
+    const improvePage = await page(ctx, improveRoute);
+    const csRowAt = csRef ? improvePage.text.indexOf(`data-system-change-set="${csRef}"`) : -1;
+    const csRow = csRowAt >= 0 ? improvePage.text.slice(csRowAt, improvePage.text.indexOf("</tr>", csRowAt)) : "";
+    claimLive("improve/legs/improve-mode",
+      improvePage.status === 200 && improvePage.text.includes(`data-system-change-sets="${ids.systemId}"`) && csRowAt >= 0
+        && csRow.includes('data-change-set-status="merged"') && csRow.includes(`data-change-set-blueprint="${bpRead.blueprint?.ref || "@@"}"`)
+        && !!csAfter.merge?.resulting_head_ref && csRow.includes(`data-change-set-resulting-head="${csAfter.merge.resulting_head_ref}"`),
+      `Improve ${improvePage.status} · lists THIS walk's change set ${csRowAt >= 0} · merged ${csRow.includes('data-change-set-status="merged"')} · names the resulting head ${!!csAfter.merge?.resulting_head_ref && csRow.includes(csAfter.merge.resulting_head_ref)}`);
     await probesOf("improve");
     // ==== STEP 10 — RELEASE ========================================================================
     // THIS walk's package, built from step 3's ontology through the form each surface renders: a type,

@@ -228,7 +228,7 @@ export const JOURNEY = Object.freeze([
     ],
     handoff: { into: "improve", legs: [
       { id: "result-proposes-change", kind: "named_gap", judged_by: "an evaluation result is offered as the basis of a change set",
-        gap: { code: "change_set_evaluation_basis_absent", plane: "an evaluation result as a change set's basis (ADR 0056 P4 — the change-set plane exists; nothing links a result to one)", source: "gap map hand-off →9; build order 9" } },
+        gap: { code: "change_set_evaluation_basis_absent", plane: "an evaluation result as a change set's basis (ADR 0056 P4 — change-set v2 reserves basis_refs, and the daemon refuses any basis until it resolves one through the evaluation readers)", source: "gap map hand-off →9; build order 9; basis_refs reserved 2026-09-29 (R-240 journey WP-C2)" } },
     ] },
   },
   {
@@ -240,15 +240,17 @@ export const JOURNEY = Object.freeze([
       { id: "approval-decision", kind: "composed", gate: "governance-journey", what: "approvals decided with a daemon-resolved reviewer and a decision receipt" },
       { id: "walk-improvement", kind: "live", what: "THIS walk's improvement, through Agent Studio's own forms: two corrections imp-{tag} recorded from its Memory form, the candidate the daemon's outcome mining derives from exactly those entries proposed from its rendered Propose form, simulated, approved and applied — read back from the improvement plane (its id is the daemon's, so it is found by its evidence: THIS walk's corrections). The daemon's gate rules it low impact (the simulation changes nothing), so no Governance approval is offered and the plane's own review approves it — the high-impact approval path is the composed improvement-forms and approval-decision legs; applying it writes an accepted skill whose sources are the walk's corrections, with the improvement's receipt, and the Improvement inbox lists it applied. The improvement is the workspace's, not THE System's (system-scope below)",
         assertion: "IMPROVE — THIS walk's improvement is proposed from the corrections it recorded, simulated, approved and applied through Agent Studio's own forms, and the daemon holds it applied as an accepted skill with its receipt" },
-      { id: "change-sets", kind: "named_gap", what: "a change set that yields a successor blueprint",
-        gap: { code: "change_set_blueprint_subject_absent", plane: "a System blueprint as a change-set subject (ADR 0056 P4 — the plane carries data_recipe subjects only)", source: "gap map step 9; build order 9" } },
-      { id: "system-scope", kind: "named_gap", what: "improving THE System: the improvement plane refuses a System scope by name",
-        gap: { code: "improvement_system_scope_refused", plane: "System-scoped improvement (ADR 0056 P4 change sets)", source: "system workspace plan (the Improve mode)",
-          probe: { route: "/systems/{system}/improve", marker: 'data-system-named-gap="System-scoped improvement (ADR 0056 P4 change sets)"' } } },
+      { id: "change-sets", kind: "live", what: "a change set that yields a successor blueprint: THIS walk's change set cs-{tag} over THIS walk's blueprint bp-{tag} (bound to THE System), proposed from the System's Improve mode's own Propose form with a draft that revises the blueprint's description and graph — the daemon opens it as a change-set v2 over the blueprint subject pinned to the blueprint's admitted head, validates the draft with the blueprint's own successor checks and holds it proposed — then merged from its row's Merge form: the daemon admits the draft through the blueprint's own compare-and-swap PATCH with the pinned head, its BranchMergePlan admits, and the blueprint's admitted head moves to the merge's resulting head and says what the draft said (closed 2026-09-29: R-240 journey WP-C2)",
+        assertion: "IMPROVE — THIS walk's change set over THE System's blueprint is proposed and merged through the Improve mode's own forms, and the daemon holds the blueprint at the merge's resulting head with the draft's content" },
+      { id: "improve-mode", kind: "live", what: "improving THE System on its own Improve mode: the mode lists the change sets on the blueprints bound to the System, read as the caller from the change-set plane — THIS walk's change set merged, with the resulting head the daemon holds for the blueprint (closed 2026-09-29: R-240 journey WP-C2)",
+        assertion: "IMPROVE — THE System's Improve mode lists THIS walk's change set merged, with the blueprint's resulting head" },
+      { id: "system-scope", kind: "named_gap", what: "an improvement campaign scoped to THE System: the campaign plane refuses a System scope by name (improvement_campaign_system_scope_not_admitted), because a System-scoped campaign binds through the constitution's protected profile path, which this build does not implement; the System improves through change sets on its blueprints instead (improve-mode)",
+        gap: { code: "improvement_campaign_system_scope_absent", plane: "System-scoped improvement campaigns (the constitution's protected profile binding — an ADR)", source: "system workspace plan (the Improve mode); re-named 2026-09-29 (R-240 journey WP-C2) from improvement_system_scope_refused once the System improves through change sets — the campaign scope needs an ADR for the protected profile binding",
+          probe: { route: "/systems/{system}/improve", marker: 'data-system-named-gap="System-scoped improvement campaigns (the constitution\'s protected profile binding — an ADR)"' } } },
     ],
     handoff: { into: "release", legs: [
-      { id: "successor-offered-for-release", kind: "named_gap", judged_by: "the applied change set's successor blueprint is offered for release",
-        gap: { code: "change_set_blueprint_subject_absent", plane: "a System blueprint as a change-set subject (ADR 0056 P4 — the plane carries data_recipe subjects only)", source: "gap map build order 9 → 10" } },
+      { id: "successor-offered-for-release", kind: "named_gap", judged_by: "the merged change set's successor blueprint is offered for release: a System release cut from it, which step 10's release and step 1's picker would list",
+        gap: { code: "system_release_absent", plane: "System release (registry-backed, cut from a promoted blueprint)", source: "gap map build order 9 → 10; the successor blueprint exists since 2026-09-29 (R-240 journey WP-C2: a merged blueprint change set) — no plane cuts a System release from it" } },
     ] },
   },
   {

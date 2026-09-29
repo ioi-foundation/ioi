@@ -195,6 +195,7 @@
     "serve:reference": "node scripts/serve-product-ui.mjs",
     "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
     "test:operations-telemetry": "node --test scripts/operations-telemetry.test.mjs",
+    "test:system-improve-mode": "node --test scripts/system-improve-mode.test.mjs",
     "test:adopted-seeds": "node --test scripts/adopted-automate.test.mjs scripts/adopted-data-connection.test.mjs scripts/adopted-approvals.test.mjs scripts/adopted-ontology.test.mjs scripts/adopted-pipeline.test.mjs scripts/ioi-api-adapter-ports.test.mjs scripts/ioi-api-adapter-sessions.test.mjs",
     "check:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs",
     "mutate:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs --mutation",

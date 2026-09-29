@@ -39,7 +39,20 @@ const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: de
 
 const ajv = new Ajv2020({ strict: false, allErrors: true });
 addFormats(ajv);
-const validChangeSet = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMAS, "change-set.v1.schema.json"), "utf8")));
+// Every change set the daemon opens is v2 (R-240 journey WP-C2: the generic subject kinds and the
+// reserved basis_refs); a v1 record keeps reading as v1. Each record is judged by its OWN version.
+const changeSetSchemas = {
+  "ioi.change-set.v1": ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMAS, "change-set.v1.schema.json"), "utf8"))),
+  "ioi.change-set.v2": ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMAS, "change-set.v2.schema.json"), "utf8"))),
+};
+const validChangeSet = (record) => {
+  const validator = changeSetSchemas[record?.schema_version];
+  validChangeSet.errors = validator ? null : [{ message: `no registered change-set schema ${record?.schema_version}` }];
+  if (!validator) return false;
+  const valid = validator(record);
+  validChangeSet.errors = validator.errors;
+  return valid;
+};
 const validPlan = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMAS, "branch-merge-plan.v1.schema.json"), "utf8")));
 const schemaErrors = (validator) => JSON.stringify(validator.errors || []).slice(0, 200);
 

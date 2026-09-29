@@ -15,10 +15,17 @@
 //! write is identity-first and owner-scoped through the shared mutation foundation. Nothing here
 //! grants anything; a draft is not an admitted revision.
 //!
-//! First subject kind: `data_recipe` (the Pipeline Builder's drafts). A subject is one adapter:
-//! its tip (current revision and head), its draft validation (admission's content checks) and its
-//! merge (admission itself).
+//! The subject kinds are DATA — one table, `SUBJECT_KINDS` (master guide §0.5.3). A subject is one
+//! adapter: its ref scheme, whether a change set may found it, the draft members its merge
+//! supplies, its tip (current revision and head), its draft validation (admission's own checks)
+//! and its merge (admission itself). Change-set v2 (R-240 journey WP-C2) carries two kinds:
+//! `data_recipe` (the Pipeline Builder's drafts) and `blueprint` (a Studio blueprint, merged by its
+//! own compare-and-swap PATCH). v2 also reserves `basis_refs`, the evidence a change is proposed
+//! on; no basis is admitted until one resolves through its own reader. Every change set opened is
+//! v2; a v1 record keeps reading and takes its remaining transitions as v1.
 
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, State};
@@ -31,19 +38,202 @@ use super::mutation_event_foundation::{
     admit_owner_scoped_write, mutation_refusal_reply, replay_stable_id, require_write_caller,
     scope_refusal_reply, stream_tail, MutationCommit, MutationRefusal, WriteCaller,
 };
+use super::substrate_store::RequestIdentity;
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 const NAMESPACE: &str = "hypervisor-change-sets";
 /// The chain resource kind (one stream per change set) and the projection's record directory.
 const KIND: &str = "change-sets";
 const PLAN_KIND: &str = "branch-merge-plans";
-const SCHEMA: &str = "ioi.change-set.v1";
-const CONTRACT: &str = "schema://ioi/foundations/objects/change-set/v1";
+const SCHEMA: &str = "ioi.change-set.v2";
+const CONTRACT: &str = "schema://ioi/foundations/objects/change-set/v2";
+const SCHEMA_V1: &str = "ioi.change-set.v1";
+const CONTRACT_V1: &str = "schema://ioi/foundations/objects/change-set/v1";
 const PLAN_CONTRACT: &str = "schema://ioi/components/agentgres/branch-merge-plan/v1";
-const SUBJECT_KINDS: &[&str] = &["data_recipe"];
 const MAX_DRAFT_BYTES: usize = 65_536;
 
 type Reply = (StatusCode, Json<Value>);
+
+// ------------------------------------ the subject kinds ------------------------------------------
+
+/// A subject's tip as the caller reads it: (current revision, admitted head); None when a change
+/// set would found the subject.
+type Tip = Option<(String, String)>;
+type MergeFuture = Pin<Box<dyn Future<Output = Reply> + Send>>;
+
+/// What a merge hands the subject's own admission.
+struct MergeRequest {
+    token: String,
+    owner_ref: String,
+    idempotency_key: String,
+    expected_head: Option<String>,
+    body: Value,
+}
+
+/// One subject kind — the whole of what the change set knows about a family. Nothing outside this
+/// table branches on a kind.
+struct SubjectKind {
+    kind: &'static str,
+    /// The subject's ref scheme: `family_ref` is this prefix and the subject's token.
+    ref_prefix: &'static str,
+    /// Whether a change set may found a subject of this kind (open it with no tip).
+    founds: bool,
+    /// The draft member pinned to the subject's token, when the admission request names it.
+    pinned_member: Option<&'static str>,
+    /// Members only the merge supplies — never drafted.
+    minted: &'static [&'static str],
+    /// The closed set of members a draft may carry, when the subject's request is closed.
+    authored: Option<&'static [&'static str]>,
+    tip: fn(&DaemonState, &WriteCaller, &str) -> Result<Tip, Reply>,
+    /// The subject admission's own checks against a pinned draft, without persisting.
+    validate: fn(&DaemonState, &RequestIdentity, &str, &Value) -> Result<String, (String, String)>,
+    /// The subject admission itself.
+    merge: fn(Arc<DaemonState>, HeaderMap, MergeRequest) -> MergeFuture,
+    /// (resulting revision, resulting head) off the admission's reply.
+    merged: fn(&Value) -> (String, String),
+    /// The admission reply's member that carries the admitted subject.
+    reply_key: &'static str,
+}
+
+const SUBJECT_KINDS: &[SubjectKind] = &[
+    SubjectKind {
+        kind: "data_recipe",
+        ref_prefix: "data-recipe://",
+        founds: true,
+        pinned_member: Some("family"),
+        minted: &[
+            "owner_ref",
+            "idempotency_key",
+            "expected_head",
+            "revision_ref",
+            "data_recipe_id",
+        ],
+        authored: None,
+        tip: |st, caller, family| {
+            super::data_transformation_routes::data_recipe_tip(
+                &st.data_dir,
+                &caller.identity,
+                family,
+            )
+        },
+        validate: |st, identity, _family, body| {
+            super::data_transformation_routes::validate_data_recipe_draft(st, identity, body)
+        },
+        merge: merge_data_recipe,
+        merged: |admitted| {
+            (
+                text(&admitted["data_recipe"], "revision_ref").to_string(),
+                text(admitted, "expected_head_for_successor").to_string(),
+            )
+        },
+        reply_key: "data_recipe",
+    },
+    SubjectKind {
+        kind: "blueprint",
+        ref_prefix: "blueprint://",
+        founds: false,
+        pinned_member: None,
+        minted: &["owner_ref", "idempotency_key", "expected_head"],
+        authored: Some(super::studio_routes::BLUEPRINT_AUTHORED_MEMBERS),
+        tip: blueprint_tip,
+        validate: |st, identity, id, body| {
+            super::studio_routes::validate_blueprint_draft(&st.data_dir, identity, id, body)
+        },
+        merge: merge_blueprint,
+        merged: |admitted| {
+            (
+                text(&admitted["blueprint"], "content_hash").to_string(),
+                text(admitted, "admitted_head").to_string(),
+            )
+        },
+        reply_key: "blueprint",
+    },
+];
+
+fn subject_kind(kind: &str) -> Option<&'static SubjectKind> {
+    SUBJECT_KINDS.iter().find(|subject| subject.kind == kind)
+}
+
+fn unsupported_kind() -> Reply {
+    let kinds: Vec<&str> = SUBJECT_KINDS.iter().map(|subject| subject.kind).collect();
+    bad(
+        StatusCode::BAD_REQUEST,
+        "change_set_subject_unsupported",
+        format!("a change set's subject kind is one of {kinds:?}"),
+    )
+}
+
+fn merge_data_recipe(
+    st: Arc<DaemonState>,
+    headers: HeaderMap,
+    request: MergeRequest,
+) -> MergeFuture {
+    Box::pin(async move {
+        let mut admission = request.body;
+        admission["owner_ref"] = json!(request.owner_ref);
+        admission["idempotency_key"] = json!(request.idempotency_key);
+        admission["expected_head"] = request.expected_head.map_or(Value::Null, Value::String);
+        super::data_transformation_routes::handle_data_recipe_admit(
+            State(st),
+            headers,
+            Json(admission),
+        )
+        .await
+    })
+}
+
+/// A blueprint's tip for a change set owned by `caller.owner_ref`: the blueprint must be one the
+/// caller can read, and the change set is owned by the blueprint's own owner.
+fn blueprint_tip(st: &DaemonState, caller: &WriteCaller, id: &str) -> Result<Tip, Reply> {
+    match super::studio_routes::blueprint_change_subject(&st.data_dir, &caller.identity, id) {
+        Ok(Some(tip)) if tip.owner_ref != caller.owner_ref => Err(bad(
+            StatusCode::CONFLICT,
+            "change_set_subject_owner_mismatch",
+            format!(
+                "blueprint://{id} is owned by {}; a change set over it is owned by the blueprint's owner",
+                tip.owner_ref
+            ),
+        )),
+        Ok(Some(tip)) => Ok(Some((tip.content_hash, tip.head))),
+        Ok(None) => Ok(None),
+        Err((code, message)) => Err(bad(
+            if code == "studio_blueprint_ref_invalid" {
+                StatusCode::BAD_REQUEST
+            } else {
+                StatusCode::CONFLICT
+            },
+            &code,
+            message,
+        )),
+    }
+}
+
+/// A blueprint merges through its own PATCH — the successor admission, compare-and-swapped against
+/// the head the change set pinned. Its owner is the admitted record's, never the request's.
+fn merge_blueprint(st: Arc<DaemonState>, headers: HeaderMap, request: MergeRequest) -> MergeFuture {
+    Box::pin(async move {
+        let mut admission = request.body;
+        admission["idempotency_key"] = json!(request.idempotency_key);
+        admission["expected_head"] = request.expected_head.map_or(Value::Null, Value::String);
+        super::studio_routes::handle_studio_blueprint_patch(
+            State(st),
+            AxumPath(request.token),
+            headers,
+            Json(admission),
+        )
+        .await
+    })
+}
+
+/// The contract a record is validated against: its own version's. A v1 record keeps reading and
+/// takes its remaining transitions as v1; every change set opened is v2.
+fn contract_of(record: &Value) -> &'static str {
+    if record["schema_version"].as_str() == Some(SCHEMA_V1) {
+        CONTRACT_V1
+    } else {
+        CONTRACT
+    }
+}
 
 fn bad(status: StatusCode, code: &str, message: impl Into<String>) -> Reply {
     (
@@ -173,8 +363,9 @@ fn refuse_transition(record: &Value, action: &str) -> Reply {
     )
 }
 
-/// The subject's family token and the draft body with its family pinned to the subject's.
-fn pinned_draft(record_family: &str, draft: &Value) -> Result<Value, Reply> {
+/// The draft body pinned to the subject: its pinned member (when the kind has one) set to the
+/// subject's token, and nothing the merge supplies or the kind does not author.
+fn pinned_draft(subject: &SubjectKind, token: &str, draft: &Value) -> Result<Value, Reply> {
     let Value::Object(map) = draft else {
         return Err(bad(
             StatusCode::BAD_REQUEST,
@@ -193,26 +384,22 @@ fn pinned_draft(record_family: &str, draft: &Value) -> Result<Value, Reply> {
             format!("a draft is at most {MAX_DRAFT_BYTES} bytes"),
         ));
     }
-    let family = map
-        .get("family")
-        .and_then(Value::as_str)
-        .unwrap_or(record_family);
-    if family != record_family {
-        return Err(bad(
-            StatusCode::BAD_REQUEST,
-            "change_set_draft_family_mismatch",
-            format!("this change set drafts data-recipe://{record_family}; a draft for {family} belongs to another change set"),
-        ));
+    if let Some(member) = subject.pinned_member {
+        let named = map.get(member).and_then(Value::as_str).unwrap_or(token);
+        if named != token {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "change_set_draft_family_mismatch",
+                format!(
+                    "this change set drafts {}{token}; a draft for {named} belongs to another change set",
+                    subject.ref_prefix
+                ),
+            ));
+        }
     }
     // Admission-owned fields are the merge's to supply, never the draft's.
-    for minted in [
-        "owner_ref",
-        "idempotency_key",
-        "expected_head",
-        "revision_ref",
-        "data_recipe_id",
-    ] {
-        if map.contains_key(minted) {
+    for minted in subject.minted {
+        if map.contains_key(*minted) {
             return Err(bad(
                 StatusCode::BAD_REQUEST,
                 "change_set_draft_field_minted",
@@ -220,15 +407,33 @@ fn pinned_draft(record_family: &str, draft: &Value) -> Result<Value, Reply> {
             ));
         }
     }
+    if let Some(authored) = subject.authored {
+        if let Some(stray) = map.keys().find(|key| !authored.contains(&key.as_str())) {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "change_set_draft_member_unknown",
+                format!(
+                    "{stray} is not a member a {} draft carries; it carries only {authored:?}",
+                    subject.kind
+                ),
+            ));
+        }
+    }
     let mut pinned = map.clone();
-    pinned.insert("family".into(), json!(record_family));
+    if let Some(member) = subject.pinned_member {
+        pinned.insert(member.into(), json!(token));
+    }
     Ok(Value::Object(pinned))
 }
 
-fn family_of(record: &Value) -> String {
-    text(&record["subject"], "family_ref")
-        .trim_start_matches("data-recipe://")
-        .to_string()
+/// The record's subject kind and its token (the family, or the blueprint's id).
+fn subject_of(record: &Value) -> Result<(&'static SubjectKind, String), Reply> {
+    let subject = subject_kind(text(&record["subject"], "kind")).ok_or_else(unsupported_kind)?;
+    let token = text(&record["subject"], "family_ref")
+        .strip_prefix(subject.ref_prefix)
+        .unwrap_or("")
+        .to_string();
+    Ok((subject, token))
 }
 
 fn reply(status: StatusCode, commit: &MutationCommit, record: &Value) -> Reply {
@@ -253,7 +458,7 @@ fn transition(
     let change_set_ref = format!("change://{id}");
     record["updated_at"] = json!(iso_now());
     record["admitted_head"] = json!("pending");
-    validate(CONTRACT, "change set", &record)?;
+    validate(contract_of(&record), "change set", &record)?;
     let commit = admit_owner_scoped_write(
         &st.data_dir,
         caller,
@@ -274,8 +479,23 @@ fn transition(
     Ok((commit, record))
 }
 
-/// POST /v1/hypervisor/change-sets — open a change set over one family, pinned to its current head
-/// (or founding it), optionally with a first draft.
+/// `basis_refs` is reserved (change-set v2): a basis is admitted only once the daemon resolves it
+/// through that evidence's own reader, which this build does not consult yet — so an absent, null
+/// or empty basis opens, and any basis at all is refused by name rather than recorded unresolved.
+fn reserved_basis(body: &Value) -> Result<(), Reply> {
+    match body.get("basis_refs") {
+        None | Some(Value::Null) => Ok(()),
+        Some(Value::Array(refs)) if refs.is_empty() => Ok(()),
+        Some(_) => Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "change_set_basis_unresolvable",
+            "a change set's basis is admitted only once it resolves through its own reader (an evaluation result through the evaluation plane), which this build does not consult yet; open the change set with no basis",
+        )),
+    }
+}
+
+/// POST /v1/hypervisor/change-sets — open a change set over one subject, pinned to its current head
+/// (or founding it, where its kind may be founded), optionally with a first draft.
 pub(crate) async fn handle_change_set_open(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -285,24 +505,29 @@ pub(crate) async fn handle_change_set_open(
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let subject = &body["subject"];
-    let kind = text(subject, "kind");
-    if !SUBJECT_KINDS.contains(&kind) {
-        return bad(
-            StatusCode::BAD_REQUEST,
-            "change_set_subject_unsupported",
-            format!("a change set's subject kind is one of {SUBJECT_KINDS:?}"),
-        );
+    let requested = &body["subject"];
+    let kind = text(requested, "kind");
+    let Some(subject) = subject_kind(kind) else {
+        return unsupported_kind();
+    };
+    if let Err(response) = reserved_basis(&body) {
+        return response;
     }
-    let family = text(subject, "family").to_string();
-    let tip = match super::data_transformation_routes::data_recipe_tip(
-        &st.data_dir,
-        &caller.identity,
-        &family,
-    ) {
+    let family = text(requested, "family").to_string();
+    let tip = match (subject.tip)(&st, &caller, &family) {
         Ok(tip) => tip,
         Err(response) => return response,
     };
+    if tip.is_none() && !subject.founds {
+        return bad(
+            StatusCode::NOT_FOUND,
+            "change_set_subject_not_found",
+            format!(
+                "no {kind} you can read answers to {}{family}; a change set drafts over an existing {kind} and never founds one",
+                subject.ref_prefix
+            ),
+        );
+    }
     let title = text(&body, "title").to_string();
     if title.is_empty() || title.chars().count() > 200 {
         return bad(
@@ -331,7 +556,7 @@ pub(crate) async fn handle_change_set_open(
     let author = caller.identity.principal_ref.clone();
     let mut drafts = Vec::new();
     if let Some(draft) = body.get("draft").filter(|d| !d.is_null()) {
-        let pinned = match pinned_draft(&family, draft) {
+        let pinned = match pinned_draft(subject, &family, draft) {
             Ok(pinned) => pinned,
             Err(response) => return response,
         };
@@ -346,9 +571,10 @@ pub(crate) async fn handle_change_set_open(
         "change_set_ref": change_set_ref,
         "owner_ref": caller.owner_ref,
         "author_principal_ref": author,
-        "subject": { "kind": kind, "family_ref": format!("data-recipe://{family}"), "base_revision_ref": base_revision_ref, "base_head_ref": base_head_ref },
+        "subject": { "kind": subject.kind, "family_ref": format!("{}{family}", subject.ref_prefix), "base_revision_ref": base_revision_ref, "base_head_ref": base_head_ref },
         "title": title,
         "description": description,
+        "basis_refs": [],
         "drafts": drafts,
         "status": "open",
         "validation": Value::Null,
@@ -401,7 +627,11 @@ pub(crate) async fn handle_change_set_draft(
     if !matches!(status_of(&record), "open" | "proposed") {
         return refuse_transition(&record, "drafted");
     }
-    let pinned = match pinned_draft(&family_of(&record), &body["draft"]) {
+    let (subject, token) = match subject_of(&record) {
+        Ok(found) => found,
+        Err(response) => return response,
+    };
+    let pinned = match pinned_draft(subject, &token, &body["draft"]) {
         Ok(pinned) => pinned,
         Err(response) => return response,
     };
@@ -462,11 +692,11 @@ pub(crate) async fn handle_change_set_validate(
         Ok(draft) => draft,
         Err(response) => return response,
     };
-    let outcome = super::data_transformation_routes::validate_data_recipe_draft(
-        &st,
-        &caller.identity,
-        &draft["body"],
-    );
+    let (subject, token) = match subject_of(&record) {
+        Ok(found) => found,
+        Err(response) => return response,
+    };
+    let outcome = (subject.validate)(&st, &caller.identity, &token, &draft["body"]);
     let findings = match &outcome {
         Ok(_) => Vec::new(),
         Err((code, message)) => vec![json!({ "code": code, "message": message })],
@@ -677,7 +907,7 @@ pub(crate) async fn handle_change_set_abandon(
 
 /// POST /v1/hypervisor/change-sets/:id/merge — admit the latest draft through the subject's own
 /// admission with the pinned head as its expected head, and record the decision as a BranchMergePlan.
-/// Refused unless the change set is proposed, its latest draft validated `valid`, and the family's
+/// Refused unless the change set is proposed, its latest draft validated `valid`, and the subject's
 /// head is still the one it was opened against.
 pub(crate) async fn handle_change_set_merge(
     State(st): State<Arc<DaemonState>>,
@@ -710,12 +940,12 @@ pub(crate) async fn handle_change_set_merge(
             "the latest draft has not validated valid; validate it before merging",
         );
     }
-    let family = family_of(&record);
-    let tip = match super::data_transformation_routes::data_recipe_tip(
-        &st.data_dir,
-        &caller.identity,
-        &family,
-    ) {
+    let (subject, token) = match subject_of(&record) {
+        Ok(found) => found,
+        Err(response) => return response,
+    };
+    let subject_ref = format!("{}{token}", subject.ref_prefix);
+    let tip = match (subject.tip)(&st, &caller, &token) {
         Ok(tip) => tip,
         Err(response) => return response,
     };
@@ -728,23 +958,21 @@ pub(crate) async fn handle_change_set_merge(
             StatusCode::CONFLICT,
             "change_set_base_moved",
             format!(
-                "data-recipe://{family} moved since this change set was opened (pinned {}, now {}); open a successor change set on the new head",
+                "{subject_ref} moved since this change set was opened (pinned {}, now {}); open a successor change set on the new head",
                 base_head.as_deref().unwrap_or("no revision"),
                 current_head.as_deref().unwrap_or("no revision")
             ),
         );
     }
     let ordinal = draft["ordinal"].as_u64().unwrap_or(0);
-    let mut admission = draft["body"].clone();
-    admission["owner_ref"] = json!(record["owner_ref"]);
-    admission["idempotency_key"] = json!(format!("change-set-merge-{id}-{ordinal}"));
-    admission["expected_head"] = base_head.clone().map_or(Value::Null, Value::String);
-    let (status, Json(admitted)) = super::data_transformation_routes::handle_data_recipe_admit(
-        State(st.clone()),
-        headers.clone(),
-        Json(admission),
-    )
-    .await;
+    let request = MergeRequest {
+        token: token.clone(),
+        owner_ref: text(&record, "owner_ref").to_string(),
+        idempotency_key: format!("change-set-merge-{id}-{ordinal}"),
+        expected_head: base_head.clone(),
+        body: draft["body"].clone(),
+    };
+    let (status, Json(admitted)) = (subject.merge)(st.clone(), headers.clone(), request).await;
     if admitted["ok"].as_bool() != Some(true) {
         let code = admitted["code"]
             .as_str()
@@ -764,8 +992,9 @@ pub(crate) async fn handle_change_set_merge(
             format!("the subject's admission refused the draft ({code}): {message}"),
         );
     }
-    let resulting_revision_ref = text(&admitted["data_recipe"], "revision_ref").to_string();
-    let resulting_head = text(&admitted, "expected_head_for_successor").to_string();
+    let (resulting_revision_ref, resulting_head) = (subject.merged)(&admitted);
+    // The branch names carry the subject's own scheme: data-recipe/<family>, blueprint/<bp_id>.
+    let branch = format!("{}/{token}", subject.ref_prefix.trim_end_matches("://"));
     let plan_hash = format!(
         "{:x}",
         Sha256::digest(
@@ -782,7 +1011,7 @@ pub(crate) async fn handle_change_set_merge(
         "schema_version": "ioi.agentgres.branch-merge-plan.v1",
         "object_class": "BranchMergePlan",
         "branch_merge_ref": plan_ref,
-        "target_branch_ref": format!("execution-branch://data-recipe/{family}/main"),
+        "target_branch_ref": format!("execution-branch://{branch}/main"),
         "candidate_branch_refs": [format!("execution-branch://change-set/{id}")],
         "diff_refs": [format!("change://{id}/draft/{ordinal}")],
         "memory_diff_refs": [],
@@ -790,7 +1019,7 @@ pub(crate) async fn handle_change_set_merge(
         "receipt_diff_refs": [admitted["receipt_ref"].as_str().unwrap_or("receipt://unknown")],
         "verification_refs": [format!("gate://change-set/{id}/validation/{ordinal}")],
         "admission_policy_ref": "policy://change-set/exact-head-merge",
-        "expected_head_ref": format!("branch-checkpoint://data-recipe/{family}/{}", base_head.as_deref().unwrap_or("genesis")),
+        "expected_head_ref": format!("branch-checkpoint://{branch}/{}", base_head.as_deref().unwrap_or("genesis")),
         "authority_revalidation": { "revocation_epoch_checked": "epoch:current", "revalidated_at": now, "stale_or_revoked_effects": [] },
         "decision": "admit",
         "decision_receipt_ref": admitted["receipt_ref"],
@@ -823,12 +1052,12 @@ pub(crate) async fn handle_change_set_merge(
         payload,
         record,
     ) {
-        Ok((commit, record)) => (
-            StatusCode::OK,
-            Json(
-                json!({ "ok": true, "replayed": commit.replayed, "change_set": record, "branch_merge_plan": plan, "data_recipe": admitted["data_recipe"], "receipt_ref": commit.receipt_ref }),
-            ),
-        ),
+        Ok((commit, record)) => {
+            let mut reply = json!({ "ok": true, "replayed": commit.replayed, "change_set": record, "branch_merge_plan": plan, "receipt_ref": commit.receipt_ref });
+            // The admitted subject, under the member its own admission answers it with.
+            reply[subject.reply_key] = admitted[subject.reply_key].clone();
+            (StatusCode::OK, Json(reply))
+        }
         Err(response) => response,
     }
 }
@@ -852,7 +1081,8 @@ pub(crate) fn change_sets_for_request(
     Ok(records)
 }
 
-/// GET /v1/hypervisor/change-sets[?family=…&status=…]
+/// GET /v1/hypervisor/change-sets[?kind=…&family=…&status=…] — `family` is read in `kind`'s
+/// scheme, and in a data recipe's when no kind is named (as v1 read it).
 pub(crate) async fn handle_change_set_list(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -862,12 +1092,18 @@ pub(crate) async fn handle_change_set_list(
         Ok(records) => records,
         Err(response) => return response,
     };
+    let kind = query.get("kind").map(String::as_str);
+    let scheme = match subject_kind(kind.unwrap_or("data_recipe")) {
+        Some(subject) => subject.ref_prefix,
+        None => return unsupported_kind(),
+    };
     let family = query
         .get("family")
-        .map(|f| format!("data-recipe://{}", f.trim_start_matches("data-recipe://")));
+        .map(|f| format!("{scheme}{}", f.trim_start_matches(scheme)));
     let status = query.get("status");
     let filtered: Vec<Value> = records
         .into_iter()
+        .filter(|r| kind.is_none_or(|k| text(&r["subject"], "kind") == k))
         .filter(|r| {
             family
                 .as_ref()
@@ -957,9 +1193,10 @@ mod tests {
 
     #[test]
     fn a_draft_is_pinned_to_its_family_and_never_carries_admission_fields() {
-        let pinned = pinned_draft("acme.orders", &json!({ "name": "Orders" })).unwrap();
+        let recipe = subject_kind("data_recipe").unwrap();
+        let pinned = pinned_draft(recipe, "acme.orders", &json!({ "name": "Orders" })).unwrap();
         assert_eq!(pinned["family"], "acme.orders");
-        assert!(pinned_draft("acme.orders", &json!({ "family": "other.family" })).is_err());
+        assert!(pinned_draft(recipe, "acme.orders", &json!({ "family": "other.family" })).is_err());
         for minted in [
             "owner_ref",
             "idempotency_key",
@@ -967,11 +1204,407 @@ mod tests {
             "revision_ref",
         ] {
             assert!(
-                pinned_draft("acme.orders", &json!({ minted: "x" })).is_err(),
+                pinned_draft(recipe, "acme.orders", &json!({ minted: "x" })).is_err(),
                 "{minted}"
             );
         }
-        assert!(pinned_draft("acme.orders", &json!(["not", "an", "object"])).is_err());
+        assert!(pinned_draft(recipe, "acme.orders", &json!(["not", "an", "object"])).is_err());
+    }
+
+    fn code_of(reply: &Reply) -> String {
+        let body = &reply.1 .0;
+        body["error"]["code"]
+            .as_str()
+            .or_else(|| body["code"].as_str())
+            .unwrap_or("")
+            .to_string()
+    }
+
+    /// The kind set is ONE table: two kinds, each with its own scheme, and a blueprint draft carries
+    /// only the blueprint's four authored members — never its binding, identity or anything the
+    /// merge supplies.
+    #[test]
+    fn the_subject_kinds_are_one_table_and_a_blueprint_draft_is_closed() {
+        let kinds: Vec<(&str, &str, bool)> = SUBJECT_KINDS
+            .iter()
+            .map(|s| (s.kind, s.ref_prefix, s.founds))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ("data_recipe", "data-recipe://", true),
+                ("blueprint", "blueprint://", false)
+            ]
+        );
+        assert!(
+            subject_kind("automation").is_none(),
+            "ADR 0058 adds automation, not this cut"
+        );
+        assert_eq!(
+            code_of(&unsupported_kind()),
+            "change_set_subject_unsupported"
+        );
+        let blueprint = subject_kind("blueprint").unwrap();
+        let pinned = pinned_draft(
+            blueprint,
+            "bp_0123456789abcdef",
+            &json!({ "description": "with review", "graph": { "nodes": [] } }),
+        )
+        .unwrap();
+        assert!(
+            pinned.get("family").is_none(),
+            "a blueprint draft pins no member"
+        );
+        for (member, code) in [
+            ("system_ref", "change_set_draft_member_unknown"),
+            ("id", "change_set_draft_member_unknown"),
+            ("content_hash", "change_set_draft_member_unknown"),
+            ("expected_head", "change_set_draft_field_minted"),
+            ("idempotency_key", "change_set_draft_field_minted"),
+            ("owner_ref", "change_set_draft_field_minted"),
+        ] {
+            let refused = pinned_draft(blueprint, "bp_0123456789abcdef", &json!({ member: "x" }))
+                .expect_err(member);
+            assert_eq!(code_of(&refused), code, "{member}");
+        }
+        assert_eq!(
+            contract_of(&json!({ "schema_version": SCHEMA_V1 })),
+            CONTRACT_V1
+        );
+        assert_eq!(contract_of(&json!({ "schema_version": SCHEMA })), CONTRACT);
+        assert!(reserved_basis(&json!({})).is_ok());
+        assert!(reserved_basis(&json!({ "basis_refs": null })).is_ok());
+        assert!(reserved_basis(&json!({ "basis_refs": [] })).is_ok());
+        let refused = reserved_basis(&json!({ "basis_refs": ["evaluation-result://er_1"] }))
+            .expect_err("a basis nothing resolves is refused");
+        assert_eq!(code_of(&refused), "change_set_basis_unresolvable");
+    }
+
+    // ---- the plane end to end, on a daemon state of its own ----------------------------------
+
+    const OPERATOR: &str = "00000000-0000-4000-8000-000000000001";
+    const OWNER: &str = "org://local";
+
+    struct Plane {
+        _dir: tempfile::TempDir,
+        st: Arc<DaemonState>,
+        headers: HeaderMap,
+    }
+
+    fn plane() -> Plane {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8").to_string();
+        super::super::lifecycle_routes::ensure_identity_foundation(&data_dir)
+            .expect("identity foundation");
+        let st = crate::test_daemon_state(&data_dir);
+        let (status, issued) =
+            super::super::lifecycle_routes::issue_session(&data_dir, OPERATOR, "local");
+        assert_eq!(status, StatusCode::OK, "{issued}");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!(
+                "Bearer {}",
+                issued["session_token"].as_str().expect("token")
+            )
+            .parse()
+            .expect("header"),
+        );
+        Plane {
+            _dir: dir,
+            st,
+            headers,
+        }
+    }
+
+    impl Plane {
+        async fn blueprint(&self, key: &str) -> String {
+            let (status, Json(created)) = super::super::studio_routes::handle_studio_blueprint_create(
+                State(self.st.clone()),
+                self.headers.clone(),
+                Json(json!({ "owner_ref": OWNER, "idempotency_key": key, "name": "Lending desk", "description": "the desk", "graph": { "nodes": [{ "id": "desk" }], "edges": [] } })),
+            )
+            .await;
+            assert_eq!(status, StatusCode::CREATED, "{created}");
+            created["blueprint"]["id"].as_str().unwrap().to_string()
+        }
+
+        async fn blueprint_now(&self, id: &str) -> (Value, String) {
+            let Json(read) = super::super::studio_routes::handle_studio_blueprint_get(
+                State(self.st.clone()),
+                AxumPath(id.to_string()),
+            )
+            .await;
+            (
+                read["blueprint"].clone(),
+                read["admitted_head"].as_str().unwrap_or("").to_string(),
+            )
+        }
+
+        async fn open(&self, key: &str, subject: Value, draft: Value) -> Reply {
+            handle_change_set_open(
+                State(self.st.clone()),
+                self.headers.clone(),
+                Json(json!({ "owner_ref": OWNER, "idempotency_key": key, "subject": subject, "title": "Add the review step", "draft": draft })),
+            )
+            .await
+        }
+
+        async fn step(&self, change_set_ref: &str, verb: &str, key: &str) -> Reply {
+            let id = AxumPath(change_set_ref.trim_start_matches("change://").to_string());
+            let body =
+                Json(json!({ "owner_ref": OWNER, "idempotency_key": key, "note": "not this one" }));
+            let st = State(self.st.clone());
+            let headers = self.headers.clone();
+            match verb {
+                "validate" => handle_change_set_validate(st, headers, id, body).await,
+                "propose" => handle_change_set_propose(st, headers, id, body).await,
+                "merge" => handle_change_set_merge(st, headers, id, body).await,
+                "abandon" => handle_change_set_abandon(st, headers, id, body).await,
+                other => panic!("no step {other}"),
+            }
+        }
+    }
+
+    /// A v2 blueprint change set proposes, validates by the blueprint's own successor checks, and
+    /// merges through the blueprint's own PATCH with the head it pinned: the blueprint's admitted
+    /// head moves to the merge's resulting head and it says what the draft said.
+    #[tokio::test]
+    async fn a_blueprint_change_set_merges_with_its_pinned_head_and_moves_the_blueprints_head() {
+        let p = plane();
+        let bp = p.blueprint("bp-merge").await;
+        let (before, head_before) = p.blueprint_now(&bp).await;
+        assert!(head_before.starts_with("sha256:"), "{head_before}");
+
+        let (status, Json(opened)) = p
+            .open(
+                "cs-merge",
+                json!({ "kind": "blueprint", "family": bp }),
+                json!({ "description": "the desk, with its review step", "graph": { "nodes": [{ "id": "desk" }, { "id": "review" }], "edges": [] } }),
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{opened}");
+        let cs = &opened["change_set"];
+        assert_eq!(cs["schema_version"], SCHEMA);
+        assert_eq!(cs["subject"]["kind"], "blueprint");
+        assert_eq!(cs["subject"]["family_ref"], format!("blueprint://{bp}"));
+        assert_eq!(cs["subject"]["base_head_ref"], head_before);
+        assert_eq!(cs["subject"]["base_revision_ref"], before["content_hash"]);
+        assert_eq!(cs["basis_refs"], json!([]));
+        let cs_ref = cs["change_set_ref"].as_str().unwrap().to_string();
+
+        let (status, Json(validated)) = p.step(&cs_ref, "validate", "cs-merge-validate").await;
+        assert_eq!(status, StatusCode::OK, "{validated}");
+        assert_eq!(
+            validated["change_set"]["validation"]["outcome"], "valid",
+            "{validated}"
+        );
+        let (status, Json(proposed)) = p.step(&cs_ref, "propose", "cs-merge-propose").await;
+        assert_eq!(status, StatusCode::OK, "{proposed}");
+        let (unchanged, _) = p.blueprint_now(&bp).await;
+        assert_eq!(
+            unchanged["description"], "the desk",
+            "a proposal changes nothing"
+        );
+
+        let (status, Json(merged)) = p.step(&cs_ref, "merge", "cs-merge-merge").await;
+        assert_eq!(status, StatusCode::OK, "{merged}");
+        let (after, head_after) = p.blueprint_now(&bp).await;
+        let merge = &merged["change_set"]["merge"];
+        assert_eq!(merged["change_set"]["status"], "merged");
+        assert_ne!(
+            head_after, head_before,
+            "the blueprint's admitted head moved"
+        );
+        assert_eq!(merge["resulting_head_ref"], head_after);
+        assert_eq!(merge["resulting_revision_ref"], after["content_hash"]);
+        assert_ne!(after["content_hash"], before["content_hash"]);
+        assert_eq!(after["description"], "the desk, with its review step");
+        assert_eq!(
+            after["name"], "Lending desk",
+            "what the draft did not author is kept"
+        );
+        assert_eq!(merged["blueprint"]["content_hash"], after["content_hash"]);
+        let plan = &merged["branch_merge_plan"];
+        assert_eq!(plan["decision"], "admit");
+        assert_eq!(plan["resulting_main_head"], head_after);
+        assert_eq!(
+            plan["target_branch_ref"],
+            format!("execution-branch://blueprint/{bp}/main")
+        );
+        assert_eq!(
+            plan["expected_head_ref"],
+            format!("branch-checkpoint://blueprint/{bp}/{head_before}")
+        );
+
+        // The listing reads it in the blueprint's own scheme.
+        let (_, Json(listed)) = handle_change_set_list(
+            State(p.st.clone()),
+            p.headers.clone(),
+            axum::extract::Query(
+                [
+                    ("kind".to_string(), "blueprint".to_string()),
+                    ("family".to_string(), bp.clone()),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+        )
+        .await;
+        assert_eq!(
+            listed["change_sets"].as_array().map(Vec::len),
+            Some(1),
+            "{listed}"
+        );
+    }
+
+    /// A blueprint whose head moved after the change set pinned it is never merged over: the merge
+    /// is refused by name and the blueprint keeps what its other writer admitted.
+    #[tokio::test]
+    async fn a_blueprint_change_set_is_refused_when_the_head_it_pinned_moved() {
+        let p = plane();
+        let bp = p.blueprint("bp-stale").await;
+        let (_, head_before) = p.blueprint_now(&bp).await;
+        let (status, Json(opened)) = p
+            .open(
+                "cs-stale",
+                json!({ "kind": "blueprint", "family": bp }),
+                json!({ "description": "the change set's" }),
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{opened}");
+        let cs_ref = opened["change_set"]["change_set_ref"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            p.step(&cs_ref, "validate", "cs-stale-validate").await.0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            p.step(&cs_ref, "propose", "cs-stale-propose").await.0,
+            StatusCode::OK
+        );
+
+        // Another writer moves the head through the blueprint's own PATCH.
+        let (status, Json(patched)) = super::super::studio_routes::handle_studio_blueprint_patch(
+            State(p.st.clone()),
+            AxumPath(bp.clone()),
+            p.headers.clone(),
+            Json(json!({ "idempotency_key": "other-writer", "expected_head": head_before, "description": "another writer's" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{patched}");
+
+        let refused = p.step(&cs_ref, "merge", "cs-stale-merge").await;
+        assert_eq!(refused.0, StatusCode::CONFLICT, "{}", refused.1 .0);
+        assert_eq!(code_of(&refused), "change_set_base_moved");
+        let (after, _) = p.blueprint_now(&bp).await;
+        assert_eq!(after["description"], "another writer's");
+
+        // The blueprint's own PATCH refuses a stale head by itself too (the race past the re-read).
+        let (status, Json(stale)) = super::super::studio_routes::handle_studio_blueprint_patch(
+            State(p.st.clone()),
+            AxumPath(bp.clone()),
+            p.headers.clone(),
+            Json(json!({ "idempotency_key": "late-writer", "expected_head": head_before, "description": "late" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CONFLICT, "{stale}");
+    }
+
+    /// A kind outside the table, a blueprint nobody can read, and a basis nothing resolves are each
+    /// refused by name before anything is written.
+    #[tokio::test]
+    async fn an_unknown_kind_a_missing_blueprint_and_an_unresolved_basis_are_refused_by_name() {
+        let p = plane();
+        let refused = p
+            .open(
+                "cs-auto",
+                json!({ "kind": "automation", "family": "a" }),
+                Value::Null,
+            )
+            .await;
+        assert_eq!(
+            (refused.0, code_of(&refused)),
+            (
+                StatusCode::BAD_REQUEST,
+                "change_set_subject_unsupported".to_string()
+            )
+        );
+        let refused = p
+            .open(
+                "cs-none",
+                json!({ "kind": "blueprint", "family": "bp_00000000000000000" }),
+                Value::Null,
+            )
+            .await;
+        assert_eq!(
+            (refused.0, code_of(&refused)),
+            (
+                StatusCode::NOT_FOUND,
+                "change_set_subject_not_found".to_string()
+            )
+        );
+        let bp = p.blueprint("bp-basis").await;
+        let refused = handle_change_set_open(
+            State(p.st.clone()),
+            p.headers.clone(),
+            Json(json!({ "owner_ref": OWNER, "idempotency_key": "cs-basis", "subject": { "kind": "blueprint", "family": bp }, "title": "t", "basis_refs": ["evaluation-result://er_1"] })),
+        )
+        .await;
+        assert_eq!(
+            (refused.0, code_of(&refused)),
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "change_set_basis_unresolvable".to_string()
+            )
+        );
+        assert!(
+            read_record_dir(&p.st.data_dir, KIND).is_empty(),
+            "nothing was opened"
+        );
+    }
+
+    /// Every change set opened is v2 — a data recipe's too — and a v1 record keeps reading and takes
+    /// its remaining transitions as v1.
+    #[tokio::test]
+    async fn a_v1_record_keeps_reading_and_transitions_as_v1() {
+        let p = plane();
+        let (status, Json(opened)) = p
+            .open(
+                "cs-recipe",
+                json!({ "kind": "data_recipe", "family": "acme.orders" }),
+                json!({ "name": "Orders" }),
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{opened}");
+        let cs = &opened["change_set"];
+        assert_eq!(cs["schema_version"], SCHEMA);
+        assert_eq!(cs["subject"]["family_ref"], "data-recipe://acme.orders");
+        assert_eq!(
+            cs["subject"]["base_head_ref"],
+            Value::Null,
+            "a data recipe change set may found its family"
+        );
+        assert_eq!(cs["drafts"][0]["body"]["family"], "acme.orders");
+
+        // Rewrite its projection as the v1 record an earlier build wrote.
+        let cs_ref = cs["change_set_ref"].as_str().unwrap().to_string();
+        let id = cs_ref.trim_start_matches("change://").to_string();
+        let mut v1 = cs.clone();
+        v1["schema_version"] = json!(SCHEMA_V1);
+        v1.as_object_mut().unwrap().remove("basis_refs");
+        validate(CONTRACT_V1, "change set", &v1).expect("the rewritten record is a v1 record");
+        persist(KIND, &p.st.data_dir, &id, &v1).expect("persist");
+
+        let (status, Json(abandoned)) = p.step(&cs_ref, "abandon", "cs-recipe-abandon").await;
+        assert_eq!(status, StatusCode::OK, "{abandoned}");
+        assert_eq!(abandoned["change_set"]["schema_version"], SCHEMA_V1);
+        assert!(abandoned["change_set"].get("basis_refs").is_none());
+        let stored = load(&p.st.data_dir, &id).unwrap();
+        assert_eq!(stored["status"], "abandoned");
+        validate(CONTRACT_V1, "change set", &stored).expect("still a v1 record");
     }
 
     fn refusal_code(

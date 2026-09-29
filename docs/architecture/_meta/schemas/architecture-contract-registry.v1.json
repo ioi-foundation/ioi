@@ -13777,7 +13777,7 @@
       "canonical_encoding_profile_ref": null,
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/objects/change-set/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -13810,6 +13810,66 @@
         },
         {
           "path": "fixtures/change-set-v1/negative-unknown-status.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/change-set/v2",
+      "canonical_name": "ChangeSet",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#changesetenvelope-v2",
+      "schema_version": "ioi.change-set.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/objects/change-set/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "change-set.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ChangeSetV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ChangeSetV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/change-set-v2/positive-open-founding-data-recipe.json",
+        "fixtures/change-set-v2/positive-merged-blueprint.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/change-set-v2/negative-kind-outside-the-table.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/change-set-v2/negative-blueprint-subject-with-a-recipe-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/change-set-v2/negative-blueprint-founding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/change-set-v2/negative-blueprint-merge-names-a-recipe-revision.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/change-set-v2/negative-basis-refs-absent.json",
           "expected_failure": "schema"
         }
       ]

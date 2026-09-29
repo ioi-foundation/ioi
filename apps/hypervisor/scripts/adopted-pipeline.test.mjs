@@ -33,6 +33,16 @@ test("a pipeline is a DataRecipe family or a family an open change set would fou
   assert.match(claims.rid, /^ri\.eddie\.main\.pipeline\.[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u);
 });
 
+test("a change set over another subject (a Studio blueprint, change-set v2) is no pipeline", () => {
+  const blueprintSet = {
+    ...cs("eeeeeeeeeeeeeeee", "unused", "open", null),
+    subject: { kind: "blueprint", family_ref: "blueprint://bp_0123456789abcdef", base_revision_ref: `sha256:${"e".repeat(64)}`, base_head_ref: `sha256:${"b".repeat(64)}` },
+  };
+  const ps = PIPELINE.pipelinesOf(families, [...sets, blueprintSet]);
+  assert.deepEqual(ps.map((p) => p.familyRef), ["data-recipe://acme.claims", "data-recipe://acme.intake"]);
+  assert.ok(ps.every((p) => p.changeSets.every((c) => c.subject.kind === "data_recipe")));
+});
+
 test("the landing search filters by text and creator; a project filter matches no DataRecipe", () => {
   const ps = PIPELINE.pipelinesOf(families, sets);
   const rids = (v) => PIPELINE.pipelineFactsRoot("PipelineLandingSearchQuery", v, ps, PIPELINE.uuidOf).searchResourcesV2.results.map((r) => r.resource.rid);

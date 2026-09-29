@@ -1,0 +1,61 @@
+{
+  "schema_version": "ioi.change-set.v2",
+  "change_set_ref": "change://cs_0123456789abcdef",
+  "owner_ref": "org://acme",
+  "author_principal_ref": "user://alice@acme.example",
+  "subject": {
+    "kind": "data_recipe",
+    "family_ref": "data-recipe://acme.orders",
+    "base_revision_ref": null,
+    "base_head_ref": null
+  },
+  "title": "Normalize orders",
+  "description": "A new pipeline for CRM orders.",
+  "drafts": [
+    {
+      "ordinal": 1,
+      "body": {
+        "family": "acme.orders",
+        "name": "Orders \u2014 normalized",
+        "ontology_revision_refs": [
+          "ontology://acme-commerce/revision/3"
+        ],
+        "input_source_types": [
+          "enterprise_system"
+        ],
+        "connector_mapping_revision_refs": [
+          "connector-mapping://acme.orders.crm/revision/1"
+        ],
+        "output_object_model_refs": [
+          "object-model://acme-commerce/Order"
+        ],
+        "output_dataset_contract_refs": [],
+        "transformation_steps": [
+          "extract",
+          "normalize",
+          "validate"
+        ],
+        "policy_bound_data_view_refs": [],
+        "receipt_obligations": [
+          "data_recipe_run",
+          "transformation"
+        ],
+        "effective_policy_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "registry_status": "draft",
+        "succession_reason": "genesis"
+      },
+      "body_hash": "sha256:988f0888fecf98615c1ecfae1247b64bd50b6a8f2861900112520e86e7c46fe1",
+      "author_principal_ref": "user://alice@acme.example",
+      "drafted_at": "2026-09-27T10:00:00Z"
+    }
+  ],
+  "status": "open",
+  "validation": null,
+  "merge": null,
+  "decision_note": null,
+  "created_at": "2026-09-27T10:00:00Z",
+  "updated_at": "2026-09-27T10:00:00Z",
+  "admitted_head": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "authority_nonclaim": "change_set_grants_no_authority",
+  "truth_nonclaim": "a_draft_is_not_an_admitted_revision"
+}

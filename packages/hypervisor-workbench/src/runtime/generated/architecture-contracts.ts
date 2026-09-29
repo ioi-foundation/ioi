@@ -10800,6 +10800,54 @@ export type ChangeSetV1 = {
   truth_nonclaim: "a_draft_is_not_an_admitted_revision";
 };
 
+export type ChangeSetV2 = {
+  schema_version: "ioi.change-set.v2";
+  change_set_ref: string;
+  owner_ref: string;
+  author_principal_ref: string;
+  subject: {
+      kind: "data_recipe" | "blueprint";
+      family_ref: string;
+      base_revision_ref: string | null;
+      base_head_ref: string | null;
+    };
+  title: string;
+  description: string;
+  basis_refs: Array<string>;
+  drafts: Array<{
+        ordinal: number;
+        body: Record<string, unknown>;
+        body_hash: string;
+        author_principal_ref: string;
+        drafted_at: string;
+      }>;
+  status: "open" | "proposed" | "merged" | "rejected" | "abandoned";
+  validation: {
+      draft_ordinal: number;
+      body_hash: string;
+      outcome: "valid" | "invalid";
+      findings: Array<{
+              code: string;
+              message: string;
+            }>;
+      validated_at: string;
+    } | null;
+  merge: {
+      draft_ordinal: number;
+      resulting_revision_ref: string;
+      resulting_head_ref: string;
+      branch_merge_plan_ref: string;
+      merged_by_principal_ref: string;
+      merged_at: string;
+    } | null;
+  decision_note: string | null;
+  created_at: string;
+  updated_at: string;
+  admitted_head: string;
+  authority_nonclaim: "change_set_grants_no_authority";
+  truth_nonclaim: "a_draft_is_not_an_admitted_revision";
+};
+
 export type FunctionTestRunV1 = {
   schema_version: "ioi.function-test-run.v1";
   test_run_id: string;
@@ -23958,6 +24006,62 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/objects/change-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/change-set-v2/positive-open-founding-data-recipe.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/change-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/change-set-v2/positive-merged-blueprint.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/change-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-kind-outside-the-table.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/change-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-subject-with-a-recipe-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/change-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-founding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/change-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-merge-names-a-recipe-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/change-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-basis-refs-absent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/objects/function-test-run/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/function-test-run-v1/positive-passed.json",
     "expected": "accept",
@@ -35959,6 +36063,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v1/positive-merged.json","contract_id":"schema://ioi/foundations/objects/change-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v1/positive-merged.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/change-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v1/negative-unknown-status.json","contract_id":"schema://ioi/foundations/objects/change-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v1/negative-unknown-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v2/positive-open-founding-data-recipe.json","contract_id":"schema://ioi/foundations/objects/change-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v2/positive-open-founding-data-recipe.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v2/positive-merged-blueprint.json","contract_id":"schema://ioi/foundations/objects/change-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v2/positive-merged-blueprint.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-kind-outside-the-table.json","contract_id":"schema://ioi/foundations/objects/change-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-kind-outside-the-table.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-subject-with-a-recipe-ref.json","contract_id":"schema://ioi/foundations/objects/change-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-subject-with-a-recipe-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-founding.json","contract_id":"schema://ioi/foundations/objects/change-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-founding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-merge-names-a-recipe-revision.json","contract_id":"schema://ioi/foundations/objects/change-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-blueprint-merge-names-a-recipe-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-basis-refs-absent.json","contract_id":"schema://ioi/foundations/objects/change-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/change-set-v2/negative-basis-refs-absent.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/function-test-run-v1/positive-passed.json","contract_id":"schema://ioi/foundations/objects/function-test-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/function-test-run-v1/positive-passed.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/function-test-run-v1/negative-unregistered-outcome.json","contract_id":"schema://ioi/foundations/objects/function-test-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/function-test-run-v1/negative-unregistered-outcome.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json","mutation_id":null,"value_json":null}),
@@ -37250,6 +37361,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$",
   "^(?:contribution|receipt)://[^\\s]{1,500}$",
   "^(?:cost|ledger|policy)://[^\\s]{1,500}$",
+  "^(?:data-recipe|blueprint)://[^\\s]{1,300}$",
   "^(?:dataset-snapshot|trainpipe)://[^\\s]{1,500}$",
   "^(?:dataset://|artifact://)[^\\s]{1,240}$",
   "^(?:dataset|program)[.][0-9a-f]{64}$",
@@ -37332,6 +37444,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$",
   "^(?:org|domain|governance)://[^\\s]{1,400}$",
+  "^(?:org|project)://[A-Za-z0-9._:/-]{1,200}$",
   "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project)://[^\\s]{1,240}$",
@@ -38622,6 +38735,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5",
   "schema://ioi/foundations/objects/function-revision/v1": "sha256:27373945d298eb6ee32cf9cf4b9b80e72c29580161e03e5c9279efee6aeaf8c7",
   "schema://ioi/foundations/objects/change-set/v1": "sha256:40fa96558da571f0c0911d936d13858ccbcc44989d918720ffa661a481543954",
+  "schema://ioi/foundations/objects/change-set/v2": "sha256:0804148885fde1b1ca7b9d6b2d00c877c86e41b0b811c7dd734fcbf40cab51a7",
   "schema://ioi/foundations/objects/function-test-run/v1": "sha256:8428e49a8091cb9eadda3ab8179d56788f2e1c9b09fce2fb7853f4adaad2317a",
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": "sha256:8555f92bfd59dffeb01228f8b759d8150962eef762dbf72d26fa002160b171ec",
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": "sha256:72784f0460f17dd9a45503103fdfb32663b25c9ca3698187a2dc1f38cf6c7368",
@@ -118567,6 +118681,469 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/objects/change-set/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/change-set/v2",
+    "title": "ChangeSet",
+    "x-ioi-schema-version": "ioi.change-set.v2",
+    "description": "One governed change to one Hypervisor object, drafted in isolation and merged by that subject's own admission (ADR 0056 Amendment 1, plane 4). Canon's patch branch is an isolated draft space: nobody mutates a subject's head directly. A change set pins the head it was opened against, carries an append-only chain of draft bodies shaped as the subject's admission request, validates a draft by running that admission's own checks without persisting, and merges by admitting the draft through the subject's route with the pinned head as the expected head. If the head has moved the merge is refused, never rebased silently. The merge decision is recorded as a BranchMergePlan. v2 carries a closed, generic set of subject kinds — `data_recipe` (a DataRecipe family, which a change set may found) and `blueprint` (one Studio blueprint, whose tip is its admitted head and whose revision is named by its content hash; a change set never founds one) — and reserves `basis_refs` for the evidence a change is proposed on. The daemon admits no basis until it can resolve one through the evaluation readers, so every record it writes today carries an empty list. v1 records remain valid and keep reading. A change set grants nothing, and a draft is not an admitted revision.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "change_set_ref",
+      "owner_ref",
+      "author_principal_ref",
+      "subject",
+      "title",
+      "description",
+      "basis_refs",
+      "drafts",
+      "status",
+      "validation",
+      "merge",
+      "decision_note",
+      "created_at",
+      "updated_at",
+      "admitted_head",
+      "authority_nonclaim",
+      "truth_nonclaim"
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "minLength": 20,
+        "maxLength": 40
+      },
+      "principal": {
+        "type": "string",
+        "pattern": "^user://[A-Za-z0-9._:@-]{1,200}$"
+      },
+      "finding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,95}$"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      },
+      "draft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ordinal",
+          "body",
+          "body_hash",
+          "author_principal_ref",
+          "drafted_at"
+        ],
+        "properties": {
+          "ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "body": {
+            "type": "object",
+            "description": "The subject family's admission request, as the draft would be admitted. Its shape is the subject's own contract; the change set never reinterprets it."
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "author_principal_ref": {
+            "$ref": "#/$defs/principal"
+          },
+          "drafted_at": {
+            "$ref": "#/$defs/timestamp"
+          }
+        }
+      }
+    },
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.change-set.v2"
+      },
+      "change_set_ref": {
+        "type": "string",
+        "pattern": "^change://cs_[0-9a-f]{16}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "description": "The tenant that owns the change set — its subject's owner.",
+        "pattern": "^(?:org|project)://[A-Za-z0-9._:/-]{1,200}$"
+      },
+      "author_principal_ref": {
+        "$ref": "#/$defs/principal"
+      },
+      "subject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "family_ref",
+          "base_revision_ref",
+          "base_head_ref"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "data_recipe",
+              "blueprint"
+            ]
+          },
+          "family_ref": {
+            "type": "string",
+            "pattern": "^(?:data-recipe|blueprint)://[^\\s]{1,300}$"
+          },
+          "base_revision_ref": {
+            "description": "The subject's current revision when the change set was opened: a DataRecipe revision ref, or a blueprint's content hash (a blueprint has no numbered revisions; its content identity names what its admitted head says); null only when a data_recipe change set founds the family.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "base_head_ref": {
+            "description": "The subject's admitted head when the change set was opened (the expected head its merge asserts); null only when a data_recipe change set founds the family.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "description": "The one subject the change set drafts over. `kind` is a closed set that grows one subject at a time; each kind fixes the scheme of `family_ref` and what `base_revision_ref` names (see allOf)."
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 4000
+      },
+      "basis_refs": {
+        "description": "Reserved: the evidence this change is proposed on (an evaluation result, for one). The daemon admits a basis only once it resolves it through that evidence's own reader; until then it refuses any, so every record it writes carries an empty list.",
+        "type": "array",
+        "maxItems": 16,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        }
+      },
+      "drafts": {
+        "type": "array",
+        "maxItems": 9999,
+        "items": {
+          "$ref": "#/$defs/draft"
+        }
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "open",
+          "proposed",
+          "merged",
+          "rejected",
+          "abandoned"
+        ]
+      },
+      "validation": {
+        "description": "The last validation: the subject admission's own checks run against one draft without persisting.",
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "draft_ordinal",
+              "body_hash",
+              "outcome",
+              "findings",
+              "validated_at"
+            ],
+            "properties": {
+              "draft_ordinal": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9999
+              },
+              "body_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "valid",
+                  "invalid"
+                ]
+              },
+              "findings": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "$ref": "#/$defs/finding"
+                }
+              },
+              "validated_at": {
+                "$ref": "#/$defs/timestamp"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "merge": {
+        "description": "The merge: the draft admitted as the subject's successor, and the BranchMergePlan recording the decision.",
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "draft_ordinal",
+              "resulting_revision_ref",
+              "resulting_head_ref",
+              "branch_merge_plan_ref",
+              "merged_by_principal_ref",
+              "merged_at"
+            ],
+            "properties": {
+              "draft_ordinal": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9999
+              },
+              "resulting_revision_ref": {
+                "description": "The subject's revision the merge admitted: a DataRecipe revision ref, or the blueprint's resulting content hash.",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "resulting_head_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "branch_merge_plan_ref": {
+                "type": "string",
+                "pattern": "^branch-merge://[0-9a-f]{64}$"
+              },
+              "merged_by_principal_ref": {
+                "$ref": "#/$defs/principal"
+              },
+              "merged_at": {
+                "$ref": "#/$defs/timestamp"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "decision_note": {
+        "description": "Why a change set was rejected or abandoned; null otherwise.",
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "created_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "updated_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "admitted_head": {
+        "description": "The change set's own chain head after its latest admitted operation.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "authority_nonclaim": {
+        "type": "string",
+        "const": "change_set_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "type": "string",
+        "const": "a_draft_is_not_an_admitted_revision"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject"
+          ],
+          "properties": {
+            "subject": {
+              "type": "object",
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "data_recipe"
+                }
+              }
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject": {
+              "type": "object",
+              "properties": {
+                "family_ref": {
+                  "type": "string",
+                  "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$"
+                },
+                "base_revision_ref": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,5}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "base_head_ref": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "merge": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "resulting_revision_ref": {
+                      "type": "string",
+                      "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,5}$"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject"
+          ],
+          "properties": {
+            "subject": {
+              "type": "object",
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "blueprint"
+                }
+              }
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject": {
+              "type": "object",
+              "properties": {
+                "family_ref": {
+                  "type": "string",
+                  "pattern": "^blueprint://bp_[0-9a-f]{1,64}$"
+                },
+                "base_revision_ref": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "base_head_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                }
+              }
+            },
+            "merge": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "resulting_revision_ref": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
   "schema://ioi/foundations/objects/function-test-run/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/objects/function-test-run/v1",
@@ -171733,6 +172310,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   ],
   "schema://ioi/foundations/objects/function-revision/v1": [],
   "schema://ioi/foundations/objects/change-set/v1": [],
+  "schema://ioi/foundations/objects/change-set/v2": [],
   "schema://ioi/foundations/objects/function-test-run/v1": [],
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": [],
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": [
@@ -184790,6 +185368,12 @@ export function validateChangeSetV1(
   value: unknown,
 ): value is ChangeSetV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/change-set/v1", value).ok;
+}
+
+export function validateChangeSetV2(
+  value: unknown,
+): value is ChangeSetV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/change-set/v2", value).ok;
 }
 
 export function validateFunctionTestRunV1(
