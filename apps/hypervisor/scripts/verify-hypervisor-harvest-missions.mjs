@@ -3,8 +3,8 @@
 // with DAEMON truth, not capture fixtures.
 //
 // Proves: (1) /__apps/jobs (job-tracker seed) reads its build queue through GraphQL buildsV2
-// and the serve answers with the daemon's REAL run estate — goal-runs (drafts excluded),
-// sessions (the daemon's own newest-50 projection), automation executions — every daemon
+// and the serve answers with the daemon's REAL run estate — work results, sessions (the
+// daemon's own newest-50 projection), automation executions — every daemon
 // record present by its VERBATIM ref in the Outputs cell, nothing fabricated, identity-scoped
 // views honestly empty (the daemon maps no seed-user identity); a session fixture created
 // through the daemon's own API round-trips into the BOOTED premium queue UI. (2)
@@ -14,6 +14,14 @@
 // environment ref, detection time). Incidents have NO creation lane by design (405) — they
 // exist only when the failover machinery records one, so the incident assertions run over the
 // records that exist and an empty estate must show an honestly empty inbox.
+//
+// GoalRun left the Hypervisor (R-192, S5-1; standing owner ruling 2026-09-24). The builds lane's
+// first source was the goal-run list; the serve replaced it with recorded WorkResults (named by
+// their work subject) in that cut, but this verifier kept reading /v1/goal-orchestration/goal-runs
+// — 404, hidden behind the anonymous 401 until the 2026-09-29 auth sweep — and crashed on its
+// body. It now checks the lane against /v1/hypervisor/work-results, and the "draft goal-runs are
+// not runs" clause is gone with the plane: a WorkResult has no draft state (R-240, sweep findings,
+// 2026-09-29).
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-harvest-missions.mjs
 // Exit 2 = BLOCKED (harvest capture or daemon not running) — named, not failed.
@@ -71,8 +79,8 @@ async function run() {
   ok("daemon session fixture created", !!fixtureRef, fixtureRef);
 
   // 3. REBOUND WIRE (jobs) — the builds lane carries the daemon's run estate verbatim.
-  const [grj, ssj, atj] = await Promise.all([
-    fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((r) => r.json()),
+  const [wrj, ssj, atj] = await Promise.all([
+    fetch(`${DAEMON}/v1/hypervisor/work-results`).then((r) => r.json()),
     fetch(`${DAEMON}/v1/hypervisor/sessions`).then((r) => r.json()),
     fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.json()),
   ]);
@@ -80,18 +88,18 @@ async function run() {
   const wire = await postBuilds(emptyFilter);
   const rows = wire?.data?.buildsV2?.values || [];
   const names = new Set(rows.map((r) => r.outputs?.values?.[0]?.name));
-  const goalRefs = (grj.goal_runs || []).filter((g) => g.status !== "draft").map((g) => g.goal_ref);
+  // The serve names a work-result row by its work subject (or its id), cut to 64 characters.
+  const resultNames = (wrj.work_results || []).map((r) => String(r.work_subject_ref || String(r.work_result_id || "").replace(/^work-result:\/\//, "")).slice(0, 64));
   const sessRefs = (ssj.sessions || []).map((s) => s.session_ref);
   const execIds = autoRuns.map((x) => x.execution_id);
-  ok("every daemon goal-run on the wire (drafts excluded)", goalRefs.every((g) => names.has(g)), `${goalRefs.length} goal-runs`);
+  ok("every daemon work result on the wire", resultNames.every((n) => names.has(n)), `${resultNames.length} work results`);
   ok("every daemon session on the wire (daemon's newest-50 projection)", sessRefs.every((s) => names.has(s)), `${sessRefs.length} sessions`);
   ok("every automation execution on the wire", execIds.every((x) => names.has(x)), `${execIds.length} executions`);
-  const known = new Set([...goalRefs, ...sessRefs, ...execIds]);
+  const known = new Set([...resultNames, ...sessRefs, ...execIds]);
   ok("jobs lane fabricates NOTHING", rows.every((r) => known.has(r.outputs?.values?.[0]?.name)), `${rows.length} wire rows`);
   ok("fixture session on the wire", names.has(fixtureRef));
   const fixtureRow = rows.find((r) => r.outputs?.values?.[0]?.name === fixtureRef);
   ok("fixture carries real state (provisioned → RUNNING, no invented finish time)", !!fixtureRow && fixtureRow.status === "RUNNING" && fixtureRow.finishedAt === null);
-  ok("draft goal-runs are NOT runs (excluded from the queue)", (grj.goal_runs || []).filter((g) => g.status === "draft").every((g) => !names.has(g.goal_ref)));
 
   // 4. Identity honesty — a userIds-scoped view carries no rows (no identity mapping yet).
   const scoped = await postBuilds({ ...emptyFilter, userIds: ["fe77707c-1590-4b15-9dca-9f92e943d79d"] });
@@ -134,7 +142,7 @@ async function run() {
     await page.locator('button:has-text("Clear all filters")').first().click().catch(() => {});
     await page.waitForTimeout(7000);
     const text = await page.evaluate(() => (document.body.innerText || "").replace(/\s+/g, " "));
-    ok("[jobs] booted queue renders the daemon estate (goal-run + session + automation rows)", text.includes("goal://gr_") === (goalRefs.length > 0) && (sessRefs.length === 0 || /session:/.test(text)) && (execIds.length === 0 || text.includes("aex_")));
+    ok("[jobs] booted queue renders the daemon estate (work-result + session + automation rows; no goal runs)", !text.includes("goal://gr_") && (resultNames.length === 0 || resultNames.some((n) => text.includes(n))) && (sessRefs.length === 0 || /session:/.test(text)) && (execIds.length === 0 || text.includes("aex_")));
     ok("[jobs] fixture session renders IN the booted UI", !fixtureRef || text.includes(fixtureRef));
     ok("[jobs] automation attribution renders (started by automation name)", execIds.length === 0 || (atj.automations || []).some((a) => a.name && text.includes(a.name)));
     ok("[jobs] no brand-cased strings in rendered text", !/Palantir/.test(text));

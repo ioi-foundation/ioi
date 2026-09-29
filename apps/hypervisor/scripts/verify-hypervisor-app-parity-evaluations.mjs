@@ -104,6 +104,24 @@ async function run() {
   ok("assessment SUBJECTS lane renders a real failed run's proof as an <a href> link in the Evidence cell (or none failed)", /id="eval-subjects"/.test(t) && (!failedRun || /<td><a href="[^"]+" target="_blank" rel="noopener">proof ↗<\/a><\/td>/.test(t)) && !/goal_run_blocker/.test(t), failedRun ? failedRun.execution_id : "no failed runs (honest ok)");
   ok("the consent ladder is shown as the admission gate", /Consent ladder/.test(t) && t.includes("never_train") && t.includes("org_policy"));
 
+  // 3b. The declare FORM works or says why (R-240, sweep findings, 2026-09-29). The auth sweep's refusal trail named
+  // `eval_suite_consent_requirement_unusable` as if a create were broken; it was this verifier's own never_train-only
+  // probe above (a PASS). The form a person uses is proved the same two ways: never_train alone is refused and the page
+  // says why; an admissible rung declares the suite.
+  const submit = (fields) => {
+    const form = new URLSearchParams();
+    for (const [k, v] of fields) form.append(k, v);
+    return fetch(`${SERVE}/__ioi/evaluations`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form.toString(), redirect: "manual" });
+  };
+  const refusedPost = await submit([["name", "form-never-train-only"], ["subject_scope", "failed_run"], ["consent_requirements", "never_train"]]);
+  const refusedAt = refusedPost.headers.get("location") || "";
+  const refusedPage = refusedAt ? await page(new URL(refusedAt, SERVE).href) : { status: 0, text: "" };
+  ok("declare form: never_train alone is refused and the page says why (never a silent redirect)", refusedPost.status === 302 && /refused=/.test(refusedAt) && /Refused:<\/b>/.test(refusedPage.text) && /never_train/.test(refusedPage.text.split("Refused:")[1] || ""), refusedAt.slice(0, 120));
+  const admittedPost = await submit([["name", "form-synthetic-ok"], ["subject_scope", "failed_run"], ["consent_requirements", "synthetic_only"]]);
+  const formSuite = ((await jd("GET", "/v1/hypervisor/eval-suites")).j.eval_suites || []).find((s) => s.name === "form-synthetic-ok");
+  if (formSuite?.id) cleanup.push(["DELETE", `/v1/hypervisor/eval-suites/${formSuite.id}`]);
+  ok("declare form: an admissible rung declares the suite (302 back to the library, the daemon holds it)", admittedPost.status === 302 && admittedPost.headers.get("location") === "/__ioi/evaluations" && JSON.stringify(formSuite?.consent_requirements) === JSON.stringify(["synthetic_only"]), formSuite?.ref || "absent");
+
   // 4. No false coverage — named gaps + brand-clean.
   ok("named gaps: EvalRun execution · scoring/verdicts · judge · scorecards · auto-mining · analysis · quiver · promotion", /EvalRun execution/.test(t) && /scoring \/ verdicts/.test(t) && /judge \/ model evaluation/.test(t) && /scorecards/.test(t) && /auto-mining/.test(t) && /promotion decisions/.test(t) && t.includes("/__apps/analysis") && t.includes("/__apps/quiver"));
   ok("surface states nothing scores/executes here", /nothing scores or executes here/i.test(t) || /never scores/.test(t));

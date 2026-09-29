@@ -91,7 +91,14 @@ async function run() {
   ok("view is a capability envelope over the mapping (refs + scope + ops + subjects + purpose)", v?.connector_mapping_ref?.startsWith("connector-mapping://") && (v?.allowed_operations || []).length === 2 && (v?.property_scope || []).length === 3 && v?.purpose === "underwriting analysis");
   ok("NO automatic authority: authority.crossed false, object_instances 0", v?.authority?.crossed === false && v?.health?.object_instances === 0);
   ok("downstream contracts named still-missing (TransformationRun, OntologyProjection)", JSON.stringify(v?.health?.missing_contracts) === JSON.stringify(["TransformationRun", "OntologyProjection"]));
-  ok("view is declared + receipted + history", v?.status === "declared" && (v?.receipt_refs || []).length >= 1 && (v?.history || []).length >= 1);
+  // The receipt a declaration admitted is RETURNED (the response's receipt_refs), never embedded in the record: since
+  // 289b72547 (2026-08-08, MEF-GAP-008) a receipt is minted only after the record is durable, so the record's own
+  // receipt_refs stays [] and the receipt resolves through the /:id/history join. This clause read the record's list
+  // and failed from then on, hidden behind the anonymous 401 until the 2026-09-29 auth sweep; the create now returns
+  // the refs it admitted (R-240, sweep findings, 2026-09-29) and the clause asserts that ref resolves.
+  const createdReceipts = created.j.receipt_refs || [];
+  const createdHist = v?.id ? await jd("GET", `/v1/hypervisor/odk/policy-bound-data-views/${v.id}/history`) : { j: {} };
+  ok("view is declared + receipted + history (the create returns the receipt ref it admitted; it resolves on the view)", v?.status === "declared" && createdReceipts.length === 1 && created.j.audit_durable === true && (createdHist.j.receipts || []).some((r) => r.receipt_ref === createdReceipts[0] && r.op === "created") && (v?.history || []).length >= 1, `receipt_refs ${JSON.stringify(createdReceipts)} · record receipt_refs ${JSON.stringify(v?.receipt_refs)}`);
   ok("health is honest `ready` (purpose + retention + scope + narrow subjects)", v?.health?.status === "ready", v?.health?.status);
 
   // 2. High-risk needs named receipt obligations (and a non-conflicting posture).
@@ -131,7 +138,11 @@ async function run() {
   const ov = await jd("GET", "/v1/hypervisor/odk/policy-bound-data-views/overview");
   ok("overview: operation vocab + high-risk set + declarative governance gaps", JSON.stringify(ov.j.high_risk_operations) === JSON.stringify(["export", "publish", "train", "evaluate"]) && (ov.j.governance_gaps || []).some((g) => /DECLARATIVE|authorizes nothing/i.test(g)));
   const p1 = await jd("PATCH", `/v1/hypervisor/odk/policy-bound-data-views/${v.id}`, { description: "gate for underwriting" });
-  ok("valid patch bumps revision + history + receipt", p1.j.policy_bound_data_view?.revision === 2 && (p1.j.policy_bound_data_view?.history || []).length === 2 && (p1.j.policy_bound_data_view?.receipt_refs || []).length === 2);
+  // The patch's receipt is returned, not embedded (the same design as the create, above): the view's history join
+  // now holds both receipts, the create's and this patch's.
+  const patchedHist = await jd("GET", `/v1/hypervisor/odk/policy-bound-data-views/${v.id}/history`);
+  const viewReceipts = (patchedHist.j.receipts || []).map((r) => r.receipt_ref);
+  ok("valid patch bumps revision + history + receipt", p1.j.policy_bound_data_view?.revision === 2 && (p1.j.policy_bound_data_view?.history || []).length === 2 && (p1.j.receipt_refs || []).length === 1 && viewReceipts.length === 2 && viewReceipts.includes(p1.j.receipt_refs?.[0]) && viewReceipts.includes(createdReceipts[0]), `patch receipt_refs ${JSON.stringify(p1.j.receipt_refs)} · view receipts ${viewReceipts.length}`);
   const p2 = await jd("PATCH", `/v1/hypervisor/odk/policy-bound-data-views/${v.id}`, { allowed_operations: ["teleport"] });
   ok("malformed patch rejected (ok:false + code)", p2.j.ok === false && p2.j.error?.code === "policy_view_operation_invalid");
   const after = await jd("GET", `/v1/hypervisor/odk/policy-bound-data-views/${v.id}/health`);

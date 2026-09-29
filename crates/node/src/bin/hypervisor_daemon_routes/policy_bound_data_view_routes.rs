@@ -561,14 +561,24 @@ fn commit_view_receipt(data_dir: &str, view_ref: &str, op: &str, summary: &str) 
 
 /// Attach the audit posture to a SUCCESS body. A gap never downgrades the mutation to a failure —
 /// the mutation is already durable and cannot be un-done — and never yields a `receipt_ref` key.
+///
+/// `receipt_refs` — the receipts THIS write admitted (R-240, sweep findings, 2026-09-29). Every
+/// admitted write returns its receipt refs, and this plane's peers (mapping, transformation run,
+/// materializing run) answer with a `receipt_refs` list; a view answered only the singular
+/// `receipt_ref` while its record's own `receipt_refs` stays `[]` by design (the module header: a
+/// receipt is minted only after the record is durable, so it is never embedded). The list is the
+/// response's, never the record's: one durable ref when the receipt committed, EMPTY on an audit gap
+/// — a ref that resolves to nothing is never returned.
 fn with_audit(mut body: Value, audit: AuditOutcome) -> Value {
     match audit {
         AuditOutcome::Durable(receipt_ref) => {
             body["audit_durable"] = json!(true);
+            body["receipt_refs"] = json!([receipt_ref.clone()]);
             body["receipt_ref"] = json!(receipt_ref);
         }
         AuditOutcome::Gap(detail) => {
             body["audit_durable"] = json!(false);
+            body["receipt_refs"] = json!([]);
             body["audit_gap"] = json!({
                 "code": AUDIT_RECEIPT_NOT_DURABLE,
                 "message": format!("This mutation IS in effect and is durable. Its audit receipt did NOT commit ({detail}), so no receipt reference is returned or persisted and this act is unevidenced in the receipt store.")
@@ -1381,6 +1391,55 @@ mod policy_bound_data_view_durability_tests {
         );
     }
 
+    /// Every admitted write returns the receipt refs it admitted (R-240, sweep findings,
+    /// 2026-09-29): declare, re-declare and revoke each answer `receipt_refs` naming exactly the one
+    /// receipt that write minted, and each ref resolves in the receipt store on this view's ref —
+    /// while the durable record's own `receipt_refs` stays `[]` (the audit-ordering design).
+    #[test]
+    fn every_admitted_view_write_returns_the_receipt_refs_it_admitted() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().expect("utf8");
+        seed_mapping(data_dir);
+        let resolves = |reply: &Value, op: &str, view_ref: &Value| {
+            let refs = reply["receipt_refs"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            assert_eq!(refs.len(), 1, "one receipt per admitted write: {reply}");
+            assert_eq!(
+                refs[0], reply["receipt_ref"],
+                "the list names the same receipt: {reply}"
+            );
+            let minted = receipts_for_op(data_dir, op);
+            assert!(
+                minted
+                    .iter()
+                    .any(|r| r["receipt_ref"] == refs[0] && &r["policy_view_ref"] == view_ref),
+                "{op}: the returned ref resolves to a durable receipt on this view: {reply}"
+            );
+        };
+
+        let (status, declared) = declare_policy_view(data_dir, &wide_body());
+        assert_eq!(status, StatusCode::CREATED, "body: {declared}");
+        let view = declared["policy_bound_data_view"].clone();
+        let id = view["id"].as_str().expect("id").to_string();
+        resolves(&declared, "created", &view["ref"]);
+        assert_eq!(
+            view["receipt_refs"],
+            json!([]),
+            "never embedded in the record"
+        );
+
+        let (status, patched) = redeclare_policy_view(data_dir, &id, &narrowing_patch());
+        assert_eq!(status, StatusCode::OK, "body: {patched}");
+        resolves(&patched, "patched", &view["ref"]);
+        assert_ne!(patched["receipt_refs"], declared["receipt_refs"]);
+
+        let (status, revoked) = destroy_policy_view(data_dir, &id);
+        assert_eq!(status, StatusCode::OK, "body: {revoked}");
+        resolves(&revoked, "deleted", &view["ref"]);
+    }
+
     // ── Record durable, audit receipt not ────────────────────────────────────────────────────
 
     #[test]
@@ -1409,6 +1468,11 @@ mod policy_bound_data_view_durability_tests {
         assert!(
             body.get("receipt_ref").is_none(),
             "no receipt ref may be returned over a failed audit write"
+        );
+        assert_eq!(
+            body["receipt_refs"],
+            json!([]),
+            "the write admitted no receipt, so it returns none"
         );
         let acknowledged = body["policy_bound_data_view"].clone();
         let id = acknowledged["id"].as_str().expect("id");
@@ -1654,6 +1718,11 @@ mod policy_bound_data_view_durability_tests {
         assert!(
             body.get("receipt_ref").is_none(),
             "no receipt ref may be returned over a failed audit write"
+        );
+        assert_eq!(
+            body["receipt_refs"],
+            json!([]),
+            "the write admitted no receipt, so it returns none"
         );
         assert!(load_view(data_dir, &id).is_none());
     }

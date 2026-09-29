@@ -4,8 +4,11 @@
 //   A. Model Catalog inside Foundry (49-model-catalog; 47-ml-library folds here) — route cards
 //      carry the registry's own availability/custody/credential/admission truth + usage from
 //      admitted session bindings; admin deliberately links to Agent Studio (single owner).
-//   B. Run Replay index (native primitive first slice) — the replay list over live session runs,
-//      durable transcripts, and IOI Agent runs; every row opens an owned timeline.
+//   B. Run Replay index (native primitive first slice) — the replay list over live session runs
+//      and durable transcripts; every row opens an owned timeline. (It also listed IOI Agent goal
+//      runs until R-192/S5-1 took GoalRun out of the Hypervisor; the page's source went with it,
+//      and on 2026-09-29 — R-240, sweep findings — this verifier stopped reading the retired
+//      /v1/goal-orchestration/goal-runs, which answers 404.)
 //   C. Proof Explorer facets on Work Ledger — the state-root timeline on demand; rooted-vs-total
 //      counts must be exact.
 //   D. Authority Clients roster on Connections (57-oauth2-clients, renamed) — lease classes with
@@ -45,17 +48,16 @@ async function run() {
   }
 
   // B. Run Replay index.
-  const [replay, tr, gr] = await Promise.all([sGet("/__ioi/run-replay"), jget("/v1/hypervisor/agent-run-transcripts"), jget("/v1/goal-orchestration/goal-runs")]);
+  const [replay, tr] = await Promise.all([sGet("/__ioi/run-replay"), jget("/v1/hypervisor/agent-run-transcripts")]);
   ok("Run Replay index renders 200", replay.status === 200 && replay.text.includes("<h1>Run Replay</h1>"));
   const trRuns = (tr || {}).runs || [];
-  const goals = (gr || {}).goal_runs || [];
-  if (trRuns.length || goals.length) {
-    // The page renders the newest 60 rows of the session∪transcript∪goal-run union; with bulk
+  if (trRuns.length) {
+    // The page renders the newest 60 rows of the session∪transcript union; with bulk
     // verifier traffic MANY transcripts tie on the same second, so "the newest one" is ambiguous
     // between two independent sorts. Assert real citation tie-immune: at least one of the 60
     // newest transcripts (by this verifier's sort) appears on the page.
     const newest60 = trRuns.slice().sort((a, b) => String(b.started_at || b.recorded_at || "").localeCompare(String(a.started_at || a.recorded_at || ""))).slice(0, 60);
-    ok("replay rows cite recorded runs (one of the 60 newest transcripts)", !newest60.length || newest60.some((t) => replay.text.includes(t.run_id || "@")), `${trRuns.length} transcripts · ${goals.length} goal runs`);
+    ok("replay rows cite recorded runs (one of the 60 newest transcripts)", !newest60.length || newest60.some((t) => replay.text.includes(t.run_id || "@")), `${trRuns.length} transcripts`);
     ok("replay links open owned timelines", replay.text.includes("/__ioi/run-timeline/"));
     const bare = await sGet("/__ioi/run-timeline");
     ok("bare run-timeline path is the same index", bare.status === 200 && bare.text.includes("<h1>Run Replay</h1>"));

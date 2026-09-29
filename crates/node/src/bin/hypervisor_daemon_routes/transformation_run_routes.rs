@@ -137,13 +137,18 @@ fn run_v1_write_caller(
     })
 }
 
+/// Admit one v1 run record. `predecessor_head` is None for the genesis (create) and, for a state
+/// move, the exact admitted head the move was decided from — the expected-head precondition AND the
+/// head its derived key names, so a writer landing in between makes this admission lose, never append
+/// a move decided over a head that is no longer current.
 fn admit_run_v1(
     data_dir: &str,
     caller: &RunV1WriteCaller,
     resource_ref: &str,
     record: &Value,
-    genesis: bool,
+    predecessor_head: Option<&str>,
 ) -> Result<super::mutation_event_foundation::MutationCommit, (StatusCode, Json<Value>)> {
+    let genesis = predecessor_head.is_none();
     let identity = caller.identity.clone();
     let owner_ref = caller.owner_ref.clone();
     let idempotency_key = caller.idempotency_key.as_str();
@@ -168,22 +173,6 @@ fn admit_run_v1(
     }
     .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
     let tail = run_v1_stream_tail(resource_ref);
-    let expected_head = if genesis {
-        None
-    } else {
-        super::mutation_event_foundation::read_owner_scoped_history(
-            data_dir,
-            &identity,
-            &scope,
-            RUN_V1_SCOPE_KIND,
-            resource_ref,
-            RUN_V1_OWNER_NAMESPACE,
-            &tail,
-        )
-        .map_err(super::mutation_event_foundation::mutation_refusal_reply)?
-        .last()
-        .map(|entry| entry.head.clone())
-    };
     let payload = json!({
         "schema_version": RUN_V1_ADMISSION_SCHEMA,
         "owner_ref": owner_ref,
@@ -205,7 +194,7 @@ fn admit_run_v1(
             } else {
                 RUN_V1_REVISE_OP
             },
-            expected_head: expected_head.as_deref(),
+            expected_head: predecessor_head,
             payload: &payload,
             idempotency_key,
             recorded_at_ms: 0,
@@ -218,9 +207,18 @@ fn admit_run_v1(
 ///
 /// THESE PATHS CARRY NO IDEMPOTENCY KEY BECAUSE THEY CARRY NO BODY, and inventing a request field
 /// for them would change a route shape that existing callers depend on. The key is DERIVED instead,
-/// from the three things that actually identify the state move: the operation, the run, and the
-/// revision it produces. A retry of the same move at the same revision therefore replays rather than
-/// appending a second identical revision, which is the property the key exists to provide.
+/// from what actually identifies one state move: the operation, the run, and the admitted head it
+/// was decided FROM (`state_move_key`).
+///
+/// WHY THE HEAD AND NOT THE REVISION (R-240, sweep findings, 2026-09-29). The key used to name the
+/// revision the move produced — but dry-run and a blocked dry-run do not bump `revision` (only a
+/// patch does), so a SECOND dry-run of a blocked run derived the SAME key as the first while its
+/// bytes differed (another history entry, a new receipt, a new timestamp), and the substrate refused
+/// the legitimate retry 409 `event_stream_same_key_different_bytes`. A retry is decided again (master
+/// guide N11): it re-checks the gate against current truth and is a NEW state move from the head the
+/// last one left, so it appends under a new key. What the key still refuses is a true conflict — two
+/// DIFFERENT moves decided from the SAME predecessor: whichever lands second finds the first under its
+/// key with other bytes and is refused by name (or loses the expected-head compare-and-swap).
 ///
 /// The owner is resolved from the admitted predecessor, never taken from the request, so a state
 /// move cannot relocate a run between owners.
@@ -234,13 +232,24 @@ fn admit_run_v1_state_move(
     let identity = super::substrate_store::resolve_request_identity(data_dir, headers)
         .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
     let admitted = resolve_stored_transformation_run_v1(data_dir, &identity, None, run_ref, None)?;
-    let revision = record.get("revision").and_then(Value::as_u64).unwrap_or(0);
     let caller = RunV1WriteCaller {
         identity,
         owner_ref: admitted.owner_ref.clone(),
-        idempotency_key: format!("{op_label}:{run_ref}:revision:{revision}"),
+        idempotency_key: state_move_key(op_label, run_ref, &admitted.admitted_head),
     };
-    admit_run_v1(data_dir, &caller, run_ref, record, false)
+    admit_run_v1(
+        data_dir,
+        &caller,
+        run_ref,
+        record,
+        Some(&admitted.admitted_head),
+    )
+}
+
+/// The idempotency key of one body-less state move: the operation, the run, and the admitted head
+/// the move was decided from. See `admit_run_v1_state_move`.
+fn state_move_key(op_label: &str, run_ref: &str, predecessor_head: &str) -> String {
+    format!("{op_label}:{run_ref}:after:{predecessor_head}")
 }
 
 /// ONE stored v1 TransformationRun, resolved from the owner-scoped chain.
@@ -885,7 +894,7 @@ pub(crate) async fn handle_run_create(
         "updated_at": now
     });
     // The chain is the admission; the row is the projection.
-    let commit = match admit_run_v1(&st.data_dir, &caller, &rref, &record, true) {
+    let commit = match admit_run_v1(&st.data_dir, &caller, &rref, &record, None) {
         Ok(commit) => commit,
         Err(response) => return response,
     };
@@ -1316,5 +1325,247 @@ mod transformation_run_tests {
         assert_eq!(mapping_binding(&mapping, "loan_id").unwrap().0, "id");
         assert_eq!(mapping_binding(&mapping, "amount").unwrap().0, "amt");
         assert!(mapping_binding(&mapping, "ghost").is_none());
+    }
+
+    // ---- state moves on a daemon state of its own (R-240, sweep findings, 2026-09-29) ------------
+
+    const OPERATOR: &str = "00000000-0000-4000-8000-000000000001";
+    const OWNER: &str = "org://local";
+
+    struct Plane {
+        _dir: tempfile::TempDir,
+        st: Arc<DaemonState>,
+        headers: HeaderMap,
+    }
+
+    /// A signed-in operator over an empty data dir holding one READY mapping and one READY view
+    /// (`cmap_ready` / `pbdv_ready`) — the only records `validate_inputs` reads.
+    fn plane() -> Plane {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8").to_string();
+        super::super::lifecycle_routes::ensure_identity_foundation(&data_dir)
+            .expect("identity foundation");
+        let st = crate::test_daemon_state(&data_dir);
+        let (status, issued) =
+            super::super::lifecycle_routes::issue_session(&data_dir, OPERATOR, "local");
+        assert_eq!(status, StatusCode::OK, "{issued}");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!(
+                "Bearer {}",
+                issued["session_token"].as_str().expect("token")
+            )
+            .parse()
+            .expect("header"),
+        );
+        persist_record(
+            &data_dir,
+            crate::connector_mapping_routes::RECORD_DIR,
+            "cmap_ready",
+            &json!({
+                "id": "cmap_ready", "ref": "connector-mapping://cmap_ready",
+                "data_source_ref": "data-source:ds_x", "ontology_ref": "ontology://loans",
+                "object_type_id": "loan", "health": { "status": "ready" },
+                "key_mapping": { "property_id": "loan_id", "source_field": "id", "source_type": "string" },
+                "title_mapping": { "property_id": "title", "source_field": "disp", "source_type": "string" }
+            }),
+        )
+        .expect("mapping fixture");
+        persist_record(
+            &data_dir,
+            crate::policy_bound_data_view_routes::RECORD_DIR,
+            "pbdv_ready",
+            &json!({
+                "id": "pbdv_ready", "ref": "policy-bound-data-view://pbdv_ready",
+                "connector_mapping_id": "cmap_ready", "health": { "status": "ready" },
+                "allowed_operations": ["transform"], "property_scope": ["loan_id", "title"],
+                "purpose": "underwriting analysis", "receipt_obligations": []
+            }),
+        )
+        .expect("view fixture");
+        Plane {
+            _dir: dir,
+            st,
+            headers,
+        }
+    }
+
+    impl Plane {
+        async fn create(&self, key: &str) -> String {
+            let (status, Json(created)) = handle_run_create(
+                State(self.st.clone()),
+                self.headers.clone(),
+                Json(
+                    json!({ "idempotency_key": key, "owner_ref": OWNER, "name": "loan-plan",
+                    "connector_mapping_id": "cmap_ready", "policy_view_id": "pbdv_ready" }),
+                ),
+            )
+            .await;
+            assert_eq!(status, StatusCode::CREATED, "{created}");
+            created["transformation_run"]["id"]
+                .as_str()
+                .expect("id")
+                .to_string()
+        }
+
+        async fn dry_run(&self, id: &str) -> (StatusCode, Value) {
+            let (status, Json(reply)) = handle_run_dry_run(
+                State(self.st.clone()),
+                AxumPath(id.to_string()),
+                self.headers.clone(),
+            )
+            .await;
+            (status, reply)
+        }
+
+        fn admitted(&self, id: &str) -> ResolvedTransformationRunV1 {
+            let identity = super::super::substrate_store::resolve_request_identity(
+                &self.st.data_dir,
+                &self.headers,
+            )
+            .expect("identity");
+            resolve_stored_transformation_run_v1(
+                &self.st.data_dir,
+                &identity,
+                None,
+                &format!("transformation-run://{id}"),
+                None,
+            )
+            .expect("admitted run")
+        }
+    }
+
+    /// The verifier's finding: a blocked run's dry-run, RETRIED, answered 409
+    /// `event_stream_same_key_different_bytes`, because the derived key named a revision that a
+    /// dry-run never bumps. A retry is decided again — the second blocked dry-run is admitted as a
+    /// new state move, the history grows, and the chain head moves again.
+    #[tokio::test]
+    async fn a_blocked_runs_dry_run_can_be_retried_and_each_retry_is_admitted() {
+        let p = plane();
+        let id = p.create("trun-blocked-retry").await;
+        assert!(super::super::remove_record(
+            &p.st.data_dir,
+            crate::policy_bound_data_view_routes::RECORD_DIR,
+            "pbdv_ready"
+        ));
+        let (status, first) = p.dry_run(&id).await;
+        assert_eq!(status, StatusCode::OK, "{first}");
+        assert_eq!(first["transformation_run"]["status"], "blocked");
+        assert_eq!(
+            first["transformation_run"]["blocked_reasons"][0]["code"],
+            "transformation_run_policy_view_unknown"
+        );
+        let head_after_first = p.admitted(&id).admitted_head;
+
+        let (status, retried) = p.dry_run(&id).await;
+        assert_eq!(status, StatusCode::OK, "the retry is admitted: {retried}");
+        assert_eq!(retried["transformation_run"]["status"], "blocked");
+        assert_eq!(
+            retried["transformation_run"]["history"]
+                .as_array()
+                .map(Vec::len),
+            Some(3),
+            "created + two blocked dry-runs, none lost: {retried}"
+        );
+        let after_retry = p.admitted(&id);
+        assert_ne!(
+            after_retry.admitted_head, head_after_first,
+            "the retry is its own admitted state move"
+        );
+        assert_eq!(
+            after_retry.record, retried["transformation_run"],
+            "the chain holds exactly the bytes the row now has"
+        );
+    }
+
+    /// The same for a ready run: dry-run twice in a row (a re-check against current truth) is two
+    /// admitted state moves, not a conflict.
+    #[tokio::test]
+    async fn a_ready_runs_dry_run_can_be_repeated() {
+        let p = plane();
+        let id = p.create("trun-ready-repeat").await;
+        let (status, first) = p.dry_run(&id).await;
+        assert_eq!(status, StatusCode::OK, "{first}");
+        assert_eq!(first["transformation_run"]["status"], "dry_run_ready");
+        let (status, again) = p.dry_run(&id).await;
+        assert_eq!(status, StatusCode::OK, "{again}");
+        assert_eq!(again["transformation_run"]["status"], "dry_run_ready");
+        assert_eq!(
+            again["transformation_run"]["receipt_refs"]
+                .as_array()
+                .map(Vec::len),
+            Some(3)
+        );
+        assert_eq!(p.admitted(&id).record, again["transformation_run"]);
+    }
+
+    /// What the key still refuses: two DIFFERENT state moves decided from the SAME predecessor head.
+    /// The first lands; the second, under the key that names the same head, is refused by name and
+    /// never appended — and an identical resubmission of the first replays instead of appending.
+    #[tokio::test]
+    async fn two_different_moves_from_one_predecessor_head_are_a_conflict_refused_by_name() {
+        let p = plane();
+        let id = p.create("trun-true-conflict").await;
+        let run_ref = format!("transformation-run://{id}");
+        let base = p.admitted(&id);
+        let identity =
+            super::super::substrate_store::resolve_request_identity(&p.st.data_dir, &p.headers)
+                .expect("identity");
+        let caller = RunV1WriteCaller {
+            identity,
+            owner_ref: base.owner_ref.clone(),
+            idempotency_key: state_move_key("dry_run", &run_ref, &base.admitted_head),
+        };
+        let mut move_a = base.record.clone();
+        move_a["status"] = json!("dry_run_ready");
+        move_a["updated_at"] = json!(iso_now());
+        let mut move_b = base.record.clone();
+        move_b["status"] = json!("blocked");
+        move_b["blocked_reasons"] =
+            json!([{ "code": "transformation_run_policy_view_unknown", "message": "gone" }]);
+
+        let landed = admit_run_v1(
+            &p.st.data_dir,
+            &caller,
+            &run_ref,
+            &move_a,
+            Some(&base.admitted_head),
+        )
+        .expect("the first move from the head lands");
+        assert!(!landed.replayed);
+
+        let replay = admit_run_v1(
+            &p.st.data_dir,
+            &caller,
+            &run_ref,
+            &move_a,
+            Some(&base.admitted_head),
+        )
+        .expect("the identical move replays");
+        assert!(replay.replayed, "same key, same bytes: the original fact");
+        assert_eq!(replay.projection.head, landed.projection.head);
+
+        let Err((status, Json(refused))) = admit_run_v1(
+            &p.st.data_dir,
+            &caller,
+            &run_ref,
+            &move_b,
+            Some(&base.admitted_head),
+        ) else {
+            panic!("a different move from the same head is a conflict, never admitted");
+        };
+        assert_eq!(status, StatusCode::CONFLICT, "{refused}");
+        assert!(
+            refused
+                .to_string()
+                .contains("event_stream_same_key_different_bytes"),
+            "{refused}"
+        );
+        assert_eq!(
+            p.admitted(&id).admitted_head,
+            landed.projection.head,
+            "the refused move appended nothing"
+        );
     }
 }

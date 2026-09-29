@@ -320,21 +320,9 @@ const PRODUCT_UI_PORT = Number(process.env.PRODUCT_UI_PORT || 9301);
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const OPERATIONS_PLANE_TIMEOUT_MS = 3_000;
 const DEFAULT_DAEMON_PROJECTION_TIMEOUT_MS = 10_000;
-// The M4 owner readouts resolve strict, Agentgres-backed projections. The selected proof profile
-// demonstrated that a 10-second debug-process deadline can expire while the same direct owner
-// reads remain healthy. Keep a hard two-minute bound: Goal Space shares it across its five serial
-// reads, while the two GoalRun timeline reads run concurrently under the same selected bound.
-// A deterministic verifier may raise this hang bound for an instrumented/debug daemon; the
-// production default remains two minutes. This is a liveness ceiling, not a performance claim.
-const configuredM4OwnerProjectionTimeoutMs = Number(
-  process.env.IOI_M4_OWNER_PROJECTION_TIMEOUT_MS || 120_000,
-);
-const M4_OWNER_PROJECTION_TIMEOUT_MS =
-  Number.isSafeInteger(configuredM4OwnerProjectionTimeoutMs) &&
-  configuredM4OwnerProjectionTimeoutMs >= 120_000 &&
-  configuredM4OwnerProjectionTimeoutMs <= 1_800_000
-    ? configuredM4OwnerProjectionTimeoutMs
-    : 120_000;
+// R-240 (sweep findings, 2026-09-29): the M4 owner-projection timeout (IOI_M4_OWNER_PROJECTION_TIMEOUT_MS) stood here,
+// the bound for Goal Space's serial reads and the two GoalRun timeline reads. Both readouts left with the GoalRun plane
+// (R-192, S5-1) and nothing read the constant since; it went with them.
 // W1.1 / DEF-IDENT-1 — ambient per-request identity, mirroring the envelope
 // `ioi-api-adapter.mjs:42` already uses. 130 of this file's 190 daemon calls used to be bare
 // `daemonFetch(`...`)` from render helpers that take no `req`, so every one of those reads
@@ -1963,7 +1951,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     : `<div class="empty">No scheduled automations yet. Add a time/cron schedule to an automation to populate scheduler health.</div>`;
   // ---- Jobs — one queue over EVERY execution kind (40-job-tracker graft). The reference job
   // tracker's one-list-of-all-jobs grammar lands on the existing Operations surface: automation
-  // runs, harness executions, IOI Agent coordination runs, and failover recovery runs, merged
+  // runs, harness executions, work results, and failover recovery runs, merged
   // newest-first with type chips. Each row carries its own proof affordance (timeline or state
   // root); a failover run parked at a wallet gate says so. Rows come verbatim from the owning
   // projections — no synthesized job states.
@@ -2216,7 +2204,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     <p class="sub" style="margin:4px 0 0">${improvementPosture} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
   const inner = `<h1>Operations</h1><p class="sub">Substrate &amp; infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend. Select an automation run to inspect and act on it in place. Runs live in <a href="/automations/runs">Automations / Runs →</a>, filed issues in <a href="/operations/issues">Operations / Issues →</a>, health checks in <a href="/operations/health" data-ops-health-link="1">Operations / Health →</a> and metric trends in <a href="/operations/telemetry" data-ops-telemetry-link="1">Operations / Telemetry →</a>. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
     ${availabilityNotice}
-    <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
+    <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · work results · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     ${workAnalytics}
     <h2>Scheduler</h2>${schedSection}
     <div class="wlwrap"><div>
@@ -9160,8 +9148,8 @@ async function handleEstateRequest(req, res, body) {
       throw new Error("intentional test-route failure (app-runtime-safety verifier)");
     }
     // ---- Run Replay index (native primitive, first slice) — the replay LIST over every recorded
-    // run: live session runs (serve registry), durable operation/execution transcripts (daemon),
-    // and IOI Agent coordination runs. Each row opens its owned timeline; nothing is synthesized.
+    // run: live session runs (serve registry) and durable operation/execution transcripts (daemon).
+    // Each row opens its owned timeline; nothing is synthesized.
     if ((pathname === "/__ioi/run-timeline" || pathname === "/__ioi/run-replay") && req.method === "GET" && !(new URLSearchParams((req.url || "").split("?")[1] || "").get("runId"))) {
       const replayHeaders = daemonRequestHeaders(req);
       // R-192 (S5-1): a third source stood here, the GoalRun list, and with it the preference for
@@ -9820,12 +9808,13 @@ async function handleEstateRequest(req, res, body) {
       }
       // REBIND (Missions seed, run queue): the /__apps/jobs seed (job-tracker) reads its build
       // table via GraphQL OverviewPageQuery; the serve answers it with the daemon's REAL run
-      // estate — goal-runs (drafts excluded: not yet runs), sessions (the daemon's own
+      // estate — work results (the platform record a run leaves; the goal-run list it replaced left
+      // with the GoalRun plane, R-192), sessions (the daemon's own
       // newest-50 list projection), and automation executions — mapped into the seed's
       // BuildReport wire shape. Every rendered fact is daemon truth: statuses map by closest
       // category (complete/executed/done→SUCCEEDED, blocked/execution_failed→FAILED,
       // active/provisioned→RUNNING, stopped→CANCELED); times are the daemon's own timestamps
-      // (a goal-run's finish time is its real last-update-at-completion; sessions record no
+      // (a completed work result's finish time is its own last update; sessions record no
       // finish time → finishedAt null, never invented); the Outputs cell carries the daemon
       // ref VERBATIM and deep-links to the estate's own truth surface (run timelines,
       // sessions root); automation executions attribute to their automation by name through
@@ -11424,7 +11413,7 @@ async function handleEstateRequest(req, res, body) {
         // Preserve only the identity and deployment-posture headers the daemon itself
         // adjudicates. Dropping these turns an authenticated shell request into the local
         // development principal and can both break managed deployments and defeat
-        // owner-filtered projections such as GoalRunActivation reads.
+        // owner-filtered projections (a System's, a session's).
         const daemonHeaders = daemonRequestHeaders(req, { includeContentType: true });
         const upstream = await daemonFetch(req.url, {
           method: req.method,
