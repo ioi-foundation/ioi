@@ -227,8 +227,18 @@ const SEAM_FILES = new Set(["lifecycle_routes.rs", "portal_session_exchange_rout
 // bare name cannot match within it), and the local BINDINGS named `request_identity` at
 // scm_publication_routes.rs:2676 and goalrun_routes.rs:4408/7490/7966 are variable reads that
 // never appear as `request_identity(`.
+//
+// `set_caller` added 2026-09-29 (R-240, red gates) after the same reading. It is
+// connector_execution_routes.rs's one-line wrapper of `substrate_store::resolve_request_identity`
+// (refusal mapped through `odk_routes::odk_scope_refusal`), added by 3aaaad467 when the
+// materialized-set list, read and delete began answering to the caller. Its four production call
+// sites (sets list :1113, overview :1134, get :1174, delete :1208) each `match` it and return the Err as the
+// response; none swallows it. The name exists nowhere else in the route dir. Paired with the
+// `delete_set` write seam below so `handle_set_delete` stays visible to the census as a mutating
+// handler — its baseline entry leaves because it resolves identity first, not because its write
+// moved out of the census's sight.
 const IDENTITY =
-  /\b(resolve_request_identity|request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope|authorize_environment_owner|authorize_environment_owner_identity)\s*\(/gu;
+  /\b(set_caller|resolve_request_identity|request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope|authorize_environment_owner|authorize_environment_owner_identity)\s*\(/gu;
 const RECORD_READ =
   /\b(load|load_record|read_record_dir|find_by_key|read_owner_scoped_head|read_owner_scoped_history)\s*\(/gu;
 // Helper write seams: named persist_*/save_*/*_write wrappers in the daemon route
@@ -276,6 +286,11 @@ const WRITE_SEAMS = [
   "save_profile",
   "save_route",
   "save_lease",
+  // 2026-09-29 (R-240, red gates): `delete_set` is connector_execution_routes.rs's set-removal
+  // body, extracted from `handle_set_delete` by 3aaaad467 so it can be driven with a resolved
+  // identity in tests. It resets the tied projection (persist_materialized_state) and calls
+  // remove_record — the handler's whole write path — so the census counts it as a write.
+  "delete_set",
 ].join("|");
 const MUTATION = new RegExp(
   `\\b(persist_record|persist_record_durable|remove_record|admit_owner_scoped_write|unlink_durable(?:_at)?|${WRITE_SEAMS}|(?:std::)?fs::(?:write|remove_file|remove_dir_all|rename|create_dir_all))\\s*\\(`,
@@ -293,6 +308,7 @@ const PINNED = [
   {"file": "lifecycle_routes.rs", "rule": "B", "key": "is_impersonated", "count": 1, "disposition": "sanctioned", "justification": "W1.2 2026-08-08: this is resolve_acting_principal_ref's REFUSAL list, not a body->record copy \u2014 it is the gate that ENFORCES INV-37 (refuses any caller-supplied WHO field incl. is_impersonated), the opposite of a violation"},
   {"file": "lifecycle_routes.rs", "rule": "D", "key": "user://local-operator", "count": 7, "disposition": "sanctioned", "justification": "W1.2 2026-08-08 all read: 1 canonical resolver local-dev lane (hypervisor_request_identity :6012), 1 new resolve_acting_principal_ref local-dev fallback (both the sanctioned unauthenticated lane), and 5 stored-session absent-owner_ref legacy defaults \u2014 under enforcement session_request_owner yields user://usr_* or the OPERATOR UUID so a defaulted record equals NO authenticated principal (legacy records invisible/unmodifiable = fail-closed); load-bearing only in the local-dev seed lane, not an impersonation surface"},
   {"file": "orchestration_routes.rs", "rule": "F", "key": "auth-header", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: webhook delivery authenticates by a per-automation rotated trigger token (x-ioi-trigger-token / Bearer) compared against the stored secret \u2014 a presented capability, not a principal resolver"},
+  {"file": "odk_routes.rs", "rule": "F", "key": "tenant-resolver", "count": 1, "disposition": "sanctioned", "justification": "read 2026-09-29 (R-240, red gates; site added by 3738d5cab): OntologyAccess::in_owning_org resolves the org:// memberships of the ontology's OWNER — a principal taken from the server-written `created` receipt (ontology_owners, fail-closed when two receipts disagree), never from the request — through the canonical lifecycle_routes resolver, and intersects them with the CALLER's session-narrowed identity.tenant_refs from resolve_request_identity. The caller's own scope is never re-derived; an unreadable registry leaves the owner in no org (only the owner sees it). It delegates and narrows visibility; it cannot widen the caller's tenant scope."},
   {"file": "orchestration_routes.rs", "rule": "F", "key": "tenant-resolver", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-25: only the per-boot-token-authenticated internal automation dispatch takes the executor principal from the durable AutomationSpec, delegates current membership to lifecycle_routes::resolve_principal_tenant_refs, and refuses unless that principal has exactly one active organization tenant before setting the internal owner header; it neither trusts request tenant data nor reimplements membership"},
   {"file": "provider_routes.rs", "rule": "F", "key": "auth-header", "count": 2, "disposition": "sanctioned", "justification": "read 2026-08-22: provider_proposal_session_binding hashes the already-authenticated transport token solely to require proposal issuance and one-time consumption under the same session; require_write_caller separately resolves the principal first, and no header value becomes principal evidence"},
   {"file": "portal_session_exchange_routes.rs", "rule": "F", "key": "tenant-resolver", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: session-mint seam delegates to the canonical lifecycle_routes resolver to snapshot full membership INTO the session record (the projection later requests narrow FROM); it does not re-derive scope on a later request"},
@@ -359,7 +375,12 @@ const H_BASELINE = [
   "cloud_job_routes.rs::handle_cloud_job_create",
   "cloud_job_routes.rs::handle_cloud_job_execute",
   "connector_execution_routes.rs::handle_run_execute",
-  "connector_execution_routes.rs::handle_set_delete",
+  // "connector_execution_routes.rs::handle_set_delete" — LEFT the baseline 2026-09-29 (R-240, red
+  // gates), a REPAIR from 3aaaad467: the handler now resolves the caller first (`set_caller` →
+  // substrate_store::resolve_request_identity, typed refusal before any record read) and
+  // `delete_set` answers 404 — exactly as for an absent set — unless SetVisibility says the caller
+  // may see the set. Both names were added to the census above in the same cut, so the handler is
+  // still counted as mutating; it leaves because it resolves identity, not by a blind spot.
   "connector_mapping_routes.rs::handle_connector_mapping_create",
   "connector_mapping_routes.rs::handle_connector_mapping_delete",
   // "connector_mapping_routes.rs::handle_connector_mapping_patch" — LEFT the baseline
