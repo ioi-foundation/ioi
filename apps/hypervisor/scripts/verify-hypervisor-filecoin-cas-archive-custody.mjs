@@ -31,39 +31,23 @@
 // (403), the operator approves it with the passphrase on the daemon's decision route, and the retry names the
 // decision's approval_ref (the one-use grant the authority minted for exactly that request). The authority starts a
 // chain, so a run takes several minutes; IOI_WALLET_AUTHORITY_BINARY overrides the node binary.
+// This verifier carried the first copy of that code; since 2026-09-29 it uses the shared one the provider-adapter
+// verifiers use (lib/verifier-authority-stack.mjs), which also stops the node on a SIGTERM/SIGINT (R-240, failover
+// teardown identity). No assertion changed.
 // Exit 2 (BLOCKED): no daemon or authority binary, or the authority node never became ready.
 
 import path from "node:path";
-import { randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync, appendFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync, rmSync, appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { refuseOwnerPath, verifierStack } from "./lib/verifier-stack.mjs";
-import { DEFAULT_BINARY as AUTHORITY_DEFAULT_BINARY, OPERATOR_PASS_ENV, startLocalAuthority } from "./lib/wallet-network-local-authority.mjs";
+import { refuseOwnerPath } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 
-// ── the sealed authority this verifier's daemon takes its grants from ──
-const AUTHORITY_BINARY = process.env.IOI_WALLET_AUTHORITY_BINARY || AUTHORITY_DEFAULT_BINARY;
-if (!existsSync(AUTHORITY_BINARY)) { console.error(`BLOCKED: no wallet-network authority binary (${AUTHORITY_BINARY}) — cargo build -p ioi-cli --bin wallet-network-local-authority`); process.exit(2); }
-const OPERATOR_PASS = `filecoin-custody-${randomBytes(12).toString("hex")}`;
-const authorityDir = mkdtempSync(path.join(refuseOwnerPath(tmpdir(), "temp root"), "ioi-filecoin-custody-authority-"));
-let authority = null;
-async function dropAuthority() {
-  try { await authority?.stop(); } catch { /* gone */ }
-  try { rmSync(authorityDir, { recursive: true, force: true }); } catch { /* keep */ }
-}
-delete process.env[OPERATOR_PASS_ENV];
-try {
-  authority = await startLocalAuthority({ stateDir: authorityDir, principalRef: "domain://filecoin-cas-archive-custody", binary: AUTHORITY_BINARY, operatorPass: OPERATOR_PASS, log: () => {} });
-} catch (error) {
-  await dropAuthority();
-  console.error(`BLOCKED: the local authority node never became ready: ${String(error.message).split("\n")[0]}`);
-  process.exit(2);
-}
-
-const STACK = await verifierStack({ serve: true, fresh: true, env: { ...authority.daemonEnv, IOI_WALLET_TEST_SIGNER: "" }, serveEnv: authority.serveEnv });
+// ── the sealed authority this verifier's daemon takes its grants from, and the stack on it ──
+const A = await authorityVerifierStack({ label: "filecoin-cas-archive-custody" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 // A daemon-given file this verifier corrupts, deletes or restores: always inside its own plane's data dir.
@@ -82,32 +66,17 @@ async function jd(method, url, body) {
 }
 // The operator's approval of a parked crossing: the daemon's decision route runs the authority's `approve` with the
 // passphrase and answers the approval_ref the retry names (null when the refusal parked no challenge).
-async function operatorGrant(refused) {
-  const id = refused.j?.approval_challenge?.challenge_id;
-  if (!id) return null;
-  const decided = await jd("POST", `/v1/hypervisor/authority/challenges/${encodeURIComponent(id)}/decision`, { decision: "approve", reason: "filecoin/CAS custody verifier", operator_passphrase: OPERATOR_PASS });
-  return decided.j?.approval_ref || null;
-}
-async function archiveOp(body) {
-  const c = await jd("POST", "/v1/hypervisor/storage-archive-ops", body);
-  if (c.status !== 403) return c;
-  const grant = await operatorGrant(c);
-  if (!grant) return c;
-  return jd("POST", "/v1/hypervisor/storage-archive-ops", { ...body, wallet_approval_grant: grant });
-}
+const REASON = "filecoin/CAS custody verifier";
+const operatorGrant = (refused) => A.approve(refused, REASON);
+const archiveOp = (body) => A.crossing("/v1/hypervisor/storage-archive-ops", body, REASON);
 
 let sshAccountId = null;
 let env = null;
 const backendIds = [];
 let opSeq = 0;
-async function providerOp(o, extra = {}) {
+function providerOp(o, extra = {}) {
   // One logical op, one idempotency key: the challenged call and its granted retry are the same request.
-  const base = { provider_id: sshAccountId, op: o, environment_ref: env, owner_ref: STACK.owner, idempotency_key: `fc-${env}-${o}-${++opSeq}`, ...extra };
-  const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
-  if (c.status !== 403) return c;
-  const grant = await operatorGrant(c);
-  if (!grant) return c;
-  return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grant });
+  return A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: sshAccountId, op: o, environment_ref: env, ...extra }, `fc-${env}-${o}-${++opSeq}`), REASON);
 }
 
 async function run() {
@@ -319,17 +288,16 @@ async function cleanup() {
 run()
   .then(cleanup, async (e) => { await cleanup(); throw e; })
   .then(async () => {
-    await STACK.stop();
-    await dropAuthority();
+    await A.stop();
     let fail = 0;
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`filecoin/cas archive custody readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_storage_not_run)"}`);
+    if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
     process.exit(fail ? 1 : 0);
   })
   .catch(async (e) => {
     console.error("verifier crashed:", e);
-    await STACK.stop().catch(() => {});
-    await dropAuthority();
+    await A.stop().catch(() => {});
     process.exit(1);
   });
