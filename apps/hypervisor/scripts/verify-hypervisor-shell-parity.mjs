@@ -23,6 +23,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { ownerStackRefusal } from "./lib/verifier-stack.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..", "..");
@@ -31,6 +32,20 @@ const OWNED = join(HERE, "..", "product-ui", "owned", "public");
 const SERVER = join(HERE, "..", "product-ui", "server.cjs");
 const require_ = (await import("node:module")).createRequire(import.meta.url);
 const esbuild = require_(join(ROOT, "node_modules", "esbuild"));
+
+// THE DAEMON BOTH SERVES READ (R-240, verifier auth sweep, 2026-09-29). They defaulted to the owner's :8765, so a local run
+// compared two trees over the owner's data as nobody; CI has no daemon there, so CI compared them daemon-less. The
+// default is now CI's measurement everywhere — a loopback port nothing listens on — and an explicit
+// IOI_HYPERVISOR_DAEMON_URL is honoured unless it names the owner's stack (:8765, :36173, :4173), which is refused.
+const PARITY_DAEMON = await (async () => {
+  const explicit = process.env.IOI_HYPERVISOR_DAEMON_URL || "";
+  const why = ownerStackRefusal(explicit);
+  if (why) { console.error(`BLOCKED: ${why}`); process.exit(2); }
+  if (explicit) return explicit;
+  const { createServer } = await import("node:net");
+  const port = await new Promise((resolve, reject) => { const srv = createServer(); srv.on("error", reject); srv.listen(0, "127.0.0.1", () => { const { port: p } = srv.address(); srv.close(() => resolve(p)); }); });
+  return `http://127.0.0.1:${port}`;
+})();
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -142,12 +157,12 @@ async function run() {
   // behavior drift is a separate freeze concern; ownership parity compares both current programs
   // directly so identical intentional evolution cannot fail this gate.
   const legacyServe = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
-    env: { ...process.env, PORT: "4600", PRODUCT_UI_PORT: "9410", IOI_PRODUCT_UI_PUBLIC: LEGACY, IOI_HYPERVISOR_DAEMON_URL: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765" },
+    env: { ...process.env, PORT: "4600", PRODUCT_UI_PORT: "9410", IOI_PRODUCT_UI_PUBLIC: LEGACY, IOI_HYPERVISOR_DAEMON_URL: PARITY_DAEMON },
     stdio: "ignore",
     cwd: ROOT,
   });
   const ownedServe = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
-    env: { ...process.env, PORT: "4601", PRODUCT_UI_PORT: "9403", IOI_PRODUCT_UI_PUBLIC: OWNED, IOI_HYPERVISOR_DAEMON_URL: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765" },
+    env: { ...process.env, PORT: "4601", PRODUCT_UI_PORT: "9403", IOI_PRODUCT_UI_PUBLIC: OWNED, IOI_HYPERVISOR_DAEMON_URL: PARITY_DAEMON },
     stdio: "ignore",
     cwd: ROOT,
   });

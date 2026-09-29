@@ -31,6 +31,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { emitVerifierCensus } from "../apps/hypervisor/scripts/lib/verifier-census.mjs";
 import * as LIB from "../apps/hypervisor/scripts/lib/named-gap-perception.mjs";
+import { gateDaemon } from "../apps/hypervisor/scripts/lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -38,6 +39,7 @@ const APP = path.join(ROOT, "apps", "hypervisor");
 const FLOORS = path.join(APP, "verifier-floors.v1.json");
 const LIB_PATH = path.join(APP, "scripts", "lib", "named-gap-perception.mjs");
 const SERVE_SRC = path.join(APP, "scripts", "serve-product-ui.mjs");
+const SELF_PATH = fileURLToPath(import.meta.url);
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(n);
@@ -301,8 +303,11 @@ export function pureFindings(lib) {
 }
 
 // ---- SOURCE ---------------------------------------------------------------------------------
-export function sourceFindings({ serve, lib }) {
+export function sourceFindings({ serve, lib, gate = null }) {
   const f = [];
+  // THE LIVE LEG'S SERVE READS A DAEMON THIS GATE STARTED (R-240, verifier auth sweep, 2026-09-29): handed no URL, the serve
+  // read the owner's :8765 — as nobody, once that daemon's reads became caller-scoped.
+  if (gate !== null && (!/own = await gateDaemon\(\)/u.test(gate) || !/\.\.\.own\.serveEnv/u.test(gate))) f.push("the LIVE leg's serve no longer reads a daemon this gate started, so it falls back to the owner's :8765");
   // THE VOCABULARY, read from the serve rather than trusted. A twelfth spelling nobody told the
   // classifier about is a surface whose gaps this gate silently does not police.
   const used = new Set();
@@ -384,6 +389,7 @@ const freePort = () => new Promise((resolve, reject) => {
 async function liveLeg() {
   const started = Date.now();
   const findings = [];
+  let own = null;
   let serve = null;
   let browser = null;
   try {
@@ -394,11 +400,17 @@ async function liveLeg() {
     const port = await freePort();
     const uiPort = await freePort();
     const base = `http://127.0.0.1:${port}`;
+    // ITS OWN DAEMON TOO (R-240, verifier auth sweep, 2026-09-29): the serve was handed no daemon URL, so it read the owner's
+    // :8765 — as nobody, once data-source, materialized-set and ontology reads became caller-scoped. An explicit
+    // IOI_HYPERVISOR_DAEMON_URL naming the owner's stack is refused by name.
+    own = await gateDaemon();
     serve = spawn(process.execPath, [SERVE_SRC], {
       cwd: APP,
       // The census reads declared-unavailable controls, not sign-in: without the explicit opt-out every
-      // surface answered with the sign-in page and it measured zero of everything (R-240).
-      env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_PRODUCT_SIGNIN_REQUIRED: "0" },
+      // surface answered with the sign-in page and it measured zero of everything (R-240). It browses AS its
+      // daemon's operator (below): a caller-scoped read answers nobody with a refusal, and the controls behind it
+      // never render. `--signed-out` measures the signed-out product instead.
+      env: { ...process.env, ...own.serveEnv, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_PRODUCT_SIGNIN_REQUIRED: "0" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     const deadline = Date.now() + 60000;
@@ -410,6 +422,7 @@ async function liveLeg() {
 
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+    if (!flag("--signed-out")) await own.signIn(page.context(), [base]);
     // Registered surfaces, then the STATES of one that only a link reaches (R-240): the Open Diagram
     // selector's scope and Select gaps exist only at `?open=`, and a census of canonical routes would
     // never police them. States are counted apart so the surface count keeps its meaning.
@@ -502,6 +515,7 @@ async function liveLeg() {
   } finally {
     try { await browser?.close(); } catch { /* already gone */ }
     try { serve?.kill("SIGTERM"); } catch { /* already gone */ }
+    try { await own?.stop(); } catch { /* already gone */ }
   }
 }
 
@@ -511,7 +525,7 @@ async function drills() {
   evidence.pure = pure;
   ok("PURE — the four ways a declared gap fails to communicate, each isolated: the pointer says clickable, the fill says primary, the attribute sits on something assistive technology does not treat as a control, and the marker class carries no attribute at all. A fully repaired control reads clean and the estate's own shipped convention is not condemned", pure.length === 0, pure.slice(0, 4).join(" ; "));
 
-  const src = sourceFindings({ serve: readText(SERVE_SRC), lib: readText(LIB_PATH) });
+  const src = sourceFindings({ serve: readText(SERVE_SRC), lib: readText(LIB_PATH), gate: readText(SELF_PATH) });
   evidence.source = src;
   ok("SOURCE — every gap-ish class token the serve actually uses is one the classifier knows, the shared `gap` marker is among them, at least the seven shipped `.gap` rules still exist, and the classifier reaches no browser, file, clock or network", src.length === 0, src.slice(0, 4).join(" ; "));
 
