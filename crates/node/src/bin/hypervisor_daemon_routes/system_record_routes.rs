@@ -14,6 +14,17 @@
 //! Refused by name: a binding the caller authored (it is derived), an identity the record does
 //! not carry, a contract the registry does not know, a contract whose shape carries no binding
 //! (it has no place under a System), a System that is not active, a stale head.
+//!
+//! WHO MAY WRITE, AND WHAT A RECORD MAY NAME (R-240, System seam authority). The seam once checked
+//! only that the target System was active, so any signed-in principal could admit a record under
+//! anyone's System — and, through the Systems projection's retired record-holding clause, see that
+//! System afterwards. A write now needs WRITE standing on the System (`system_projection_routes::
+//! standing_over`: its admitter or an active administrator, holding its owner tenant); a caller who
+//! sees the System but may not write is refused by name, and one who does not see it is answered
+//! exactly as if no System answered to the id. A record that names a subject another plane owns
+//! (`SUBJECT_BEARING`) may name only a subject its writer can see, decided per subject kind by the
+//! owning plane's own read rule (`SUBJECT_KINDS`). Every refusal is decided before the request scope
+//! is bound, so a refused write records nothing.
 
 use std::sync::Arc;
 
@@ -32,6 +43,7 @@ use super::substrate_store::{
     authorize_request_resource_scope, authorized_request_resource_refs,
     bind_request_resource_scope, resolve_request_identity, RequestIdentity, RequestResourceScope,
 };
+use super::system_projection_routes::SystemStanding;
 use super::DaemonState;
 
 type Reply = (StatusCode, Json<Value>);
@@ -220,25 +232,190 @@ fn family_view(stream: &[AdmittedRecord]) -> Value {
     })
 }
 
-/// The System must be ACTIVE: its genesis admitted and activated. The platform's own check,
-/// applied here exactly as the System planes apply it; a System that is not active holds no
-/// application records.
-fn require_active_system(data_dir: &str, system_id: &str) -> Result<(), Reply> {
+/// Where the seam reads a System from: its verified genesis admission and whether it is active. The
+/// daemon reads the genesis and activation planes (`DaemonSystems`); a unit test plants both (a
+/// verified genesis needs the wallet ceremony), so every decision the seam makes over them — standing,
+/// subjects, scope binding, admission — runs unchanged under either.
+pub(crate) trait SystemSource {
+    fn admission(&self, data_dir: &str, system_id: &str)
+        -> Result<Option<Value>, (String, String)>;
+    fn activity(&self, data_dir: &str, system_id: &str) -> Result<(), (String, String)>;
+}
+
+struct DaemonSystems;
+
+impl SystemSource for DaemonSystems {
+    fn admission(
+        &self,
+        data_dir: &str,
+        system_id: &str,
+    ) -> Result<Option<Value>, (String, String)> {
+        super::system_projection_routes::admission_record(data_dir, system_id)
+    }
+    fn activity(&self, data_dir: &str, system_id: &str) -> Result<(), (String, String)> {
+        super::system_activation_routes::load_active_system_graph(data_dir, system_id).map(|_| ())
+    }
+}
+
+/// The answer for a System the caller does not see — the SAME body whether no admission answers to
+/// the id or one does outside the caller's inventory.
+fn system_absent(system_id: &str) -> Reply {
+    bad(
+        StatusCode::NOT_FOUND,
+        &code("system_absent"),
+        format!("no System in your inventory answers to {system_id}; records are admitted only under a System you may write under. Nothing was recorded"),
+    )
+}
+
+/// A record is admitted only under a System the caller may WRITE under, and only while that System
+/// is ACTIVE. In order, each refusal recording nothing:
+///   * the caller does not see it — 404 `system_record_system_absent` (`system_absent`);
+///   * the caller sees it but may not write under it — 403 `system_record_writer_not_authorized`;
+///   * it is not active — 409 `system_record_system_not_active`, the platform's own check applied
+///     exactly as the System planes apply it (only a writer learns whether a System is active).
+fn require_writable_system(
+    systems: &dyn SystemSource,
+    data_dir: &str,
+    identity: &RequestIdentity,
+    system_id: &str,
+) -> Result<(), Reply> {
     if !system_id.starts_with("system://") {
         return Err(refuse(
             "system_ref_invalid",
             "the path names a system:// ref",
         ));
     }
-    super::system_activation_routes::load_active_system_graph(data_dir, system_id)
-        .map(|_| ())
+    let admission = systems
+        .admission(data_dir, system_id)
         .map_err(|(inner, message)| {
             bad(
                 StatusCode::CONFLICT,
-                &code("system_not_active"),
-                format!("no ACTIVE bounded System answers to {system_id} ({inner}: {message}); application records exist only under an active System"),
+                &code("system_unreadable"),
+                format!("the System's admission could not be read ({inner}: {message}); nothing was recorded"),
             )
-        })
+        })?;
+    match super::system_projection_routes::standing_over(data_dir, admission.as_ref(), identity) {
+        SystemStanding::Absent => return Err(system_absent(system_id)),
+        SystemStanding::Sees => {
+            return Err(bad(
+                StatusCode::FORBIDDEN,
+                &code("writer_not_authorized"),
+                format!("you may read {system_id} but not write under it: only the principal that admitted the System, or an administrator of the organization that owns it, admits records under it. Nothing was recorded"),
+            ))
+        }
+        SystemStanding::Writes => {}
+    }
+    systems.activity(data_dir, system_id).map_err(|(inner, message)| {
+        bad(
+            StatusCode::CONFLICT,
+            &code("system_not_active"),
+            format!("no ACTIVE bounded System answers to {system_id} ({inner}: {message}); application records exist only under an active System"),
+        )
+    })
+}
+
+/// A record that NAMES a subject another plane owns: the members carrying the subject's kind and ref,
+/// and the status member and value that only RELEASE the subject.
+struct SubjectBearing {
+    contract_id: &'static str,
+    kind_member: &'static str,
+    ref_member: &'static str,
+    release: (&'static str, &'static str),
+}
+
+/// The subject-bearing contracts this seam admits. A record under one of them may name only a subject
+/// its writer can see: otherwise anyone could publish, under a System they may write under, a ref to
+/// something they cannot read.
+const SUBJECT_BEARING: &[SubjectBearing] = &[SubjectBearing {
+    contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v1",
+    kind_member: "subject_kind",
+    ref_member: "subject_ref",
+    release: ("status", "detached"),
+}];
+
+/// Whether the caller may see the subject a ref names, by its owning plane's own read rule: `Ok(false)`
+/// for an absent and a hidden subject alike; `Err` only when the plane cannot answer.
+type SubjectVisible = fn(&str, &RequestIdentity, &str) -> Result<bool, String>;
+
+fn ontology_visible(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    subject: &str,
+) -> Result<bool, String> {
+    Ok(super::odk_routes::ontology_visible_to(
+        data_dir, identity, subject,
+    ))
+}
+
+fn data_source_visible(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    subject: &str,
+) -> Result<bool, String> {
+    Ok(super::data_source_routes::source_ref_visible_to(
+        data_dir, identity, subject,
+    ))
+}
+
+/// THE SUBJECT-KIND VISIBILITY TABLE: one row per kind a subject-bearing record may name, each decided
+/// by the plane that owns that kind — ontologies by the ODK plane (owner, or a member of the owner's
+/// org), data sources by the data-source plane (declared by the caller, or filed in a project it is a
+/// member of), connections by the provider-connection plane (a request scope the caller may read). A
+/// kind with no row is refused, never admitted unseen.
+const SUBJECT_KINDS: &[(&str, SubjectVisible)] = &[
+    ("ontology", ontology_visible),
+    ("data_source", data_source_visible),
+    (
+        "connection",
+        super::provider_connection_routes::connection_visible_to,
+    ),
+];
+
+/// A subject-bearing record names only a subject its writer can see, answered exactly as an absent one
+/// when it cannot. The one exception is a successor that only RELEASES the subject the chain already
+/// names: losing sight of a subject must never trap its attachment. Re-attaching, or naming any other
+/// subject, is decided afresh.
+fn require_visible_subject(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    contract_id: &str,
+    record: &Value,
+    current: Option<&Value>,
+) -> Result<(), Reply> {
+    let Some(rule) = SUBJECT_BEARING
+        .iter()
+        .find(|rule| rule.contract_id == contract_id)
+    else {
+        return Ok(());
+    };
+    let kind = text(record, rule.kind_member);
+    let subject = text(record, rule.ref_member);
+    let (status_member, released) = rule.release;
+    let releases_current = text(record, status_member) == released
+        && current.is_some_and(|prior| {
+            text(prior, rule.kind_member) == kind && text(prior, rule.ref_member) == subject
+        });
+    if releases_current {
+        return Ok(());
+    }
+    let Some((_, visible)) = SUBJECT_KINDS.iter().find(|(name, _)| *name == kind) else {
+        return Err(refuse(
+            "subject_kind_unruled",
+            format!("{contract_id} names a subject of kind {kind:?}, which no plane's read rule decides here; it is refused rather than admitted unseen. Nothing was recorded"),
+        ));
+    };
+    match visible(data_dir, identity, &subject) {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(refuse(
+            "subject_unknown",
+            format!("no {kind} you can see answers to {subject}; a record names only a subject its writer may read. Nothing was recorded"),
+        )),
+        Err(message) => Err(bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            &code("subject_unreadable"),
+            format!("whether you may see {subject} could not be read ({message}); nothing was recorded"),
+        )),
+    }
 }
 
 struct Parsed {
@@ -328,18 +505,28 @@ pub(crate) async fn handle_admit(
     Path(system_id): Path<String>,
     body: axum::body::Bytes,
 ) -> Reply {
+    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    admit(&DaemonSystems, &st.data_dir, &headers, &system_id, &body)
+}
+
+fn admit(
+    systems: &dyn SystemSource,
+    data_dir: &str,
+    headers: &HeaderMap,
+    system_id: &str,
+    body: &Value,
+) -> Reply {
     // The caller is resolved before the body is parsed: an anonymous request answers 401 whether
     // or not it carried JSON.
-    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+    let caller: WriteCaller = match require_write_caller(data_dir, headers, body) {
         Ok(caller) => caller,
         Err(response) => return response,
     };
-    let parsed = match parse(&body, &system_id) {
+    let parsed = match parse(body, system_id) {
         Ok(parsed) => parsed,
         Err(response) => return response,
     };
-    if let Err(response) = require_active_system(&st.data_dir, &system_id) {
+    if let Err(response) = require_writable_system(systems, data_dir, &caller.identity, system_id) {
         return response;
     }
     let identity_member = match identity_member(&parsed.record, &parsed.object_id) {
@@ -360,7 +547,7 @@ pub(crate) async fn handle_admit(
     let mut record = parsed.record.clone();
     let binding = match derive_binding(
         &record,
-        &system_id,
+        system_id,
         &parsed.parent_scope_ref,
         &caller.identity.principal_ref,
         &created_at,
@@ -402,11 +589,21 @@ pub(crate) async fn handle_admit(
             ),
         );
     }
-    let resource = resource_ref(&system_id, &parsed.contract_id, &parsed.object_id);
+    let resource = resource_ref(system_id, &parsed.contract_id, &parsed.object_id);
     let genesis = body.get("expected_head").map_or(true, Value::is_null);
     let scope = if genesis {
+        // Decided BEFORE the scope is bound: binding it is a write, and a refusal records nothing.
+        if let Err(response) = require_visible_subject(
+            data_dir,
+            &caller.identity,
+            &parsed.contract_id,
+            &parsed.record,
+            None,
+        ) {
+            return response;
+        }
         match bind_request_resource_scope(
-            &st.data_dir,
+            data_dir,
             &caller.identity,
             RESOURCE_KIND,
             &resource,
@@ -419,7 +616,7 @@ pub(crate) async fn handle_admit(
         }
     } else {
         match authorize_request_resource_scope(
-            &st.data_dir,
+            data_dir,
             &caller.identity,
             RESOURCE_KIND,
             &resource,
@@ -429,10 +626,23 @@ pub(crate) async fn handle_admit(
             Err(error) => return scope_refusal_reply(error),
         }
     };
-    let stream = match read_records(&st.data_dir, &caller.identity, &scope, &resource) {
+    let stream = match read_records(data_dir, &caller.identity, &scope, &resource) {
         Ok(stream) => stream,
         Err(response) => return response,
     };
+    // A successor is decided against the subject its chain already names (a release of it stays
+    // admissible when the writer has since lost sight of it); nothing above wrote.
+    if !genesis {
+        if let Err(response) = require_visible_subject(
+            data_dir,
+            &caller.identity,
+            &parsed.contract_id,
+            &parsed.record,
+            stream.last().map(|entry| &entry.record),
+        ) {
+            return response;
+        }
+    }
     // An exact retry replays the ORIGINAL admission: the same idempotency key with the same logical
     // record answers with the fact already admitted; the same key over a different record is a
     // reused key, refused by name. Replay is decided before any head is compared, because a retry
@@ -490,7 +700,7 @@ pub(crate) async fn handle_admit(
         "record": record,
     });
     let commit = match admit_owner_scoped_mutation(
-        &st.data_dir,
+        data_dir,
         genesis,
         ScopedMutation {
             identity: &caller.identity,
@@ -509,7 +719,7 @@ pub(crate) async fn handle_admit(
         Ok(commit) => commit,
         Err(error) => return mutation_refusal_reply(error),
     };
-    let stream = match read_records(&st.data_dir, &caller.identity, &scope, &resource) {
+    let stream = match read_records(data_dir, &caller.identity, &scope, &resource) {
         Ok(stream) => stream,
         Err(response) => return response,
     };
@@ -721,6 +931,605 @@ mod tests {
                 "schema://ioi/applications/x/finding/v3",
                 "attempt://a/1"
             )
+        );
+    }
+}
+
+#[cfg(test)]
+mod authority_tests {
+    //! Who may admit a record under a System, and which subjects a record may name (R-240, System
+    //! seam authority), over real principals: principal records, live memberships in the membership
+    //! registry and bearer sessions, resolved through the canonical identity seam exactly as a request
+    //! is. The System's genesis admission is planted (a verified genesis needs the wallet ceremony);
+    //! everything after it — standing, the subject planes, the scope binding and the substrate
+    //! admission — is the daemon's own.
+    use super::*;
+
+    const SYSTEM: &str = "system://acme/lending";
+    const ATTACHMENT: &str = "schema://ioi/components/hypervisor/system-data-attachment/v1";
+
+    struct Planted {
+        admission: Option<Value>,
+        active: bool,
+    }
+
+    impl SystemSource for Planted {
+        fn admission(&self, _: &str, system_id: &str) -> Result<Option<Value>, (String, String)> {
+            Ok(self
+                .admission
+                .clone()
+                .filter(|record| record["system_id"] == json!(system_id)))
+        }
+        fn activity(&self, _: &str, system_id: &str) -> Result<(), (String, String)> {
+            if self.active {
+                Ok(())
+            } else {
+                Err((
+                    "system_activation_not_active".into(),
+                    format!("{system_id} is admitted, not activated"),
+                ))
+            }
+        }
+    }
+
+    /// A genesis record as admission writes it: a project:// proposer, the admitting person and that
+    /// person's one org:// tenant as owner.
+    fn admitted_by(principal_ref: &str, owner_ref: &str, active: bool) -> Planted {
+        Planted {
+            admission: Some(json!({
+                "system_id": SYSTEM,
+                "proposed_by_ref": "project://acme/lending-operator",
+                "governing_authority_ref": "org://acme/risk",
+                "admitted_by_principal_ref": principal_ref,
+                "owner_ref": owner_ref
+            })),
+            active,
+        }
+    }
+    fn lending() -> Planted {
+        admitted_by("user://owner", "org://local", true)
+    }
+    fn nothing() -> Planted {
+        Planted {
+            admission: None,
+            active: false,
+        }
+    }
+
+    /// A principal with the given role and live memberships, signed in with a bearer session.
+    fn session(data_dir: &str, principal_id: &str, role: &str, tenants: &[&str]) -> HeaderMap {
+        super::super::persist_record(
+            data_dir,
+            "principals",
+            principal_id,
+            &json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": principal_id,
+                     "email": format!("{principal_id}@example.test"), "name": principal_id, "role": role,
+                     "status": "active", "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" }),
+        )
+        .unwrap();
+        let principal_ref = format!("user://{principal_id}");
+        for tenant in tenants {
+            member(data_dir, &principal_ref, tenant, "active", 0);
+        }
+        let token = format!("token-{principal_id}");
+        super::super::persist_record(
+            data_dir,
+            "sessions",
+            &format!("session-{principal_id}"),
+            &json!({ "session_id": format!("session-{principal_id}"), "token_hash": super::super::sha256_hex_str(&token),
+                     "principal_id": principal_id, "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "expires_at": "9999-12-31T23:59:59Z" }),
+        )
+        .unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        headers
+    }
+    fn member(data_dir: &str, principal_ref: &str, tenant: &str, status: &str, revision: u64) {
+        super::super::lifecycle_routes::apply_membership_transition(
+            data_dir,
+            principal_ref,
+            principal_ref,
+            tenant,
+            if tenant.starts_with("org://") {
+                "organization"
+            } else {
+                "project"
+            },
+            status,
+            revision,
+            &format!("test-{principal_ref}-{tenant}-{status}"),
+            "test membership",
+            "deployment_bootstrap",
+        )
+        .unwrap();
+    }
+    fn who(data_dir: &str, headers: &HeaderMap) -> RequestIdentity {
+        resolve_request_identity(data_dir, headers).expect("a signed-in principal")
+    }
+
+    fn attachment_id(subject_ref: &str) -> String {
+        let digest = <sha2::Sha256 as sha2::Digest>::digest(format!("{SYSTEM}\u{0}{subject_ref}"));
+        format!(
+            "system-data-attachment://sda_{}",
+            &hex::encode(digest)[..16]
+        )
+    }
+    fn attach_body(
+        owner_ref: &str,
+        kind: &str,
+        subject_ref: &str,
+        status: &str,
+        expected_head: Option<&str>,
+    ) -> Value {
+        let id = attachment_id(subject_ref);
+        json!({
+            "owner_ref": owner_ref,
+            "idempotency_key": format!("attach-{}-{status}-{}", &id[30..], expected_head.unwrap_or("genesis").len()),
+            "contract_id": ATTACHMENT,
+            "object_id": id,
+            "parent_scope_ref": null,
+            "record": { "schema_version": "ioi.hypervisor.system-data-attachment.v1", "attachment_id": id,
+                        "subject_kind": kind, "subject_ref": subject_ref, "status": status },
+            "expected_head": expected_head,
+        })
+    }
+    fn post(
+        systems: &dyn SystemSource,
+        data_dir: &str,
+        headers: &HeaderMap,
+        body: &Value,
+    ) -> (StatusCode, Value) {
+        let (status, Json(reply)) = admit(systems, data_dir, headers, SYSTEM, body);
+        (status, reply)
+    }
+    fn code_of(reply: &Value) -> &str {
+        reply
+            .pointer("/error/code")
+            .or_else(|| reply.get("code"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+    }
+    fn ontology(data_dir: &str, owner: &RequestIdentity, domain: &str) -> String {
+        let (status, Json(reply)) = super::super::odk_routes::create_ontology(
+            data_dir,
+            owner,
+            &json!({ "domain": domain }),
+        );
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        format!("ontology://{}", reply["ontology"]["id"].as_str().unwrap())
+    }
+    fn source(data_dir: &str, principal_ref: &str, body: Value) -> String {
+        let (status, Json(reply)) =
+            super::super::data_source_routes::create_data_source(data_dir, principal_ref, &body);
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        reply["data_source"]["source_ref"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+    /// Every byte the data directory holds, by path: a refused write must leave it unchanged. The
+    /// substrate is opened first (its first read creates its empty log), so what is compared is a
+    /// settled store and any byte a refusal adds is a write.
+    fn fingerprint(data_dir: &str) -> std::collections::BTreeMap<String, Vec<u8>> {
+        authorized_request_resource_refs(
+            data_dir,
+            &super::super::substrate_store::request_identity_for_test("user://reader", []),
+            RESOURCE_KIND,
+        )
+        .expect("the substrate opens");
+        fn walk(dir: &std::path::Path, out: &mut std::collections::BTreeMap<String, Vec<u8>>) {
+            for entry in std::fs::read_dir(dir).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(&path, out);
+                } else if let Ok(bytes) = std::fs::read(&path) {
+                    out.insert(path.display().to_string(), bytes);
+                }
+            }
+        }
+        let mut out = std::collections::BTreeMap::new();
+        walk(std::path::Path::new(data_dir), &mut out);
+        out
+    }
+
+    #[test]
+    fn an_outsider_is_answered_as_if_the_system_were_not_there_and_nothing_is_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path().to_str().unwrap();
+        session(d, "owner", "member", &["org://local"]);
+        let mallory = session(d, "mallory", "member", &["project://elsewhere"]);
+        let stranger = session(d, "stranger", "admin", &["project://elsewhere"]);
+        // A subject mallory CAN see, so the System is the only thing refused.
+        let hers = source(
+            d,
+            "user://mallory",
+            json!({ "name": "hers", "kind": "file_drop" }),
+        );
+        let body = attach_body(
+            "project://elsewhere",
+            "data_source",
+            &hers,
+            "attached",
+            None,
+        );
+        let before = fingerprint(d);
+
+        let planted = post(&lending(), d, &mallory, &body);
+        assert_eq!(planted.0, StatusCode::NOT_FOUND, "{}", planted.1);
+        assert_eq!(code_of(&planted.1), "system_record_system_absent");
+        assert_eq!(
+            planted,
+            post(&nothing(), d, &mallory, &body),
+            "a System outside the caller's inventory answers byte for byte as one no admission answers to"
+        );
+        let (status, reply) = post(&lending(), d, &stranger, &body);
+        assert_eq!(
+            (status, code_of(&reply)),
+            (StatusCode::NOT_FOUND, "system_record_system_absent"),
+            "an admin role is not a key to another org's Systems: {reply}"
+        );
+        assert_eq!(fingerprint(d), before, "a refused write records nothing");
+        assert!(
+            authorized_request_resource_refs(d, &who(d, &mallory), RESOURCE_KIND)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_member_who_sees_the_system_may_not_write_under_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path().to_str().unwrap();
+        session(d, "owner", "member", &["org://local"]);
+        let colleague = session(d, "colleague", "member", &["org://local"]);
+        let theirs = source(
+            d,
+            "user://colleague",
+            json!({ "name": "theirs", "kind": "file_drop" }),
+        );
+        let before = fingerprint(d);
+        let (status, reply) = post(
+            &lending(),
+            d,
+            &colleague,
+            &attach_body("org://local", "data_source", &theirs, "attached", None),
+        );
+        assert_eq!(status, StatusCode::FORBIDDEN, "{reply}");
+        assert_eq!(code_of(&reply), "system_record_writer_not_authorized");
+        assert_eq!(fingerprint(d), before, "a refused write records nothing");
+        assert_eq!(
+            super::super::system_projection_routes::standing_over(
+                d,
+                lending().admission.as_ref(),
+                &who(d, &colleague)
+            ),
+            SystemStanding::Sees,
+            "the colleague still sees the System"
+        );
+    }
+
+    #[test]
+    fn the_admitter_and_an_org_administrator_admit_and_an_inactive_system_refuses_even_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path().to_str().unwrap();
+        let owner = session(d, "owner", "member", &["org://local"]);
+        let root = session(d, "root", "admin", &["org://local"]);
+        let lending_ontology = ontology(d, &who(d, &owner), "lending");
+        let body = attach_body(
+            "org://local",
+            "ontology",
+            &lending_ontology,
+            "attached",
+            None,
+        );
+
+        let (status, reply) = post(
+            &admitted_by("user://owner", "org://local", false),
+            d,
+            &owner,
+            &body,
+        );
+        assert_eq!(
+            (status, code_of(&reply)),
+            (StatusCode::CONFLICT, "system_record_system_not_active"),
+            "{reply}"
+        );
+
+        let (status, reply) = post(&lending(), d, &owner, &body);
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        assert_eq!(
+            reply["record"]["system_binding"]["proposed_or_issued_by_ref"],
+            json!("user://owner")
+        );
+        let (status, reply) = post(&lending(), d, &owner, &body);
+        assert_eq!(
+            (status, reply["replayed"].clone()),
+            (StatusCode::OK, json!(true))
+        );
+
+        let desk = source(
+            d,
+            "user://root",
+            json!({ "name": "desk", "kind": "file_drop" }),
+        );
+        let (status, reply) = post(
+            &lending(),
+            d,
+            &root,
+            &attach_body("org://local", "data_source", &desk, "attached", None),
+        );
+        assert_eq!(
+            status,
+            StatusCode::CREATED,
+            "an administrator of the owner org writes: {reply}"
+        );
+        assert_eq!(
+            reply["record"]["system_binding"]["proposed_or_issued_by_ref"],
+            json!("user://root")
+        );
+    }
+
+    #[test]
+    fn a_record_names_only_a_subject_its_writer_can_see() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path().to_str().unwrap();
+        let owner = session(d, "owner", "member", &["org://local"]);
+        let mallory = session(d, "mallory", "member", &["project://elsewhere"]);
+        session(d, "colleague", "member", &["org://local"]);
+        let hidden_ontology = ontology(d, &who(d, &mallory), "private");
+        let hidden_source = source(
+            d,
+            "user://colleague",
+            json!({ "name": "theirs", "kind": "file_drop" }),
+        );
+        let before = fingerprint(d);
+
+        let (status, hidden) = post(
+            &lending(),
+            d,
+            &owner,
+            &attach_body(
+                "org://local",
+                "ontology",
+                &hidden_ontology,
+                "attached",
+                None,
+            ),
+        );
+        assert_eq!(
+            (status, code_of(&hidden)),
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "system_record_subject_unknown"
+            ),
+            "{hidden}"
+        );
+        let nowhere = "ontology://ont_0000000000000000";
+        let (status, absent) = post(
+            &lending(),
+            d,
+            &owner,
+            &attach_body("org://local", "ontology", nowhere, "attached", None),
+        );
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            hidden["error"]["message"]
+                .as_str()
+                .unwrap()
+                .replace(&hidden_ontology, "<subject>"),
+            absent["error"]["message"]
+                .as_str()
+                .unwrap()
+                .replace(nowhere, "<subject>"),
+            "a hidden subject answers exactly as one that is not there"
+        );
+        for (kind, subject) in [
+            ("data_source", hidden_source.as_str()),
+            ("connection", "connection://provider/cnx_x/user-owner"),
+        ] {
+            let (status, reply) = post(
+                &lending(),
+                d,
+                &owner,
+                &attach_body("org://local", kind, subject, "attached", None),
+            );
+            assert_eq!(
+                (status, code_of(&reply)),
+                (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "system_record_subject_unknown"
+                ),
+                "{kind}: {reply}"
+            );
+        }
+        assert_eq!(fingerprint(d), before, "a refused write records nothing");
+
+        let mine = source(
+            d,
+            "user://owner",
+            json!({ "name": "mine", "kind": "file_drop" }),
+        );
+        let (status, reply) = post(
+            &lending(),
+            d,
+            &owner,
+            &attach_body("org://local", "data_source", &mine, "attached", None),
+        );
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+    }
+
+    #[test]
+    fn a_successor_may_release_the_subject_it_names_but_never_swap_in_one_its_writer_cannot_see() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path().to_str().unwrap();
+        let owner = session(d, "owner", "member", &["org://local", "project://desk"]);
+        let mallory = session(d, "mallory", "member", &["project://elsewhere"]);
+        let filed = source(
+            d,
+            "user://mallory",
+            json!({ "name": "desk", "kind": "file_drop", "project_ref": "project://desk" }),
+        );
+        let (status, first) = post(
+            &lending(),
+            d,
+            &owner,
+            &attach_body("org://local", "data_source", &filed, "attached", None),
+        );
+        assert_eq!(status, StatusCode::CREATED, "{first}");
+        let head = first["expected_head_for_successor"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let object = first["record"]["attachment_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // The owner leaves the project the source is filed in: it no longer sees the source.
+        member(d, "user://owner", "project://desk", "revoked", 1);
+        let owner = who(d, &owner);
+        assert!(!super::super::data_source_routes::source_ref_visible_to(
+            d, &owner, &filed
+        ));
+        let owner = session_headers("owner");
+
+        let successor = |status_value: &str, kind: &str, subject: &str| {
+            let mut body = attach_body("org://local", kind, subject, status_value, Some(&head));
+            body["object_id"] = json!(object);
+            body["record"]["attachment_id"] = json!(object);
+            body
+        };
+        let before = fingerprint(d);
+        let (status, reply) = post(
+            &lending(),
+            d,
+            &owner,
+            &successor("attached", "data_source", &filed),
+        );
+        assert_eq!(
+            (status, code_of(&reply)),
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "system_record_subject_unknown"
+            ),
+            "re-attaching is decided afresh: {reply}"
+        );
+        let hers = ontology(d, &who(d, &mallory), "private");
+        let after_setup = fingerprint(d);
+        let (status, reply) = post(
+            &lending(),
+            d,
+            &owner,
+            &successor("detached", "ontology", &hers),
+        );
+        assert_eq!(
+            (status, code_of(&reply)),
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "system_record_subject_unknown"
+            ),
+            "a release names the chain's OWN subject, never a new one: {reply}"
+        );
+        assert_ne!(
+            before, after_setup,
+            "(the second subject's creation is the only write)"
+        );
+        assert_eq!(
+            fingerprint(d),
+            after_setup,
+            "a refused write records nothing"
+        );
+
+        let (status, reply) = post(
+            &lending(),
+            d,
+            &owner,
+            &successor("detached", "data_source", &filed),
+        );
+        assert_eq!(
+            status,
+            StatusCode::CREATED,
+            "losing sight of a subject never traps its attachment: {reply}"
+        );
+        assert_eq!(reply["record"]["status"], json!("detached"));
+    }
+
+    /// The headers of a principal `session` already signed in (its token is derived from its id).
+    fn session_headers(principal_id: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer token-{principal_id}").parse().unwrap(),
+        );
+        headers
+    }
+
+    /// Before this fix the seam checked only that the System was active, so a record may already sit
+    /// under a System its holder does not own. Holding it grants no sight of the System (the Systems
+    /// projection's record-holding clause is retired) and no standing to write more; the record itself
+    /// stays readable to its holder through the seam's own scope.
+    #[test]
+    fn a_record_planted_before_the_fix_grants_no_sight_of_the_system() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path().to_str().unwrap();
+        session(d, "owner", "member", &["org://local"]);
+        let mallory = session(d, "mallory", "member", &["project://elsewhere"]);
+        let hers = source(
+            d,
+            "user://mallory",
+            json!({ "name": "hers", "kind": "file_drop" }),
+        );
+        // The plant, as the old seam admitted it: under THIS System id, through the owner-scoped write
+        // path, bound to mallory's own tenant.
+        let (status, reply) = post(
+            &admitted_by("user://mallory", "project://elsewhere", true),
+            d,
+            &mallory,
+            &attach_body(
+                "project://elsewhere",
+                "data_source",
+                &hers,
+                "attached",
+                None,
+            ),
+        );
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        let held = authorized_request_resource_refs(d, &who(d, &mallory), RESOURCE_KIND).unwrap();
+        assert!(held
+            .iter()
+            .any(|resource| resource.starts_with(&format!("{SYSTEM}/"))));
+
+        let genuine = lending();
+        assert_eq!(
+            super::super::system_projection_routes::standing_over(
+                d,
+                genuine.admission.as_ref(),
+                &who(d, &mallory)
+            ),
+            SystemStanding::Absent,
+            "the plant is not a key to the System"
+        );
+        let (status, reply) = post(
+            &genuine,
+            d,
+            &mallory,
+            &attach_body(
+                "project://elsewhere",
+                "data_source",
+                &hers,
+                "detached",
+                None,
+            ),
+        );
+        assert_eq!(
+            (status, code_of(&reply)),
+            (StatusCode::NOT_FOUND, "system_record_system_absent"),
+            "{reply}"
         );
     }
 }

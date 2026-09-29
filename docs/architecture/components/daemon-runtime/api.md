@@ -3590,7 +3590,23 @@ work-lifecycle plane) and records its own typed vocabulary through this seam.
   (`not_registered_valid`), a System that is not active (`system_not_active`),
   a stale or genesis-over-existing head (`expected_head_conflict`), a reused
   idempotency key over a different record (`idempotency_key_reused`). An exact
-  retry replays the original admission.
+  retry replays the original admission. WHO MAY WRITE (R-240, System seam
+  authority): a record is admitted only from a caller with WRITE standing on
+  the System — the principal its genesis admission names as admitter, or an
+  active administrator, in both cases while the caller's session holds the
+  owner tenant the admission names. A caller who sees the System but may not
+  write under it is refused 403 (`writer_not_authorized`); a caller who does
+  not see it gets 404 (`system_absent`) with the same body a System no
+  admission answers to gets; only a writer learns whether it is active. A
+  record whose contract names a subject another plane owns (today
+  `SystemDataAttachment` v1: an ontology, a data source or a connection) may
+  name only a subject its writer can see under that plane's own read rule,
+  and an unseen subject answers exactly as an absent one (422
+  `subject_unknown`); a successor that only detaches the subject its chain
+  already names stays admissible. Every refusal is decided before the request
+  scope is bound, so a refused write records nothing. Holding a record under a
+  System grants no sight of it: the Systems projection lists a System by its
+  genesis admission alone (the proposer, or a holder of its owner tenant).
 - `GET /v1/hypervisor/autonomous-systems/:id/records[?contract_id=]` — the
   current head of every record this identity may read under the System.
 - `GET /v1/hypervisor/autonomous-systems/:id/records/:contract/:object` — one

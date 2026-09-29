@@ -2226,11 +2226,19 @@ journey WP-C1).
   ref; the subject stays owned and governed by its own plane, and attaching it
   grants no access. Design mode's Attach form offers only ontologies and data
   sources the caller's own scoped reads return.
+- **Who may attach (2026-09-29, R-240 System seam authority).** The daemon
+  enforces this itself; the form is an ordinary client. A seam write needs
+  WRITE standing on the System: the caller must be the principal its genesis
+  admission names as admitter, or an active administrator, and in either case
+  must hold the owner tenant. A caller who sees the System but may not write
+  under it is refused by name. A caller who does not see it is answered exactly
+  as if no System answered to the id. An attachment may name only a subject
+  its writer can see under the subject plane's own read rule, and an unseen
+  subject gets the same answer as an absent one. Detaching the attachment's own
+  subject stays allowed after the writer loses sight of it. Holding a record
+  under a System grants no sight of the System.
 
-Not yet built: the seam does not check the subject ref against its owning plane.
-It admits any ref that fits the contract, so a caller writing to the API
-directly can attach a ref the form would never offer. Detaching (a successor
-with `status: detached`) has no form yet.
+Not yet built: detaching (a successor with `status: detached`) has no form yet.
 
 ## Hypervisor Work
 

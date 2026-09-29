@@ -101,13 +101,17 @@ async function run() {
     const whoami = await call("GET", "/v1/hypervisor/auth/whoami", undefined);
     const TENANT = whoami.body?.principal?.tenant_refs?.[0] ?? OWNER;
 
-    // The record seam refuses a System that is not active BEFORE anything else is derived.
+    // The record seam refuses a System the caller cannot write under BEFORE anything else is derived. No
+    // admission answers to SYSTEM_ID yet, and the seam answers that exactly as it answers a System outside
+    // the caller's inventory (R-240, System seam authority): 404 system_record_system_absent, never a 409
+    // that would tell a stranger an id is taken. The not-active refusal is kept for a writer and pinned
+    // by the daemon's unit tests (system_record_routes::authority_tests).
     const fixture = readFixture("work-frontier-item-v3/positive-admitted.json");
     delete fixture.system_binding;
     const record = { ...fixture, frontier_item_id: "frontier://record-seam/item-1" };
     const admitBody = (over = {}) => ({ owner_ref: TENANT, idempotency_key: key("rec"), contract_id: CONTRACT, object_id: record.frontier_item_id, parent_scope_ref: null, record, expected_head: null, ...over });
     const inactive = await call("POST", ROUTE, admitBody());
-    ok("[system] a record under a System that is not active is refused by name before anything is derived", inactive.status === 409 && code(inactive.body) === "system_record_system_not_active", `${inactive.status} ${code(inactive.body)} ${message(inactive.body).slice(0, 160)}`);
+    ok("[system] a record under a System no admission answers to is refused by name before anything is derived, answered as a System outside the caller's inventory is", inactive.status === 404 && code(inactive.body) === "system_record_system_absent", `${inactive.status} ${code(inactive.body)} ${message(inactive.body).slice(0, 160)}`);
 
     const active = await bootstrapActiveSystem(call, resolver, dataDir, genesisBody());
     ok("PRECONDITION: the bounded System is admitted and activated through its governed genesis on the real wallet fixture", typeof active.source?.record?.governing_authority_ref === "string", `${active.source?.record?.governing_authority_ref}`);
@@ -159,7 +163,7 @@ async function run() {
     const gotB = await jsonCall(plane.daemonUrl, "GET", getPath, undefined, headersB);
     const listB = await jsonCall(plane.daemonUrl, "GET", ROUTE, undefined, headersB);
     const writeB = await jsonCall(plane.daemonUrl, "POST", ROUTE, admitBody({ record: { ...record, objective: "by B" }, expected_head: head2 }), headersB);
-    ok("[scope] a second resolved principal of the same tenant neither reads nor advances the record: request scopes are principal-bound, the same discipline every family uses", login.status === 200 && gotB.status >= 400 && (listB.status === 200 ? listB.body?.count === 0 : listB.status >= 400) && writeB.status >= 400, `${login.status}/${gotB.status}/${listB.status}:${listB.body?.count}/${writeB.status} ${code(writeB.body)}`);
+    ok("[scope] a second resolved principal of the same tenant neither reads nor advances the record: request scopes are principal-bound, the same discipline every family uses — and a member who sees the System but neither admitted it nor administers its owner org is refused by name before any scope is read (403 system_record_writer_not_authorized)", login.status === 200 && gotB.status >= 400 && (listB.status === 200 ? listB.body?.count === 0 : listB.status >= 400) && writeB.status === 403 && code(writeB.body) === "system_record_writer_not_authorized", `${login.status}/${gotB.status}/${listB.status}:${listB.body?.count}/${writeB.status} ${code(writeB.body)}`);
 
     // -- restart --------------------------------------------------------------------------------------------
     await plane.stop();

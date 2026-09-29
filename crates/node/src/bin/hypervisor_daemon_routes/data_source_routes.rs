@@ -264,6 +264,20 @@ pub(crate) fn source_visible_to(
         .any(|tenant| project_slug(tenant) == Some(slug))
 }
 
+/// Whether a declared source answers to `source_ref` (`data-source:<id>`) AND the caller may see it
+/// (`source_visible_to`). An absent and a hidden source both answer false, so a plane that lets a
+/// record NAME a source (the System-record seam's data attachments) discloses neither.
+pub(crate) fn source_ref_visible_to(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    source_ref: &str,
+) -> bool {
+    read_record_dir(data_dir, RECORD_DIR).iter().any(|record| {
+        record.get("source_ref").and_then(Value::as_str) == Some(source_ref)
+            && source_visible_to(record, identity)
+    })
+}
+
 fn visible_sources(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,

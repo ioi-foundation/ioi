@@ -948,8 +948,9 @@ pub(crate) fn ontology_owners(data_dir: &str) -> HashMap<String, String> {
 
 /// An active deployment administrator: the principal record's `role` and `status`, as the invite
 /// plane's org-admin test reads them. Membership of the org is judged separately, from the caller's
-/// own (session-narrowed) tenant scope.
-fn principal_is_active_admin(data_dir: &str, principal_ref: &str) -> bool {
+/// own (session-narrowed) tenant scope. The System-record seam reads the same test for who
+/// administers a System's owner organization.
+pub(crate) fn principal_is_active_admin(data_dir: &str, principal_ref: &str) -> bool {
     let Some(principal_id) = principal_ref.strip_prefix("user://") else {
         return false;
     };
@@ -1053,6 +1054,22 @@ fn visible_ontology(
     load(data_dir, KIND_ONT, id).filter(|record| {
         OntologyAccess::read(data_dir, identity).may_see(&ontology_ref_of(record, id))
     })
+}
+
+/// Whether an ontology answers to `ontology_ref` AND the caller may see it (`OntologyAccess::may_see`).
+/// An absent and a hidden ontology both answer false, so a plane that lets a record NAME an ontology
+/// (the System-record seam's data attachments) discloses neither.
+pub(crate) fn ontology_visible_to(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    ontology_ref: &str,
+) -> bool {
+    let wanted = canonical_ontology_ref(ontology_ref);
+    OntologyAccess::read(data_dir, identity).may_see(&wanted)
+        && read_record_dir(data_dir, KIND_ONT).iter().any(|record| {
+            let id = record.get("id").and_then(Value::as_str).unwrap_or("");
+            ontology_ref_of(record, id) == wanted
+        })
 }
 
 /// An ontology as THIS caller reads it: the stored record, its prose reprojected, plus

@@ -1448,6 +1448,34 @@ fn connection_view(stream: &[AdmittedRecord]) -> Value {
     })
 }
 
+/// Whether the caller may read the connection `connection_ref` names — the rule the list and get
+/// routes answer by: a request-resource scope the caller may read, in a tenant it holds, with an
+/// admitted version behind it. An absent and an unreadable connection both answer `Ok(false)`, so a
+/// plane that lets a record NAME a connection (the System-record seam's data attachments) discloses
+/// neither; only a substrate that cannot answer is an error.
+pub(crate) fn connection_visible_to(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    connection_ref: &str,
+) -> Result<bool, String> {
+    let scope = match authorize_request_resource_scope(
+        data_dir,
+        identity,
+        CONNECTION.resource_kind,
+        connection_ref,
+        None,
+    ) {
+        Ok(scope) => scope,
+        Err(super::substrate_store::RequestScopeRefusal::SubstrateUnavailable(message)) => {
+            return Err(message)
+        }
+        Err(_) => return Ok(false),
+    };
+    read_stream(&CONNECTION, data_dir, identity, &scope, connection_ref)
+        .map(|stream| !stream.is_empty())
+        .map_err(|(_, Json(body))| body.to_string())
+}
+
 /// GET /v1/hypervisor/auth/connections
 pub(crate) async fn handle_connection_list(
     State(st): State<Arc<DaemonState>>,
