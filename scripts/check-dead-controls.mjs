@@ -40,6 +40,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { emitVerifierCensus } from "../apps/hypervisor/scripts/lib/verifier-census.mjs";
 import * as LIB from "../apps/hypervisor/scripts/lib/dead-control-census.mjs";
 import { ENUMERATE } from "../apps/hypervisor/scripts/lib/dead-control-page.mjs";
+import { gateDaemon } from "../apps/hypervisor/scripts/lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -326,6 +327,9 @@ export function sourceFindings({ gate, lib }) {
   if (!/blocked\.length > 0/u.test(gate)) f.push("a refused write is no longer counted as the network having fired, so a control that tried to act would read as dead");
   // THIS GATE STARTS ITS OWN SERVE.
   if (!/spawn\(process\.execPath, \[SERVE_SRC\]/u.test(gate)) f.push("the LIVE leg no longer starts its own serve");
+  // AND ITS SERVE READS A DAEMON THIS GATE STARTED (R-240, verifier auth sweep, 2026-09-29): handed no URL, the serve read the
+  // owner's :8765 — as nobody, once that daemon's reads became caller-scoped.
+  if (!/own = await gateDaemon\(\)/u.test(gate) || !/\.\.\.own\.serveEnv/u.test(gate)) f.push("the LIVE leg's serve no longer reads a daemon this gate started, so it falls back to the owner's :8765");
   // The classifier reaches nothing.
   if (/fetch\(|readFileSync|Date\.now\(|new Date\(|document\.|window\./u.test(lib)) f.push("the classifier reaches a browser, a file, a clock or a network, so it cannot judge a census captured by somebody else");
   for (const name of ["CLICK_ROLES", "TEXT_TYPES", "SLOW_LANDING_MS", "SIGNALS", "CAPTURE_PORT"]) {
@@ -392,6 +396,7 @@ const READ = () => ({ mut: window.__dcMut ?? -1, before: window.__dcStates, stat
 async function liveLeg() {
   const started = Date.now();
   const findings = [];
+  let own = null;
   let serve = null;
   let browser = null;
   try {
@@ -403,11 +408,16 @@ async function liveLeg() {
     const port = await freePort();
     const uiPort = await freePort();
     const base = `http://127.0.0.1:${port}`;
+    // ITS OWN DAEMON TOO (R-240, verifier auth sweep, 2026-09-29): the serve was handed no daemon URL, so it read the owner's
+    // :8765 — as nobody, once data-source, materialized-set and ontology reads became caller-scoped. An explicit
+    // IOI_HYPERVISOR_DAEMON_URL naming the owner's stack is refused by name.
+    own = await gateDaemon();
     serve = spawn(process.execPath, [SERVE_SRC], {
       cwd: APP,
-      // The census exercises controls, not sign-in: it browses without an account, so it opts out of
-      // the product's sign-in gate explicitly (R-240).
-      env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_PRODUCT_SIGNIN_REQUIRED: "0" },
+      // The census exercises controls, not sign-in, so it opts out of the product's sign-in gate explicitly (R-240) — and
+      // browses AS its daemon's operator (below), because a caller-scoped read answers nobody with a refusal and the controls
+      // behind it never render. `--signed-out` measures the signed-out product instead.
+      env: { ...process.env, ...own.serveEnv, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_PRODUCT_SIGNIN_REQUIRED: "0" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     const deadline = Date.now() + 60000;
@@ -419,6 +429,7 @@ async function liveLeg() {
 
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+    if (!flag("--signed-out")) await own.signIn(context, [base]);
     const page = await context.newPage();
     let requests = 0;
     let blocked = [];
@@ -831,6 +842,7 @@ async function liveLeg() {
   } finally {
     try { await browser?.close(); } catch { /* already gone */ }
     try { serve?.kill("SIGTERM"); } catch { /* already gone */ }
+    try { await own?.stop(); } catch { /* already gone */ }
   }
 }
 
