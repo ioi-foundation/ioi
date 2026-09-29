@@ -1098,10 +1098,10 @@ fn a_live_writer_rereads_the_spine_only_after_another_process_appends_to_it() {
             .commit(prepared, &owner, 100 + index)
             .expect("effect commits");
     }
-    // The first commit boundary proves the in-memory spine against the rooted
+    // The open's locked recovery proved the in-memory spine against the rooted
     // log; every later append is this writer's own batch, so re-reading the
     // whole history at each commit would only re-verify what it just wrote.
-    assert_eq!(writer.full_refreshes, 1);
+    assert_eq!(writer.full_refreshes, 0);
 
     // Another live process linearizes a cutover that retires this writer.
     let mut integrator = open(&temp);
@@ -1126,7 +1126,7 @@ fn a_live_writer_rereads_the_spine_only_after_another_process_appends_to_it() {
                 | ProfileRefusal::ActiveProfileMismatch { .. }
         ))
     ));
-    assert_eq!(writer.full_refreshes, 2);
+    assert_eq!(writer.full_refreshes, 1);
     assert!(writer.committed("effect-after-cutover").is_none());
     assert!(writer.committed_cutover("cutover://acme/1").is_some());
     for index in 0..4u64 {
@@ -1154,7 +1154,7 @@ fn a_log_replaced_under_a_live_writer_is_reread_and_no_commit_is_lost() {
     let mut writer = open(&temp);
     commit_effect(&mut writer, "effect-0", 100);
     commit_effect(&mut writer, "effect-1", 101);
-    assert_eq!(writer.full_refreshes, 1);
+    assert_eq!(writer.full_refreshes, 0);
 
     let log = temp.path().join("canonical/muxlog.bin");
     let copy = temp.path().join("canonical/muxlog.bin.restore");
@@ -1169,7 +1169,7 @@ fn a_log_replaced_under_a_live_writer_is_reread_and_no_commit_is_lost() {
     fs::rename(&copy, &log).expect("replaced");
 
     commit_effect(&mut writer, "effect-2", 102);
-    assert_eq!(writer.full_refreshes, 2, "a replaced log is re-read");
+    assert_eq!(writer.full_refreshes, 1, "a replaced log is re-read");
     drop(writer);
     let reopened = open(&temp);
     for index in 0..3u64 {
@@ -1212,8 +1212,69 @@ fn an_append_inside_the_same_mtime_tick_still_forces_the_reread() {
     assert!(writer
         .commit(stale, &StaticAuthority(authority()), 200)
         .is_err());
-    assert_eq!(writer.full_refreshes, 2);
+    assert_eq!(writer.full_refreshes, 1);
     assert!(writer.committed("effect-after-cutover").is_none());
+}
+
+#[test]
+fn both_open_paths_prove_the_spine_so_the_first_commit_does_not_replay_history() {
+    let temp = TempDir::new().expect("tempdir");
+    {
+        let mut first = open(&temp);
+        commit_effect(&mut first, "effect-0", 100);
+        commit_effect(&mut first, "effect-1", 101);
+    }
+    let genesis = single_authority_genesis();
+    let writer = WriterClaim::new(genesis.writer_identity.clone(), genesis.fence_token);
+
+    // The restart path: genesis comes only from the rooted log.
+    let mut resumed = RecognizedEffectStore::open_existing_with_bindings(
+        temp.path(),
+        "system://acme",
+        ProfileBindings::production(),
+    )
+    .expect("store opens")
+    .expect("spine history exists");
+    resumed.bind_writer(writer).expect("writer binds");
+    commit_effect(&mut resumed, "effect-2", 102);
+    assert_eq!(
+        resumed.full_refreshes, 0,
+        "open_existing re-read the whole spine under the lock; the first commit must not again"
+    );
+    drop(resumed);
+
+    // The presented-genesis path.
+    let mut reopened = open(&temp);
+    commit_effect(&mut reopened, "effect-3", 103);
+    assert_eq!(
+        reopened.full_refreshes, 0,
+        "open re-read the whole spine under the lock; the first commit must not again"
+    );
+    drop(reopened);
+
+    // The mark proves the spine only as of the open: a process that appends
+    // between another's open and its first commit still forces the re-read,
+    // and the retired writer is refused.
+    let mut early = open(&temp);
+    let mut integrator = open(&temp);
+    commit_cutover(
+        &mut integrator,
+        strengthening_request(),
+        &RefuseAllWeakening,
+        10,
+    )
+    .expect("cutover linearizes");
+    let mut value = template();
+    value["checkpoint"]["previous_canonical_head"] = json!(early.canonical_head());
+    let stale = prepare(&mut early, "effect-after-cutover", value);
+    assert!(early
+        .commit(stale, &StaticAuthority(authority()), 200)
+        .is_err());
+    assert_eq!(early.full_refreshes, 1);
+    assert!(early.committed("effect-after-cutover").is_none());
+    for index in 0..4u64 {
+        assert!(early.committed(&format!("effect-{index}")).is_some());
+    }
 }
 
 #[test]

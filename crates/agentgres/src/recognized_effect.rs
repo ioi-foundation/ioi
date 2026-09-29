@@ -554,9 +554,9 @@ pub struct RecognizedEffectStore {
     /// Terminal spine coordinates, for governance checkpoint anchoring.
     last_batch_seq: u64,
     /// The rooted log's mark at the moment the in-memory spine was last proven
-    /// equal to committed truth: after a complete re-read, or after this
-    /// store's own admitted batch. `None` until the first commit-boundary
-    /// refresh. See `lock_and_refresh`.
+    /// equal to committed truth: after a complete re-read (the open paths'
+    /// locked recovery included), or after this store's own admitted batch.
+    /// `None` while no such proof holds. See `lock_and_refresh`.
     truth_mark: Option<MuxLogMark>,
     #[cfg(test)]
     armed_crash: Option<CrashPoint>,
@@ -640,6 +640,10 @@ impl RecognizedEffectStore {
             full_refreshes: 0,
         };
         store.recover()?;
+        // `recover` just re-read the complete rooted spine under the
+        // cross-process lock: the in-memory spine IS committed truth at this
+        // mark, so the first commit need not replay all of history again.
+        store.truth_mark = store.mux.log_mark();
         Ok(Some(store))
     }
 
@@ -725,6 +729,11 @@ impl RecognizedEffectStore {
             Some(sealed) => store.require_matching_genesis(sealed.clone(), &genesis)?,
             None => store.seal_genesis(&genesis)?,
         }
+        // Still under the cross-process lock: the spine was just re-read in
+        // full, and the only append since (a first open's sealed genesis) is
+        // this store's own, already applied in memory. The first commit need
+        // not replay all of history again.
+        store.truth_mark = store.mux.log_mark();
         Ok(store)
     }
 
@@ -759,6 +768,14 @@ impl RecognizedEffectStore {
         self.effects
             .values()
             .max_by_key(|effect| effect.operation_sequence)
+    }
+
+    /// How many recognized effects are committed — the O(1) question a caller
+    /// keeping an incremental index over `committed_effects_in_order` asks to
+    /// learn whether the spine gained effects it has not seen (including ones
+    /// another process appended and a refresh loaded).
+    pub fn committed_effect_count(&self) -> usize {
+        self.effects.len()
     }
 
     /// All recognized effects in Agentgres admission order. Used only to
