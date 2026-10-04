@@ -78,13 +78,16 @@ impl SafetyGadget {
     ///
     /// Returns `true` if a new block was queued for commit.
     pub fn update(&mut self, qc_high: &QuorumCertificate, qc_parent: &QuorumCertificate) -> bool {
-        // 1. Update Lock (Liveness)
-        // We lock immediately upon seeing the QC to prevent voting on forks.
-        if let Some(current_lock) = &self.locked_qc {
-            if qc_parent.view > current_lock.view {
-                self.locked_qc = Some(qc_parent.clone());
-            }
-        } else {
+        // 1. Update the lock: the certificate a certified block carries for its parent.
+        //
+        // Views are scoped to one height (see the 2-chain rule below), so certificates are
+        // ordered by [`qc_rank`]: height first, then view within that height. Comparing bare
+        // views across heights (P7: the trunk compared `qc_parent.view > current_lock.view`)
+        // left the lock at the first parent forever, because every ordinary view is zero.
+        let advances = self.locked_qc.as_ref().map_or(true, |current_lock| {
+            qc_rank(qc_parent) > qc_rank(current_lock)
+        });
+        if advances {
             self.locked_qc = Some(qc_parent.clone());
         }
 
@@ -193,22 +196,36 @@ impl SafetyGadget {
         true
     }
 
-    /// Checks if it is safe to vote for a proposal.
-    pub fn safe_to_vote(&self, proposal_view: u64, parent_view: u64) -> bool {
-        if let Some(locked) = &self.locked_qc {
-            // Liveness condition: view is higher than lock
-            if proposal_view > locked.view {
-                return true;
+    /// The lock rule (yellow paper :1082-1084: "A validator votes only when the proposal
+    /// extends the lock or is in a strictly higher view than the lock"), over the proposal's
+    /// justify, its parent certificate (HotStuff's safeNode compares the justify with the lock).
+    ///
+    /// With height-scoped views a bare view says nothing across heights, so the comparison is by
+    /// [`qc_rank`]: a parent certificate of a strictly higher rank than the lock (a later height,
+    /// or a later view at the lock's height) is safe, and so is the lock itself (the proposal
+    /// extends the locked block directly). A lower rank, or the lock's rank with another block,
+    /// is not. With no lock yet, every proposal is safe.
+    ///
+    /// P7 (build Ruling 12): this replaces `safe_to_vote(proposal_view, parent_view)`, which the
+    /// trunk called with a height as the parent view and then ignored. It gates only THIS node's
+    /// own vote (the engine's `admit_local_vote`) and its own proposals (`decide`); a peer's vote
+    /// is the peer's decision, never refused by this node's lock.
+    pub fn safe_to_vote(&self, parent_qc: &QuorumCertificate) -> bool {
+        match &self.locked_qc {
+            None => true,
+            Some(locked) => {
+                qc_rank(parent_qc) > qc_rank(locked)
+                    || (qc_rank(parent_qc) == qc_rank(locked)
+                        && parent_qc.block_hash == locked.block_hash)
             }
-            // Safety condition: proposal extends the locked block
-            if parent_view >= locked.view {
-                return true;
-            }
-            false
-        } else {
-            true
         }
     }
+}
+
+/// The order of certificates under height-scoped views: height first, then view within that
+/// height (the same order the Classic-BFT high-QC rule and the fallback transition use).
+pub fn qc_rank(qc: &QuorumCertificate) -> (u64, u64) {
+    (qc.height, qc.view)
 }
 
 #[cfg(test)]

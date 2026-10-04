@@ -721,12 +721,22 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 self.highest_qc.clone()
             };
 
-            // Safety Check: Ensure we don't propose conflicting blocks
-            // Use locked_qc from safety gadget to ensure we extend the correct chain
-            if let Some(_locked) = &self.safety.locked_qc {
-                // If we have a lock, we must extend it.
-                // For simplified Aft deterministic, the highest_qc usually matches the lock or is newer.
-                // The proposal construction in `create_block` uses `highest_qc` (via `parent_qc` logic).
+            // The lock rule on proposing (P7, vote_safety.rs): never propose on a parent below
+            // this node's lock in the (height, view) order. Followers would refuse to vote for it,
+            // and this node's own vote would be refused too. Wait instead: a timeout moves the view.
+            if height > 1 && !self.safety.safe_to_vote(&parent_qc) {
+                let lock = self.safety.locked_qc.clone().unwrap_or_default();
+                warn!(
+                    target: "consensus",
+                    height,
+                    current_view,
+                    parent_qc_height = parent_qc.height,
+                    parent_qc_view = parent_qc.view,
+                    lock_height = lock.height,
+                    lock_view = lock.view,
+                    "Leader withholds a proposal whose parent certificate is below its lock."
+                );
+                return ConsensusDecision::WaitForBlock;
             }
 
             let timing_params = match parent_view.get(BLOCK_TIMING_PARAMS_KEY).await {
@@ -818,6 +828,25 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             } else {
                 (None, None)
             };
+            // The next leader extends the TC's highest QC (P7, vote_safety.rs): a proposal whose
+            // parent is below the highest QC its own certificate carries would be refused.
+            if let Some(certificate) = aft_timeout_certificate.as_ref() {
+                if let Some(high) = super::vote_safety::timeout_certificate_high_qc(certificate) {
+                    if !super::vote_safety::extends(&parent_qc, high) {
+                        warn!(
+                            target: "consensus",
+                            height,
+                            current_view,
+                            parent_qc_height = parent_qc.height,
+                            parent_qc_view = parent_qc.view,
+                            tc_high_qc_height = high.height,
+                            tc_high_qc_view = high.view,
+                            "Leader withholds a proposal that does not extend its timeout certificate's highest QC."
+                        );
+                        return ConsensusDecision::WaitForBlock;
+                    }
+                }
+            }
 
             let (
                 previous_canonical_collapse_commitment_hash,
@@ -883,6 +912,17 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         }
 
         let header = &block.header;
+
+        // A proposal of an earlier view at a height where a later-view timeout certificate has
+        // formed is refused before anything executes or persists it (P7, vote_safety.rs).
+        {
+            let early_hash = header
+                .hash()
+                .ok()
+                .and_then(|bytes| to_root_hash(&bytes).ok())
+                .ok_or_else(|| ConsensusError::BlockVerificationFailed("Hash fail".into()))?;
+            self.refuse_stale_view_proposal(header, &early_hash)?;
+        }
 
         let parent_state_ref = StateRef {
             height: header.height - 1,
@@ -1027,6 +1067,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     ));
                 }
                 self.verify_aft_timeout_certificate(certificate, &sets)?;
+                // The next leader extends the TC's highest QC (P7, vote_safety.rs).
+                Self::refuse_proposal_below_tc_high_qc(header, certificate)?;
             } else {
                 let certificate = header.timeout_certificate.as_ref().ok_or_else(|| {
                     ConsensusError::BlockVerificationFailed(format!(
@@ -1227,10 +1269,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         // a threshold nor appear in a certificate this node assembles.
         self.authenticated_vote(&vote)?;
 
-        // Safety Check: Don't process votes if not safe
-        if !self.safety.safe_to_vote(vote.view, vote.height - 1) {
-            // Logic for unsafe vote handling (optional)
-        }
+        // The lock rule gates THIS node's own vote (`admit_local_vote`, before signing), never a
+        // peer's: a peer's vote is that peer's decision under its own lock. (P7: the trunk computed
+        // `safe_to_vote` here for every vote, with a height as the parent view, and ignored it.)
 
         let threshold = self.quorum_count_threshold_for_height(vote.height);
         let height_map = self.vote_pool.entry(vote.height).or_default();
@@ -1280,6 +1321,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             self.accept_quorum_certificate(qc, true).await?;
         }
         Ok(())
+    }
+
+    async fn admit_local_vote(&mut self, header: &BlockHeader) -> Result<(), ConsensusError> {
+        self.admit_own_vote(header).await
     }
 
     async fn handle_quorum_certificate(

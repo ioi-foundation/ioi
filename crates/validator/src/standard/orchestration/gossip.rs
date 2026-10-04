@@ -460,6 +460,16 @@ where
         return Ok(());
     }
 
+    // THIS node's vote rules come first (P7): the lock rule, no vote in a view this node has
+    // timed out of, one block per slot. A refused vote is never signed or sent.
+    context
+        .consensus_engine_ref
+        .lock()
+        .await
+        .admit_local_vote(&block.header)
+        .await
+        .map_err(|error| anyhow::anyhow!("own vote refused: {error}"))?;
+
     let vote_height = block.header.height;
     let vote_view = block.header.view;
     let vote_hash_vec = block.header.hash().map_err(anyhow::Error::msg)?;

@@ -222,6 +222,17 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     /// This is used to aggregate votes towards a Quorum Certificate (QC).
     async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError>;
 
+    /// Admits or refuses THIS node's own vote for `header`, before the vote is signed or sent.
+    ///
+    /// Every local vote path (a follower's vote after durable apply, the producer's self-vote,
+    /// a catch-up vote, a tip or committed-block replay) calls this first and votes only on
+    /// `Ok`. An engine with vote-safety rules (the AFT engine: the lock rule, no vote in a view
+    /// this node has timed out of, one block per slot) refuses here; a wrapper engine must
+    /// forward to the engine it wraps, never fall back to this default. The default admits.
+    async fn admit_local_vote(&mut self, _header: &BlockHeader) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
     /// Handles a quorum certificate that was propagated directly by a peer.
     ///
     /// Engines that do not need explicit QC propagation can ignore this.

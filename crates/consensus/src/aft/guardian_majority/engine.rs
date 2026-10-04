@@ -55,6 +55,7 @@ impl GuardianMajorityEngine {
             mirror_seed: [0u8; 32],
             echo_pool: HashMap::new(),
             voted_slots: HashSet::new(),
+            local_votes: HashMap::new(),
             pacemaker: Arc::new(Mutex::new(Pacemaker::new(view_timeout))),
             safety: SafetyGadget::new(),
             mirror_stats: MirrorStats::default(),

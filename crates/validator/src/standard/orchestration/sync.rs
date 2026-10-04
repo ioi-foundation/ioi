@@ -1715,6 +1715,24 @@ async fn trigger_catchup_vote<CS, ST, CE, V>(
         return;
     }
 
+    // A catch-up vote is still this node's vote: the engine's vote rules apply first (P7).
+    if let Err(error) = context
+        .consensus_engine_ref
+        .lock()
+        .await
+        .admit_local_vote(&block.header)
+        .await
+    {
+        tracing::info!(
+            target: "consensus",
+            height = block.header.height,
+            view = block.header.view,
+            %error,
+            "Catch-up vote withheld by the vote rules."
+        );
+        return;
+    }
+
     let vote_height = block.header.height;
     let vote_view = block.header.view;
     let vote_hash_vec = block.header.hash().unwrap_or(vec![0u8; 32]);

@@ -144,6 +144,11 @@ where
         <GuardianMajorityEngine as ConsensusEngine<T>>::handle_vote(&mut self.core, vote).await
     }
 
+    async fn admit_local_vote(&mut self, header: &BlockHeader) -> Result<(), ConsensusError> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::admit_local_vote(&mut self.core, header)
+            .await
+    }
+
     async fn handle_quorum_certificate(
         &mut self,
         qc: QuorumCertificate,
@@ -398,5 +403,70 @@ where
             &mut self.core,
             protobuf_public_key,
         )
+    }
+}
+
+#[cfg(test)]
+mod admit_local_vote_forwarding {
+    //! P7: every wrapper forwards `admit_local_vote` to the AFT core. A wrapper that fell back to
+    //! the trait's default (`Ok`) would bypass every vote rule; one block per slot is the rule a
+    //! fresh engine can show, so the second block in a slot must be refused through each layer.
+    use super::*;
+    use crate::Consensus;
+    use ioi_types::app::{ChainTransaction, SignatureSuite, StateRoot};
+
+    fn header(transactions_byte: u8) -> BlockHeader {
+        BlockHeader {
+            height: 5,
+            view: 0,
+            parent_hash: [4u8; 32],
+            parent_state_root: StateRoot(vec![4u8; 32]),
+            state_root: StateRoot(vec![15u8; 32]),
+            transactions_root: vec![transactions_byte; 32],
+            timestamp: 5,
+            timestamp_ms: 5_000,
+            gas_used: 0,
+            validator_set: Vec::new(),
+            producer_account_id: AccountId([35u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [36u8; 32],
+            producer_pubkey: vec![37u8; 32],
+            oracle_counter: 5,
+            oracle_trace_hash: [38u8; 32],
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            timeout_certificate: None,
+            aft_timeout_certificate: None,
+            signature: vec![39u8; 64],
+        }
+    }
+
+    #[tokio::test]
+    async fn aft_engine_forwards_to_the_core() {
+        let mut engine = AftEngine::new(AftSafetyMode::ClassicBft);
+        <AftEngine as ConsensusEngine<ChainTransaction>>::admit_local_vote(&mut engine, &header(1))
+            .await
+            .unwrap();
+        assert!(
+            <AftEngine as ConsensusEngine<ChainTransaction>>::admit_local_vote(
+                &mut engine,
+                &header(2)
+            )
+            .await
+            .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn the_consensus_enum_forwards_to_the_aft_engine() {
+        let mut engine: Consensus<ChainTransaction> =
+            Consensus::Aft(AftEngine::new(AftSafetyMode::ClassicBft));
+        engine.admit_local_vote(&header(1)).await.unwrap();
+        assert!(engine.admit_local_vote(&header(2)).await.is_err());
     }
 }

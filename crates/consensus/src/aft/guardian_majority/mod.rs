@@ -106,6 +106,7 @@ pub mod safety;
 mod simulator;
 #[cfg(test)]
 mod tests;
+mod vote_safety;
 
 // --- Mirror Stats ---
 #[derive(Debug, Clone, Default)]
@@ -364,6 +365,11 @@ pub struct GuardianMajorityEngine {
 
     /// Tracks if we have already voted for a (height, view) to prevent duplicate actions.
     voted_slots: HashSet<(u64, u64)>,
+
+    /// THIS node's own block votes, by (height, view): the block it voted for in that slot.
+    /// `admit_local_vote` records each admitted vote here, refuses a second block in a slot,
+    /// and lets an exact replay of an admitted vote through (P7, build Ruling 12).
+    local_votes: HashMap<(u64, u64), [u8; 32]>,
 
     // Pacemaker for Liveness
     pacemaker: Arc<Mutex<Pacemaker>>,

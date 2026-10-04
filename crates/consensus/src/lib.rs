@@ -248,6 +248,28 @@ where
         }
     }
 
+    async fn admit_local_vote(&mut self, header: &BlockHeader) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::admit_local_vote(engine, header).await
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::admit_local_vote(engine, header)
+                    .await
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::admit_local_vote(engine, header).await
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::admit_local_vote(engine, header).await
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
     async fn handle_quorum_certificate(
         &mut self,
         qc: QuorumCertificate,
