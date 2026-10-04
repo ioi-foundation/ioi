@@ -88,6 +88,7 @@ mod peer_management;
 mod quv;
 mod remote_state_view;
 mod sync;
+mod sync_authority;
 /// Verifier selection logic.
 pub mod verifier_select;
 mod view_resolver;

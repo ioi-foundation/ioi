@@ -270,6 +270,38 @@ where
         }
     }
 
+    async fn verify_synced_certificate(
+        &mut self,
+        qc: &QuorumCertificate,
+        view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::verify_synced_certificate(engine, qc, view).await
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::verify_synced_certificate(
+                    engine, qc, view,
+                )
+                .await
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::verify_synced_certificate(
+                    engine, qc, view,
+                )
+                .await
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::verify_synced_certificate(engine, qc, view)
+                    .await
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
     async fn handle_quorum_certificate(
         &mut self,
         qc: QuorumCertificate,

@@ -1327,6 +1327,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         self.admit_own_vote(header).await
     }
 
+    async fn verify_synced_certificate(
+        &mut self,
+        qc: &QuorumCertificate,
+        view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        self.verify_certificate_against_view(qc, view).await
+    }
+
     async fn handle_quorum_certificate(
         &mut self,
         qc: QuorumCertificate,

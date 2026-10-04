@@ -400,3 +400,60 @@ async fn own_vote_below_the_pacemakers_view_is_refused() {
         .unwrap_err();
     assert!(error.to_string().contains("to view 1"), "{error}");
 }
+
+// --- G1: synced certificates verify against the view's membership ---------------------------
+
+/// A view holding only the membership (no engine cache): the keys come from the engine registry
+/// or the view, the sets from the view.
+fn membership_view(sets: &ValidatorSetsV1) -> MockAnchoredView {
+    let mut view = MockAnchoredView::default();
+    view.state.insert(
+        VALIDATOR_SET_KEY.to_vec(),
+        write_validator_sets(sets).unwrap(),
+    );
+    view
+}
+
+#[tokio::test]
+async fn a_synced_certificate_verifies_against_the_views_membership_only() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    // Raw keys known, but NO validator set cached: the membership must come from the view.
+    for keypair in &validators.keypairs {
+        assert!(engine.record_validator_public_key(&keypair.public_key().to_bytes()));
+    }
+    assert!(engine.validator_sets_by_height.is_empty());
+    let view = membership_view(&validators.sets);
+    let genuine = validators.signed_qc(4, 0, [0x44u8; 32]);
+    engine
+        .verify_certificate_against_view(&genuine, &view)
+        .await
+        .expect("an authentic 2f+1 certificate verifies against the view's membership");
+
+    let mut forged = genuine.clone();
+    forged.signatures[1].1 = vec![0xBB; forged.signatures[1].1.len()];
+    assert!(engine
+        .verify_certificate_against_view(&forged, &view)
+        .await
+        .is_err());
+    let mut replayed = genuine.clone();
+    replayed.block_hash = [0x45u8; 32];
+    assert!(engine
+        .verify_certificate_against_view(&replayed, &view)
+        .await
+        .is_err());
+    // The genesis sentinel needs no signatures; any other height-zero certificate is refused.
+    engine
+        .verify_certificate_against_view(&QuorumCertificate::default(), &view)
+        .await
+        .unwrap();
+    assert!(engine
+        .verify_certificate_against_view(&qc_at(0, 1, 0x01), &view)
+        .await
+        .is_err());
+    // A view without a membership cannot authenticate anything.
+    assert!(engine
+        .verify_certificate_against_view(&genuine, &MockAnchoredView::default())
+        .await
+        .is_err());
+}

@@ -173,3 +173,77 @@ impl GuardianMajorityEngine {
         Ok(())
     }
 }
+
+impl GuardianMajorityEngine {
+    /// Verifies `qc` as a certificate for the block it names, against the validator membership
+    /// read from `view` (the anchored state of the certified block's parent, or an earlier
+    /// ancestor whose sets cover `qc.height`). P7 G1: sync verifies every synced block's parent
+    /// certificate before applying it, and a replacement block's own certificate before replacing.
+    ///
+    /// The membership is taken from the view itself, never from the engine's bounded cache, so a
+    /// node catching up far behind its live height still authenticates against the membership
+    /// that was in force. The genesis sentinel (height 0) needs no signatures. Classic-BFT accepts
+    /// an authenticated 2f+1 certificate or a separately verified async-parent proof; the other
+    /// modes use their own QC rule (and Asymptote its collapse backing).
+    pub(super) async fn verify_certificate_against_view(
+        &mut self,
+        qc: &QuorumCertificate,
+        view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        if qc.height == 0 {
+            return if *qc == QuorumCertificate::default() {
+                Ok(())
+            } else {
+                Err(ConsensusError::BlockVerificationFailed(
+                    "a height-zero certificate must be the canonical genesis sentinel".into(),
+                ))
+            };
+        }
+        let encoded = view
+            .get(VALIDATOR_SET_KEY)
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+            .ok_or(ConsensusError::StateAccess(StateError::KeyNotFound))?;
+        let sets = read_validator_sets(&encoded).map_err(|e| {
+            ConsensusError::BlockVerificationFailed(format!("VS decode failed: {e}"))
+        })?;
+        let set = effective_set_for_height(&sets, qc.height).clone();
+        self.hydrate_effective_validator_keys(view, &set).await?;
+        match self.safety_mode {
+            AftSafetyMode::ClassicBft => {
+                if self.has_async_parent_proof(qc) {
+                    return Ok(());
+                }
+                let threshold = if set
+                    .validators
+                    .iter()
+                    .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44)
+                {
+                    authenticated_quorum::pq_optimistic_quorum_geometry(&set)?.q as usize
+                } else {
+                    self.quorum_count_threshold(set.validators.len())
+                };
+                authenticated_quorum::verify_quorum_certificate(
+                    qc,
+                    &set,
+                    &self.key_registry,
+                    self.safety_mode,
+                    threshold,
+                )
+                .map(|_| ())
+            }
+            AftSafetyMode::Asymptote => {
+                self.verify_qc(qc, &sets)?;
+                if self.quorum_certificate_is_collapse_backed(qc, view).await? {
+                    Ok(())
+                } else {
+                    Err(ConsensusError::BlockVerificationFailed(format!(
+                        "certificate for height {} is not backed by a canonical collapse object",
+                        qc.height
+                    )))
+                }
+            }
+            _ => self.verify_qc(qc, &sets),
+        }
+    }
+}

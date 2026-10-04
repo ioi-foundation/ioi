@@ -149,6 +149,19 @@ where
             .await
     }
 
+    async fn verify_synced_certificate(
+        &mut self,
+        qc: &QuorumCertificate,
+        view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::verify_synced_certificate(
+            &mut self.core,
+            qc,
+            view,
+        )
+        .await
+    }
+
     async fn handle_quorum_certificate(
         &mut self,
         qc: QuorumCertificate,
@@ -468,5 +481,75 @@ mod admit_local_vote_forwarding {
             Consensus::Aft(AftEngine::new(AftSafetyMode::ClassicBft));
         engine.admit_local_vote(&header(1)).await.unwrap();
         assert!(engine.admit_local_vote(&header(2)).await.is_err());
+    }
+}
+
+#[cfg(test)]
+mod verify_synced_certificate_forwarding {
+    //! P7 G1: every wrapper forwards `verify_synced_certificate` to the AFT core. A view without
+    //! a membership cannot authenticate a height-5 certificate, so the core refuses; the trait's
+    //! default would accept.
+    use super::*;
+    use crate::Consensus;
+    use async_trait::async_trait;
+    use ioi_api::chain::RemoteStateView;
+    use ioi_types::app::ChainTransaction;
+    use ioi_types::error::ChainError;
+
+    struct EmptyView;
+
+    #[async_trait]
+    impl RemoteStateView for EmptyView {
+        async fn get(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
+            Ok(None)
+        }
+        fn height(&self) -> u64 {
+            4
+        }
+        fn state_root(&self) -> &[u8] {
+            &[]
+        }
+    }
+
+    #[async_trait]
+    impl AnchoredStateView for EmptyView {
+        async fn gas_used(&self) -> Result<u64, ChainError> {
+            Ok(0)
+        }
+    }
+
+    fn qc() -> QuorumCertificate {
+        QuorumCertificate {
+            height: 5,
+            view: 0,
+            block_hash: [5u8; 32],
+            signatures: Vec::new(),
+            aggregated_signature: Vec::new(),
+            signers_bitfield: Vec::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn aft_engine_forwards_to_the_core() {
+        let mut engine = AftEngine::new(AftSafetyMode::ClassicBft);
+        assert!(
+            <AftEngine as ConsensusEngine<ChainTransaction>>::verify_synced_certificate(
+                &mut engine,
+                &qc(),
+                &EmptyView
+            )
+            .await
+            .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn the_consensus_enum_forwards_to_the_aft_engine() {
+        let mut engine: Consensus<ChainTransaction> =
+            Consensus::Aft(AftEngine::new(AftSafetyMode::ClassicBft));
+        assert!(engine
+            .verify_synced_certificate(&qc(), &EmptyView)
+            .await
+            .is_err());
     }
 }

@@ -233,6 +233,19 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         Ok(())
     }
 
+    /// Verifies `qc` as a certificate for the block it names, against the validator membership
+    /// in `view` (an anchored state whose sets cover `qc.height`), before sync applies or
+    /// replaces anything on its authority. An engine with certificates (AFT) verifies here; a
+    /// wrapper engine must forward, never fall back to this default. The default accepts, for
+    /// engines whose blocks carry no certificate.
+    async fn verify_synced_certificate(
+        &mut self,
+        _qc: &QuorumCertificate,
+        _view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
     /// Handles a quorum certificate that was propagated directly by a peer.
     ///
     /// Engines that do not need explicit QC propagation can ignore this.

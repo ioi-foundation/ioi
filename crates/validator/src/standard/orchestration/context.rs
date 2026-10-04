@@ -58,7 +58,9 @@ pub struct SyncProgress {
     pub target: Option<PeerId>,
     /// The target height (tip) we are trying to reach.
     pub tip: u64,
-    /// The next height we need to request.
+    /// The LAST height applied or held (the Agentgres-admitted floor, or the last height this
+    /// sync applied); the next request asks for `next + 1` onward. (P7: this comment used to say
+    /// "the next height we need to request", which the code never meant.)
     pub next: u64,
     /// Whether a request is currently in flight.
     pub inflight: bool,
@@ -72,6 +74,9 @@ pub struct SyncProgress {
     /// serving boundary.  Without this fence, alternating such peers creates
     /// an unbounded request/empty-response loop in the main event task.
     pub retry_not_before: Option<std::time::Instant>,
+    /// Peers dropped for failing certificate checks, and the consecutive-failure count (P7: G1's
+    /// source selection and T5's retry bound).
+    pub(crate) authority: super::sync_authority::SyncAuthority,
 }
 
 /// Stores the current status of a transaction for RPC queries.
