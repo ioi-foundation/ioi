@@ -926,3 +926,74 @@ async fn n2_a_new_session_refuses_a_cooled_down_peer() {
         "a cooled peer became the target"
     );
 }
+
+/// N2, a pin added before the round-3 MUT-1 run: a refusal outlives a session that ends by
+/// COMPLETING (not by T5). The refused peer's later hint opens no session. (The session ends by
+/// its drained-prefix path: an honest batch holding only the block at the cursor, with the cursor
+/// at the tip. A freshly executed harness block cannot finish a session: see the harness's scope
+/// note.)
+#[tokio::test]
+async fn n2_a_peer_refused_in_a_session_that_completes_does_not_open_the_next() {
+    let mut h = Harness::new(3).await;
+    let (liar, honest) = (PeerId::random(), PeerId::random());
+    h.start_session(liar, 3).await;
+    h.context.known_peers_ref.lock().await.insert(honest);
+    // The liar serves a forged block at an admitted height whose batch does not certify it
+    // (round 2's M1 refusal: the peer is dropped).
+    let forged = harness_block(h.admitted_hash(1), 2, 0xF0);
+    let b4 = harness_block(h.admitted_hash(3), 4, 0);
+    handle_blocks_response(&mut h.context, liar, vec![forged, b4]).await;
+    assert!(h.refused(&liar), "the liar is dropped in this session");
+    let target = h.context.sync_progress.as_ref().unwrap().target;
+    assert_eq!(target, Some(honest));
+    let held_tip = h.admitted[2].clone();
+    handle_blocks_response(&mut h.context, honest, vec![held_tip]).await;
+    assert!(!h.quarantined());
+    assert!(
+        h.context.sync_progress.is_none(),
+        "the session completed at its tip"
+    );
+    start_catchup_to_peer(&mut h.context, liar, 50).await;
+    assert!(
+        h.context
+            .sync_progress
+            .as_ref()
+            .map_or(true, |progress| progress.target != Some(liar)),
+        "a peer refused in a completed session opened the next one on its own hint"
+    );
+}
+
+/// N2, a pin added before the round-3 MUT-1 run: a cooled-down peer's opportunistic reply (no
+/// session open) opens no session and applies nothing; the same reply from a peer that is not
+/// cooled down is adopted (the contrast shows the reply is otherwise adoptable).
+#[tokio::test]
+async fn n2_a_cooled_down_peers_opportunistic_reply_opens_no_session() {
+    async fn reply(cooled: bool) -> Harness {
+        let mut h = Harness::new(3).await;
+        let peer = PeerId::random();
+        if cooled {
+            h.context
+                .sync_peer_cooldown
+                .cool(peer, std::time::Instant::now());
+        }
+        let b4 = harness_block(h.admitted_hash(3), 4, 0);
+        let b5 = harness_block(harness_hash(&b4), 5, 0);
+        handle_blocks_response(&mut h.context, peer, vec![b4, b5]).await;
+        h
+    }
+    let adopted = reply(false).await;
+    assert!(
+        held_hash(&adopted, 4).is_some(),
+        "the contrast reply was not adopted"
+    );
+    let cooled = reply(true).await;
+    assert!(
+        cooled.context.sync_progress.is_none(),
+        "a cooled peer's reply opened a session"
+    );
+    assert_eq!(
+        held_hash(&cooled, 4),
+        None,
+        "a cooled peer's reply was applied"
+    );
+}

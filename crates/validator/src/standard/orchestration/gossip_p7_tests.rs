@@ -197,4 +197,138 @@ async fn n1_an_uncertified_stale_proposal_stays_unapplied() {
         None,
         "an uncertified stale proposal was applied"
     );
+    // A kept proposal is offered again only once certified: no re-verification before.
+    assert_eq!(
+        h.context
+            .lock()
+            .await
+            .consensus_engine_ref
+            .lock()
+            .await
+            .proposals,
+        vec![b_hash],
+        "an uncertified kept proposal was verified again"
+    );
+}
+
+/// N1, a pin added before the round-3 MUT-1 run: only the engine's stale-view refusal is kept.
+/// Proposals refused for any other reason (here sixteen that fail verification, at other views of
+/// the same height: as many as the store holds) are not kept, so they cannot crowd out a stale
+/// proposal that a late certificate makes applicable.
+#[tokio::test]
+async fn n1_other_refusals_are_not_kept_and_cannot_crowd_out_a_stale_proposal() {
+    let h = Harness::new(3).await.shared();
+    let parent = h.admitted_hash(3);
+    for view in 1..=super::stale_proposals::STALE_PROPOSAL_CAPACITY as u64 {
+        let mut junk = harness_block(parent, 4, view as u8);
+        junk.header.view = view;
+        h.context
+            .lock()
+            .await
+            .consensus_engine_ref
+            .lock()
+            .await
+            .invalid
+            .insert(harness_hash(&junk));
+        gossip(&h, junk, PeerId::random()).await;
+    }
+    assert!(
+        h.context.lock().await.stale_proposals.is_empty(),
+        "a proposal refused for another reason was kept"
+    );
+    let b = harness_block(parent, 4, 0);
+    let b_hash = harness_hash(&b);
+    h.context
+        .lock()
+        .await
+        .consensus_engine_ref
+        .lock()
+        .await
+        .stale
+        .insert(b_hash);
+    gossip(&h, b, PeerId::random()).await;
+    h.context
+        .lock()
+        .await
+        .consensus_engine_ref
+        .lock()
+        .await
+        .certified
+        .insert(b_hash);
+    deliver(
+        &h,
+        NetworkEvent::ConsensusVoteReceived {
+            vote: a_vote(4, b_hash),
+            from: PeerId::random(),
+        },
+    )
+    .await;
+    assert_eq!(
+        h.held_hash(4),
+        Some(b_hash),
+        "the stale proposal was crowded out"
+    );
+}
+
+/// The build ruling on the debug-build stack (2026-10-05, the plan Director): the DEEPEST round-3
+/// path (a vote arrives, the engine now certifies a kept stale-view proposal, and the re-offer runs
+/// it through the gossip path to execution) completes on a thread whose stack is a tokio worker's
+/// 2 MiB LESS a margin. The orchestration's main loop runs on a tokio worker
+/// (`#[tokio::main]`'s default worker stack is 2 MiB). Measured on this debug build
+/// (work/b1-early/P7/r3/stack-*.log): the round-3 paths need more than 1920 KiB and at most
+/// 1984 KiB; the trunk's own gossip path needed 2048 KiB. An overflow aborts the test binary
+/// (SIGABRT), which fails the suite.
+#[test]
+fn n1_the_deepest_gossip_path_fits_a_2_mib_worker_with_a_margin() {
+    const TOKIO_WORKER_STACK: usize = 2 * 1024 * 1024;
+    const MARGIN: usize = 64 * 1024;
+    let run = std::thread::Builder::new()
+        .name("n1-stack-margin".into())
+        .stack_size(TOKIO_WORKER_STACK - MARGIN)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(async {
+                    let h = Harness::new(3).await.shared();
+                    let b = harness_block(h.admitted_hash(3), 4, 0);
+                    let b_hash = harness_hash(&b);
+                    h.context
+                        .lock()
+                        .await
+                        .consensus_engine_ref
+                        .lock()
+                        .await
+                        .stale
+                        .insert(b_hash);
+                    gossip(&h, b, PeerId::random()).await;
+                    h.context
+                        .lock()
+                        .await
+                        .consensus_engine_ref
+                        .lock()
+                        .await
+                        .certified
+                        .insert(b_hash);
+                    deliver(
+                        &h,
+                        NetworkEvent::ConsensusVoteReceived {
+                            vote: a_vote(4, b_hash),
+                            from: PeerId::random(),
+                        },
+                    )
+                    .await;
+                    (h.held_hash(4), b_hash)
+                })
+        })
+        .unwrap();
+    let (held, b_hash) = run
+        .join()
+        .expect("the deepest gossip path did not complete within the margin");
+    assert_eq!(
+        held,
+        Some(b_hash),
+        "the re-offered proposal was not applied"
+    );
 }

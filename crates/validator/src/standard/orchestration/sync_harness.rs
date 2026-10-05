@@ -302,6 +302,9 @@ pub(super) struct HarnessEngine {
     pub(super) stale: HashSet<[u8; 32]>,
     /// Blocks an authenticated quorum certificate held here certifies.
     pub(super) certified: HashSet<[u8; 32]>,
+    /// Gossiped proposals (by block hash) this engine refuses for another reason (they fail
+    /// verification), certified or not.
+    pub(super) invalid: HashSet<[u8; 32]>,
     /// Every proposal `handle_block_proposal` was given, by block hash, in order.
     pub(super) proposals: Vec<[u8; 32]>,
 }
@@ -358,6 +361,11 @@ impl ConsensusEngine<ChainTransaction> for HarnessEngine {
     {
         let block_hash = harness_hash(&block);
         self.proposals.push(block_hash);
+        if self.invalid.contains(&block_hash) {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "harness: the proposal fails verification".into(),
+            ));
+        }
         if self.stale.contains(&block_hash) && !self.certified.contains(&block_hash) {
             return Err(harness_stale_refusal(&block.header));
         }
