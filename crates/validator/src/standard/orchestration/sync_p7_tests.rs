@@ -609,3 +609,31 @@ async fn m2_an_asynchronous_child_whose_certificate_is_refuted_drops_the_peer() 
     assert!(h.refused(&liar), "a refuted certificate kept its peer");
     assert_eq!(held_hash(&h, 5), None);
 }
+
+/// M2 (round 2b), a pin: a signature-free reference to a parent this node does NOT hold (here the
+/// workload no longer holds block 4, though this node executed it) cannot be evaluated here; it
+/// is not evidence against the peer. Nothing is executed, the peer is kept, the wait is counted.
+#[tokio::test]
+async fn m2_an_asynchronous_reference_to_a_parent_not_held_here_keeps_the_peer() {
+    let mut h = Harness::new(3).await;
+    let honest = PeerId::random();
+    let (b4, b5, b6) = across_a_fallback_height(&mut h).await;
+    h.start_session(honest, 10).await;
+    h.workload.blocks.lock().unwrap().remove(&4);
+    handle_blocks_response(&mut h.context, honest, vec![b4, b5, b6]).await;
+    assert!(
+        !h.refused(&honest),
+        "a reference to a parent not held here dropped the peer"
+    );
+    assert!(!h.quarantined());
+    assert_eq!(held_hash(&h, 5), None);
+    assert_eq!(
+        h.context
+            .sync_progress
+            .as_ref()
+            .expect("the session continues")
+            .authority
+            .consecutive_failures,
+        1
+    );
+}
