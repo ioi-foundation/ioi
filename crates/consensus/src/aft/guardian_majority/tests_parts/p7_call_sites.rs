@@ -385,3 +385,76 @@ async fn n1_only_an_authenticated_proposal_is_refused_as_stale() {
     let error = propose(&mut engine, &chain, authentic).await.unwrap_err();
     assert!(error.to_string().contains("stale proposal"), "{error}");
 }
+
+// B1-P7-DIV (build rulings, "P7 PART 1 REVIEW r2 NOT REGISTERABLE", ruling 2): `check_divergence`
+// ran BEFORE authentication in `handle_block_proposal`. It recorded every arriving header, so an
+// unauthenticated header gossiped first at a slot made this node refuse the slot leader's own
+// proposal there as "divergence" (a liveness DoS from unauthenticated input), with "evidence"
+// that names the honest leader and that Algorithm 2 (divergence.rs: both headers signed by the
+// accused) would reject. Divergence evidence must consider only AUTHENTICATED headers. Written
+// RED against the trunk before the fix.
+
+/// RED before the fix. A header at (5, 0) that the slot's leader did not sign arrives first; the
+/// leader's own signed proposal at (5, 0) must still be accepted.
+#[tokio::test]
+async fn div_an_unauthenticated_header_first_does_not_make_the_leaders_proposal_divergent() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let junk = proposal_with_parent(5, 0, qc_at(4, 0, 0x40));
+    let error = propose(&mut engine, &chain, junk).await.unwrap_err();
+    assert!(
+        !error.to_string().contains("HardwareDivergence"),
+        "the junk header itself was treated as divergence: {error}"
+    );
+    let authentic = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let authentic_hash = to_root_hash(&authentic.hash().unwrap()).unwrap();
+    propose(&mut engine, &chain, authentic)
+        .await
+        .expect("the slot leader's proposal was refused after an unauthenticated header");
+    assert!(engine.accepted_proposals.contains(&(5, 0, authentic_hash)));
+}
+
+/// RED before the fix. An unauthenticated header leaves no trace in the headers the engine treats
+/// as known (`seen_headers`: read by divergence, QC acceptance and the collapse paths).
+#[tokio::test]
+async fn div_an_unauthenticated_header_is_not_recorded_as_seen() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let junk = proposal_with_parent(5, 0, qc_at(4, 0, 0x40));
+    let junk_hash = to_root_hash(&junk.hash().unwrap()).unwrap();
+    assert!(propose(&mut engine, &chain, junk).await.is_err());
+    assert!(
+        !engine
+            .seen_headers
+            .get(&(5, 0))
+            .is_some_and(|headers| headers.contains_key(&junk_hash)),
+        "an unauthenticated header was recorded as seen"
+    );
+}
+
+/// A pin (green before and after the fix): two AUTHENTIC proposals by the slot's leader at one
+/// slot are still divergence: the second is refused.
+#[tokio::test]
+async fn div_two_authentic_proposals_at_one_slot_are_still_divergent() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let first = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    propose(&mut engine, &chain, first)
+        .await
+        .expect("the first authentic proposal is accepted");
+    let second = leader_signed_proposal(&validators, 5, 0, [0x41; 32]);
+    let error = propose(&mut engine, &chain, second).await.unwrap_err();
+    assert!(error.to_string().contains("HardwareDivergence"), "{error}");
+}
