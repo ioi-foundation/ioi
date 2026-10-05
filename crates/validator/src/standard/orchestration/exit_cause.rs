@@ -80,6 +80,17 @@ mod tests {
     }
 
     #[test]
+    fn record_exit_cause_writes_the_durable_line_once_the_directory_is_set() {
+        // The only test that sets the process-wide directory.
+        let dir = tempfile::tempdir().unwrap();
+        set_exit_cause_dir(dir.path());
+        record_exit_cause("test: durable write");
+        let text = std::fs::read_to_string(dir.path().join(EXIT_CAUSE_FILE)).unwrap();
+        let line: serde_json::Value = serde_json::from_str(text.lines().next().unwrap()).unwrap();
+        assert_eq!(line["cause"], "test: durable write");
+    }
+
+    #[test]
     fn an_unwritable_directory_is_an_error_not_a_panic() {
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("absent");

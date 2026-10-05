@@ -656,6 +656,15 @@ mod fork_check_tests {
     }
 
     #[test]
+    fn a_cluster_of_only_unreachable_nodes_is_degraded_never_agree() {
+        let nodes = vec![node("n0", None, &[], false), node("n1", None, &[], false)];
+        assert_eq!(root_agreement_verdict(&nodes, "s", "l").verdict, "degraded");
+        // A reachable node that reports no tip is also never skipped.
+        let nodes = vec![node("n0", None, &[], true), node("n1", None, &[], true)];
+        assert_eq!(root_agreement_verdict(&nodes, "s", "l").verdict, "degraded");
+    }
+
+    #[test]
     fn an_empty_node_list_is_degraded() {
         assert_eq!(root_agreement_verdict(&[], "s", "l").verdict, "degraded");
     }
