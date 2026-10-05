@@ -376,8 +376,8 @@ async fn n1_only_an_authenticated_proposal_is_refused_as_stale() {
         !error.to_string().contains("stale proposal"),
         "an unauthenticated block was refused as a stale proposal: {error}"
     );
-    // A fresh engine: this one has now seen a header at the slot, and its divergence check
-    // refuses any second header there.
+    // A fresh engine (since B1-P7-DIV the unauthenticated block above leaves no record, so the
+    // same engine would also do).
     let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
     engine.pacemaker_height = 5;
     engine.tc_formed.insert((5, 1));

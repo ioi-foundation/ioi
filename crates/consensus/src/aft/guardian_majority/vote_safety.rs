@@ -104,7 +104,7 @@ impl GuardianMajorityEngine {
         };
         // `accepted_proposals` holds only blocks this node fully verified: an exact
         // redelivery of one of those is not a new proposal. (`seen_headers` is NOT that set:
-        // `check_divergence` inserts every arriving header into it before any check.)
+        // `check_divergence` records every authenticated header, including one refused after it.)
         if self
             .accepted_proposals
             .contains(&(header.height, header.view, *block_hash))

@@ -374,8 +374,8 @@ pub struct GuardianMajorityEngine {
     /// Proposals THIS node fully verified (every check `handle_block_proposal` runs passed; it
     /// records them at its three Ok returns), by (height, view, block hash). The stale-view
     /// refusal lets an exact redelivery of one of these through; `seen_headers` cannot serve,
-    /// because `check_divergence` records every arriving header in it before any check (P7
-    /// round 2, B1).
+    /// because `check_divergence` records every AUTHENTICATED header in it, including one later
+    /// refused (P7 round 2, B1; B1-P7-DIV moved the record after authentication).
     accepted_proposals: HashSet<(u64, u64, [u8; 32])>,
 
     // Pacemaker for Liveness

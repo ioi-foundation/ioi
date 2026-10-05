@@ -253,7 +253,8 @@ fn a_lower_view_proposal_after_a_tc_is_refused_unless_already_accepted() {
     let next = proposal_with_parent(6, 0, qc_at(5, 1, 0x51));
     let next_hash = to_root_hash(&next.hash().unwrap()).unwrap();
     engine.refuse_stale_view_proposal(&next, &next_hash).unwrap();
-    // A header merely SEEN (check_divergence records every arrival) is not accepted.
+    // A header merely SEEN (check_divergence records every authenticated arrival, including one
+    // refused later) is not accepted.
     engine
         .seen_headers
         .entry((5, 0))

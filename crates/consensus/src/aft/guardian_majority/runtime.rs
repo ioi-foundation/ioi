@@ -904,13 +904,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 "optimistic proposal arrived after durable fallback start".into(),
             ));
         }
-        if let Some(proof) = self.check_divergence(&block.header) {
-            error!(target: "consensus", "CRITICAL: DIVERGENCE PROOF CONSTRUCTED: {:?}", proof);
-            return Err(ConsensusError::BlockVerificationFailed(
-                "Panic:HardwareDivergence".into(),
-            ));
-        }
-
         let header = &block.header;
 
         let parent_state_ref = StateRef {
@@ -1077,28 +1070,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
         let block_hash = to_root_hash(&block_hash_bytes)
             .map_err(|_| ConsensusError::BlockVerificationFailed("Hash len".into()))?;
-        // Check votes
-        if let Some(votes) = self
-            .vote_pool
-            .get(&header.height)
-            .and_then(|m| m.get(&block_hash))
-        {
-            if votes.len() >= threshold {
-                let qc = QuorumCertificate {
-                    height: header.height,
-                    view: header.view,
-                    block_hash,
-                    signatures: votes
-                        .iter()
-                        .map(|v| (v.voter, v.signature.clone()))
-                        .collect(),
-                    aggregated_signature: vec![],
-                    signers_bitfield: vec![],
-                };
-                self.accept_quorum_certificate(qc, true).await?;
-            }
-        }
-
         if header.height > 1 {
             let parent_qc = &header.parent_qc;
             if parent_qc.height != header.height - 1 {
@@ -1166,6 +1137,47 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 .await?;
             self.verify_published_canonical_collapse_object(header, &*parent_view)
                 .await?;
+        }
+
+        // B1-P7-DIV: divergence (equivocation) evidence considers only AUTHENTICATED headers. By
+        // Algorithm 2 (divergence.rs) divergence is the accused leader SIGNING two different
+        // payloads for one (height, view), and `verify_divergence_proof` verifies both
+        // signatures. So the check runs here, after the slot leader's signature and the
+        // proposal's certificates verified, and only an authenticated header is recorded in
+        // `seen_headers` by it. (At the trunk it ran at entry: an unauthenticated header gossiped
+        // first at a slot made this node refuse the leader's own proposal there.) A header the
+        // leader signed that fails an earlier structural check (timeout or parent certificate)
+        // is refused before its signature is checked, so it is not divergence evidence here; an
+        // honest node never accepts or votes for such a header.
+        if let Some(proof) = self.check_divergence(&block.header) {
+            error!(target: "consensus", "CRITICAL: DIVERGENCE PROOF CONSTRUCTED: {:?}", proof);
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Panic:HardwareDivergence".into(),
+            ));
+        }
+
+        // Check votes: a certificate the vote pool already holds for this (now authenticated)
+        // header. It stays BEFORE the stale-view refusal, so a stale proposal whose votes arrived
+        // first is certified, and so exempt (vote_safety.rs).
+        if let Some(votes) = self
+            .vote_pool
+            .get(&header.height)
+            .and_then(|m| m.get(&block_hash))
+        {
+            if votes.len() >= threshold {
+                let qc = QuorumCertificate {
+                    height: header.height,
+                    view: header.view,
+                    block_hash,
+                    signatures: votes
+                        .iter()
+                        .map(|v| (v.voter, v.signature.clone()))
+                        .collect(),
+                    aggregated_signature: vec![],
+                    signers_bitfield: vec![],
+                };
+                self.accept_quorum_certificate(qc, true).await?;
+            }
         }
 
         // A proposal of an earlier view at a height where a later-view timeout certificate has
