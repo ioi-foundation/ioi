@@ -503,8 +503,7 @@ async fn across_a_fallback_height(
     ioi_types::app::Block<ioi_types::app::ChainTransaction>,
 ) {
     let (b4, mut b5) = tentative_tip(h).await;
-    b5.header.parent_qc =
-        ioi_types::app::aft_async_canonical_parent_reference(&b4.header).unwrap();
+    b5.header.parent_qc = ioi_types::app::aft_async_canonical_parent_reference(&b4.header).unwrap();
     assert!(b5.header.parent_qc.signatures.is_empty());
     let b6 = harness_block(harness_hash(&b5), 6, 0);
     h.answer(harness_hash(&b4), CertificateAnswer::CannotEvaluate)
@@ -589,7 +588,10 @@ async fn m2_a_non_canonical_asynchronous_reference_drops_the_peer() {
     b5.header.parent_qc.view += 7;
     let b6 = harness_block(harness_hash(&b5), 6, 0);
     handle_blocks_response(&mut h.context, liar, vec![b4, b5, b6]).await;
-    assert!(h.refused(&liar), "a forged asynchronous reference kept its peer");
+    assert!(
+        h.refused(&liar),
+        "a forged asynchronous reference kept its peer"
+    );
     assert_eq!(held_hash(&h, 5), None);
 }
 

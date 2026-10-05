@@ -1224,7 +1224,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         // certificate is REFUTED is dropped from this sync and counted (source selection; T5).
         // A certificate this node cannot evaluate (round 2, M2) applies nothing and drops no
         // one: the sync waits and retries, counted.
-        match verify_synced_parent_certificate(context, &block).await {
+        match verify_synced_parent_certificate(context, &block, next_in_batch).await {
             super::sync_authority::CertificateVerdict::Verified => {}
             super::sync_authority::CertificateVerdict::CannotEvaluate(reason) => {
                 tracing::info!(
@@ -1714,9 +1714,17 @@ async fn retry_sync_from_peer_set<CS, ST, CE, V>(
 
 /// G1 (P7): verifies a synced block's own parent certificate against the membership in its
 /// parent state (the state it executes on). Height 1's parent is genesis.
+///
+/// The child of a hash-fallback virtual block (round 2b, M2) carries the signature-free
+/// asynchronous reference as its parent certificate, which only a node holding the in-memory
+/// asynchronous parent proof can evaluate. When the engine cannot evaluate such a reference,
+/// the reference must bind canonically to the parent this node holds, and the child's OWN
+/// certificate (the batch's next block's parent certificate) decides
+/// (`sync_authority::async_child_verdict`).
 async fn verify_synced_parent_certificate<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     block: &Block<ChainTransaction>,
+    next_in_batch: Option<&Block<ChainTransaction>>,
 ) -> super::sync_authority::CertificateVerdict
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -1740,7 +1748,35 @@ where
     if block.header.height <= 1 {
         return super::sync_authority::CertificateVerdict::Verified;
     }
-    synced_certificate_verdict(context, block, &block.header.parent_qc).await
+    let verdict = synced_certificate_verdict(context, block, &block.header.parent_qc).await;
+    if !matches!(
+        verdict,
+        super::sync_authority::CertificateVerdict::CannotEvaluate(_)
+    ) || !super::sync_authority::is_signature_free(&block.header.parent_qc)
+    {
+        return verdict;
+    }
+    let local_parent = context
+        .view_resolver
+        .workload_client()
+        .get_block_by_height(block.header.height - 1)
+        .await
+        .ok()
+        .flatten();
+    match super::sync_authority::async_reference_binding(block, local_parent.as_ref()) {
+        super::sync_authority::AsyncReferenceBinding::Bound => {}
+        super::sync_authority::AsyncReferenceBinding::NotHeld(reason) => {
+            return super::sync_authority::CertificateVerdict::CannotEvaluate(reason)
+        }
+        super::sync_authority::AsyncReferenceBinding::Mismatch(reason) => {
+            return super::sync_authority::CertificateVerdict::Refuted(reason)
+        }
+    }
+    let outcome = match super::sync_authority::replacement_certificate(block, next_in_batch) {
+        Ok(certificate) => Ok(synced_certificate_verdict(context, block, certificate).await),
+        Err(refusal) => Err(refusal),
+    };
+    super::sync_authority::async_child_verdict(outcome)
 }
 
 /// The engine's verdict on `certificate`, verified against the membership in `block`'s parent

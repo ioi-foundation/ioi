@@ -18,6 +18,11 @@
 //!   inputs this node fully holds (the peer is at fault); or CANNOT BE EVALUATED here (an input
 //!   other than the certificate, such as the parent state, a member key, or an asynchronous
 //!   parent proof, is missing locally). Only a refutation drops a peer.
+//! - **Crossing a hash-fallback height** ([`async_reference_binding`], [`async_child_verdict`]):
+//!   the child of a virtual block carries the signature-free asynchronous reference as its
+//!   parent certificate. A node without the asynchronous parent proof checks that the reference
+//!   is the canonical one to the parent it holds, and lets the child's OWN certificate (the
+//!   batch's next block's parent certificate, verified) decide.
 //! - **Source selection** ([`SyncAuthority`]): a peer whose batch is refuted is dropped (never
 //!   targeted again in this sync, by any target assignment: [`SyncAuthority::choose_target`])
 //!   and counted, with no change to the status protocol.
@@ -100,6 +105,94 @@ pub(crate) fn replacement_check(
             CertificateVerdict::CannotEvaluate(reason) => ReplacementCheck::Await(reason),
             CertificateVerdict::Refuted(reason) => ReplacementCheck::Refuse(reason),
         },
+    }
+}
+
+/// Whether `certificate` carries no signature material at all: the shape of the canonical
+/// asynchronous-parent reference to a hash-fallback virtual block
+/// (`aft_async_canonical_parent_reference`), which the AFT engine accepts only with the typed
+/// asynchronous parent proof it holds in memory (installed by the live hash-async carrier path).
+pub(crate) fn is_signature_free(certificate: &QuorumCertificate) -> bool {
+    certificate.signatures.is_empty()
+        && certificate.aggregated_signature.is_empty()
+        && certificate.signers_bitfield.is_empty()
+}
+
+/// Whether a block's signature-free parent reference names this node's own parent block
+/// canonically (P7 round 2b, M2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AsyncReferenceBinding {
+    /// The reference is exactly the canonical asynchronous reference to the parent block this
+    /// node holds at the parent height.
+    Bound,
+    /// This node does not hold the block the reference names (no block at the parent height, or
+    /// another one there): it cannot evaluate the reference.
+    NotHeld(String),
+    /// The reference names this node's parent block but is not its canonical asynchronous
+    /// reference: refuted against inputs this node fully holds.
+    Mismatch(String),
+}
+
+/// Compares `block`'s signature-free parent reference with the canonical asynchronous reference
+/// to `local_parent`, the block this node holds at the parent height. Structural only; the
+/// reference carries no authority of its own (see [`async_child_verdict`]).
+pub(crate) fn async_reference_binding<T: Clone>(
+    block: &Block<T>,
+    local_parent: Option<&Block<T>>,
+) -> AsyncReferenceBinding {
+    let height = block.header.height;
+    let Some(parent) = local_parent else {
+        return AsyncReferenceBinding::NotHeld(format!(
+            "no block at H={} is held here",
+            height.saturating_sub(1)
+        ));
+    };
+    let parent_hash = match parent.header.hash() {
+        Ok(hash) => hash,
+        Err(error) => {
+            return AsyncReferenceBinding::NotHeld(format!(
+                "the local parent's hash cannot be derived: {error}"
+            ))
+        }
+    };
+    if parent.header.height.saturating_add(1) != height
+        || parent_hash.as_slice() != block.header.parent_hash.as_slice()
+    {
+        return AsyncReferenceBinding::NotHeld(format!(
+            "the block at H={height} names a parent this node does not hold"
+        ));
+    }
+    match ioi_types::app::aft_async_canonical_parent_reference(&parent.header) {
+        Ok(expected) if expected == block.header.parent_qc => AsyncReferenceBinding::Bound,
+        Ok(_) => AsyncReferenceBinding::Mismatch(format!(
+            "the parent reference of the block at H={height} is not the canonical asynchronous reference to its parent"
+        )),
+        Err(error) => AsyncReferenceBinding::NotHeld(format!(
+            "the canonical reference to the local parent cannot be derived: {error}"
+        )),
+    }
+}
+
+/// G1 for the child of an asynchronous parent whose reference is bound
+/// ([`AsyncReferenceBinding::Bound`]) but that this node cannot evaluate (it does not hold the
+/// asynchronous parent proof). The child's OWN certificate decides: the batch's next block's
+/// parent certificate, structurally bound to the child ([`replacement_certificate`]) and
+/// verified by the engine (`Ok(verdict)`). A verified quorum certified the child, whose header
+/// binds the reference, and an honest voter accepts a child of an asynchronous parent only with
+/// the proof (the AFT engine's `verify_certificate_against_view` and `has_async_parent_proof`).
+/// A batch ending at the child waits (counted, peer kept); an inconsistent batch is refuted.
+pub(crate) fn async_child_verdict(
+    outcome: Result<CertificateVerdict, ReplacementRefusal>,
+) -> CertificateVerdict {
+    match outcome {
+        Err(ReplacementRefusal::Missing) => CertificateVerdict::CannotEvaluate(
+            "the batch ends at the child of an asynchronous parent: nothing in it certifies the child yet"
+                .into(),
+        ),
+        Err(ReplacementRefusal::Invalid(reason)) => CertificateVerdict::Refuted(format!(
+            "the batch does not certify the child of an asynchronous parent: {reason}"
+        )),
+        Ok(verdict) => verdict,
     }
 }
 
@@ -579,6 +672,55 @@ mod tests {
             replacement_check(Ok(CertificateVerdict::Refuted("x".into()))),
             ReplacementCheck::Refuse(_)
         ));
+    }
+
+    /// M2 (round 2b): the asynchronous reference binds only canonically to the parent this node
+    /// holds, and the child's own certificate decides.
+    #[test]
+    fn an_asynchronous_reference_binds_only_canonically_and_its_child_needs_its_own_certificate() {
+        let mut signed = qc(10, [1u8; 32]);
+        signed.signatures = vec![(AccountId([9u8; 32]), vec![1u8; 64])];
+        let parent = block(header(11, [1u8; 32], signed.clone()));
+        assert!(!is_signature_free(&parent.header.parent_qc));
+        let parent_hash = hash32(&parent.header);
+        let reference =
+            ioi_types::app::aft_async_canonical_parent_reference(&parent.header).unwrap();
+        assert!(is_signature_free(&reference));
+        let child = block(header(12, parent_hash, reference));
+        assert_eq!(
+            async_reference_binding(&child, Some(&parent)),
+            AsyncReferenceBinding::Bound
+        );
+        assert!(matches!(
+            async_reference_binding(&child, None),
+            AsyncReferenceBinding::NotHeld(_)
+        ));
+        let other_parent = block(header(11, [2u8; 32], signed));
+        assert!(matches!(
+            async_reference_binding(&child, Some(&other_parent)),
+            AsyncReferenceBinding::NotHeld(_)
+        ));
+        let mut forged = child.clone();
+        forged.header.parent_qc.view += 1;
+        assert!(matches!(
+            async_reference_binding(&forged, Some(&parent)),
+            AsyncReferenceBinding::Mismatch(_)
+        ));
+        assert!(matches!(
+            async_child_verdict(Err(ReplacementRefusal::Missing)),
+            CertificateVerdict::CannotEvaluate(_)
+        ));
+        assert!(matches!(
+            async_child_verdict(Err(ReplacementRefusal::Invalid("gap".into()))),
+            CertificateVerdict::Refuted(_)
+        ));
+        for verdict in [
+            CertificateVerdict::Verified,
+            CertificateVerdict::CannotEvaluate("x".into()),
+            CertificateVerdict::Refuted("x".into()),
+        ] {
+            assert_eq!(async_child_verdict(Ok(verdict.clone())), verdict);
+        }
     }
 
     /// M1 (round 2): T2b halts only on a verified certificate for the peer's block.
