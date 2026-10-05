@@ -458,3 +458,52 @@ async fn div_two_authentic_proposals_at_one_slot_are_still_divergent() {
     let error = propose(&mut engine, &chain, second).await.unwrap_err();
     assert!(error.to_string().contains("HardwareDivergence"), "{error}");
 }
+
+/// MUT-1 D6's kill (B1-P7-DIV): a vote pool holding FEWER votes than the threshold for an
+/// authentic proposal's hash builds no certificate, so the proposal is accepted on its own checks.
+#[tokio::test]
+async fn div_a_sub_threshold_vote_pool_does_not_build_a_certificate_for_the_proposal() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let authentic = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let authentic_hash = to_root_hash(&authentic.hash().unwrap()).unwrap();
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_vote(
+        &mut engine,
+        validators.signed_vote(1, 5, 0, authentic_hash),
+    )
+    .await
+    .expect("one peer's vote is pooled");
+    assert_eq!(engine.vote_pool[&5][&authentic_hash].len(), 1);
+    propose(&mut engine, &chain, authentic)
+        .await
+        .expect("a proposal with a sub-threshold vote pool is accepted on its own checks");
+    assert!(
+        !<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::holds_certificate_for(
+            &engine,
+            5,
+            &authentic_hash
+        ),
+        "a certificate was built from a sub-threshold vote pool"
+    );
+}
+
+/// MUT-1 D3's kill (B1-P7-DIV): the divergence check has no height exemption; two authentic
+/// proposals at the FIRST height's slot are divergent too.
+#[tokio::test]
+async fn div_two_authentic_proposals_at_the_first_height_are_still_divergent() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 1;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let first = leader_signed_proposal(&validators, 1, 0, [0x40; 32]);
+    let _ = propose(&mut engine, &chain, first).await;
+    let second = leader_signed_proposal(&validators, 1, 0, [0x41; 32]);
+    let error = propose(&mut engine, &chain, second).await.unwrap_err();
+    assert!(error.to_string().contains("HardwareDivergence"), "{error}");
+}
