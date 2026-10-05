@@ -89,6 +89,10 @@ mod quv;
 mod remote_state_view;
 mod sync;
 mod sync_authority;
+#[cfg(test)]
+mod sync_harness;
+#[cfg(test)]
+mod sync_p7_tests;
 /// Verifier selection logic.
 pub mod verifier_select;
 mod view_resolver;
