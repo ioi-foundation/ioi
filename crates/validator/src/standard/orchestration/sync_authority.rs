@@ -331,6 +331,13 @@ mod tests {
             replacement_certificate(&replacement, Some(&wrong_qc)).unwrap_err(),
             ReplacementRefusal::Invalid(reason) if reason.contains("does not certify")
         ));
+        // A child whose certificate names the block but whose parent_hash names another: not a
+        // child of the replacement (the engine refuses such a proposal), so it certifies nothing.
+        let foster = block(header(12, [9u8; 32], qc(11, replacement_hash)));
+        assert!(matches!(
+            replacement_certificate(&replacement, Some(&foster)).unwrap_err(),
+            ReplacementRefusal::Invalid(reason) if reason.contains("parent_hash")
+        ));
         // A certificate at the wrong height.
         let wrong_height = block(header(12, replacement_hash, qc(10, replacement_hash)));
         assert!(matches!(
