@@ -85,6 +85,33 @@ fn remember_rejected_aft_replacement(
     rejected.put(candidate, ());
 }
 
+/// The verifier and proof cache the gossip path's chain view is built from: the node's
+/// `DefaultViewResolver` supplies them. Under `cfg(test)` only, the sync harness's resolver
+/// supplies them too, so tests drive `handle_gossip_block` through its real call sites without an
+/// IPC workload client (P7 round 3). A production build has only the first arm.
+fn gossip_chain_view_inputs<V>(resolver: &dyn std::any::Any) -> Option<(V, ProofCache)>
+where
+    V: Verifier + Clone + 'static,
+{
+    if let Some(default_resolver) =
+        resolver.downcast_ref::<super::view_resolver::DefaultViewResolver<V>>()
+    {
+        return Some((
+            default_resolver.verifier().clone(),
+            default_resolver.proof_cache().clone(),
+        ));
+    }
+    #[cfg(test)]
+    {
+        if let Some(harness) = resolver.downcast_ref::<super::sync_harness::HarnessViewResolver>() {
+            return (&harness.verifier as &dyn std::any::Any)
+                .downcast_ref::<V>()
+                .map(|verifier| (verifier.clone(), harness.proof_cache.clone()));
+        }
+    }
+    None
+}
+
 #[derive(Debug)]
 struct WorkloadChainView<V> {
     client_api: Arc<dyn WorkloadClientApi>,
@@ -644,22 +671,19 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 
     let (engine_ref, cv) = {
         let resolver = context.view_resolver.as_ref();
-        let default_resolver: &super::view_resolver::DefaultViewResolver<V> =
-            match (*resolver).as_any().downcast_ref() {
-                Some(r) => r,
-                None => {
-                    tracing::error!("CRITICAL: Could not downcast ViewResolver");
-                    return;
-                }
-            };
+        let Some((verifier, proof_cache)) = gossip_chain_view_inputs::<V>((*resolver).as_any())
+        else {
+            tracing::error!("CRITICAL: Could not downcast ViewResolver");
+            return;
+        };
 
         (
             context.consensus_engine_ref.clone(),
             WorkloadChainView::new(
                 resolver.workload_client().clone(),
                 context.config.consensus_type,
-                default_resolver.verifier().clone(),
-                default_resolver.proof_cache().clone(),
+                verifier,
+                proof_cache,
             ),
         )
     };

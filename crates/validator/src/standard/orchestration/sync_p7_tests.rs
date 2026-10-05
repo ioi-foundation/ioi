@@ -637,3 +637,214 @@ async fn m2_an_asynchronous_reference_to_a_parent_not_held_here_keeps_the_peer()
         1
     );
 }
+
+// ===== P7 round 3 (review round 2's N2): a "cannot evaluate" or "await" verdict never pins a
+// sync target, and a peer refused or exhausted in one session does not open the next one on its
+// own unverified hint. Written RED against 93ac0d466, before the fix, where marked. =====
+
+/// A served block at the cursor's next height (4, floor 3) whose parent state this node does not
+/// hold: G1's verdict is "cannot evaluate here", which any peer can produce at will.
+fn unavailable_parent_block(h: &Harness) -> ioi_types::app::Block<ioi_types::app::ChainTransaction> {
+    let mut bogus = harness_block(h.admitted_hash(3), 4, 0xB0);
+    bogus.header.parent_state_root = ioi_types::app::StateRoot(vec![0xAB; 32]);
+    h.resolver
+        .unavailable_roots
+        .lock()
+        .unwrap()
+        .insert(bogus.header.parent_state_root.0.clone());
+    bogus
+}
+
+/// Ends the current session by T5: `peer` answers every request with `batch` while the lifecycle
+/// tick re-targets (only `known` peers are known). Returns the number of responses.
+async fn exhaust_session(
+    h: &mut Harness,
+    peer: PeerId,
+    batch: Vec<ioi_types::app::Block<ioi_types::app::ChainTransaction>>,
+    known: &[PeerId],
+) -> u32 {
+    let mut responses = 0u32;
+    while h.context.sync_progress.is_some() {
+        handle_blocks_response(&mut h.context, peer, batch.clone()).await;
+        responses += 1;
+        assert!(
+            responses <= super::sync_authority::SYNC_RETRY_BOUND,
+            "the session was never bounded"
+        );
+        if let Some(progress) = h.context.sync_progress.as_mut() {
+            progress.retry_not_before = Some(std::time::Instant::now());
+            super::sync::sync_retry_tick(&mut h.context, known, std::time::Duration::from_secs(2))
+                .await;
+        }
+    }
+    assert!(!h.quarantined());
+    responses
+}
+
+/// N2 (RED before the fix). A target serving a block this node cannot evaluate is not refused (it
+/// may be honest: the verdict is local), but the session MOVES to another peer, counted. A
+/// Byzantine target must not pin a catching-up node by producing that verdict at will.
+#[tokio::test]
+async fn n2_a_block_this_node_cannot_evaluate_moves_the_session_off_its_target() {
+    let mut h = Harness::new(3).await;
+    let (liar, honest) = (PeerId::random(), PeerId::random());
+    h.start_session(liar, 50).await;
+    h.context.known_peers_ref.lock().await.insert(honest);
+    let bogus = unavailable_parent_block(&h);
+    handle_blocks_response(&mut h.context, liar, vec![bogus]).await;
+    let progress = h
+        .context
+        .sync_progress
+        .as_ref()
+        .expect("the session continues");
+    assert!(
+        progress.authority.may_target(&liar),
+        "a local cannot-evaluate verdict refused the peer"
+    );
+    assert_eq!(
+        progress.target,
+        Some(honest),
+        "the session stayed on a target whose block cannot be evaluated here"
+    );
+    assert_eq!(progress.authority.consecutive_failures, 1, "counted");
+}
+
+/// N2 (RED before the fix), the signature-free arm: a signature-free parent reference naming a
+/// parent this node does not hold cannot be evaluated here; the session moves off the target.
+#[tokio::test]
+async fn n2_a_signature_free_reference_to_an_unheld_parent_moves_the_session_off_its_target() {
+    let mut h = Harness::new(3).await;
+    let (liar, honest) = (PeerId::random(), PeerId::random());
+    h.start_session(liar, 50).await;
+    h.context.known_peers_ref.lock().await.insert(honest);
+    let mut bogus = harness_block([0x5E; 32], 4, 0xB1);
+    bogus.header.parent_qc.signatures.clear();
+    h.answer([0x5E; 32], CertificateAnswer::CannotEvaluate)
+        .await;
+    handle_blocks_response(&mut h.context, liar, vec![bogus]).await;
+    let progress = h
+        .context
+        .sync_progress
+        .as_ref()
+        .expect("the session continues");
+    assert!(progress.authority.may_target(&liar));
+    assert_eq!(progress.target, Some(honest));
+}
+
+/// N2 (RED before the fix), the replacement arm: a replacement whose certificate has not arrived
+/// ("await") replaces nothing and keeps the peer, and the session moves off it.
+#[tokio::test]
+async fn n2_a_replacement_awaiting_its_certificate_moves_the_session_off_its_target() {
+    let (mut h, b1, b2, peer_b2) = tentative_aft_projection().await;
+    let (peer, other) = (PeerId::random(), PeerId::random());
+    h.start_session(peer, 5).await;
+    h.context.known_peers_ref.lock().await.insert(other);
+    handle_blocks_response(&mut h.context, peer, vec![b1, peer_b2]).await;
+    assert_eq!(held_hash(&h, 2), Some(harness_hash(&b2)), "local state was replaced");
+    let progress = h
+        .context
+        .sync_progress
+        .as_ref()
+        .expect("the session continues");
+    assert!(progress.authority.may_target(&peer));
+    assert_eq!(progress.target, Some(other));
+}
+
+/// N2 (RED before the fix), the admitted-height arm: a conflicting block at an admitted height
+/// that nothing certifies yet ("await") is rejected, the peer is kept, and the session moves off
+/// it.
+#[tokio::test]
+async fn n2_an_unproven_admitted_height_conflict_moves_the_session_off_its_target() {
+    let mut h = Harness::new(3).await;
+    let (peer, other) = (PeerId::random(), PeerId::random());
+    h.start_session(peer, 5).await;
+    h.context.known_peers_ref.lock().await.insert(other);
+    let conflicting = harness_block(h.admitted_hash(2), 3, 0xC3);
+    handle_blocks_response(&mut h.context, peer, vec![conflicting]).await;
+    assert!(!h.quarantined());
+    let progress = h
+        .context
+        .sync_progress
+        .as_ref()
+        .expect("the session continues");
+    assert!(progress.authority.may_target(&peer));
+    assert_eq!(progress.target, Some(other));
+}
+
+/// N2 (RED before the fix), across sessions: a peer REFUSED (refuted certificate) in one session
+/// does not open the next session on its own gossiped height once T5 ends the first one.
+#[tokio::test]
+async fn n2_a_peer_refused_in_one_session_does_not_open_the_next_on_its_own_hint() {
+    let mut h = Harness::new(3).await;
+    let liar = PeerId::random();
+    h.start_session(liar, 50).await;
+    let b4 = harness_block(h.admitted_hash(3), 4, 0);
+    h.answer(h.admitted_hash(3), CertificateAnswer::Refuted)
+        .await;
+    handle_blocks_response(&mut h.context, liar, vec![b4]).await;
+    assert!(h.refused(&liar), "the liar is dropped in this session");
+    let mut ticks = 0u32;
+    while let Some(progress) = h.context.sync_progress.as_mut() {
+        progress.retry_not_before = Some(std::time::Instant::now());
+        super::sync::sync_retry_tick(&mut h.context, &[liar], std::time::Duration::from_secs(2))
+            .await;
+        ticks += 1;
+        assert!(ticks <= super::sync_authority::SYNC_RETRY_BOUND, "no bound");
+    }
+    start_catchup_to_peer(&mut h.context, liar, 50).await;
+    assert!(
+        h.context
+            .sync_progress
+            .as_ref()
+            .map_or(true, |progress| progress.target != Some(liar)),
+        "a peer refused in the last session opened the next one on its own hint"
+    );
+}
+
+/// N2 (RED before the fix), across sessions: a target whose blocks exhausted a session (here
+/// "cannot evaluate" every time) does not open the next session on its own gossiped height.
+#[tokio::test]
+async fn n2_a_peer_that_exhausted_a_session_does_not_open_the_next_on_its_own_hint() {
+    let mut h = Harness::new(3).await;
+    let liar = PeerId::random();
+    h.start_session(liar, 50).await;
+    let bogus = unavailable_parent_block(&h);
+    exhaust_session(&mut h, liar, vec![bogus], &[liar]).await;
+    start_catchup_to_peer(&mut h.context, liar, 50).await;
+    assert!(
+        h.context
+            .sync_progress
+            .as_ref()
+            .map_or(true, |progress| progress.target != Some(liar)),
+        "the peer that exhausted the last session opened the next one on its own hint"
+    );
+}
+
+/// N2 (RED before the fix), across sessions, the status path: the same peer's status does not
+/// open the next session either.
+#[tokio::test]
+async fn n2_a_peer_that_exhausted_a_session_does_not_open_the_next_by_its_status() {
+    let mut h = Harness::new(3).await;
+    let liar = PeerId::random();
+    h.start_session(liar, 50).await;
+    let bogus = unavailable_parent_block(&h);
+    exhaust_session(&mut h, liar, vec![bogus], &[liar]).await;
+    let chain_id = h.context.chain_id;
+    super::sync::handle_status_response(
+        &mut h.context,
+        liar,
+        50,
+        [0u8; 32],
+        chain_id,
+        vec![0; 32],
+        None,
+    )
+    .await;
+    assert!(
+        h.context
+            .sync_progress
+            .as_ref()
+            .map_or(true, |progress| progress.target != Some(liar)),
+        "the peer that exhausted the last session opened the next one by its status"
+    );
+}

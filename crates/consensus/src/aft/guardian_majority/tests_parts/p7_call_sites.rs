@@ -239,3 +239,32 @@ async fn b1_a_proposal_that_failed_verification_is_not_exempt_after_a_tc() {
         "a proposal that failed verification was exempt after the TC: {error}"
     );
 }
+
+/// N1 (P7 round 3; RED before the fix). A stale-view refusal is a statement about an AUTHENTIC
+/// proposal: the orchestration keeps a proposal refused as stale (bounded, one per slot) so that
+/// it can be applied once a certificate for it is known, without a redelivery by its producer.
+/// An unauthenticated block at a superseded slot must therefore be refused for failing
+/// authentication, never as stale (else anyone could fill that retention). Here the view-0 slot
+/// at height 5 is superseded by TC(5, 1): a block not signed by the slot's leader is refused for
+/// that; the leader's own signed proposal is refused as stale.
+#[tokio::test]
+async fn n1_only_an_authenticated_proposal_is_refused_as_stale() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    engine.tc_formed.insert((5, 1));
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let unauthenticated = proposal_with_parent(5, 0, qc_at(4, 0, 0x40));
+    let error = propose(&mut engine, &chain, unauthenticated)
+        .await
+        .unwrap_err();
+    assert!(
+        !error.to_string().contains("stale proposal"),
+        "an unauthenticated block was refused as a stale proposal: {error}"
+    );
+    let authentic = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let error = propose(&mut engine, &chain, authentic).await.unwrap_err();
+    assert!(error.to_string().contains("stale proposal"), "{error}");
+}

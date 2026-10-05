@@ -93,6 +93,8 @@ mod sync_authority;
 mod sync_harness;
 #[cfg(test)]
 mod sync_p7_tests;
+#[cfg(test)]
+mod gossip_p7_tests;
 /// Verifier selection logic.
 pub mod verifier_select;
 mod view_resolver;

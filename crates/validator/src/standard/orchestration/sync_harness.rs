@@ -231,6 +231,10 @@ pub(super) struct HarnessViewResolver {
     pub(super) workload: Arc<dyn WorkloadClientApi>,
     /// Parent state roots whose anchored view is unavailable.
     pub(super) unavailable_roots: std::sync::Mutex<HashSet<Vec<u8>>>,
+    /// The chain-view inputs the gossip path takes from the node's resolver (its `cfg(test)` arm
+    /// of `gossip_chain_view_inputs`; P7 round 3). The harness engine reads no views.
+    pub(super) verifier: IAVLHashVerifier,
+    pub(super) proof_cache: Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>,
 }
 
 #[async_trait]
@@ -292,6 +296,22 @@ pub(super) struct HarnessEngine {
     pub(super) answers: HashMap<[u8; 32], CertificateAnswer>,
     /// Every certificate the engine was asked about, in order.
     pub(super) asked: Vec<QuorumCertificate>,
+    /// Gossiped proposals (by block hash) this engine refuses as stale-view proposals (a
+    /// later-view timeout certificate formed at their height) while no quorum certificate held
+    /// here certifies them (P7 round 3, N1). Every other proposal is accepted.
+    pub(super) stale: HashSet<[u8; 32]>,
+    /// Blocks an authenticated quorum certificate held here certifies.
+    pub(super) certified: HashSet<[u8; 32]>,
+    /// Every proposal `handle_block_proposal` was given, by block hash, in order.
+    pub(super) proposals: Vec<[u8; 32]>,
+}
+
+/// The engine's refusal of a stale-view proposal, as the harness engine reports it.
+pub(super) fn harness_stale_refusal(header: &BlockHeader) -> ConsensusError {
+    ConsensusError::BlockVerificationFailed(format!(
+        "stale proposal at H={} V={}: a timeout certificate for a later view has formed (harness)",
+        header.height, header.view
+    ))
 }
 
 #[async_trait]
@@ -327,13 +347,18 @@ impl ConsensusEngine<ChainTransaction> for HarnessEngine {
 
     async fn handle_block_proposal<CS, ST>(
         &mut self,
-        _block: Block<ChainTransaction>,
+        block: Block<ChainTransaction>,
         _chain_view: &dyn ChainView<CS, ST>,
     ) -> Result<(), ConsensusError>
     where
         CS: CommitmentScheme + Send + Sync,
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     {
+        let block_hash = harness_hash(&block);
+        self.proposals.push(block_hash);
+        if self.stale.contains(&block_hash) && !self.certified.contains(&block_hash) {
+            return Err(harness_stale_refusal(&block.header));
+        }
         Ok(())
     }
 
@@ -624,6 +649,10 @@ impl Harness {
         let resolver = Arc::new(HarnessViewResolver {
             workload: workload.clone() as Arc<dyn WorkloadClientApi>,
             unavailable_roots: std::sync::Mutex::new(HashSet::new()),
+            verifier: IAVLHashVerifier,
+            proof_cache: Arc::new(Mutex::new(LruCache::new(
+                std::num::NonZeroUsize::new(16).unwrap(),
+            ))),
         });
         let (swarm_tx, swarm_rx) = mpsc::channel(4096);
         let (quv_tx, _quv_rx) = mpsc::channel(16);
@@ -798,6 +827,47 @@ impl Harness {
         if let Some(progress) = self.context.sync_progress.as_mut() {
             progress.retry_not_before = None;
         }
+    }
+
+    /// The same harness with its context behind the shared lock the network-event path takes
+    /// (`events::handle_network_event`).
+    pub(super) fn shared(self) -> SharedHarness {
+        SharedHarness {
+            context: Arc::new(Mutex::new(self.context)),
+            workload: self.workload,
+            admitted: self.admitted,
+            _swarm: self.swarm,
+            _dir: self._dir,
+        }
+    }
+}
+
+/// A [`Harness`] whose context is shared (`Arc<Mutex<_>>`), for the network-event path.
+pub(super) struct SharedHarness {
+    pub(super) context: Arc<Mutex<HarnessContext>>,
+    pub(super) workload: Arc<HarnessWorkload>,
+    pub(super) admitted: Vec<Block<ChainTransaction>>,
+    _swarm: mpsc::Receiver<SwarmCommand>,
+    _dir: tempfile::TempDir,
+}
+
+impl SharedHarness {
+    /// The hash of the admitted block at `height` (0 = the genesis parent).
+    pub(super) fn admitted_hash(&self, height: u64) -> [u8; 32] {
+        if height == 0 {
+            return [0; 32];
+        }
+        harness_hash(&self.admitted[height as usize - 1])
+    }
+
+    /// The hash of the block the workload holds at `height`, if any.
+    pub(super) fn held_hash(&self, height: u64) -> Option<[u8; 32]> {
+        self.workload
+            .blocks
+            .lock()
+            .unwrap()
+            .get(&height)
+            .map(harness_hash)
     }
 }
 
