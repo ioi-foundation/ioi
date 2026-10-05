@@ -212,3 +212,30 @@ async fn b1_a_verified_proposal_redelivered_after_a_tc_is_not_refused_as_stale()
         .await
         .expect("an exact redelivery of a verified proposal is not a new proposal");
 }
+
+/// B1, MUT-1 survivor C5 killed: a proposal is recorded as accepted only once it FULLY verified.
+/// One that failed verification before a later-view timeout certificate formed is refused as
+/// stale when it is redelivered after the TC; a record made on arrival would exempt it.
+#[tokio::test]
+async fn b1_a_proposal_that_failed_verification_is_not_exempt_after_a_tc() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    // Not the slot leader's proposal: it fails verification, before any TC.
+    let unverifiable = proposal_with_parent(5, 0, qc_at(4, 0, 0x40));
+    let error = propose(&mut engine, &chain, unverifiable.clone())
+        .await
+        .unwrap_err();
+    assert!(!error.to_string().contains("stale proposal"), "{error}");
+    engine.tc_formed.insert((5, 1));
+    let error = propose(&mut engine, &chain, unverifiable)
+        .await
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("stale proposal"),
+        "a proposal that failed verification was exempt after the TC: {error}"
+    );
+}
