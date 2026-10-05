@@ -541,6 +541,15 @@ where
         let skip_stateless_signature = block.header.signature.is_empty();
         let workload = &self.workload_container;
         let expected_height = self.state.status.height + 1;
+        // P7 (build Ruling 12, item 3): despite its name this flag means "the header carries
+        // MATERIALIZED execution roots" (a peer or sync supplied an executed header). It checks no
+        // certificate and grants no finality: workload persistence here is the TENTATIVE tier,
+        // revertible above the Agentgres floor (this workload's own status height advances at
+        // execution, in `commit_block`). Durability, the height a node ADVERTISES and the blocks
+        // sync serves follow Agentgres admission (the 2-chain plus the guard): the orchestration's
+        // chain status and `last_committed_block` advance only on admission delivery
+        // (validator orchestration runtime_finality.rs), and the sync status and server read them
+        // (sync.rs).
         let externally_committed =
             !block.header.state_root.0.is_empty() || !block.header.transactions_root.is_empty();
         if externally_committed
@@ -1160,6 +1169,8 @@ where
             || !supplied_state_root.0.is_empty()
             || !supplied_transactions_root.is_empty()
             || supplied_gas_used > 0;
+        // P7 (item 3): "finalized" here is a PRESENCE test over certificate-shaped header fields;
+        // nothing verifies them, and it never makes the block durable (see `prepare_block`).
         let externally_finalized_header =
             header_carries_external_finality && header_carries_materialized_execution;
 
