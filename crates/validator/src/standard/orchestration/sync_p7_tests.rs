@@ -474,3 +474,136 @@ async fn a_refused_non_targets_blocks_are_ignored() {
     assert_eq!(progress.next, 3, "a refused peer's block was applied");
     assert!(h.workload.blocks.lock().unwrap().get(&4).is_none());
 }
+
+// --- Round 2b: crossing a hash-fallback height (review round 1, M2's first need) ---------------
+// "The sync check must accept the async-parent reference on evidence the batch or state can
+// provide." The child of a hash-fallback virtual block carries the signature-free asynchronous
+// reference (`aft_async_canonical_parent_reference`) as its parent certificate; only a node that
+// holds the in-memory asynchronous parent proof can evaluate it. The batch's NEXT block carries an
+// ordinary certificate for the child itself. Written RED against e33dab3ad, before the fix, where
+// marked.
+//
+// Harness scope: after a FRESH block is executed (`process_block`, which stores it), the sync
+// loop hydrates the live engine's collapse chain (aft_collapse.rs,
+// `observe_live_committed_chain_through_block`), which harness blocks cannot satisfy (they carry
+// no canonical collapse extension certificates), so the loop retries after the first freshly
+// executed block. These tests therefore hold the virtual block as this node's own executed block
+// (skipped by its exact hash, as in `tentative_tip`), so the FIRST block the loop evaluates is the
+// child, and they observe the child's G1 decision at `process_block`.
+
+/// A node at floor 3 holding block 4 (the virtual block, on block 3) as its own executed block,
+/// and a peer batch [4, 5, 6]: block 5's parent certificate is the asynchronous reference to
+/// block 4, and block 6's parent certificate is an ordinary certificate for block 5. This node
+/// does not hold block 4's asynchronous parent proof: the engine answers "cannot evaluate" for it.
+async fn across_a_fallback_height(
+    h: &mut Harness,
+) -> (
+    ioi_types::app::Block<ioi_types::app::ChainTransaction>,
+    ioi_types::app::Block<ioi_types::app::ChainTransaction>,
+    ioi_types::app::Block<ioi_types::app::ChainTransaction>,
+) {
+    let (b4, mut b5) = tentative_tip(h).await;
+    b5.header.parent_qc =
+        ioi_types::app::aft_async_canonical_parent_reference(&b4.header).unwrap();
+    assert!(b5.header.parent_qc.signatures.is_empty());
+    let b6 = harness_block(harness_hash(&b5), 6, 0);
+    h.answer(harness_hash(&b4), CertificateAnswer::CannotEvaluate)
+        .await;
+    (b4, b5, b6)
+}
+
+fn held_hash(h: &Harness, height: u64) -> Option<[u8; 32]> {
+    h.workload
+        .blocks
+        .lock()
+        .unwrap()
+        .get(&height)
+        .map(harness_hash)
+}
+
+/// M2 (round 2b; RED before the fix). The batch's block 6 certifies block 5 with an ordinary
+/// certificate, and block 5's header binds its asynchronous parent reference: the engine is asked
+/// about block 5's OWN certificate, block 5 is executed, and the peer is kept.
+#[tokio::test]
+async fn m2_an_asynchronous_child_certified_by_its_batch_is_applied() {
+    let mut h = Harness::new(3).await;
+    let honest = PeerId::random();
+    let (b4, b5, b6) = across_a_fallback_height(&mut h).await;
+    h.start_session(honest, 10).await;
+    let b5_hash = harness_hash(&b5);
+    handle_blocks_response(&mut h.context, honest, vec![b4, b5, b6]).await;
+    assert!(!h.refused(&honest), "an honest peer was dropped");
+    assert!(!h.quarantined());
+    assert!(
+        h.context
+            .consensus_engine_ref
+            .lock()
+            .await
+            .asked
+            .iter()
+            .any(|qc| qc.height == 5 && qc.block_hash == b5_hash),
+        "the child's own certificate was never verified"
+    );
+    assert_eq!(
+        held_hash(&h, 5),
+        Some(b5_hash),
+        "the child of the asynchronous parent was not executed"
+    );
+}
+
+/// M2 (round 2b), a pin: a batch that ENDS at the asynchronous child carries nothing that
+/// certifies it yet. Nothing is executed at its height, the peer is kept, and the wait is
+/// counted.
+#[tokio::test]
+async fn m2_an_asynchronous_child_ending_the_batch_waits_and_keeps_the_peer() {
+    let mut h = Harness::new(3).await;
+    let honest = PeerId::random();
+    let (b4, b5, _b6) = across_a_fallback_height(&mut h).await;
+    h.start_session(honest, 10).await;
+    handle_blocks_response(&mut h.context, honest, vec![b4, b5]).await;
+    assert!(!h.refused(&honest));
+    assert!(!h.quarantined());
+    assert_eq!(held_hash(&h, 5), None, "an uncertified child was executed");
+    let progress = h
+        .context
+        .sync_progress
+        .as_ref()
+        .expect("the session continues");
+    // Block 4 was skipped as this node's own (the cursor moved onto it); the child waits.
+    assert_eq!(progress.next, 4);
+    assert_eq!(
+        progress.authority.consecutive_failures, 1,
+        "the wait is counted"
+    );
+}
+
+/// M2 (round 2b; RED before the fix): a signature-free reference that names this node's parent
+/// block but is not its canonical asynchronous reference (here another view) is refuted against
+/// inputs this node fully holds: the peer is dropped and nothing is executed.
+#[tokio::test]
+async fn m2_a_non_canonical_asynchronous_reference_drops_the_peer() {
+    let mut h = Harness::new(3).await;
+    let liar = PeerId::random();
+    let (b4, mut b5, _b6) = across_a_fallback_height(&mut h).await;
+    h.start_session(liar, 10).await;
+    b5.header.parent_qc.view += 7;
+    let b6 = harness_block(harness_hash(&b5), 6, 0);
+    handle_blocks_response(&mut h.context, liar, vec![b4, b5, b6]).await;
+    assert!(h.refused(&liar), "a forged asynchronous reference kept its peer");
+    assert_eq!(held_hash(&h, 5), None);
+}
+
+/// M2 (round 2b; RED before the fix): the batch's certificate for the asynchronous child is
+/// REFUTED: the peer is dropped and the child is not executed.
+#[tokio::test]
+async fn m2_an_asynchronous_child_whose_certificate_is_refuted_drops_the_peer() {
+    let mut h = Harness::new(3).await;
+    let liar = PeerId::random();
+    let (b4, b5, b6) = across_a_fallback_height(&mut h).await;
+    h.start_session(liar, 10).await;
+    h.answer(harness_hash(&b5), CertificateAnswer::Refuted)
+        .await;
+    handle_blocks_response(&mut h.context, liar, vec![b4, b5, b6]).await;
+    assert!(h.refused(&liar), "a refuted certificate kept its peer");
+    assert_eq!(held_hash(&h, 5), None);
+}
