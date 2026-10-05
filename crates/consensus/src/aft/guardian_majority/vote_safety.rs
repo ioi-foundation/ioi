@@ -228,6 +228,12 @@ impl GuardianMajorityEngine {
     /// anchored state; or a signature-free asynchronous-parent reference whose proof this node
     /// does not hold). That is not evidence against whoever served the certificate. Any other
     /// `Err`: the certificate is refuted against inputs this node fully holds.
+    ///
+    /// A stated residual (review round 2, m-f): while ANY member key is absent from `view`, every
+    /// failure is reported as "cannot evaluate", including one the absent keys could not change,
+    /// so a forged certificate is then never refuted and its server is never refused for it. Sync
+    /// still moves off such a server and counts the failure (P7 round 3, N2), so it cannot pin a
+    /// session. Narrowing the verdict to failures the absent keys could change is not done here.
     pub(super) async fn verify_certificate_against_view(
         &mut self,
         qc: &QuorumCertificate,
