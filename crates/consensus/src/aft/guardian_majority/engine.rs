@@ -56,6 +56,7 @@ impl GuardianMajorityEngine {
             echo_pool: HashMap::new(),
             voted_slots: HashSet::new(),
             local_votes: HashMap::new(),
+            accepted_proposals: HashSet::new(),
             pacemaker: Arc::new(Mutex::new(Pacemaker::new(view_timeout))),
             safety: SafetyGadget::new(),
             mirror_stats: MirrorStats::default(),

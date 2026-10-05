@@ -371,6 +371,12 @@ pub struct GuardianMajorityEngine {
     /// and lets an exact replay of an admitted vote through (P7, build Ruling 12).
     local_votes: HashMap<(u64, u64), [u8; 32]>,
 
+    /// Proposals THIS node fully verified (every check `handle_block_proposal` runs passed) or
+    /// recorded as committed, by (height, view, block hash). The stale-view refusal lets an exact
+    /// redelivery of one of these through; `seen_headers` cannot serve, because
+    /// `check_divergence` records every arriving header in it before any check (P7 round 2, B1).
+    accepted_proposals: HashSet<(u64, u64, [u8; 32])>,
+
     // Pacemaker for Liveness
     pacemaker: Arc<Mutex<Pacemaker>>,
 

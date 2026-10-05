@@ -159,3 +159,56 @@ async fn m2_an_async_parent_reference_without_its_proof_cannot_be_evaluated_here
         "an unevaluable async reference was reported as refuted: {error:?}"
     );
 }
+
+/// A view-`view` proposal at `height`, signed by that slot's leader, whose parent certificate is
+/// an authentic 2f+1 certificate for `parent`: one that `handle_block_proposal` fully verifies.
+fn leader_signed_proposal(
+    validators: &PqAuthenticatedValidators,
+    height: u64,
+    view: u64,
+    parent: [u8; 32],
+) -> BlockHeader {
+    let members = &validators.sets.current.validators;
+    let leader = members[((height - 1 + view) % members.len() as u64) as usize].account_id;
+    let leader_index = (0..BFT_MEMBERS)
+        .find(|index| validators.account_id(*index) == leader)
+        .unwrap();
+    let mut header = proposal_with_parent(height, view, validators.signed_qc(height - 1, 0, parent));
+    header.producer_account_id = leader;
+    header.producer_key_suite = SignatureSuite::ML_DSA_44;
+    header.producer_pubkey = validators.keypairs[leader_index].public_key().to_bytes();
+    header.producer_pubkey_hash = leader.0;
+    header.oracle_counter = height;
+    header.oracle_trace_hash = [0x5A; 32];
+    let preimage = header.to_preimage_for_signing().unwrap();
+    let mut payload = ioi_crypto::algorithms::hash::sha256(&preimage).unwrap().to_vec();
+    payload.extend_from_slice(&header.oracle_counter.to_be_bytes());
+    payload.extend_from_slice(&header.oracle_trace_hash);
+    header.signature = validators.keypairs[leader_index]
+        .sign(&payload)
+        .unwrap()
+        .to_bytes();
+    header
+}
+
+/// B1, the redelivery exemption at its call site (added with the round-2 fix): a proposal
+/// `handle_block_proposal` fully verified BEFORE a later-view timeout certificate formed is not a
+/// new proposal: its exact redelivery afterwards is not refused as stale. (A NEW proposal at
+/// the stale view is refused: `b1_handle_block_proposal_refuses_a_stale_view_proposal_after_a_tc`.)
+#[tokio::test]
+async fn b1_a_verified_proposal_redelivered_after_a_tc_is_not_refused_as_stale() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let verified = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    propose(&mut engine, &chain, verified.clone())
+        .await
+        .expect("the leader's proposal fully verifies");
+    engine.tc_formed.insert((5, 1));
+    propose(&mut engine, &chain, verified)
+        .await
+        .expect("an exact redelivery of a verified proposal is not a new proposal");
+}

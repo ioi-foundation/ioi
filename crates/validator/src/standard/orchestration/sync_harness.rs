@@ -571,13 +571,30 @@ impl Harness {
     /// A context whose Agentgres floor (admitted height) is `floor`: blocks 1..=floor are staged,
     /// admitted and held by the workload. The node is Synced with no sync session.
     pub(super) async fn new(floor: u64) -> Self {
+        Self::with_profile(
+            floor,
+            ioi_types::config::RuntimeFinalityProfile::SingleAuthorityV1,
+        )
+        .await
+    }
+
+    /// A harness whose Agentgres profile is `profile`. Under `BftConsensusAftV1` nothing can be
+    /// admitted here (native AFT evidence is out of the harness's scope), so `floor` must be 0.
+    pub(super) async fn with_profile(
+        floor: u64,
+        profile: ioi_types::config::RuntimeFinalityProfile,
+    ) -> Self {
+        assert!(
+            floor == 0 || profile == ioi_types::config::RuntimeFinalityProfile::SingleAuthorityV1,
+            "the harness admits only under the single-authority profile"
+        );
         let dir = tempfile::tempdir().unwrap();
         let seed = [42u8; 32];
         let key = ioi_crypto::sign::eddsa::Ed25519PrivateKey::from_bytes(&seed).unwrap();
         let mut coordinator = RuntimeFinalityCoordinator::open(
             dir.path().join("finality"),
             "harness".into(),
-            ioi_types::config::RuntimeFinalityProfile::SingleAuthorityV1,
+            profile,
             "harness-writer".into(),
             runtime_finality_initial_head(None).unwrap(),
             format!(

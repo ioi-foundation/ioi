@@ -223,3 +223,186 @@ async fn m4_a_refused_targets_reply_is_not_left_in_flight() {
         "the request was left in flight on a refused peer"
     );
 }
+
+// --- Added with the round-2 fix (not part of the RED reproduction set) ---------------------
+
+/// M1, the third arm: a conflicting block at an admitted height that ends the batch (nothing
+/// certifies it YET) is rejected, never drained, and neither halts the node nor drops the peer.
+#[tokio::test]
+async fn m1_an_uncertified_conflicting_block_ending_the_batch_is_rejected_and_the_peer_kept() {
+    let mut h = Harness::new(3).await;
+    let peer = PeerId::random();
+    h.start_session(peer, 5).await;
+    let conflicting = harness_block(h.admitted_hash(2), 3, 0xC3);
+    handle_blocks_response(&mut h.context, peer, vec![conflicting]).await;
+    assert!(!h.quarantined(), "an uncertified block froze the node");
+    assert!(
+        !h.refused(&peer),
+        "a merely uncertified block dropped the peer"
+    );
+    let progress = h
+        .context
+        .sync_progress
+        .as_ref()
+        .expect("the session continues");
+    assert_eq!(
+        progress.authority.consecutive_failures, 1,
+        "the wait is counted"
+    );
+}
+
+/// M4, the lifecycle tick: a due retry never targets a refused peer; with no usable peer it is
+/// counted toward T5.
+#[tokio::test]
+async fn m4_the_retry_tick_never_targets_a_refused_peer() {
+    let mut h = Harness::new(3).await;
+    let liar = PeerId::random();
+    let honest = PeerId::random();
+    h.start_session(liar, 5).await;
+    {
+        let progress = h.context.sync_progress.as_mut().unwrap();
+        progress.authority.refuse_peer(liar);
+        progress.inflight = false;
+        progress.target = None;
+        progress.retry_not_before = Some(std::time::Instant::now());
+    }
+    h.drain_requests();
+    super::sync::sync_retry_tick(&mut h.context, &[liar], std::time::Duration::from_secs(2)).await;
+    let progress = h.context.sync_progress.as_ref().unwrap();
+    assert_ne!(
+        progress.target,
+        Some(liar),
+        "the tick targeted a refused peer"
+    );
+    assert_eq!(
+        progress.authority.consecutive_failures, 1,
+        "no usable target is counted"
+    );
+    assert!(
+        h.drain_requests().is_empty(),
+        "nothing was requested from the refused peer"
+    );
+    // With an honest peer available, the tick targets it.
+    h.expire_backoff();
+    h.context.sync_progress.as_mut().unwrap().retry_not_before = Some(std::time::Instant::now());
+    super::sync::sync_retry_tick(
+        &mut h.context,
+        &[liar, honest],
+        std::time::Duration::from_secs(2),
+    )
+    .await;
+    assert_eq!(
+        h.context.sync_progress.as_ref().unwrap().target,
+        Some(honest)
+    );
+    assert_eq!(h.drain_requests(), vec![honest]);
+}
+
+/// M4, the tick's timeout arm: a timed-out request is a failed batch (counted) and the session
+/// moves to another usable peer.
+#[tokio::test]
+async fn m4_a_timed_out_request_is_counted_and_moves_on() {
+    let mut h = Harness::new(3).await;
+    let (slow, other) = (PeerId::random(), PeerId::random());
+    h.start_session(slow, 5).await;
+    h.context.known_peers_ref.lock().await.insert(other);
+    h.context.sync_progress.as_mut().unwrap().requested_at =
+        std::time::Instant::now() - std::time::Duration::from_secs(10);
+    super::sync::sync_retry_tick(
+        &mut h.context,
+        &[slow, other],
+        std::time::Duration::from_secs(2),
+    )
+    .await;
+    let progress = h.context.sync_progress.as_ref().unwrap();
+    assert_eq!(progress.authority.consecutive_failures, 1);
+    assert_eq!(progress.target, Some(other));
+    assert!(!progress.inflight);
+}
+
+/// M4, the outbound-failure path: the replacement target honours the refused set.
+#[tokio::test]
+async fn m4_an_outbound_failure_never_retargets_a_refused_peer() {
+    let mut h = Harness::new(3).await;
+    let (target, liar) = (PeerId::random(), PeerId::random());
+    h.start_session(target, 5).await;
+    h.context.known_peers_ref.lock().await.insert(liar);
+    h.context
+        .sync_progress
+        .as_mut()
+        .unwrap()
+        .authority
+        .refuse_peer(liar);
+    super::sync::handle_outbound_failure(&mut h.context, target).await;
+    let progress = h.context.sync_progress.as_ref().unwrap();
+    assert_ne!(progress.target, Some(liar));
+    assert_eq!(progress.authority.consecutive_failures, 1);
+}
+
+/// An AFT node (floor 0) holding its own tentative blocks 1 and 2 (executed, not admitted), and a
+/// peer's different block 2' (another execution: a different state root).
+async fn tentative_aft_projection() -> (
+    Harness,
+    ioi_types::app::Block<ioi_types::app::ChainTransaction>,
+    ioi_types::app::Block<ioi_types::app::ChainTransaction>,
+    ioi_types::app::Block<ioi_types::app::ChainTransaction>,
+) {
+    let mut h = Harness::with_profile(
+        0,
+        ioi_types::config::RuntimeFinalityProfile::BftConsensusAftV1,
+    )
+    .await;
+    let b1 = harness_block([0u8; 32], 1, 0);
+    let b2 = harness_block(harness_hash(&b1), 2, 0);
+    let mut peer_b2 = harness_block(harness_hash(&b1), 2, 0x22);
+    peer_b2.header.state_root = ioi_types::app::StateRoot(vec![0xEE; 32]);
+    for block in [&b1, &b2] {
+        h.workload
+            .blocks
+            .lock()
+            .unwrap()
+            .insert(block.header.height, block.clone());
+        super::context::remember_executed_header(&mut h.context.recent_executed_headers, block);
+    }
+    h.context.last_executed_block = Some(b2.clone());
+    (h, b1, b2, peer_b2)
+}
+
+/// G1's replacement call site (round 2; the review's m3 asked for executed pins of the sync call
+/// sites): a peer block that would REPLACE local tentative state, with nothing in its batch
+/// certifying it, replaces nothing, freezes nothing, keeps the peer, and counts the wait.
+#[tokio::test]
+async fn g1_an_uncertified_replacement_replaces_nothing() {
+    let (mut h, b1, b2, peer_b2) = tentative_aft_projection().await;
+    let peer = PeerId::random();
+    h.start_session(peer, 5).await;
+    handle_blocks_response(&mut h.context, peer, vec![b1, peer_b2]).await;
+    let held = h.workload.blocks.lock().unwrap().get(&2).cloned().unwrap();
+    assert_eq!(harness_hash(&held), harness_hash(&b2), "local state was replaced");
+    assert!(!h.quarantined());
+    assert!(!h.refused(&peer));
+    assert_eq!(
+        h.context
+            .sync_progress
+            .as_ref()
+            .unwrap()
+            .authority
+            .consecutive_failures,
+        1
+    );
+}
+
+/// G1's replacement call site, the refusal arm: a batch whose H+1 does not certify the
+/// replacement (it names another parent) replaces nothing and drops the peer.
+#[tokio::test]
+async fn g1_a_replacement_whose_batch_does_not_certify_it_drops_the_peer() {
+    let (mut h, b1, b2, peer_b2) = tentative_aft_projection().await;
+    let peer = PeerId::random();
+    h.start_session(peer, 5).await;
+    let foster = harness_block([0x77; 32], 3, 0);
+    handle_blocks_response(&mut h.context, peer, vec![b1, peer_b2, foster]).await;
+    let held = h.workload.blocks.lock().unwrap().get(&2).cloned().unwrap();
+    assert_eq!(harness_hash(&held), harness_hash(&b2), "local state was replaced");
+    assert!(!h.quarantined());
+    assert!(h.refused(&peer));
+}

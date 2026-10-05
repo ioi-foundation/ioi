@@ -1218,6 +1218,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     view = header.view,
                     "Accepted sealed/header enrichment for an already verified block"
                 );
+                self.accepted_proposals
+                    .insert((header.height, header.view, block_hash));
                 return Ok(());
             }
         }
@@ -1233,6 +1235,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         )? {
             // Exact authenticated redelivery is idempotent.  It must not emit
             // another echo or perturb the pacemaker.
+            self.accepted_proposals
+                .insert((header.height, header.view, block_hash));
             return Ok(());
         }
 
@@ -1253,6 +1257,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             self.reconcile_classic_safety_qc(&qc);
         }
 
+        self.accepted_proposals
+            .insert((header.height, header.view, block_hash));
         debug!(target: "consensus", "Aft deterministic: Block {} verified. Initiating ECHO phase.", header.height);
         Ok(())
     }

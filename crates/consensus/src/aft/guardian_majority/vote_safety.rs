@@ -78,8 +78,11 @@ impl GuardianMajorityEngine {
     }
 
     /// Refuses a proposal of an earlier view at a height where a timeout certificate for a later
-    /// view has formed, unless this node already accepted that exact block (a later enrichment
-    /// of an accepted block is not a new proposal).
+    /// view has formed (AFT yellow paper, "The pacemaker advances views monotonically", in the
+    /// leader-selection subsection; the adopted P7 rule, build Ruling 12 fourth amendment). Two
+    /// exemptions: the exact block was already fully verified or committed here
+    /// (`accepted_proposals`; a redelivery or enrichment is not a new proposal), or an
+    /// authenticated quorum certificate certifies it (`qc_pool`; the deadlock guard).
     pub(super) fn refuse_stale_view_proposal(
         &self,
         header: &BlockHeader,
@@ -88,11 +91,24 @@ impl GuardianMajorityEngine {
         let Some(tc_view) = self.superseding_tc_view(header.height, header.view) else {
             return Ok(());
         };
-        let already_accepted = self
-            .seen_headers
-            .get(&(header.height, header.view))
-            .is_some_and(|headers| headers.contains_key(block_hash));
-        if already_accepted {
+        // `accepted_proposals` holds only blocks this node fully verified or committed: an exact
+        // redelivery of one of those is not a new proposal. (`seen_headers` is NOT that set:
+        // `check_divergence` inserts every arriving header into it before any check.)
+        if self
+            .accepted_proposals
+            .contains(&(header.height, header.view, *block_hash))
+        {
+            return Ok(());
+        }
+        // Deadlock guard: a block an authenticated quorum certificate already certifies (votes
+        // cast before the timeouts) may be the parent the next height must extend; refusing its
+        // header would leave this node unable to follow that branch. `qc_pool` holds only
+        // certificates that passed `authenticated_quorum` (engine.rs `remember_qc` callers).
+        if self
+            .qc_pool
+            .get(&header.height)
+            .is_some_and(|certified| certified.contains_key(block_hash))
+        {
             return Ok(());
         }
         Err(ConsensusError::BlockVerificationFailed(format!(
@@ -136,18 +152,26 @@ impl GuardianMajorityEngine {
                 .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?,
         )
         .map_err(|_| ConsensusError::BlockVerificationFailed("block hash length".into()))?;
+        // The fallback fence comes first, ahead of the replay shortcut: once a durable fallback
+        // has started at this height, no optimistic vote leaves this node, not even an exact
+        // replay of one admitted earlier (which may never have been sent: the slot is recorded
+        // at admission, before the caller signs). P7 round 2, m7.
+        if self.fallback_starts.contains_key(&height) {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "own vote refused: the optimistic path at H={height} is fenced by a fallback start"
+            )));
+        }
         if let Some(prior) = self.local_votes.get(&(height, view)) {
             if *prior == block_hash {
-                // An exact replay of a vote already admitted in this slot.
+                // An exact replay of a vote already admitted in this slot. Residual (m7): it is
+                // not re-checked against the timed-out-view rule, so an admitted vote that was
+                // never sent can still go out after this node timed out of the view. That rule
+                // is hygiene, not the safety argument (build Ruling 12, fourth amendment); the
+                // lock and the one-block-per-slot record still bound it.
                 return Ok(());
             }
             return Err(ConsensusError::BlockVerificationFailed(format!(
                 "own vote refused: this node already voted for another block at H={height} V={view}"
-            )));
-        }
-        if self.fallback_starts.contains_key(&height) {
-            return Err(ConsensusError::BlockVerificationFailed(format!(
-                "own vote refused: the optimistic path at H={height} is fenced by a fallback start"
             )));
         }
         let mut superseded = self.superseding_view(height, view);
@@ -185,6 +209,13 @@ impl GuardianMajorityEngine {
     /// that was in force. The genesis sentinel (height 0) needs no signatures. Classic-BFT accepts
     /// an authenticated 2f+1 certificate or a separately verified async-parent proof; the other
     /// modes use their own QC rule (and Asymptote its collapse backing).
+    ///
+    /// Outcomes (P7 round 2, M2). `Ok`: verified. `Err(DependencyNotFound)`: THIS node cannot
+    /// evaluate the certificate: an input other than the certificate itself is missing here (the
+    /// membership or a member key absent from or unreadable in `view`, which is this node's own
+    /// anchored state; or a signature-free asynchronous-parent reference whose proof this node
+    /// does not hold). That is not evidence against whoever served the certificate. Any other
+    /// `Err`: the certificate is refuted against inputs this node fully holds.
     pub(super) async fn verify_certificate_against_view(
         &mut self,
         qc: &QuorumCertificate,
@@ -199,16 +230,51 @@ impl GuardianMajorityEngine {
                 ))
             };
         }
+        let cannot_evaluate = |what: String| {
+            ConsensusError::DependencyNotFound(format!(
+                "certificate for H={} V={} cannot be evaluated here: {what}",
+                qc.height, qc.view
+            ))
+        };
         let encoded = view
             .get(VALIDATOR_SET_KEY)
             .await
-            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
-            .ok_or(ConsensusError::StateAccess(StateError::KeyNotFound))?;
-        let sets = read_validator_sets(&encoded).map_err(|e| {
-            ConsensusError::BlockVerificationFailed(format!("VS decode failed: {e}"))
-        })?;
+            .map_err(|e| cannot_evaluate(format!("membership unreadable: {e}")))?
+            .ok_or_else(|| cannot_evaluate("no membership in the anchored view".into()))?;
+        let sets = read_validator_sets(&encoded)
+            .map_err(|e| cannot_evaluate(format!("membership undecodable: {e}")))?;
         let set = effective_set_for_height(&sets, qc.height).clone();
-        self.hydrate_effective_validator_keys(view, &set).await?;
+        let keys_complete = self
+            .hydrate_effective_validator_keys(view, &set)
+            .await
+            .map_err(|e| cannot_evaluate(format!("member keys unusable: {e}")))?;
+        let signature_free = qc.signatures.is_empty()
+            && qc.aggregated_signature.is_empty()
+            && qc.signers_bitfield.is_empty();
+        let outcome = self
+            .verify_certificate_with_inputs(qc, view, &sets, &set)
+            .await;
+        match outcome {
+            Err(_) if !keys_complete => Err(cannot_evaluate(
+                "a member key is absent from the anchored view".into(),
+            )),
+            Err(_) if signature_free && matches!(self.safety_mode, AftSafetyMode::ClassicBft) => {
+                Err(cannot_evaluate(
+                    "a signature-free asynchronous-parent reference whose proof is not held here"
+                        .into(),
+                ))
+            }
+            outcome => outcome,
+        }
+    }
+
+    async fn verify_certificate_with_inputs(
+        &mut self,
+        qc: &QuorumCertificate,
+        view: &dyn AnchoredStateView,
+        sets: &ValidatorSetsV1,
+        set: &ValidatorSetV1,
+    ) -> Result<(), ConsensusError> {
         match self.safety_mode {
             AftSafetyMode::ClassicBft => {
                 if self.has_async_parent_proof(qc) {
@@ -225,7 +291,7 @@ impl GuardianMajorityEngine {
                 };
                 authenticated_quorum::verify_quorum_certificate(
                     qc,
-                    &set,
+                    set,
                     &self.key_registry,
                     self.safety_mode,
                     threshold,
@@ -233,7 +299,7 @@ impl GuardianMajorityEngine {
                 .map(|_| ())
             }
             AftSafetyMode::Asymptote => {
-                self.verify_qc(qc, &sets)?;
+                self.verify_qc(qc, sets)?;
                 if self.quorum_certificate_is_collapse_backed(qc, view).await? {
                     Ok(())
                 } else {
@@ -243,7 +309,7 @@ impl GuardianMajorityEngine {
                     )))
                 }
             }
-            _ => self.verify_qc(qc, &sets),
+            _ => self.verify_qc(qc, sets),
         }
     }
 }

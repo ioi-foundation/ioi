@@ -14,27 +14,129 @@
 //!   naming it (`parent_hash` and `parent_qc` both bind H's hash, at height H); the engine then
 //!   verifies that certificate. Without it the trunk replaced local state on an uncertified
 //!   block's word.
-//! - **Source selection** ([`SyncAuthority`]): a peer whose batch fails either check is dropped
-//!   (never targeted again in this sync) and counted, with no change to the status protocol.
+//! - **What a certificate check means** ([`certificate_verdict`]): verified; REFUTED against
+//!   inputs this node fully holds (the peer is at fault); or CANNOT BE EVALUATED here (an input
+//!   other than the certificate, such as the parent state, a member key, or an asynchronous
+//!   parent proof, is missing locally). Only a refutation drops a peer.
+//! - **Source selection** ([`SyncAuthority`]): a peer whose batch is refuted is dropped (never
+//!   targeted again in this sync, by any target assignment: [`SyncAuthority::choose_target`])
+//!   and counted, with no change to the status protocol.
 //! - **T5, the retry bound** ([`SyncAuthority::record_failure`], [`retry_backoff`]): consecutive
-//!   failed batches without progress end in an explicit halt after [`SYNC_RETRY_BOUND`], never an
-//!   unbounded loop. The retries back off (250 ms doubling every 4 failures, capped at 8 s), so the
-//!   bound spans about two minutes without progress, not a burst.
-//! - **T2b, admitted-tier evidence** ([`classify_drained_block`], [`SyncConflictEvidenceV1`]): a
-//!   served block at or below the admitted height whose hash differs from this node's admitted
-//!   block is a durable-tier conflict. It halts the node with the evidence written durably,
-//!   instead of being drained silently by height.
+//!   failed batches (refused, unusable, empty while behind, timed out, or no usable target)
+//!   without cursor progress from ANY path end the sync SESSION explicitly after
+//!   [`SYNC_RETRY_BOUND`], never an unbounded loop and never a node freeze. The retries back off
+//!   (250 ms doubling every 4 failures, capped at 8 s), so the bound spans about two minutes
+//!   without progress, not a burst.
+//! - **T2b, admitted-tier evidence** ([`classify_drained_block`], [`admitted_tier_action`],
+//!   [`SyncConflictEvidenceV1`]): a served block at or below the admitted height whose hash
+//!   differs from this node's admitted block is a durable-tier conflict only when a verified
+//!   certificate (the batch's H+1 parent QC) certifies it: then it halts the node with the
+//!   evidence written durably. Refuted or inconsistent, it is rejected and its peer dropped;
+//!   uncertified or unevaluable, it is rejected and the sync waits (counted).
 
 use ioi_types::app::{Block, BlockHeader, QuorumCertificate};
+use ioi_types::error::ConsensusError;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-/// Consecutive failed sync batches (refused, unusable, or empty while behind) tolerated without
-/// progress before the node halts sync explicitly (T5). Any applied block resets the count.
+/// Consecutive failed sync batches (refused, unusable, empty while behind, timed out, or no
+/// usable target) tolerated without progress before the sync session ends explicitly (T5). Any
+/// cursor progress, from sync or from live gossip, resets the count.
 pub(crate) const SYNC_RETRY_BOUND: u32 = 32;
+
+/// What a certificate check concluded, from this node's side (P7 round 2, M2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum CertificateVerdict {
+    /// The certificate verified.
+    Verified,
+    /// This node cannot evaluate it: an input other than the certificate is missing or unreadable
+    /// here. Not evidence against the peer: wait and retry (counted), never drop the peer.
+    CannotEvaluate(String),
+    /// Refuted against inputs this node fully holds: the peer served a bad certificate.
+    Refuted(String),
+}
+
+/// Classifies an engine's certificate check. `DependencyNotFound` (the engine's "cannot evaluate
+/// here", see the AFT engine's `verify_certificate_against_view`) and `StateAccess` (a local
+/// state read failed) are local conditions; every other error is a refutation.
+pub(crate) fn certificate_verdict(result: Result<(), ConsensusError>) -> CertificateVerdict {
+    match result {
+        Ok(()) => CertificateVerdict::Verified,
+        Err(error @ (ConsensusError::DependencyNotFound(_) | ConsensusError::StateAccess(_))) => {
+            CertificateVerdict::CannotEvaluate(error.to_string())
+        }
+        Err(error) => CertificateVerdict::Refuted(error.to_string()),
+    }
+}
+
+/// What the replacement-certificate check decided.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ReplacementCheck {
+    /// The batch's H+1 certifies the block, and the engine verified that certificate.
+    Verified,
+    /// Nothing certifies the block yet (the batch ends at it), or the certificate cannot be
+    /// evaluated here (its parent state, a key or a proof is missing locally): wait and retry,
+    /// counted, without dropping the peer.
+    Await(String),
+    /// The batch is inconsistent or its certificate is refuted: drop the peer.
+    Refuse(String),
+}
+
+/// Combines the structural replacement check ([`replacement_certificate`]) with the engine's
+/// verdict on the certificate it found (`Ok(verdict)`; the engine is asked only then).
+pub(crate) fn replacement_check(
+    outcome: Result<CertificateVerdict, ReplacementRefusal>,
+) -> ReplacementCheck {
+    match outcome {
+        Err(ReplacementRefusal::Missing) => {
+            ReplacementCheck::Await(ReplacementRefusal::Missing.to_string())
+        }
+        Err(ReplacementRefusal::Invalid(reason)) => ReplacementCheck::Refuse(reason),
+        Ok(verdict) => match verdict {
+            CertificateVerdict::Verified => ReplacementCheck::Verified,
+            CertificateVerdict::CannotEvaluate(reason) => ReplacementCheck::Await(reason),
+            CertificateVerdict::Refuted(reason) => ReplacementCheck::Refuse(reason),
+        },
+    }
+}
+
+/// What to do about a served block that differs from this node's block at an admitted height
+/// (T2b; P7 round 2, M1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AdmittedTierAction {
+    /// A verified certificate certifies the peer's block: a durable-tier conflict. Halt with the
+    /// evidence (Ruling 12: T2b halts on a conflict WITH a certified peer block).
+    Halt,
+    /// The peer's batch is inconsistent or its certificate refuted: reject the block, drop the
+    /// peer (Ruling 12 as amended, (c): an uncertified peer block is REJECTED).
+    RefusePeer(String),
+    /// Nothing certifies the peer's block yet, or its certificate cannot be evaluated here:
+    /// reject the block (never drain it, never halt on it) and retry, counted.
+    Await(String),
+}
+
+/// T2b's decision from the replacement-certificate check of the conflicting peer block.
+pub(crate) fn admitted_tier_action(check: ReplacementCheck) -> AdmittedTierAction {
+    match check {
+        ReplacementCheck::Verified => AdmittedTierAction::Halt,
+        ReplacementCheck::Refuse(reason) => AdmittedTierAction::RefusePeer(reason),
+        ReplacementCheck::Await(reason) => AdmittedTierAction::Await(reason),
+    }
+}
+
+/// The number of leading blocks in a batch that the cursor already covers: every block at a
+/// height `<= next`, where `next` is the last height this node applied or holds (context.rs,
+/// `SyncProgress::next`). Those are drained (after T2b's hash comparison); the block at
+/// `next + 1` is the first one applied. Build Ruling 12 item 4.
+pub(crate) fn drained_prefix_len(heights: impl IntoIterator<Item = u64>, next: u64) -> usize {
+    heights
+        .into_iter()
+        .take_while(|height| *height <= next)
+        .count()
+}
 
 /// Why no replacement certificate is available.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,10 +209,13 @@ pub(crate) fn retry_backoff(consecutive_failures: u32) -> std::time::Duration {
 /// What one sync session has learned about its peers (source selection and T5).
 #[derive(Debug, Clone, Default)]
 pub(crate) struct SyncAuthority {
-    /// Peers whose batches failed certificate verification in this sync: never targeted again.
+    /// Peers whose batches were refuted in this sync: never targeted again.
     pub(crate) refused_peers: BTreeSet<PeerId>,
-    /// Consecutive failed batches without an applied block.
+    /// Consecutive failed batches without cursor progress.
     pub(crate) consecutive_failures: u32,
+    /// The highest cursor (`SyncProgress::next`) seen at a failure. A failure at a higher cursor
+    /// means the node progressed since (by sync or by live gossip), so the count restarts.
+    pub(crate) progress_mark: Option<u64>,
 }
 
 /// The outcome of recording one failed batch.
@@ -133,8 +238,14 @@ impl SyncAuthority {
         !self.refused_peers.contains(peer)
     }
 
-    /// Counts one failed batch; at [`SYNC_RETRY_BOUND`] consecutive failures, sync must halt.
-    pub(crate) fn record_failure(&mut self) -> SyncRetry {
+    /// Counts one failed batch at cursor `next`; at [`SYNC_RETRY_BOUND`] consecutive failures
+    /// without progress, the session must end. A cursor above every earlier failure's is progress
+    /// (from any path: an applied sync block, or a live gossip block), and restarts the count.
+    pub(crate) fn record_failure(&mut self, next: u64) -> SyncRetry {
+        if self.progress_mark.map_or(true, |mark| next > mark) {
+            self.progress_mark = Some(next);
+            self.consecutive_failures = 0;
+        }
         self.consecutive_failures = self.consecutive_failures.saturating_add(1);
         if self.consecutive_failures >= SYNC_RETRY_BOUND {
             SyncRetry::Exhausted
@@ -146,6 +257,21 @@ impl SyncAuthority {
     /// An applied block is progress: the failure count restarts.
     pub(crate) fn record_progress(&mut self) {
         self.consecutive_failures = 0;
+    }
+
+    /// The peer to target next: the `current` target if it is still usable, else the first
+    /// usable candidate. A refused peer, or the peer that just `failed`, is never chosen. Every
+    /// target assignment in the sync loop goes through here (P7 round 2, M4).
+    pub(crate) fn choose_target(
+        &self,
+        current: Option<PeerId>,
+        failed: Option<PeerId>,
+        candidates: impl IntoIterator<Item = PeerId>,
+    ) -> Option<PeerId> {
+        let usable = |peer: &PeerId| Some(*peer) != failed && self.may_target(peer);
+        current
+            .filter(usable)
+            .or_else(|| candidates.into_iter().find(usable))
     }
 }
 
@@ -355,12 +481,12 @@ mod tests {
         assert!(!authority.may_target(&liar));
         assert!(authority.may_target(&honest));
         for _ in 1..SYNC_RETRY_BOUND {
-            assert_eq!(authority.record_failure(), SyncRetry::Retry);
+            assert_eq!(authority.record_failure(7), SyncRetry::Retry);
         }
-        // The trunk retried without limit; the bound-th consecutive failure halts.
-        assert_eq!(authority.record_failure(), SyncRetry::Exhausted);
+        // The trunk retried without limit; the bound-th consecutive failure ends the session.
+        assert_eq!(authority.record_failure(7), SyncRetry::Exhausted);
         authority.record_progress();
-        assert_eq!(authority.record_failure(), SyncRetry::Retry);
+        assert_eq!(authority.record_failure(7), SyncRetry::Retry);
         // The backoff grows to a cap, so the bound spans about two minutes.
         assert_eq!(retry_backoff(0), std::time::Duration::from_millis(250));
         assert_eq!(retry_backoff(4), std::time::Duration::from_millis(500));
@@ -369,6 +495,118 @@ mod tests {
             .map(|k| retry_backoff(k).as_millis())
             .sum();
         assert!((100_000..200_000).contains(&span), "{span} ms");
+    }
+
+    /// M3 (round 2): progress from ANY path restarts the count. A cursor that advances between
+    /// failures (live gossip applying blocks while sync batches come back empty) never exhausts;
+    /// a rewound cursor is not progress until it passes the highest mark.
+    #[test]
+    fn cursor_progress_from_any_path_restarts_the_failure_count() {
+        let mut authority = SyncAuthority::default();
+        for cursor in 10..(10 + 4 * u64::from(SYNC_RETRY_BOUND)) {
+            assert_eq!(authority.record_failure(cursor), SyncRetry::Retry);
+            assert_eq!(authority.consecutive_failures, 1);
+        }
+        let mut authority = SyncAuthority::default();
+        assert_eq!(authority.record_failure(20), SyncRetry::Retry);
+        // A rewind to 18, then back to 20: neither passes the mark, so both count.
+        assert_eq!(authority.record_failure(18), SyncRetry::Retry);
+        assert_eq!(authority.record_failure(20), SyncRetry::Retry);
+        assert_eq!(authority.consecutive_failures, 3);
+        assert_eq!(authority.record_failure(21), SyncRetry::Retry);
+        assert_eq!(authority.consecutive_failures, 1);
+    }
+
+    /// M4 (round 2): a refused peer is never chosen, whether it is the current target or a
+    /// candidate; neither is the peer that just failed.
+    #[test]
+    fn target_choice_never_picks_a_refused_or_failed_peer() {
+        let mut authority = SyncAuthority::default();
+        let (liar, failed, honest) = (PeerId::random(), PeerId::random(), PeerId::random());
+        authority.refuse_peer(liar);
+        assert_eq!(
+            authority.choose_target(Some(liar), None, [liar, honest]),
+            Some(honest)
+        );
+        assert_eq!(
+            authority.choose_target(Some(failed), Some(failed), [failed, liar, honest]),
+            Some(honest)
+        );
+        assert_eq!(
+            authority.choose_target(Some(honest), None, [liar]),
+            Some(honest)
+        );
+        assert_eq!(authority.choose_target(None, None, [liar]), None);
+        assert_eq!(authority.choose_target(Some(liar), None, []), None);
+    }
+
+    /// M2 (round 2): only a refutation is the peer's fault.
+    #[test]
+    fn only_a_refutation_counts_against_the_peer() {
+        assert_eq!(certificate_verdict(Ok(())), CertificateVerdict::Verified);
+        assert!(matches!(
+            certificate_verdict(Err(ConsensusError::DependencyNotFound("proof".into()))),
+            CertificateVerdict::CannotEvaluate(_)
+        ));
+        assert!(matches!(
+            certificate_verdict(Err(ConsensusError::StateAccess(
+                ioi_types::error::StateError::KeyNotFound
+            ))),
+            CertificateVerdict::CannotEvaluate(_)
+        ));
+        assert!(matches!(
+            certificate_verdict(Err(ConsensusError::BlockVerificationFailed("bad".into()))),
+            CertificateVerdict::Refuted(_)
+        ));
+        // The replacement check: a structural failure, else the verdict.
+        assert!(matches!(
+            replacement_check(Err(ReplacementRefusal::Missing)),
+            ReplacementCheck::Await(_)
+        ));
+        assert!(matches!(
+            replacement_check(Err(ReplacementRefusal::Invalid("gap".into()))),
+            ReplacementCheck::Refuse(_)
+        ));
+        assert_eq!(
+            replacement_check(Ok(CertificateVerdict::Verified)),
+            ReplacementCheck::Verified
+        );
+        assert!(matches!(
+            replacement_check(Ok(CertificateVerdict::CannotEvaluate("x".into()))),
+            ReplacementCheck::Await(_)
+        ));
+        assert!(matches!(
+            replacement_check(Ok(CertificateVerdict::Refuted("x".into()))),
+            ReplacementCheck::Refuse(_)
+        ));
+    }
+
+    /// M1 (round 2): T2b halts only on a verified certificate for the peer's block.
+    #[test]
+    fn an_admitted_tier_conflict_halts_only_when_certified() {
+        assert_eq!(
+            admitted_tier_action(ReplacementCheck::Verified),
+            AdmittedTierAction::Halt
+        );
+        assert!(matches!(
+            admitted_tier_action(ReplacementCheck::Refuse("x".into())),
+            AdmittedTierAction::RefusePeer(_)
+        ));
+        assert!(matches!(
+            admitted_tier_action(ReplacementCheck::Await("x".into())),
+            AdmittedTierAction::Await(_)
+        ));
+    }
+
+    /// m4 (round 2), Ruling 12 item 4: `next` is the last height applied or held, so the block
+    /// AT `next` is drained and the block at `next + 1` is the first applied.
+    #[test]
+    fn the_drained_prefix_ends_at_next_inclusive() {
+        assert_eq!(drained_prefix_len([8, 9, 10, 11, 12], 10), 3);
+        assert_eq!(drained_prefix_len([10, 11], 10), 1);
+        assert_eq!(drained_prefix_len([11, 12], 10), 0);
+        assert_eq!(drained_prefix_len([9, 10], 10), 2);
+        assert_eq!(drained_prefix_len([], 10), 0);
     }
 
     /// The trunk drained every served block at or below the cursor by height alone; an admitted

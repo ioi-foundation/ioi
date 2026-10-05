@@ -151,6 +151,33 @@ async fn own_vote_is_one_block_per_slot_and_an_exact_replay_passes() {
     assert!(error.to_string().contains("another block"), "{error}");
 }
 
+/// m2 (round 2): the fallback-start fence. A durable fallback start at H refuses this node's own
+/// optimistic vote at H, and (m7) an exact replay of a vote admitted before the start.
+#[tokio::test]
+async fn own_vote_and_its_replay_are_refused_after_a_fallback_start() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let directory = tempfile::tempdir().unwrap();
+    let mut engine = pq_fallback_engine(&validators, 5, &directory.path().join("fallback.scale"));
+    let admitted = proposal_with_parent(5, 0, qc_at(4, 0, 0x40));
+    admit(&mut engine, &admitted).await.unwrap();
+    // The canonical third timeout certificate starts the durable fallback at height 5.
+    for view in 1..=AFT_FALLBACK_TRIGGER_VIEW_V1 {
+        engine
+            .adopt_aft_timeout_certificate(validators.timeout_certificate(5, view), true)
+            .await
+            .unwrap();
+    }
+    assert!(engine.fallback_starts.contains_key(&5), "the fallback started");
+    let error = admit(&mut engine, &admitted).await.unwrap_err();
+    assert!(error.to_string().contains("fenced by a fallback start"), "{error}");
+    let fresh = proposal_with_parent(5, 1, qc_at(4, 0, 0x40));
+    let error = admit(&mut engine, &fresh).await.unwrap_err();
+    assert!(error.to_string().contains("fenced by a fallback start"), "{error}");
+    // Another height is not fenced.
+    let next = proposal_with_parent(6, 0, qc_at(5, 0, 0x50));
+    admit(&mut engine, &next).await.unwrap();
+}
+
 /// NET's S-debug sequence at engine level, after the fix: this node timed out of view 0 at
 /// height 5 and the view-1 TC formed; the stale view-0 proposal can no longer get THIS node's
 /// vote, and is refused before execution. Peers' votes are still pooled: cross-view votes by
@@ -226,12 +253,18 @@ fn a_lower_view_proposal_after_a_tc_is_refused_unless_already_accepted() {
     let next = proposal_with_parent(6, 0, qc_at(5, 1, 0x51));
     let next_hash = to_root_hash(&next.hash().unwrap()).unwrap();
     engine.refuse_stale_view_proposal(&next, &next_hash).unwrap();
-    // A block this node accepted before the TC (a later enrichment of it) is not a new proposal.
+    // A header merely SEEN (check_divergence records every arrival) is not accepted.
     engine
         .seen_headers
         .entry((5, 0))
         .or_default()
         .insert(stale_hash, stale.clone());
+    engine
+        .refuse_stale_view_proposal(&stale, &stale_hash)
+        .unwrap_err();
+    // A block this node fully verified before the TC (a later enrichment of it) is not a new
+    // proposal.
+    engine.accepted_proposals.insert((5, 0, stale_hash));
     engine
         .refuse_stale_view_proposal(&stale, &stale_hash)
         .unwrap();
@@ -430,18 +463,24 @@ async fn a_synced_certificate_verifies_against_the_views_membership_only() {
         .await
         .expect("an authentic 2f+1 certificate verifies against the view's membership");
 
+    // Refuted (inputs fully held here), never "cannot evaluate".
+    let refuted = |error: ConsensusError| !matches!(error, ConsensusError::DependencyNotFound(_));
     let mut forged = genuine.clone();
     forged.signatures[1].1 = vec![0xBB; forged.signatures[1].1.len()];
-    assert!(engine
-        .verify_certificate_against_view(&forged, &view)
-        .await
-        .is_err());
+    assert!(refuted(
+        engine
+            .verify_certificate_against_view(&forged, &view)
+            .await
+            .unwrap_err()
+    ));
     let mut replayed = genuine.clone();
     replayed.block_hash = [0x45u8; 32];
-    assert!(engine
-        .verify_certificate_against_view(&replayed, &view)
-        .await
-        .is_err());
+    assert!(refuted(
+        engine
+            .verify_certificate_against_view(&replayed, &view)
+            .await
+            .unwrap_err()
+    ));
     // The genesis sentinel needs no signatures; any other height-zero certificate is refused.
     engine
         .verify_certificate_against_view(&QuorumCertificate::default(), &view)
@@ -451,9 +490,30 @@ async fn a_synced_certificate_verifies_against_the_views_membership_only() {
         .verify_certificate_against_view(&qc_at(0, 1, 0x01), &view)
         .await
         .is_err());
-    // A view without a membership cannot authenticate anything.
-    assert!(engine
-        .verify_certificate_against_view(&genuine, &MockAnchoredView::default())
-        .await
-        .is_err());
+    // A view without a membership cannot authenticate anything: a local "cannot evaluate".
+    assert!(matches!(
+        engine
+            .verify_certificate_against_view(&genuine, &MockAnchoredView::default())
+            .await
+            .unwrap_err(),
+        ConsensusError::DependencyNotFound(_)
+    ));
+}
+
+/// M2 (round 2): a member key absent from the anchored view (and not otherwise held) leaves the
+/// certificate unevaluable here: a local "cannot evaluate", never a refutation of its server.
+#[tokio::test]
+async fn a_certificate_naming_keys_absent_here_cannot_be_evaluated() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    // The view holds the membership but none of its keys, and the engine holds none either.
+    let view = membership_view(&validators.sets);
+    let genuine = validators.signed_qc(4, 0, [0x44u8; 32]);
+    assert!(matches!(
+        engine
+            .verify_certificate_against_view(&genuine, &view)
+            .await
+            .unwrap_err(),
+        ConsensusError::DependencyNotFound(_)
+    ));
 }

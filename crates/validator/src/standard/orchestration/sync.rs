@@ -276,6 +276,17 @@ pub async fn start_catchup_to_peer<CS, ST, CE, V>(
     };
 
     if let Some(progress) = context.sync_progress.as_mut() {
+        // A peer this sync dropped (P7 round 2, M4) neither extends the tip nor becomes the
+        // target through a gossiped height gap: its heights are not believed again.
+        if !progress.authority.may_target(&peer) {
+            tracing::debug!(
+                target: "sync",
+                %peer,
+                peer_height,
+                "Ignoring a gossiped height gap from a peer this sync dropped."
+            );
+            return;
+        }
         if peer_height > progress.tip {
             tracing::info!(
                 target: "sync",
@@ -910,13 +921,18 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         let Some(progress) = context.sync_progress.as_mut() else {
             return;
         };
-        // A response from a peer this sync dropped for failing certificate checks is ignored.
+        // A response from a peer this sync dropped for a refuted certificate is ignored. If that
+        // peer is still the target, its reply ends the request: the session moves to another
+        // peer (counted), never left in flight on a refused peer (P7 round 2, M4).
         if !progress.authority.may_target(&peer) {
             tracing::debug!(
                 target: "sync",
                 %peer,
-                "Ignoring blocks from a peer this sync dropped for failing certificate checks."
+                "Ignoring blocks from a peer this sync dropped for a refuted certificate."
             );
+            if progress.target == Some(peer) {
+                retry_sync_from_peer_set(context, Some(peer)).await;
+            }
             return;
         }
         if progress.target != Some(peer) {
@@ -1009,14 +1025,15 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     );
 
     let mut blocks = blocks;
-    let already_applied_prefix = blocks
-        .iter()
-        .take_while(|block| block.header.height <= next)
-        .count();
+    let already_applied_prefix = super::sync_authority::drained_prefix_len(
+        blocks.iter().map(|block| block.header.height),
+        next,
+    );
     if already_applied_prefix > 0 {
         // T2b (P7): a served block at or below the admitted height is compared with this node's
-        // admitted block by HASH before it is drained. A different block there is a
-        // durable-tier conflict: halt with the evidence, never drain it by height alone.
+        // admitted block by HASH before it is drained. A different block there is rejected,
+        // never drained by height alone; it halts the node only when a verified certificate
+        // certifies it (round 2, M1; `admitted_tier_action`).
         for index in 0..already_applied_prefix {
             let block = &blocks[index];
             let height = block.header.height;
@@ -1039,8 +1056,10 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                 &peer_hash,
             ) == super::sync_authority::DrainedBlock::AdmittedTierConflict
             {
-                let local = local.expect("a conflict needs the local block");
-                halt_on_admitted_tier_conflict(
+                let Some(local) = local else {
+                    continue;
+                };
+                resolve_admitted_tier_conflict(
                     context,
                     peer,
                     canonical_height,
@@ -1201,11 +1220,28 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         }
 
         // G1 (P7): nothing is applied, replaced or reconciled on a synced block whose own parent
-        // certificate does not verify against the membership in its parent state. A peer that
-        // serves one is dropped from this sync and counted (source selection; T5).
-        if let Err(error) = verify_synced_parent_certificate(context, &block).await {
-            refuse_peer_batch(context, peer, applying_height, "parent certificate", &error).await;
-            return;
+        // certificate does not verify against the membership in its parent state. A peer whose
+        // certificate is REFUTED is dropped from this sync and counted (source selection; T5).
+        // A certificate this node cannot evaluate (round 2, M2) applies nothing and drops no
+        // one: the sync waits and retries, counted.
+        match verify_synced_parent_certificate(context, &block).await {
+            super::sync_authority::CertificateVerdict::Verified => {}
+            super::sync_authority::CertificateVerdict::CannotEvaluate(reason) => {
+                tracing::info!(
+                    target: "sync",
+                    %peer,
+                    applying_height,
+                    reason = %reason,
+                    "Holding a synced block whose parent certificate cannot be evaluated here; retrying."
+                );
+                retry_sync_from_peer_set(context, None).await;
+                return;
+            }
+            super::sync_authority::CertificateVerdict::Refuted(error) => {
+                refuse_peer_batch(context, peer, applying_height, "parent certificate", &error)
+                    .await;
+                return;
+            }
         }
 
         let (processed_block, replaces_live_tip) = if workload_height >= applying_height {
@@ -1282,12 +1318,13 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                         return;
                     };
                     if applying_height <= admitted_height {
-                        // T2b (P7): a different block at or below the admitted height is a
-                        // durable-tier conflict. Halt with the evidence written durably.
+                        // T2b (P7): a different block at or below the admitted height is
+                        // rejected; it halts the node, with the evidence written durably, only
+                        // when a verified certificate certifies it (round 2, M1).
                         if let Ok(Some(local)) =
                             workload_client.get_block_by_height(applying_height).await
                         {
-                            halt_on_admitted_tier_conflict(
+                            resolve_admitted_tier_conflict(
                                 context,
                                 peer,
                                 admitted_height,
@@ -1374,8 +1411,8 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                     // the batch's H+1 naming it; the engine verifies that certificate against
                     // the membership in the replacement's parent state.
                     match check_replacement_certificate(context, &block, next_in_batch).await {
-                        ReplacementCheck::Verified => {}
-                        ReplacementCheck::Await(reason) => {
+                        super::sync_authority::ReplacementCheck::Verified => {}
+                        super::sync_authority::ReplacementCheck::Await(reason) => {
                             tracing::info!(
                                 target: "sync",
                                 %peer,
@@ -1386,7 +1423,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                             retry_sync_from_peer_set(context, None).await;
                             return;
                         }
-                        ReplacementCheck::Refuse(error) => {
+                        super::sync_authority::ReplacementCheck::Refuse(error) => {
                             refuse_peer_batch(
                                 context,
                                 peer,
@@ -1622,15 +1659,16 @@ async fn retry_sync_from_peer_set<CS, ST, CE, V>(
         return;
     };
 
-    // T5 (P7): every failed batch counts; consecutive failures without an applied block end in
-    // an explicit halt, never an unbounded retry loop.
-    let consecutive_failures = progress.authority.consecutive_failures.saturating_add(1);
-    if progress.authority.record_failure() == super::sync_authority::SyncRetry::Exhausted {
+    // T5 (P7): every failed batch counts; consecutive failures without cursor progress (from any
+    // path, round 2 M3) end the sync SESSION explicitly, never an unbounded retry loop. The
+    // node is not frozen: the claimed tip was never verified, and one lying status or gossip
+    // height must not freeze a node. A later status or height gap may start a new session.
+    if progress.authority.record_failure(progress.next)
+        == super::sync_authority::SyncRetry::Exhausted
+    {
         let (next, tip) = (progress.next, progress.tip);
+        let consecutive_failures = progress.authority.consecutive_failures;
         context.sync_progress = None;
-        context
-            .is_quarantined
-            .store(true, std::sync::atomic::Ordering::SeqCst);
         tracing::error!(
             target: "sync",
             failed_peer = ?failed_peer,
@@ -1638,30 +1676,28 @@ async fn retry_sync_from_peer_set<CS, ST, CE, V>(
             tip,
             consecutive_failures,
             bound = super::sync_authority::SYNC_RETRY_BOUND,
-            "Sync retry bound exhausted without progress; sync halted and node frozen"
+            "Sync retry bound exhausted without progress; this sync session ended"
         );
         return;
     }
 
-    let refused = progress.authority.refused_peers.clone();
-    let preferred_target = progress
-        .target
-        .filter(|peer| Some(*peer) != failed_peer && !refused.contains(peer));
     progress.inflight = false;
     progress.requested_at = Instant::now();
     progress.retry_not_before = Instant::now().checked_add(super::sync_authority::retry_backoff(
         progress.authority.consecutive_failures,
     ));
 
-    let fallback_target = {
-        let known_peers = context.known_peers_ref.lock().await;
-        known_peers
-            .iter()
-            .copied()
-            .find(|peer| Some(*peer) != failed_peer && !refused.contains(peer))
-    };
-
-    progress.target = preferred_target.or(fallback_target);
+    // Every target assignment honours the refused set (round 2, M4).
+    let known_peers: Vec<PeerId> = context
+        .known_peers_ref
+        .lock()
+        .await
+        .iter()
+        .copied()
+        .collect();
+    progress.target = progress
+        .authority
+        .choose_target(progress.target, failed_peer, known_peers);
 
     if progress.target.is_some() {
         request_next_batch(context).await;
@@ -1681,7 +1717,7 @@ async fn retry_sync_from_peer_set<CS, ST, CE, V>(
 async fn verify_synced_parent_certificate<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     block: &Block<ChainTransaction>,
-) -> std::result::Result<(), String>
+) -> super::sync_authority::CertificateVerdict
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -1702,37 +1738,19 @@ where
         + Debug,
 {
     if block.header.height <= 1 {
-        return Ok(());
+        return super::sync_authority::CertificateVerdict::Verified;
     }
-    let parent_view = synced_parent_view(context, block).await?;
-    context
-        .consensus_engine_ref
-        .lock()
-        .await
-        .verify_synced_certificate(&block.header.parent_qc, &*parent_view)
-        .await
-        .map_err(|error| error.to_string())
+    synced_certificate_verdict(context, block, &block.header.parent_qc).await
 }
 
-/// What the replacement-certificate check decided.
-enum ReplacementCheck {
-    /// The batch's H+1 certifies the replacement, and the engine verified that certificate.
-    Verified,
-    /// Nothing certifies the replacement yet (the batch ends at it, or its parent state is not
-    /// available here): wait and retry, counted, without dropping the peer.
-    Await(String),
-    /// The batch is inconsistent or its certificate does not verify: drop the peer.
-    Refuse(String),
-}
-
-/// G1 (P7): checks the certificate that authorizes replacing local state with `block`: the
-/// batch's next block's parent certificate, verified against the membership in `block`'s parent
-/// state (whose sets cover `block`'s height).
-async fn check_replacement_certificate<CS, ST, CE, V>(
+/// The engine's verdict on `certificate`, verified against the membership in `block`'s parent
+/// state. An unavailable parent state is a local "cannot evaluate" (round 2, M2), not a
+/// refutation.
+async fn synced_certificate_verdict<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     block: &Block<ChainTransaction>,
-    next_in_batch: Option<&Block<ChainTransaction>>,
-) -> ReplacementCheck
+    certificate: &ioi_types::app::QuorumCertificate,
+) -> super::sync_authority::CertificateVerdict
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -1752,31 +1770,52 @@ where
         + 'static
         + Debug,
 {
-    let certificate = match super::sync_authority::replacement_certificate(block, next_in_batch) {
-        Ok(certificate) => certificate,
-        Err(super::sync_authority::ReplacementRefusal::Missing) => {
-            return ReplacementCheck::Await(
-                super::sync_authority::ReplacementRefusal::Missing.to_string(),
-            )
-        }
-        Err(super::sync_authority::ReplacementRefusal::Invalid(reason)) => {
-            return ReplacementCheck::Refuse(reason)
-        }
-    };
     let parent_view = match synced_parent_view(context, block).await {
         Ok(view) => view,
-        Err(error) => return ReplacementCheck::Await(error),
+        Err(error) => return super::sync_authority::CertificateVerdict::CannotEvaluate(error),
     };
-    match context
-        .consensus_engine_ref
-        .lock()
-        .await
-        .verify_synced_certificate(certificate, &*parent_view)
-        .await
-    {
-        Ok(()) => ReplacementCheck::Verified,
-        Err(error) => ReplacementCheck::Refuse(error.to_string()),
-    }
+    super::sync_authority::certificate_verdict(
+        context
+            .consensus_engine_ref
+            .lock()
+            .await
+            .verify_synced_certificate(certificate, &*parent_view)
+            .await,
+    )
+}
+
+/// G1 (P7): checks the certificate that authorizes replacing local state with `block`: the
+/// batch's next block's parent certificate, verified against the membership in `block`'s parent
+/// state (whose sets cover `block`'s height).
+async fn check_replacement_certificate<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+    block: &Block<ChainTransaction>,
+    next_in_batch: Option<&Block<ChainTransaction>>,
+) -> super::sync_authority::ReplacementCheck
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    let outcome = match super::sync_authority::replacement_certificate(block, next_in_batch) {
+        Ok(certificate) => Ok(synced_certificate_verdict(context, block, certificate).await),
+        Err(refusal) => Err(refusal),
+    };
+    super::sync_authority::replacement_check(outcome)
 }
 
 /// The anchored state a synced block executes on: its parent, by root and hash.
@@ -1820,8 +1859,8 @@ where
         })
 }
 
-/// G1 (P7): drops `peer` from this sync for serving a block whose certificate does not verify,
-/// and retries elsewhere (the retry counts toward T5's bound).
+/// G1 (P7): drops `peer` from this sync for serving a block whose certificate is refuted (or a
+/// batch that is inconsistent), and retries elsewhere (the retry counts toward T5's bound).
 async fn refuse_peer_batch<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     peer: PeerId,
@@ -1861,8 +1900,71 @@ async fn refuse_peer_batch<CS, ST, CE, V>(
     retry_sync_from_peer_set(context, Some(peer)).await;
 }
 
-/// T2b (P7): a served block at or below the admitted height differs from this node's admitted
-/// block. Write the evidence durably, then halt (freeze) rather than drain or roll back.
+/// T2b (P7; round 2, M1): a served block at or below the admitted height differs from this
+/// node's admitted block. Its certificate (the batch's H+1 parent QC) decides: verified, it is a
+/// durable-tier conflict and the node halts with the evidence; refuted or inconsistent, the block
+/// is rejected and the peer dropped; uncertified or unevaluable here, the block is rejected and
+/// the sync retries, counted. Nothing is drained or applied in any case.
+async fn resolve_admitted_tier_conflict<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+    peer: PeerId,
+    admitted_height: u64,
+    local: &Block<ChainTransaction>,
+    peer_block: &Block<ChainTransaction>,
+    next_in_batch: Option<&Block<ChainTransaction>>,
+) where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    let height = peer_block.header.height;
+    let check = check_replacement_certificate(context, peer_block, next_in_batch).await;
+    match super::sync_authority::admitted_tier_action(check) {
+        super::sync_authority::AdmittedTierAction::Halt => {
+            halt_on_admitted_tier_conflict(
+                context,
+                peer,
+                admitted_height,
+                local,
+                peer_block,
+                next_in_batch,
+            )
+            .await;
+        }
+        super::sync_authority::AdmittedTierAction::RefusePeer(reason) => {
+            refuse_peer_batch(context, peer, height, "admitted-height block", &reason).await;
+        }
+        super::sync_authority::AdmittedTierAction::Await(reason) => {
+            tracing::warn!(
+                target: "sync",
+                %peer,
+                height,
+                admitted_height,
+                reason = %reason,
+                "Rejecting a served block that differs from this node's admitted block and that nothing verified certifies; retrying."
+            );
+            retry_sync_from_peer_set(context, None).await;
+        }
+    }
+}
+
+/// T2b (P7): a VERIFIED certificate certifies a served block that differs from this node's
+/// admitted block (see `resolve_admitted_tier_conflict`). Write the evidence durably, then halt
+/// (freeze) rather than drain or roll back.
 async fn halt_on_admitted_tier_conflict<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     peer: PeerId,
@@ -1894,11 +1996,10 @@ async fn halt_on_admitted_tier_conflict<CS, ST, CE, V>(
         super::sync_authority::replacement_certificate(peer_block, next_in_batch)
             .ok()
             .cloned();
+    // Recorded from a fresh check, not assumed from the caller's decision.
     let peer_certificate_verified = peer_certificate.is_some()
-        && matches!(
-            check_replacement_certificate(context, peer_block, next_in_batch).await,
-            ReplacementCheck::Verified
-        );
+        && check_replacement_certificate(context, peer_block, next_in_batch).await
+            == super::sync_authority::ReplacementCheck::Verified;
     let hex_hash = |block: &Block<ChainTransaction>| {
         block
             .header
@@ -2096,30 +2197,78 @@ pub async fn handle_outbound_failure<CS, ST, CE, V>(
     };
 
     if progress.target == Some(failed_peer) {
-        progress.inflight = false;
-        progress.target = None;
+        // A failed request is a failed batch (T5, counted), and the next target honours the
+        // refused set like every other assignment (P7 round 2, M4).
+        tracing::info!(
+            target: "orchestration",
+            "Sync target {} failed. Retrying from another peer.",
+            failed_peer
+        );
+        retry_sync_from_peer_set(context, Some(failed_peer)).await;
+    }
+}
 
-        let new_target = {
-            let known_peers = context.known_peers_ref.lock().await;
-            known_peers.iter().find(|p| **p != failed_peer).cloned()
-        };
-
-        if let Some(new_peer) = new_target {
-            tracing::info!(
-                target: "orchestration",
-                "Sync target {} failed. Switching to new target {}",
-                failed_peer,
-                new_peer
-            );
-            progress.target = Some(new_peer);
+/// The periodic sync retry (the lifecycle tick): a timed-out request is a failed batch (T5,
+/// counted; the session moves to another peer), and a due deferred retry targets only a usable
+/// peer; with none usable, that too counts (P7 round 2, M4).
+pub(crate) async fn sync_retry_tick<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+    peers: &[PeerId],
+    request_timeout: std::time::Duration,
+) where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    let Some(progress) = context.sync_progress.as_mut() else {
+        return;
+    };
+    let request_timed_out = progress.inflight && progress.requested_at.elapsed() >= request_timeout;
+    let deferred_retry_due = !progress.inflight
+        && progress
+            .retry_not_before
+            .is_some_and(|not_before| Instant::now() >= not_before);
+    if !request_timed_out && !deferred_retry_due {
+        return;
+    }
+    tracing::warn!(
+        target: "sync",
+        target = ?progress.target,
+        next = progress.next,
+        tip = progress.tip,
+        timeout_ms = request_timeout.as_millis() as u64,
+        request_timed_out,
+        "Retrying an incomplete sync batch."
+    );
+    if request_timed_out {
+        let timed_out = progress.target;
+        retry_sync_from_peer_set(context, timed_out).await;
+        return;
+    }
+    progress.inflight = false;
+    match progress
+        .authority
+        .choose_target(progress.target, None, peers.iter().copied())
+    {
+        Some(peer) => {
+            progress.target = Some(peer);
             request_next_batch(context).await;
-        } else {
-            tracing::warn!(
-                target: "orchestration",
-                "Sync target {} failed. No other peers available.",
-                failed_peer
-            );
         }
+        None => retry_sync_from_peer_set(context, None).await,
     }
 }
 

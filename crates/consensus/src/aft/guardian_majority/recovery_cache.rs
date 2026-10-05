@@ -36,6 +36,7 @@ impl GuardianMajorityEngine {
         self.echo_pool.retain(|(h, _), _| *h >= height);
         self.voted_slots.retain(|(h, _)| *h >= height);
         self.local_votes.retain(|(h, _), _| *h >= height);
+        self.accepted_proposals.retain(|(h, _, _)| *h >= height);
 
         if let Ok(mut pm) = self.pacemaker.try_lock() {
             pm.start_height();
@@ -284,6 +285,8 @@ impl GuardianMajorityEngine {
             .entry((header.height, header.view))
             .or_default()
             .insert(block_hash, header.clone());
+        self.accepted_proposals
+            .insert((header.height, header.view, block_hash));
 
         // Sync and committed-block ingestion can bypass proposal handling.
         // Re-authenticate the embedded parent before it contributes to the
