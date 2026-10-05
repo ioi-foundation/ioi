@@ -1088,20 +1088,44 @@ async fn run_scenario(
                     )
                         .await
                         .unwrap_or((0, BTreeSet::new(), BTreeMap::new()));
+                // fork_check per_node_root_agreement.v1 (P7): the per-height chain_scan merges
+                // nodes; this line never does. Printed on the failure path too.
+                let fork_check =
+                    check_per_node_root_agreement(&rpc_addrs, scenario.name, lane.as_str()).await;
+                println!(
+                    "FORK_CHECK {}",
+                    serde_json::to_string(&fork_check).unwrap_or_default()
+                );
                 return Err(anyhow!(
-                    "{error}; cluster_view: {cluster_view}; metrics_view: {metrics_view}; final_status_scan: committed={final_committed} heights={:?} status_buckets={:?}; chain_scan: committed={} tip={} heights={:?}; block_tx_summary: {}",
+                    "{error}; cluster_view: {cluster_view}; metrics_view: {metrics_view}; final_status_scan: committed={final_committed} heights={:?} status_buckets={:?}; chain_scan: committed={} tip={} heights={:?}; block_tx_summary: {}; fork_check: {}",
                     final_heights,
                     status_buckets,
                     chain_scan.committed,
                     chain_scan.scanned_tip_height,
                     chain_scan.committed_heights,
                     block_tx_summary,
+                    fork_check.verdict,
                 ));
             }
             Err(join_error) => {
                 return Err(anyhow!("authoritative chain-commit task join failure: {}", join_error));
             }
         };
+        // fork_check per_node_root_agreement.v1 (P7): a forked or degraded chain is not a
+        // measurement. Print the evidence line, then fail the pass.
+        let fork_check =
+            check_per_node_root_agreement(&rpc_addrs, scenario.name, lane.as_str()).await;
+        println!(
+            "FORK_CHECK {}",
+            serde_json::to_string(&fork_check).unwrap_or_default()
+        );
+        if fork_check.verdict != "agree" {
+            return Err(anyhow!(
+                "fork_check verdict {}: {}",
+                fork_check.verdict,
+                serde_json::to_string(&fork_check).unwrap_or_default()
+            ));
+        }
 
         let (committed, committed_heights, final_status_buckets) = if fast_probe {
             (
@@ -1149,13 +1173,14 @@ async fn run_scenario(
                 let block_tx_summary =
                     summarize_block_tx_counts(&chain_scan.per_block_tx_counts);
                 return Err(anyhow!(
-                    "no committed records observed; sample failure: {sample_failure}; cluster_view: {cluster_view}; metrics_view: {metrics_view}; final_status_scan: committed={committed} heights={:?} status_buckets={:?}; chain_scan: committed={} tip={} heights={:?}; block_tx_summary: {}",
+                    "no committed records observed; sample failure: {sample_failure}; cluster_view: {cluster_view}; metrics_view: {metrics_view}; final_status_scan: committed={committed} heights={:?} status_buckets={:?}; chain_scan: committed={} tip={} heights={:?}; block_tx_summary: {}; fork_check: {}",
                     committed_heights,
                     final_status_buckets,
                     chain_scan.committed,
                     chain_scan.scanned_tip_height,
                     chain_scan.committed_heights,
                     block_tx_summary,
+                    fork_check.verdict,
                 ));
             }
         };
@@ -1231,7 +1256,7 @@ async fn run_scenario(
                 .unwrap_or_else(|| "n/a".to_string()),
         );
         println!(
-            "--- Commit observation lag: sampled_commit_visibility_lag_ms={} sustained_endpoint={} ---",
+            "--- Commit observation lag: sampled_commit_visibility_lag_ms={} sustained_endpoint={} fork_check={} ---",
             sampled_commit_visibility_lag_ms
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "n/a".to_string()),
@@ -1239,7 +1264,8 @@ async fn run_scenario(
                 "authoritative_chain_scan"
             } else {
                 "sampled_status_or_authoritative_fallback"
-            }
+            },
+            fork_check.verdict,
         );
 
         let terminal_result = if committed_heights.is_empty() || matches!(lane, AftBenchmarkLane::BaseFinal) {
