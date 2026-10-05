@@ -662,3 +662,116 @@ async fn div_a_stale_proposal_whose_votes_came_first_is_certified_by_the_pool_an
     );
     assert!(engine.accepted_proposals.contains(&(5, 0, authentic_hash)));
 }
+
+// B1-P7-DIV follow-ups carried into P7 part 2's lane (build rulings, "B1-P7-DIV MERGE RULED",
+// 14:45 EDT 10-05): review r1's MINOR-4 (a view > 0 divergence test) and MINOR-1 (the intended
+// behaviour: a header refused by a check that precedes the divergence record, here the
+// guardianized certificate, is never recorded).
+
+/// Signs `header` as the slot leader of its (height, view) under the PQ membership, after every
+/// field the signature covers (including a timeout certificate) is set.
+fn sign_as_pq_slot_leader(
+    validators: &PqAuthenticatedValidators,
+    mut header: BlockHeader,
+) -> BlockHeader {
+    let members = &validators.sets.current.validators;
+    let leader =
+        members[((header.height - 1 + header.view) % members.len() as u64) as usize].account_id;
+    let leader_index = (0..BFT_MEMBERS)
+        .find(|index| validators.account_id(*index) == leader)
+        .unwrap();
+    header.producer_account_id = leader;
+    header.producer_key_suite = SignatureSuite::ML_DSA_44;
+    header.producer_pubkey = validators.keypairs[leader_index].public_key().to_bytes();
+    header.producer_pubkey_hash = leader.0;
+    header.oracle_counter = header.height;
+    header.oracle_trace_hash = [0x5A; 32];
+    let preimage = header.to_preimage_for_signing().unwrap();
+    let mut payload = ioi_crypto::algorithms::hash::sha256(&preimage)
+        .unwrap()
+        .to_vec();
+    payload.extend_from_slice(&header.oracle_counter.to_be_bytes());
+    payload.extend_from_slice(&header.oracle_trace_hash);
+    header.signature = validators.keypairs[leader_index]
+        .sign(&payload)
+        .unwrap()
+        .to_bytes();
+    header
+}
+
+/// MINOR-4 (review r1 of B1-P7-DIV): two AUTHENTIC proposals by the slot's leader at a VIEW > 0
+/// slot (authorized by a scoped timeout certificate) are divergent too: the second is refused.
+/// Every earlier divergence test used view 0, so a check narrowed to view 0 survived them.
+#[tokio::test]
+async fn div_two_authentic_proposals_at_a_later_view_slot_are_still_divergent() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let mut first = proposal_with_parent(5, 1, validators.signed_qc(4, 0, [0x40; 32]));
+    first.aft_timeout_certificate = Some(validators.timeout_certificate(5, 1));
+    let mut second = first.clone();
+    second.transactions_root = vec![0x41; 32];
+    let first = sign_as_pq_slot_leader(&validators, first);
+    let second = sign_as_pq_slot_leader(&validators, second);
+    propose(&mut engine, &chain, first)
+        .await
+        .expect("the first authentic view-1 proposal is accepted");
+    let error = propose(&mut engine, &chain, second).await.unwrap_err();
+    assert!(error.to_string().contains("HardwareDivergence"), "{error}");
+}
+
+/// MINOR-1 (review r1 of B1-P7-DIV), the INTENDED behaviour (rulings 14:45 EDT 10-05): in a
+/// guardianized mode, a header the slot leader really signed but that fails the guardianized
+/// certificate check is refused BEFORE the divergence record, so it is never recorded in
+/// `seen_headers` (it is not divergence evidence, and a later certificate for it that jumps past
+/// the next height waits until the header is learned another way). The structural case is
+/// `div_an_unauthenticated_header_is_not_recorded_as_seen`; the signature case is
+/// `div_a_header_forging_the_leaders_identity_is_refused_at_the_signature_and_not_recorded`.
+#[tokio::test]
+async fn div_a_leader_signed_header_failing_the_guardianized_certificate_is_not_recorded() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+    for height in [1, 4, 5] {
+        validators.install(&mut engine, height);
+    }
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let members = &validators.sets.current.validators;
+    let leader = members[((5 - 1 + 0) % members.len() as u64) as usize].account_id;
+    let leader_index = (0..BFT_MEMBERS)
+        .find(|index| validators.account_id(*index) == leader)
+        .unwrap();
+    let mut header = proposal_with_parent(5, 0, qc_at(4, 0, 0x40));
+    header.producer_account_id = leader;
+    header.producer_key_suite = SignatureSuite::ED25519;
+    header.producer_pubkey = validators.keypairs[leader_index].public().encode_protobuf();
+    header.producer_pubkey_hash = leader.0;
+    header.guardian_certificate = None;
+    let preimage = header.to_preimage_for_signing().unwrap();
+    let mut payload = ioi_crypto::algorithms::hash::sha256(&preimage)
+        .unwrap()
+        .to_vec();
+    payload.extend_from_slice(&header.oracle_counter.to_be_bytes());
+    payload.extend_from_slice(&header.oracle_trace_hash);
+    header.signature = validators.keypairs[leader_index].sign(&payload).unwrap();
+    let header_hash = to_root_hash(&header.hash().unwrap()).unwrap();
+    let error = propose(&mut engine, &chain, header).await.unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("guardianized mode requires guardian_certificate"),
+        "the leader-signed header must pass the signature and fail the guardianized certificate: {error}"
+    );
+    assert!(
+        !engine
+            .seen_headers
+            .get(&(5, 0))
+            .is_some_and(|headers| headers.contains_key(&header_hash)),
+        "a header refused at the guardianized certificate was recorded as seen"
+    );
+}
