@@ -51,6 +51,13 @@ pub struct MldsaPrivateKey {
 /// ML-DSA signature
 pub struct MldsaSignature(Vec<u8>);
 
+/// The refusal for a level ML-DSA has no parameter set for (OBS-9: never a silent ML-DSA-44).
+fn unsupported_level(level: SecurityLevel) -> CryptoError {
+    CryptoError::Unsupported(format!(
+        "ML-DSA has no parameter set for {level:?}; use Level2 (ML-DSA-44), Level3 (ML-DSA-65) or Level5 (ML-DSA-87)"
+    ))
+}
+
 impl MldsaScheme {
     /// Create a new ML-DSA scheme with the specified security level
     pub fn new(level: SecurityLevel) -> Self {
@@ -101,19 +108,9 @@ impl MldsaScheme {
                     level: self.level,
                 })
             }
-            _ => {
-                // Default to Level2 (ML-DSA-44) for any other security level
-                let (pk, sk) = MlDsa44::keypair(&mut rng)
-                    .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(MldsaKeyPair {
-                    public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
-                    private_key: MldsaPrivateKey {
-                        data: Zeroizing::new(sk.to_bytes_zeroizing().to_vec()),
-                        level: SecurityLevel::Level2,
-                    },
-                    level: SecurityLevel::Level2,
-                })
-            }
+            // OBS-9 (P7): no silent fallback to ML-DSA-44 for a level ML-DSA has no parameter set
+            // for; a caller asking for one gets a refusal, never a different key.
+            other => Err(unsupported_level(other)),
         }
     }
 
@@ -145,18 +142,16 @@ impl MldsaScheme {
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
-            _ => {
-                // Default to Level2
-                let sk = DcryptSecretKey::from_bytes(&private_key.data)
-                    .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                let signature = MlDsa44::sign(message, &sk)
-                    .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(MldsaSignature(signature.to_bytes().to_vec()))
-            }
+            other => Err(unsupported_level(other)),
         }
     }
 
-    /// Verify a signature
+    /// Verify a signature under THIS scheme's configured level.
+    ///
+    /// OBS-9 (P7): the trunk inferred the parameter set from the public key's length, so a scheme
+    /// configured for ML-DSA-65 accepted a valid ML-DSA-44 key and signature (a silent level
+    /// downgrade). A key whose length belongs to another level now fails closed. (The bare
+    /// `MldsaPublicKey::verify` carries no configured level; its callers bind the level by suite.)
     pub fn verify(
         &self,
         public_key: &MldsaPublicKey,
@@ -170,6 +165,14 @@ impl MldsaScheme {
             2592 => SecurityLevel::Level5, // ML-DSA-87
             _ => return Err(CryptoError::InvalidKey("Invalid public key size".into())),
         };
+        if level != self.level {
+            return Err(CryptoError::InvalidKey(format!(
+                "ML-DSA key length {} is a {:?} key; this scheme is configured for {:?}",
+                public_key.0.len(),
+                level,
+                self.level
+            )));
+        }
 
         match level {
             SecurityLevel::Level2 => {
@@ -241,14 +244,7 @@ impl SigningKeyPair for MldsaKeyPair {
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
-            _ => {
-                // Default to Level2
-                let sk = DcryptSecretKey::from_bytes(&self.private_key.data)
-                    .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                let signature = MlDsa44::sign(message, &sk)
-                    .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(MldsaSignature(signature.to_bytes().to_vec()))
-            }
+            other => Err(unsupported_level(other)),
         }
     }
 }
@@ -333,14 +329,7 @@ impl SigningKey for MldsaPrivateKey {
                     .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
                 Ok(MldsaSignature(signature.to_bytes().to_vec()))
             }
-            _ => {
-                // Default to Level2
-                let sk = DcryptSecretKey::from_bytes(&self.data)
-                    .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                let signature = MlDsa44::sign(message, &sk)
-                    .map_err(|e| CryptoError::OperationFailed(e.to_string()))?;
-                Ok(MldsaSignature(signature.to_bytes().to_vec()))
-            }
+            other => Err(unsupported_level(other)),
         }
     }
 }
