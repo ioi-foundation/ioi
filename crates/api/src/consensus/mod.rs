@@ -351,6 +351,14 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         Vec::new()
     }
 
+    /// Whether an authenticated quorum certificate this engine holds certifies the block
+    /// `block_hash` at `height`. A caller that kept a proposal the engine refused as a stale-view
+    /// proposal (`ConsensusError::StaleViewProposal`) offers it again once this holds. Engines
+    /// without quorum certificates hold none.
+    fn holds_certificate_for(&self, _height: u64, _block_hash: &[u8; 32]) -> bool {
+        false
+    }
+
     /// Returns newly authenticated timeout certificates for prompt relay.
     fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {
         Vec::new()

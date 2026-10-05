@@ -382,6 +382,12 @@ where
         )
     }
 
+    fn holds_certificate_for(&self, height: u64, block_hash: &[u8; 32]) -> bool {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::holds_certificate_for(
+            &self.core, height, block_hash,
+        )
+    }
+
     fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {
         <GuardianMajorityEngine as ConsensusEngine<T>>::take_pending_timeout_certificates(
             &mut self.core,
@@ -481,6 +487,51 @@ mod admit_local_vote_forwarding {
             Consensus::Aft(AftEngine::new(AftSafetyMode::ClassicBft));
         engine.admit_local_vote(&header(1)).await.unwrap();
         assert!(engine.admit_local_vote(&header(2)).await.is_err());
+    }
+}
+
+#[cfg(test)]
+mod holds_certificate_for_forwarding {
+    //! P7 round 3 (N1): every wrapper forwards `holds_certificate_for` to the AFT core. The
+    //! orchestration offers a kept stale-view proposal again only when this holds; a wrapper that
+    //! fell back to the trait's default (`false`) would keep it forever.
+    use super::*;
+    use crate::Consensus;
+    use ioi_types::app::ChainTransaction;
+
+    fn certified_engine() -> AftEngine {
+        let mut engine = AftEngine::new(AftSafetyMode::ClassicBft);
+        engine.core.remember_qc_for_tests(&QuorumCertificate {
+            height: 5,
+            view: 0,
+            block_hash: [5u8; 32],
+            signatures: Vec::new(),
+            aggregated_signature: Vec::new(),
+            signers_bitfield: Vec::new(),
+        });
+        engine
+    }
+
+    #[test]
+    fn aft_engine_forwards_to_the_core() {
+        let engine = certified_engine();
+        assert!(<AftEngine as ConsensusEngine<ChainTransaction>>::holds_certificate_for(
+            &engine,
+            5,
+            &[5u8; 32]
+        ));
+        assert!(!<AftEngine as ConsensusEngine<ChainTransaction>>::holds_certificate_for(
+            &engine,
+            5,
+            &[6u8; 32]
+        ));
+    }
+
+    #[test]
+    fn the_consensus_enum_forwards_to_the_aft_engine() {
+        let engine: Consensus<ChainTransaction> = Consensus::Aft(certified_engine());
+        assert!(engine.holds_certificate_for(5, &[5u8; 32]));
+        assert!(!engine.holds_certificate_for(4, &[5u8; 32]));
     }
 }
 

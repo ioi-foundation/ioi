@@ -1469,6 +1469,8 @@ where
             consensus_kick_scheduled: Arc::new(AtomicBool::new(false)),
             next_due_wakeup_at_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             sync_progress: None,
+            sync_peer_cooldown: Default::default(),
+            stale_proposals: Default::default(),
             nonce_manager: self.nonce_manager.clone(),
             signer: self.signer.clone(),
             batch_verifier: self.batch_verifier.clone(),

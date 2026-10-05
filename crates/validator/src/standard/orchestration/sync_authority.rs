@@ -17,7 +17,11 @@
 //! - **What a certificate check means** ([`certificate_verdict`]): verified; REFUTED against
 //!   inputs this node fully holds (the peer is at fault); or CANNOT BE EVALUATED here (an input
 //!   other than the certificate, such as the parent state, a member key, or an asynchronous
-//!   parent proof, is missing locally). Only a refutation drops a peer.
+//!   parent proof, is missing locally). Only a refutation drops a peer. A verdict that cannot
+//!   be evaluated, or a block that waits for a certificate ("await"), keeps the peer but MOVES
+//!   the session to another peer, counted (round 3, review round 2's N2): any peer can make
+//!   this node unable to evaluate its block (a parent state or parent it does not hold), so
+//!   that verdict must never keep a target.
 //! - **Crossing a hash-fallback height** ([`async_reference_binding`], [`async_child_verdict`]):
 //!   the child of a virtual block carries the signature-free asynchronous reference as its
 //!   parent certificate. A node without the asynchronous parent proof checks that the reference
@@ -25,13 +29,18 @@
 //!   batch's next block's parent certificate, verified) decide.
 //! - **Source selection** ([`SyncAuthority`]): a peer whose batch is refuted is dropped (never
 //!   targeted again in this sync, by any target assignment: [`SyncAuthority::choose_target`])
-//!   and counted, with no change to the status protocol.
+//!   and counted, with no change to the status protocol. Across sessions
+//!   ([`SyncPeerCooldown`], round 3, N2): a peer refused in a session, or whose batches failed
+//!   in the run that exhausted a session, opens no new session on its own hint (a gossiped
+//!   height or a status) and is not targeted by a new session, for [`SYNC_PEER_COOLDOWN`].
 //! - **T5, the retry bound** ([`SyncAuthority::record_failure`], [`retry_backoff`]): consecutive
 //!   failed batches (refused, unusable, empty while behind, timed out, or no usable target)
 //!   without cursor progress from ANY path end the sync SESSION explicitly after
-//!   [`SYNC_RETRY_BOUND`], never an unbounded loop and never a node freeze. The retries back off
-//!   (250 ms doubling every 4 failures, capped at 8 s), so the bound spans about two minutes
-//!   without progress, not a burst.
+//!   [`SYNC_RETRY_BOUND`], never an unbounded loop within a session and never a node freeze. The
+//!   retries back off (250 ms doubling every 4 failures, capped at 8 s), so the bound spans
+//!   about two minutes without progress, not a burst. A later status or height hint may open a
+//!   NEW session (the discoverer polls every few seconds), so the bound is per session; a peer
+//!   that failed the exhausted run is cooled down first ([`SyncPeerCooldown`]).
 //! - **T2b, admitted-tier evidence** ([`classify_drained_block`], [`admitted_tier_action`],
 //!   [`SyncConflictEvidenceV1`]): a served block at or below the admitted height whose hash
 //!   differs from this node's admitted block is a durable-tier conflict only when a verified
@@ -51,6 +60,12 @@ use std::path::{Path, PathBuf};
 /// usable target) tolerated without progress before the sync session ends explicitly (T5). Any
 /// cursor progress, from sync or from live gossip, resets the count.
 pub(crate) const SYNC_RETRY_BOUND: u32 = 32;
+
+/// How long a peer refused in a sync session, or whose batches failed in the run that exhausted a
+/// session, is not believed by later sessions (round 3, N2): about one session's worth of retries
+/// at the capped backoff. A cooled peer's hint opens no session and a new session does not target
+/// it; when every known peer is cooled, sync resumes after the cooldown (a bounded delay).
+pub(crate) const SYNC_PEER_COOLDOWN: std::time::Duration = std::time::Duration::from_secs(120);
 
 /// What a certificate check concluded, from this node's side (P7 round 2, M2).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -309,6 +324,9 @@ pub(crate) struct SyncAuthority {
     /// The highest cursor (`SyncProgress::next`) seen at a failure. A failure at a higher cursor
     /// means the node progressed since (by sync or by live gossip), so the count restarts.
     pub(crate) progress_mark: Option<u64>,
+    /// Peers whose batches failed since the count last restarted (round 3, N2): cooled down if
+    /// this run exhausts the session.
+    pub(crate) failed_peers: BTreeSet<PeerId>,
 }
 
 /// The outcome of recording one failed batch.
@@ -338,6 +356,7 @@ impl SyncAuthority {
         if self.progress_mark.map_or(true, |mark| next > mark) {
             self.progress_mark = Some(next);
             self.consecutive_failures = 0;
+            self.failed_peers.clear();
         }
         self.consecutive_failures = self.consecutive_failures.saturating_add(1);
         if self.consecutive_failures >= SYNC_RETRY_BOUND {
@@ -350,6 +369,12 @@ impl SyncAuthority {
     /// An applied block is progress: the failure count restarts.
     pub(crate) fn record_progress(&mut self) {
         self.consecutive_failures = 0;
+        self.failed_peers.clear();
+    }
+
+    /// Notes that `peer`'s batch failed in the current run of failures.
+    pub(crate) fn note_failed_peer(&mut self, peer: PeerId) {
+        self.failed_peers.insert(peer);
     }
 
     /// The peer to target next: the `current` target if it is still usable, else the first
@@ -365,6 +390,40 @@ impl SyncAuthority {
         current
             .filter(usable)
             .or_else(|| candidates.into_iter().find(usable))
+    }
+}
+
+/// Peers later sync sessions do not believe for a while (round 3, review round 2's N2). The
+/// per-session [`SyncAuthority`] is discarded when a session ends; without this, a peer refused
+/// in one session, or one that pinned it until T5 ended it, would open the next session on its
+/// own unverified hint.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct SyncPeerCooldown {
+    /// Each cooled peer, until when.
+    pub(crate) until: std::collections::BTreeMap<PeerId, std::time::Instant>,
+}
+
+impl SyncPeerCooldown {
+    /// Cools `peer` down for [`SYNC_PEER_COOLDOWN`] from `now` (expired entries are dropped, so
+    /// the map holds only peers cooled within one cooldown window).
+    pub(crate) fn cool(&mut self, peer: PeerId, now: std::time::Instant) {
+        self.until.retain(|_, until| *until > now);
+        self.until.insert(peer, now + SYNC_PEER_COOLDOWN);
+    }
+
+    /// Whether `peer` is cooled down at `now`.
+    pub(crate) fn is_cooling(&self, peer: &PeerId, now: std::time::Instant) -> bool {
+        self.until.get(peer).is_some_and(|until| *until > now)
+    }
+
+    /// The source-selection state a NEW session starts from: every peer still cooled down is
+    /// refused in it (expired entries are dropped).
+    pub(crate) fn new_session_authority(&mut self, now: std::time::Instant) -> SyncAuthority {
+        self.until.retain(|_, until| *until > now);
+        SyncAuthority {
+            refused_peers: self.until.keys().copied().collect(),
+            ..Default::default()
+        }
     }
 }
 
@@ -809,5 +868,50 @@ mod tests {
             path
         );
         assert_eq!(std::fs::read(&path).unwrap(), b"first");
+    }
+
+    #[test]
+    fn a_cooled_down_peer_is_refused_by_new_sessions_until_the_cooldown_passes() {
+        let mut cooldown = SyncPeerCooldown::default();
+        let (cooled, other) = (PeerId::random(), PeerId::random());
+        let now = std::time::Instant::now();
+        cooldown.cool(cooled, now);
+        assert!(cooldown.is_cooling(&cooled, now));
+        assert!(!cooldown.is_cooling(&other, now));
+        let authority = cooldown.new_session_authority(now);
+        assert!(!authority.may_target(&cooled));
+        assert!(authority.may_target(&other));
+        let later = now + SYNC_PEER_COOLDOWN;
+        assert!(
+            !cooldown.is_cooling(&cooled, later),
+            "the cooldown never ends"
+        );
+        assert!(cooldown.new_session_authority(later).may_target(&cooled));
+        assert!(cooldown.until.is_empty(), "an expired entry was kept");
+    }
+
+    #[test]
+    fn failed_peers_are_those_of_the_current_run_of_failures() {
+        let mut authority = SyncAuthority::default();
+        let (early, late) = (PeerId::random(), PeerId::random());
+        authority.record_failure(7);
+        authority.note_failed_peer(early);
+        authority.record_progress();
+        assert!(
+            authority.failed_peers.is_empty(),
+            "progress kept an earlier failure"
+        );
+        authority.record_failure(9);
+        authority.note_failed_peer(late);
+        authority.record_failure(10);
+        assert!(
+            authority.failed_peers.is_empty(),
+            "a higher cursor is progress: the run restarts"
+        );
+        authority.note_failed_peer(late);
+        assert_eq!(
+            authority.failed_peers.iter().collect::<Vec<_>>(),
+            vec![&late]
+        );
     }
 }

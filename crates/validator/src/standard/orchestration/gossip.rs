@@ -19,7 +19,7 @@ use ioi_types::{
         FailureReport, StateRoot,
     },
     config::{AftSafetyMode, ConsensusType},
-    error::{ChainError, TransactionError},
+    error::{ChainError, ConsensusError, TransactionError},
 };
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
@@ -546,6 +546,148 @@ where
     Ok(())
 }
 
+/// Keeps a proposal the engine refused as a stale-view proposal (P7 round 3, N1; see
+/// `stale_proposals.rs` for the bounds).
+async fn keep_stale_view_proposal<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+    block: &Block<ChainTransaction>,
+    mirror_id: u8,
+    source_peer: libp2p::PeerId,
+    refusal: &ConsensusError,
+) where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let Some((height, view, block_hash)) = aft_replacement_candidate_key(block) else {
+        tracing::warn!(target: "gossip", "Invalid block: {}", refusal);
+        return;
+    };
+    // A block at or below the admitted height can never be applied; if the floor cannot be read,
+    // nothing is pruned (the store stays bounded by its capacity).
+    let admitted_height = super::runtime_finality::agentgres_admitted_height(context)
+        .await
+        .unwrap_or(0);
+    let kept = context.stale_proposals.keep(
+        super::stale_proposals::KeptProposal {
+            block: block.clone(),
+            block_hash,
+            mirror_id,
+            source_peer,
+        },
+        admitted_height,
+    );
+    tracing::info!(
+        target: "gossip",
+        event = "stale_view_proposal_refused",
+        height,
+        view,
+        kept,
+        refusal = %refusal,
+        "Refused a stale-view proposal; kept for a certificate that may still arrive."
+    );
+}
+
+/// Offers again, through the gossip path, every kept stale-view proposal the engine now holds a
+/// certificate for (P7 round 3, N1). The event loop calls it after it handles a vote or a
+/// propagated quorum certificate: the engine records a certificate for a block it has not
+/// accepted only through `handle_vote` and `handle_quorum_certificate` (a child proposal cannot
+/// teach it here, since verifying the child needs the kept block's state, which this node lacks).
+/// It costs one check while nothing is kept.
+pub(super) async fn reoffer_certified_stale_proposals<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+) where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    if context.stale_proposals.is_empty() {
+        return;
+    }
+    let certified = {
+        let engine = context.consensus_engine_ref.lock().await;
+        context
+            .stale_proposals
+            .take_certified(|height, block_hash| {
+                <CE as ConsensusEngine<ChainTransaction>>::holds_certificate_for(
+                    &*engine, height, block_hash,
+                )
+            })
+    };
+    for kept in certified {
+        tracing::info!(
+            target: "gossip",
+            event = "stale_view_proposal_certified",
+            height = kept.block.header.height,
+            view = kept.block.header.view,
+            "A kept stale-view proposal is now certified; offering it again."
+        );
+        boxed_gossip_block(context, kept.block, kept.mirror_id, kept.source_peer).await;
+    }
+}
+
+/// `handle_gossip_block`, boxed and built outside the caller's frame. The event handler's
+/// gossip arm and the re-offer (inside its vote and QC arms) both await it: built inline, the
+/// gossip future would add its whole size to the event handler's frame (debug builds build a
+/// future on the stack before moving it), and the re-offer path would stack a second gossip
+/// frame on that one.
+#[inline(never)]
+pub(super) fn boxed_gossip_block<'a, CS, ST, CE, V>(
+    context: &'a mut MainLoopContext<CS, ST, CE, V>,
+    block: Block<ChainTransaction>,
+    mirror_id: u8,
+    source_peer: libp2p::PeerId,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    Box::pin(handle_gossip_block(context, block, mirror_id, source_peer))
+}
+
 /// Handles an incoming gossiped block.
 pub async fn handle_gossip_block<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
@@ -690,13 +832,21 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 
     tracing::debug!(target: "aft", "Received block {} on Mirror {}", block.header.height, if mirror_id == 0 { "A" } else { "B" });
 
-    if let Err(e) = engine_ref
+    let verdict = engine_ref
         .lock()
         .await
         .handle_block_proposal::<CS, ST>(block.clone(), &&cv)
-        .await
-    {
-        tracing::warn!(target: "gossip", "Invalid block: {}", e);
+        .await;
+    if let Err(e) = verdict {
+        if let ConsensusError::StaleViewProposal { .. } = e {
+            // P7 round 3 (N1): an authentic proposal refused only because a later view's
+            // timeout certificate formed at its height. Votes cast before the timeouts may still
+            // certify it, and then the next height extends it: keep it (bounded) and offer it
+            // again once the engine holds a certificate for it.
+            keep_stale_view_proposal(context, &block, mirror_id, source_peer, &e).await;
+        } else {
+            tracing::warn!(target: "gossip", "Invalid block: {}", e);
+        }
         return;
     }
 

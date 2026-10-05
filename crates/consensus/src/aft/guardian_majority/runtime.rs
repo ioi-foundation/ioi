@@ -913,17 +913,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         let header = &block.header;
 
-        // A proposal of an earlier view at a height where a later-view timeout certificate has
-        // formed is refused before anything executes or persists it (P7, vote_safety.rs).
-        {
-            let early_hash = header
-                .hash()
-                .ok()
-                .and_then(|bytes| to_root_hash(&bytes).ok())
-                .ok_or_else(|| ConsensusError::BlockVerificationFailed("Hash fail".into()))?;
-            self.refuse_stale_view_proposal(header, &early_hash)?;
-        }
-
         let parent_state_ref = StateRef {
             height: header.height - 1,
             state_root: header.parent_state_root.as_ref().to_vec(),
@@ -1178,6 +1167,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             self.verify_published_canonical_collapse_object(header, &*parent_view)
                 .await?;
         }
+
+        // A proposal of an earlier view at a height where a later-view timeout certificate has
+        // formed is refused here (P7, vote_safety.rs): after the slot leader's signature and the
+        // proposal's certificates are authenticated (so the refusal is a statement about an
+        // authentic proposal, which the orchestration may keep and offer again once a
+        // certificate for it is known: round 3, N1), and before the pacemaker, the slot binding,
+        // the accepted record or any execution or persistence (all of which follow `Ok`).
+        self.refuse_stale_view_proposal(header, &block_hash)?;
 
         // Only a fully verified proposal may move the pacemaker. Views are
         // scoped to one height, so a proposal for a newer height first resets
@@ -1545,6 +1542,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
         self.drain_pending_quorum_certificates()
+    }
+
+    fn holds_certificate_for(&self, height: u64, block_hash: &[u8; 32]) -> bool {
+        // `qc_pool` holds only certificates that passed `authenticated_quorum` (the
+        // `remember_qc` callers), the same set the stale-view refusal's exemption reads.
+        self.qc_pool
+            .get(&height)
+            .is_some_and(|certified| certified.contains_key(block_hash))
     }
 
     fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {

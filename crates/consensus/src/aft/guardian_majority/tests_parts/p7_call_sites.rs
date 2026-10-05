@@ -56,11 +56,13 @@ async fn propose(
     .await
 }
 
-/// B1 (RED before the fix). The ruled item "lower-view proposals are refused after a TC", through
-/// `handle_block_proposal`: the TC for view 1 at height 5 has formed here, and a fresh view-0
-/// proposal at height 5 arrives. It must be refused as stale, before anything verifies, executes
-/// or persists it. (At 98e89083d `check_divergence` recorded the header first, so the refusal read
-/// it as "already accepted" and never fired.)
+/// B1 (RED before the round-2 fix). The ruled item "lower-view proposals are refused after a TC",
+/// through `handle_block_proposal`: the TC for view 1 at height 5 has formed here, and a fresh,
+/// authentic view-0 proposal at height 5 arrives. It is refused as stale (the typed error the
+/// orchestration keeps it by), before anything executes or persists it. (At 98e89083d
+/// `check_divergence` recorded the header first, so the refusal read it as "already accepted" and
+/// never fired.) Round 3: the refusal runs after authentication, so the proposal here is the slot
+/// leader's signed one (round 2 used an unsigned block, refused before any check).
 #[tokio::test]
 async fn b1_handle_block_proposal_refuses_a_stale_view_proposal_after_a_tc() {
     let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
@@ -70,12 +72,27 @@ async fn b1_handle_block_proposal_refuses_a_stale_view_proposal_after_a_tc() {
     let chain = ProposalChainView {
         view: membership_view(&validators.sets),
     };
-    let stale = proposal_with_parent(5, 0, qc_at(4, 0, 0x40));
+    let stale = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let stale_hash = to_root_hash(&stale.hash().unwrap()).unwrap();
     let error = propose(&mut engine, &chain, stale.clone()).await.unwrap_err();
-    assert!(error.to_string().contains("stale proposal"), "{error}");
+    assert!(
+        matches!(
+            error,
+            ConsensusError::StaleViewProposal {
+                height: 5,
+                view: 0,
+                superseding_view: 1
+            }
+        ),
+        "{error:?}"
+    );
+    assert!(!engine.accepted_proposals.contains(&(5, 0, stale_hash)));
     // A second delivery of the same bytes is refused too.
     let error = propose(&mut engine, &chain, stale).await.unwrap_err();
-    assert!(error.to_string().contains("stale proposal"), "{error}");
+    assert!(
+        matches!(error, ConsensusError::StaleViewProposal { .. }),
+        "{error:?}"
+    );
 }
 
 /// B1, the deadlock guard (a pin): a stale-view block that a known certificate CERTIFIES (votes
@@ -213,9 +230,48 @@ async fn b1_a_verified_proposal_redelivered_after_a_tc_is_not_refused_as_stale()
         .expect("an exact redelivery of a verified proposal is not a new proposal");
 }
 
+/// A chain view whose parent state is unavailable (this node does not hold it yet).
+struct UnavailableChainView;
+
+impl std::fmt::Debug for UnavailableChainView {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("UnavailableChainView")
+    }
+}
+
+#[async_trait]
+impl ioi_api::chain::ChainView<
+        ioi_state::primitives::hash::HashCommitmentScheme,
+        ioi_state::tree::iavl::IAVLTree<ioi_state::primitives::hash::HashCommitmentScheme>,
+    > for UnavailableChainView
+{
+    async fn view_at(
+        &self,
+        state_ref: &ioi_api::chain::StateRef,
+    ) -> Result<std::sync::Arc<dyn AnchoredStateView>, ChainError> {
+        Err(ChainError::UnknownStateAnchor(hex::encode(&state_ref.state_root)))
+    }
+    fn get_penalty_mechanism(&self) -> Box<dyn crate::PenaltyMechanism + Send + Sync + '_> {
+        unimplemented!("unused by the proposal tests")
+    }
+    fn consensus_type(&self) -> ioi_types::config::ConsensusType {
+        ioi_types::config::ConsensusType::Aft
+    }
+    fn workload_container(
+        &self,
+    ) -> &ioi_api::validator::WorkloadContainer<
+        ioi_state::tree::iavl::IAVLTree<ioi_state::primitives::hash::HashCommitmentScheme>,
+    > {
+        unimplemented!("unused by the proposal tests")
+    }
+}
+
 /// B1, MUT-1 survivor C5 killed: a proposal is recorded as accepted only once it FULLY verified.
 /// One that failed verification before a later-view timeout certificate formed is refused as
-/// stale when it is redelivered after the TC; a record made on arrival would exempt it.
+/// stale when it is redelivered after the TC; a record made on arrival would exempt it. Round 3:
+/// the refusal now runs after authentication, so the first delivery fails for a reason that
+/// clears later (its parent state is not held here yet), not for a bad signature (which fails
+/// authentication on every delivery and never reaches the refusal).
 #[tokio::test]
 async fn b1_a_proposal_that_failed_verification_is_not_exempt_after_a_tc() {
     let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
@@ -224,20 +280,76 @@ async fn b1_a_proposal_that_failed_verification_is_not_exempt_after_a_tc() {
     let chain = ProposalChainView {
         view: membership_view(&validators.sets),
     };
-    // Not the slot leader's proposal: it fails verification, before any TC.
-    let unverifiable = proposal_with_parent(5, 0, qc_at(4, 0, 0x40));
-    let error = propose(&mut engine, &chain, unverifiable.clone())
-        .await
-        .unwrap_err();
-    assert!(!error.to_string().contains("stale proposal"), "{error}");
-    engine.tc_formed.insert((5, 1));
-    let error = propose(&mut engine, &chain, unverifiable)
+    let proposal = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let error = propose_on(&mut engine, &UnavailableChainView, proposal.clone())
         .await
         .unwrap_err();
     assert!(
-        error.to_string().contains("stale proposal"),
-        "a proposal that failed verification was exempt after the TC: {error}"
+        matches!(error, ConsensusError::StateAccess(_)),
+        "the first delivery failed for its unavailable parent state: {error:?}"
     );
+    engine.tc_formed.insert((5, 1));
+    let error = propose(&mut engine, &chain, proposal).await.unwrap_err();
+    assert!(
+        matches!(error, ConsensusError::StaleViewProposal { .. }),
+        "a proposal that failed verification was exempt after the TC: {error:?}"
+    );
+}
+
+async fn propose_on(
+    engine: &mut GuardianMajorityEngine,
+    chain: &UnavailableChainView,
+    header: BlockHeader,
+) -> Result<(), ConsensusError> {
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_block_proposal(
+        engine,
+        Block {
+            header,
+            transactions: Vec::new(),
+        },
+        chain,
+    )
+    .await
+}
+
+/// N1 (round 3), the engine's half through its real entry points: a stale-view proposal refused
+/// BEFORE its certificate is known; the certificate then arrives as a propagated QC
+/// (`handle_quorum_certificate`). The engine reports the block certified
+/// (`holds_certificate_for`, which the orchestration polls to offer its kept copy again), and the
+/// kept copy, offered again, is accepted. Nothing was redelivered by the producer: the second
+/// call carries the same bytes the orchestration kept.
+#[tokio::test]
+async fn n1_a_certificate_learned_after_the_refusal_makes_the_kept_proposal_acceptable() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    engine.tc_formed.insert((5, 1));
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let kept = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let kept_hash = to_root_hash(&kept.hash().unwrap()).unwrap();
+    let error = propose(&mut engine, &chain, kept.clone()).await.unwrap_err();
+    assert!(matches!(error, ConsensusError::StaleViewProposal { .. }), "{error:?}");
+    assert!(!<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::holds_certificate_for(
+        &engine, 5, &kept_hash
+    ));
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
+        &mut engine,
+        validators.signed_qc(5, 0, kept_hash),
+    )
+    .await
+    .expect("the votes cast before the timeouts certify the block");
+    assert!(
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::holds_certificate_for(
+            &engine, 5, &kept_hash
+        ),
+        "the engine does not report the certificate it accepted"
+    );
+    propose(&mut engine, &chain, kept)
+        .await
+        .expect("the kept proposal, certified, is accepted when offered again");
+    assert!(engine.accepted_proposals.contains(&(5, 0, kept_hash)));
 }
 
 /// N1 (P7 round 3; RED before the fix). A stale-view refusal is a statement about an AUTHENTIC
@@ -264,6 +376,11 @@ async fn n1_only_an_authenticated_proposal_is_refused_as_stale() {
         !error.to_string().contains("stale proposal"),
         "an unauthenticated block was refused as a stale proposal: {error}"
     );
+    // A fresh engine: this one has now seen a header at the slot, and its divergence check
+    // refuses any second header there.
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    engine.tc_formed.insert((5, 1));
     let authentic = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
     let error = propose(&mut engine, &chain, authentic).await.unwrap_err();
     assert!(error.to_string().contains("stale proposal"), "{error}");

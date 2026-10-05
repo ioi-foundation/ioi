@@ -837,6 +837,31 @@ where
         }
     }
 
+    fn holds_certificate_for(&self, height: u64, block_hash: &[u8; 32]) -> bool {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::holds_certificate_for(engine, height, block_hash)
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::holds_certificate_for(
+                    engine, height, block_hash,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::holds_certificate_for(
+                    engine, height, block_hash,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::holds_certificate_for(engine, height, block_hash)
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
     fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {
         match self {
             #[cfg(feature = "aft")]

@@ -20,6 +20,7 @@ use ioi_types::config::RuntimeFinalityProfile;
 use ioi_types::error::ChainError;
 use libp2p::{request_response::ResponseChannel, PeerId};
 use serde::Serialize;
+use std::collections::BTreeSet;
 use std::fmt::Debug;
 
 // [FIX] Imports for catchup voting
@@ -311,6 +312,19 @@ pub async fn start_catchup_to_peer<CS, ST, CE, V>(
         return;
     }
 
+    // A peer refused, or failing the run that exhausted a session, opens no new session on its
+    // own hint while it is cooled down (round 3, N2).
+    let now = Instant::now();
+    if context.sync_peer_cooldown.is_cooling(&peer, now) {
+        tracing::debug!(
+            target: "sync",
+            %peer,
+            peer_height,
+            "Ignoring a gossiped height gap from a cooled-down peer."
+        );
+        return;
+    }
+
     tracing::info!(
         target: "sync",
         %peer,
@@ -327,9 +341,9 @@ pub async fn start_catchup_to_peer<CS, ST, CE, V>(
         next: sync_cursor,
         inflight: false,
         req_id: 0,
-        requested_at: Instant::now(),
+        requested_at: now,
         retry_not_before: None,
-        authority: Default::default(),
+        authority: context.sync_peer_cooldown.new_session_authority(now),
     });
     request_next_batch(context).await;
 }
@@ -716,6 +730,17 @@ pub async fn handle_status_response<CS, ST, CE, V>(
                 request_next_batch(context).await;
             }
         } else {
+            // A cooled-down peer's status opens no new session (round 3, N2).
+            let now = Instant::now();
+            if context.sync_peer_cooldown.is_cooling(&peer, now) {
+                tracing::debug!(
+                    target: "sync",
+                    %peer,
+                    peer_height,
+                    "Ignoring the status of a cooled-down peer."
+                );
+                return;
+            }
             tracing::info!(
                 target: "orchestration",
                 %peer,
@@ -730,9 +755,9 @@ pub async fn handle_status_response<CS, ST, CE, V>(
                 next: sync_cursor,
                 inflight: false,
                 req_id: 0,
-                requested_at: Instant::now(),
+                requested_at: now,
                 retry_not_before: None,
-                authority: Default::default(),
+                authority: context.sync_peer_cooldown.new_session_authority(now),
             });
             request_next_batch(context).await;
         }
@@ -866,9 +891,12 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             .map(|block| block.header.height)
             .unwrap_or(0);
 
+        let now = Instant::now();
         if !sequential_blocks.is_empty()
             && first_height == resume_from + 1
             && opportunistic_response_reaches_live_projection(speculative_height, bootstrap_tip)
+            // A cooled-down peer's reply opens no new session (round 3, N2).
+            && !context.sync_peer_cooldown.is_cooling(&peer, now)
         {
             tracing::info!(
                 target: "sync",
@@ -884,9 +912,9 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                 next: resume_from,
                 inflight: false,
                 req_id: 0,
-                requested_at: Instant::now(),
+                requested_at: now,
                 retry_not_before: None,
-                authority: Default::default(),
+                authority: context.sync_peer_cooldown.new_session_authority(now),
             });
             blocks = sequential_blocks;
         } else {
@@ -1223,7 +1251,8 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         // certificate does not verify against the membership in its parent state. A peer whose
         // certificate is REFUTED is dropped from this sync and counted (source selection; T5).
         // A certificate this node cannot evaluate (round 2, M2) applies nothing and drops no
-        // one: the sync waits and retries, counted.
+        // one; the session moves to another peer, counted (round 3, N2: any peer can make this
+        // node unable to evaluate its block, so the verdict never keeps a target).
         match verify_synced_parent_certificate(context, &block, next_in_batch).await {
             super::sync_authority::CertificateVerdict::Verified => {}
             super::sync_authority::CertificateVerdict::CannotEvaluate(reason) => {
@@ -1232,9 +1261,9 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                     %peer,
                     applying_height,
                     reason = %reason,
-                    "Holding a synced block whose parent certificate cannot be evaluated here; retrying."
+                    "Holding a synced block whose parent certificate cannot be evaluated here; retrying from another peer."
                 );
-                retry_sync_from_peer_set(context, None).await;
+                retry_sync_from_peer_set(context, Some(peer)).await;
                 return;
             }
             super::sync_authority::CertificateVerdict::Refuted(error) => {
@@ -1413,14 +1442,16 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                     match check_replacement_certificate(context, &block, next_in_batch).await {
                         super::sync_authority::ReplacementCheck::Verified => {}
                         super::sync_authority::ReplacementCheck::Await(reason) => {
+                            // Kept, not refused; the session moves to another peer (round 3,
+                            // N2), counted.
                             tracing::info!(
                                 target: "sync",
                                 %peer,
                                 applying_height,
                                 reason = %reason,
-                                "Holding a replacement until a certificate for it arrives; retrying."
+                                "Holding a replacement until a certificate for it arrives; retrying from another peer."
                             );
-                            retry_sync_from_peer_set(context, None).await;
+                            retry_sync_from_peer_set(context, Some(peer)).await;
                             return;
                         }
                         super::sync_authority::ReplacementCheck::Refuse(error) => {
@@ -1660,14 +1691,31 @@ async fn retry_sync_from_peer_set<CS, ST, CE, V>(
     };
 
     // T5 (P7): every failed batch counts; consecutive failures without cursor progress (from any
-    // path, round 2 M3) end the sync SESSION explicitly, never an unbounded retry loop. The
-    // node is not frozen: the claimed tip was never verified, and one lying status or gossip
-    // height must not freeze a node. A later status or height gap may start a new session.
-    if progress.authority.record_failure(progress.next)
-        == super::sync_authority::SyncRetry::Exhausted
-    {
+    // path, round 2 M3) end the sync SESSION explicitly, never an unbounded retry loop within a
+    // session. The node is not frozen: the claimed tip was never verified, and one lying status
+    // or gossip height must not freeze a node. A later status or height gap may start a new
+    // session, but not on the word of a peer that failed the exhausted run or was refused in
+    // this session (round 3, N2): those are cooled down first.
+    let exhausted = progress.authority.record_failure(progress.next)
+        == super::sync_authority::SyncRetry::Exhausted;
+    if let Some(peer) = failed_peer {
+        progress.authority.note_failed_peer(peer);
+    }
+    if exhausted {
         let (next, tip) = (progress.next, progress.tip);
         let consecutive_failures = progress.authority.consecutive_failures;
+        let now = Instant::now();
+        let cooled: BTreeSet<PeerId> = progress
+            .authority
+            .refused_peers
+            .iter()
+            .chain(progress.authority.failed_peers.iter())
+            .copied()
+            .chain(progress.target)
+            .collect();
+        for peer in &cooled {
+            context.sync_peer_cooldown.cool(*peer, now);
+        }
         context.sync_progress = None;
         tracing::error!(
             target: "sync",
@@ -1676,6 +1724,7 @@ async fn retry_sync_from_peer_set<CS, ST, CE, V>(
             tip,
             consecutive_failures,
             bound = super::sync_authority::SYNC_RETRY_BOUND,
+            cooled = ?cooled,
             "Sync retry bound exhausted without progress; this sync session ended"
         );
         return;
@@ -1933,6 +1982,8 @@ async fn refuse_peer_batch<CS, ST, CE, V>(
     if let Some(progress) = context.sync_progress.as_mut() {
         progress.authority.refuse_peer(peer);
     }
+    // The refusal outlives this session (round 3, N2).
+    context.sync_peer_cooldown.cool(peer, Instant::now());
     retry_sync_from_peer_set(context, Some(peer)).await;
 }
 
@@ -1991,9 +2042,10 @@ async fn resolve_admitted_tier_conflict<CS, ST, CE, V>(
                 height,
                 admitted_height,
                 reason = %reason,
-                "Rejecting a served block that differs from this node's admitted block and that nothing verified certifies; retrying."
+                "Rejecting a served block that differs from this node's admitted block and that nothing verified certifies; retrying from another peer."
             );
-            retry_sync_from_peer_set(context, None).await;
+            // Kept, not refused; the session moves to another peer (round 3, N2), counted.
+            retry_sync_from_peer_set(context, Some(peer)).await;
         }
     }
 }

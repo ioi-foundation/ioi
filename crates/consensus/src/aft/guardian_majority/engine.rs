@@ -612,6 +612,12 @@ impl GuardianMajorityEngine {
             .insert(qc.block_hash, qc.clone());
     }
 
+    /// Test-only: records `qc` as held, for wrapper-forwarding tests outside this module.
+    #[cfg(test)]
+    pub(crate) fn remember_qc_for_tests(&mut self, qc: &QuorumCertificate) {
+        self.remember_qc(qc);
+    }
+
     pub(super) fn local_recovered_header_for_qc(
         &self,
         qc: &QuorumCertificate,

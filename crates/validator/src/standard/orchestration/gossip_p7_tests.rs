@@ -64,7 +64,11 @@ async fn n1_control_a_fresh_proposal_is_applied_through_the_gossip_path() {
         vec![b4_hash],
         "the engine verified the gossiped proposal once"
     );
-    assert_eq!(h.held_hash(4), Some(b4_hash), "the proposal was not applied");
+    assert_eq!(
+        h.held_hash(4),
+        Some(b4_hash),
+        "the proposal was not applied"
+    );
     assert!(!h
         .context
         .lock()
@@ -92,7 +96,11 @@ async fn n1_a_stale_proposal_refused_before_its_qc_is_applied_once_a_vote_certif
         .insert(b_hash);
     let producer = PeerId::random();
     gossip(&h, b, producer).await;
-    assert_eq!(h.held_hash(4), None, "a stale proposal was applied before its QC");
+    assert_eq!(
+        h.held_hash(4),
+        None,
+        "a stale proposal was applied before its QC"
+    );
     // The votes arrive; the engine now holds a certificate for B.
     h.context
         .lock()
@@ -184,5 +192,9 @@ async fn n1_an_uncertified_stale_proposal_stays_unapplied() {
         },
     )
     .await;
-    assert_eq!(h.held_hash(4), None, "an uncertified stale proposal was applied");
+    assert_eq!(
+        h.held_hash(4),
+        None,
+        "an uncertified stale proposal was applied"
+    );
 }

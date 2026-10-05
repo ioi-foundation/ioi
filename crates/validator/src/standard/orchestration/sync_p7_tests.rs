@@ -92,8 +92,15 @@ async fn m2_an_unavailable_parent_state_does_not_drop_the_peer() {
         .unwrap()
         .insert(b5.header.parent_state_root.0.clone());
     handle_blocks_response(&mut h.context, honest, vec![b4, b5]).await;
+    // Round 3 (review round 2's m-g): `Harness::refused` is false once a session ended, so the
+    // session's survival is asserted first.
+    let progress = h
+        .context
+        .sync_progress
+        .as_ref()
+        .expect("the session continues");
     assert!(
-        !h.refused(&honest),
+        progress.authority.may_target(&honest),
         "an unavailable parent state dropped an honest peer"
     );
 }
@@ -644,7 +651,9 @@ async fn m2_an_asynchronous_reference_to_a_parent_not_held_here_keeps_the_peer()
 
 /// A served block at the cursor's next height (4, floor 3) whose parent state this node does not
 /// hold: G1's verdict is "cannot evaluate here", which any peer can produce at will.
-fn unavailable_parent_block(h: &Harness) -> ioi_types::app::Block<ioi_types::app::ChainTransaction> {
+fn unavailable_parent_block(
+    h: &Harness,
+) -> ioi_types::app::Block<ioi_types::app::ChainTransaction> {
     let mut bogus = harness_block(h.admitted_hash(3), 4, 0xB0);
     bogus.header.parent_state_root = ioi_types::app::StateRoot(vec![0xAB; 32]);
     h.resolver
@@ -740,7 +749,11 @@ async fn n2_a_replacement_awaiting_its_certificate_moves_the_session_off_its_tar
     h.start_session(peer, 5).await;
     h.context.known_peers_ref.lock().await.insert(other);
     handle_blocks_response(&mut h.context, peer, vec![b1, peer_b2]).await;
-    assert_eq!(held_hash(&h, 2), Some(harness_hash(&b2)), "local state was replaced");
+    assert_eq!(
+        held_hash(&h, 2),
+        Some(harness_hash(&b2)),
+        "local state was replaced"
+    );
     let progress = h
         .context
         .sync_progress
@@ -846,5 +859,70 @@ async fn n2_a_peer_that_exhausted_a_session_does_not_open_the_next_by_its_status
             .as_ref()
             .map_or(true, |progress| progress.target != Some(liar)),
         "the peer that exhausted the last session opened the next one by its status"
+    );
+}
+
+/// N2, liveness (a pin added with the fix): the cooldown is bounded. Once it has passed, the same
+/// peer's hint opens a session again (an honest peer that merely failed one exhausted run is not
+/// shut out).
+#[tokio::test]
+async fn n2_a_cooled_down_peer_opens_a_session_again_after_the_cooldown() {
+    let mut h = Harness::new(3).await;
+    let peer = PeerId::random();
+    h.start_session(peer, 50).await;
+    let bogus = unavailable_parent_block(&h);
+    exhaust_session(&mut h, peer, vec![bogus], &[peer]).await;
+    let past = std::time::Instant::now()
+        .checked_sub(std::time::Duration::from_secs(1))
+        .unwrap();
+    for until in h.context.sync_peer_cooldown.until.values_mut() {
+        *until = past;
+    }
+    start_catchup_to_peer(&mut h.context, peer, 50).await;
+    let progress = h
+        .context
+        .sync_progress
+        .as_ref()
+        .expect("a session opens once the cooldown has passed");
+    assert_eq!(progress.target, Some(peer));
+    assert!(progress.authority.may_target(&peer));
+}
+
+/// N2, a pin added with the fix: a new session opened by another peer while a peer is cooled down
+/// refuses the cooled peer in that session (its status neither extends the tip nor targets it).
+#[tokio::test]
+async fn n2_a_new_session_refuses_a_cooled_down_peer() {
+    let mut h = Harness::new(3).await;
+    let (liar, honest) = (PeerId::random(), PeerId::random());
+    h.context
+        .sync_peer_cooldown
+        .cool(liar, std::time::Instant::now());
+    start_catchup_to_peer(&mut h.context, honest, 5).await;
+    {
+        let progress = h.context.sync_progress.as_mut().expect("a session");
+        assert!(
+            !progress.authority.may_target(&liar),
+            "the cooled peer is usable"
+        );
+        progress.target = None;
+        progress.inflight = true;
+    }
+    let chain_id = h.context.chain_id;
+    super::sync::handle_status_response(
+        &mut h.context,
+        liar,
+        50,
+        [0u8; 32],
+        chain_id,
+        vec![0; 32],
+        None,
+    )
+    .await;
+    let progress = h.context.sync_progress.as_ref().unwrap();
+    assert_eq!(progress.tip, 5, "a cooled peer's status extended the tip");
+    assert_ne!(
+        progress.target,
+        Some(liar),
+        "a cooled peer became the target"
     );
 }

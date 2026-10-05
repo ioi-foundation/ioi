@@ -306,12 +306,14 @@ pub(super) struct HarnessEngine {
     pub(super) proposals: Vec<[u8; 32]>,
 }
 
-/// The engine's refusal of a stale-view proposal, as the harness engine reports it.
+/// The engine's refusal of a stale-view proposal, as the harness engine reports it: the real
+/// engine's typed error (ioi-consensus `vote_safety.rs`).
 pub(super) fn harness_stale_refusal(header: &BlockHeader) -> ConsensusError {
-    ConsensusError::BlockVerificationFailed(format!(
-        "stale proposal at H={} V={}: a timeout certificate for a later view has formed (harness)",
-        header.height, header.view
-    ))
+    ConsensusError::StaleViewProposal {
+        height: header.height,
+        view: header.view,
+        superseding_view: header.view + 1,
+    }
 }
 
 #[async_trait]
@@ -364,6 +366,10 @@ impl ConsensusEngine<ChainTransaction> for HarnessEngine {
 
     async fn handle_vote(&mut self, _vote: ConsensusVote) -> Result<(), ConsensusError> {
         Ok(())
+    }
+
+    fn holds_certificate_for(&self, _height: u64, block_hash: &[u8; 32]) -> bool {
+        self.certified.contains(block_hash)
     }
 
     async fn handle_view_change(
@@ -739,6 +745,8 @@ impl Harness {
             consensus_kick_scheduled: Arc::new(AtomicBool::new(false)),
             next_due_wakeup_at_ms: Arc::new(AtomicU64::new(0)),
             sync_progress: None,
+            sync_peer_cooldown: Default::default(),
+            stale_proposals: Default::default(),
             nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
             signer,
             batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),

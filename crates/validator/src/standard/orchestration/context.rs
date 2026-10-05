@@ -279,6 +279,11 @@ where
     pub next_due_wakeup_at_ms: Arc<AtomicU64>,
     /// Current synchronization progress state.
     pub sync_progress: Option<SyncProgress>,
+    /// Peers later sync sessions do not believe for a while (P7 round 3, N2).
+    pub(crate) sync_peer_cooldown: super::sync_authority::SyncPeerCooldown,
+    /// Stale-view proposals kept for a certificate that arrives after their refusal (P7 round 3,
+    /// N1).
+    pub(crate) stale_proposals: super::stale_proposals::StaleProposalStore,
     /// Manager for tracking account nonces.
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
     /// The signer used for block headers (local or remote).

@@ -22,8 +22,16 @@
 //!   votes NET's S-debug run observed. It is our ADOPTED rule (the spec is silent).
 //! - **No lower-view proposal after a timeout certificate**
 //!   ([`GuardianMajorityEngine::superseding_tc_view`]): once a TC for a later view at a height
-//!   has formed here, a proposal of an earlier view at that height is refused before it is
-//!   executed or persisted, unless this node already accepted that exact block earlier.
+//!   has formed here, an AUTHENTICATED proposal of an earlier view at that height (the slot
+//!   leader's signature and the proposal's certificates verified) is refused
+//!   (`ConsensusError::StaleViewProposal`) before it is executed or persisted. Two exemptions:
+//!   this node already fully verified that exact block (`accepted_proposals`), or an
+//!   authenticated quorum certificate held here certifies it (`qc_pool`: votes cast before the
+//!   timeouts can certify it, and the next height must then extend it). A certificate can also
+//!   become known only AFTER the refusal (P7 round 3, review round 2's N1): the orchestration
+//!   keeps each proposal refused this way (bounded, one per slot) and offers it again once
+//!   [`ConsensusEngine::holds_certificate_for`] holds for it, so this node applies a certified
+//!   stale-view block without a redelivery by its producer.
 //! - **One block per slot for this node** (`local_votes`): a second block in one (height, view)
 //!   is refused; an exact replay of an admitted vote is let through.
 //!
@@ -79,10 +87,13 @@ impl GuardianMajorityEngine {
 
     /// Refuses a proposal of an earlier view at a height where a timeout certificate for a later
     /// view has formed (AFT yellow paper, "The pacemaker advances views monotonically", in the
-    /// leader-selection subsection; the adopted P7 rule, build Ruling 12 fourth amendment). Two
-    /// exemptions: the exact block was already fully verified here
-    /// (`accepted_proposals`; a redelivery or enrichment is not a new proposal), or an
-    /// authenticated quorum certificate certifies it (`qc_pool`; the deadlock guard).
+    /// leader-selection subsection; the adopted P7 rule, build Ruling 12 fourth amendment).
+    /// `handle_block_proposal` calls it only after the proposal is authenticated. Two
+    /// exemptions: the exact block was already fully verified here (`accepted_proposals`; a
+    /// redelivery or enrichment is not a new proposal), or an authenticated quorum certificate
+    /// held here certifies it (`qc_pool`). The second covers a certificate known when the
+    /// proposal arrives; one known only later is covered by the orchestration offering the kept
+    /// proposal again (see the module doc).
     pub(super) fn refuse_stale_view_proposal(
         &self,
         header: &BlockHeader,
@@ -100,10 +111,10 @@ impl GuardianMajorityEngine {
         {
             return Ok(());
         }
-        // Deadlock guard: a block an authenticated quorum certificate already certifies (votes
-        // cast before the timeouts) may be the parent the next height must extend; refusing its
-        // header would leave this node unable to follow that branch. `qc_pool` holds only
-        // certificates that passed `authenticated_quorum` (engine.rs `remember_qc` callers).
+        // A block an authenticated quorum certificate held here certifies (votes cast before the
+        // timeouts) may be the parent the next height must extend: it is not refused. `qc_pool`
+        // holds only certificates that passed `authenticated_quorum` (engine.rs `remember_qc`
+        // callers). A certificate learned after this refusal: see the module doc (N1).
         if self
             .qc_pool
             .get(&header.height)
@@ -111,10 +122,11 @@ impl GuardianMajorityEngine {
         {
             return Ok(());
         }
-        Err(ConsensusError::BlockVerificationFailed(format!(
-            "stale proposal at H={} V={}: a timeout certificate for view {} has formed at this height",
-            header.height, header.view, tc_view
-        )))
+        Err(ConsensusError::StaleViewProposal {
+            height: header.height,
+            view: header.view,
+            superseding_view: tc_view,
+        })
     }
 
     /// Refuses a non-zero-view proposal whose parent certificate does not extend the highest QC

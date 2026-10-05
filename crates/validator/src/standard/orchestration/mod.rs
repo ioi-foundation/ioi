@@ -89,6 +89,7 @@ mod quv;
 mod remote_state_view;
 mod sync;
 mod sync_authority;
+mod stale_proposals;
 #[cfg(test)]
 mod sync_harness;
 #[cfg(test)]
