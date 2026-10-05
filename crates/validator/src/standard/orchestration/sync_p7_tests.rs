@@ -997,3 +997,32 @@ async fn n2_a_cooled_down_peers_opportunistic_reply_opens_no_session() {
         "a cooled peer's reply was applied"
     );
 }
+
+/// MUT-1 S50's kill (round 3, a test added after the run): a peer whose batch failed EARLIER in the
+/// run that exhausts a session is cooled down too, not only the session's last target, so its own
+/// hint opens no session.
+#[tokio::test]
+async fn n2_a_peer_that_failed_earlier_in_the_exhausting_run_is_cooled() {
+    let mut h = Harness::new(3).await;
+    let (first, second) = (PeerId::random(), PeerId::random());
+    h.start_session(first, 50).await;
+    h.context.known_peers_ref.lock().await.insert(second);
+    let bogus = unavailable_parent_block(&h);
+    // `first` serves a block this node cannot evaluate: the session moves to `second`, counted.
+    handle_blocks_response(&mut h.context, first, vec![bogus.clone()]).await;
+    assert_eq!(
+        h.context.sync_progress.as_ref().map(|progress| progress.target),
+        Some(Some(second)),
+        "the session did not move off `first`"
+    );
+    // `second` fails the rest of the run, until the session ends.
+    exhaust_session(&mut h, second, vec![bogus], &[second]).await;
+    start_catchup_to_peer(&mut h.context, first, 50).await;
+    assert!(
+        h.context
+            .sync_progress
+            .as_ref()
+            .map_or(true, |progress| progress.target != Some(first)),
+        "a peer that failed earlier in the exhausted run opened the next session on its own hint"
+    );
+}
