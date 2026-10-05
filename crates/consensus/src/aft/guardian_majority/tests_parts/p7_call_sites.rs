@@ -507,3 +507,158 @@ async fn div_two_authentic_proposals_at_the_first_height_are_still_divergent() {
     let error = propose(&mut engine, &chain, second).await.unwrap_err();
     assert!(error.to_string().contains("HardwareDivergence"), "{error}");
 }
+
+// B1-P7-DIV, MUT-1 supplementary kills (records/build/p7/MUT-1-PREREG-P7-DIV.md, "AMENDMENT before
+// the supplementary run"): D7 (TRUST-CLAIM), D8 and D9 (SPURIOUS-EFFECT, D9 = review r3's R3-m2),
+// D10 and D11 (STALE).
+
+/// MUT-1 D7's kill (TRUST-CLAIM). A header that copies the slot leader's identity and an
+/// authentic parent certificate, but whose payload the leader did not sign, passes every
+/// structural check and is refused at the SIGNATURE (`InvalidSignature`), leaving no record; the
+/// leader's own proposal at that slot is then accepted. (The other unauthenticated-header tests use
+/// a header naming the wrong producer, refused at the first structural check, so they cannot tell
+/// a check placed after the signature from one placed only after the structural checks.)
+#[tokio::test]
+async fn div_a_header_forging_the_leaders_identity_is_refused_at_the_signature_and_not_recorded() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let authentic = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let authentic_hash = to_root_hash(&authentic.hash().unwrap()).unwrap();
+    let mut forged = authentic.clone();
+    forged.transactions_root = vec![0xEE; 32];
+    let forged_hash = to_root_hash(&forged.hash().unwrap()).unwrap();
+    assert_ne!(
+        forged_hash, authentic_hash,
+        "the forged header must be a different payload"
+    );
+    let error = propose(&mut engine, &chain, forged).await.unwrap_err();
+    assert!(
+        matches!(error, ConsensusError::InvalidSignature),
+        "the forged header must reach, and fail, the leader's signature check: {error:?}"
+    );
+    assert!(
+        !engine
+            .seen_headers
+            .get(&(5, 0))
+            .is_some_and(|headers| headers.contains_key(&forged_hash)),
+        "a header whose leader signature does not verify was recorded as seen"
+    );
+    propose(&mut engine, &chain, authentic)
+        .await
+        .expect("the slot leader's proposal was refused after a header forging its identity");
+    assert!(engine.accepted_proposals.contains(&(5, 0, authentic_hash)));
+}
+
+/// A view-start time one second in the past, planted so that any pacemaker reset is visible.
+async fn plant_view_start(engine: &GuardianMajorityEngine) -> std::time::Instant {
+    let planted = std::time::Instant::now()
+        .checked_sub(std::time::Duration::from_secs(1))
+        .expect("a monotonic clock one second old");
+    engine.pacemaker.lock().await.view_start_time = planted;
+    planted
+}
+
+/// MUT-1 D8's kill (SPURIOUS-EFFECT). A proposal refused as divergent does not move the
+/// pacemaker: a divergent leader must not reset this node's view timer (and so must not delay its
+/// timeout out of that leader's view).
+#[tokio::test]
+async fn div_a_divergent_proposal_does_not_move_the_pacemaker() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let first = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    propose(&mut engine, &chain, first)
+        .await
+        .expect("the first authentic proposal is accepted");
+    let planted = plant_view_start(&engine).await;
+    let second = leader_signed_proposal(&validators, 5, 0, [0x41; 32]);
+    let error = propose(&mut engine, &chain, second).await.unwrap_err();
+    assert!(error.to_string().contains("HardwareDivergence"), "{error}");
+    assert_eq!(
+        engine.pacemaker.lock().await.view_start_time,
+        planted,
+        "a proposal refused as divergent reset the view timer"
+    );
+}
+
+/// MUT-1 D9's kill (SPURIOUS-EFFECT; review r3's R3-m2, registered as a follow-up of P7 part 1).
+/// A proposal refused as stale (a later-view TC has formed) does not move the pacemaker: a
+/// replayed authentic stale proposal must not keep resetting the view timer.
+#[tokio::test]
+async fn n1_a_refused_stale_proposal_does_not_move_the_pacemaker() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    engine.tc_formed.insert((5, 1));
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let planted = plant_view_start(&engine).await;
+    let stale = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let error = propose(&mut engine, &chain, stale).await.unwrap_err();
+    assert!(
+        matches!(error, ConsensusError::StaleViewProposal { .. }),
+        "{error:?}"
+    );
+    assert_eq!(
+        engine.pacemaker.lock().await.view_start_time,
+        planted,
+        "a proposal refused as stale reset the view timer"
+    );
+}
+
+/// MUT-1 D10's and D11's kill (STALE). On a node whose highest certificate lags (a fresh engine:
+/// height 0), a quorum of votes for the view-0 proposal at height 5 arrives BEFORE its header. The
+/// pool's certificate cannot be accepted then: it jumps beyond the next height with no known
+/// header (collapse_verification.rs, `accept_quorum_certificate`). A later-view TC then forms. When
+/// the authentic proposal arrives, its parent certificate and its now-recorded header let the
+/// pool's certificate be accepted BEFORE the stale-view decision, so the certified proposal is
+/// exempt (vote_safety.rs) and accepted; it is not refused and left waiting for a vote or
+/// certificate event that may never come (all the votes have already arrived).
+#[tokio::test]
+async fn div_a_stale_proposal_whose_votes_came_first_is_certified_by_the_pool_and_accepted() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine_for_pq(&validators, &[1, 4, 5]);
+    engine.pacemaker_height = 5;
+    let chain = ProposalChainView {
+        view: membership_view(&validators.sets),
+    };
+    let authentic = leader_signed_proposal(&validators, 5, 0, [0x40; 32]);
+    let authentic_hash = to_root_hash(&authentic.hash().unwrap()).unwrap();
+    for voter in 0..BFT_MEMBERS {
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_vote(
+            &mut engine,
+            validators.signed_vote(voter, 5, 0, authentic_hash),
+        )
+        .await
+        .expect("an authentic vote is pooled");
+    }
+    assert!(
+        !<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::holds_certificate_for(
+            &engine,
+            5,
+            &authentic_hash
+        ),
+        "precondition: the pool's certificate is not accepted before the header is known"
+    );
+    engine.tc_formed.insert((5, 1));
+    propose(&mut engine, &chain, authentic)
+        .await
+        .expect("a stale-view proposal the vote pool certifies is exempt and accepted");
+    assert!(
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::holds_certificate_for(
+            &engine,
+            5,
+            &authentic_hash
+        ),
+        "the pool's certificate was accepted with the proposal"
+    );
+    assert!(engine.accepted_proposals.contains(&(5, 0, authentic_hash)));
+}
