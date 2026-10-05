@@ -285,8 +285,6 @@ impl GuardianMajorityEngine {
             .entry((header.height, header.view))
             .or_default()
             .insert(block_hash, header.clone());
-        self.accepted_proposals
-            .insert((header.height, header.view, block_hash));
 
         // Sync and committed-block ingestion can bypass proposal handling.
         // Re-authenticate the embedded parent before it contributes to the

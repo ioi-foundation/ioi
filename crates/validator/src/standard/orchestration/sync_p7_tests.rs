@@ -378,7 +378,11 @@ async fn g1_an_uncertified_replacement_replaces_nothing() {
     h.start_session(peer, 5).await;
     handle_blocks_response(&mut h.context, peer, vec![b1, peer_b2]).await;
     let held = h.workload.blocks.lock().unwrap().get(&2).cloned().unwrap();
-    assert_eq!(harness_hash(&held), harness_hash(&b2), "local state was replaced");
+    assert_eq!(
+        harness_hash(&held),
+        harness_hash(&b2),
+        "local state was replaced"
+    );
     assert!(!h.quarantined());
     assert!(!h.refused(&peer));
     assert_eq!(
@@ -402,7 +406,71 @@ async fn g1_a_replacement_whose_batch_does_not_certify_it_drops_the_peer() {
     let foster = harness_block([0x77; 32], 3, 0);
     handle_blocks_response(&mut h.context, peer, vec![b1, peer_b2, foster]).await;
     let held = h.workload.blocks.lock().unwrap().get(&2).cloned().unwrap();
-    assert_eq!(harness_hash(&held), harness_hash(&b2), "local state was replaced");
+    assert_eq!(
+        harness_hash(&held),
+        harness_hash(&b2),
+        "local state was replaced"
+    );
     assert!(!h.quarantined());
     assert!(h.refused(&peer));
+}
+
+/// Source selection, the status path (round 1's mechanism, pinned in round 2): a refused peer's
+/// advertised height neither extends the tip nor makes it the target.
+#[tokio::test]
+async fn a_refused_peers_status_is_not_believed() {
+    let mut h = Harness::new(3).await;
+    let honest = PeerId::random();
+    let liar = PeerId::random();
+    h.start_session(honest, 5).await;
+    {
+        let progress = h.context.sync_progress.as_mut().unwrap();
+        progress.authority.refuse_peer(liar);
+        progress.target = None;
+        progress.inflight = false;
+    }
+    let chain_id = h.context.chain_id;
+    super::sync::handle_status_response(
+        &mut h.context,
+        liar,
+        50,
+        [0u8; 32],
+        chain_id,
+        vec![0; 32],
+        None,
+    )
+    .await;
+    let progress = h.context.sync_progress.as_ref().unwrap();
+    assert_eq!(progress.tip, 5, "a refused peer's status extended the tip");
+    assert_ne!(
+        progress.target,
+        Some(liar),
+        "a refused peer became the target"
+    );
+}
+
+/// Source selection, the blocks path for a NON-target: blocks from a refused peer that carry the
+/// next consecutive height neither retarget the session nor get applied.
+#[tokio::test]
+async fn a_refused_non_targets_blocks_are_ignored() {
+    let mut h = Harness::new(3).await;
+    let honest = PeerId::random();
+    let liar = PeerId::random();
+    h.start_session(honest, 5).await;
+    h.context
+        .sync_progress
+        .as_mut()
+        .unwrap()
+        .authority
+        .refuse_peer(liar);
+    let b4 = harness_block(h.admitted_hash(3), 4, 0);
+    handle_blocks_response(&mut h.context, liar, vec![b4]).await;
+    let progress = h.context.sync_progress.as_ref().unwrap();
+    assert_eq!(
+        progress.target,
+        Some(honest),
+        "a refused peer retargeted the session"
+    );
+    assert_eq!(progress.next, 3, "a refused peer's block was applied");
+    assert!(h.workload.blocks.lock().unwrap().get(&4).is_none());
 }

@@ -80,7 +80,7 @@ impl GuardianMajorityEngine {
     /// Refuses a proposal of an earlier view at a height where a timeout certificate for a later
     /// view has formed (AFT yellow paper, "The pacemaker advances views monotonically", in the
     /// leader-selection subsection; the adopted P7 rule, build Ruling 12 fourth amendment). Two
-    /// exemptions: the exact block was already fully verified or committed here
+    /// exemptions: the exact block was already fully verified here
     /// (`accepted_proposals`; a redelivery or enrichment is not a new proposal), or an
     /// authenticated quorum certificate certifies it (`qc_pool`; the deadlock guard).
     pub(super) fn refuse_stale_view_proposal(
@@ -91,7 +91,7 @@ impl GuardianMajorityEngine {
         let Some(tc_view) = self.superseding_tc_view(header.height, header.view) else {
             return Ok(());
         };
-        // `accepted_proposals` holds only blocks this node fully verified or committed: an exact
+        // `accepted_proposals` holds only blocks this node fully verified: an exact
         // redelivery of one of those is not a new proposal. (`seen_headers` is NOT that set:
         // `check_divergence` inserts every arriving header into it before any check.)
         if self
