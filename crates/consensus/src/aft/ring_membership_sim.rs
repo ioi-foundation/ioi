@@ -75,6 +75,11 @@ impl BoundaryRingMembershipSim {
         if config.members.len() > 8 {
             return Err("the membership simulator models rings up to n = 8".into());
         }
+        // SCQ-8.10d: a vacant seat never reduces n, and this simulator's quorums count
+        // `members` only, so it models full rings (a configuration with a vacancy is refused).
+        if !config.vacant_seats.is_empty() {
+            return Err("the membership simulator models full rings (no vacant seats)".into());
+        }
         let members = config
             .members
             .iter()
@@ -190,6 +195,9 @@ impl BoundaryRingMembershipSim {
         approvals: &[HandoverApproval],
         acceptances: &[HandoverAcceptance],
     ) -> Result<AssurancePreservingHandover, String> {
+        if !new_config.vacant_seats.is_empty() {
+            return Err("the membership simulator models full rings (no vacant seats)".into());
+        }
         let handover =
             build_assurance_preserving_handover(&self.config, &new_config, approvals, acceptances)?;
         self.event_counter += 1;

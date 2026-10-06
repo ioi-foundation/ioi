@@ -90,7 +90,8 @@ pub struct RingConfigClose {
 pub struct BoundaryRingConfig {
     /// The configuration version (monotone).
     pub version: u64,
-    /// The ring members, in seat order.
+    /// The SEATED ring members, in seat order (a vacant seat holds no member: see
+    /// `vacant_seats`).
     pub members: Vec<AccountId>,
     /// Each member's bond, keyed by account.
     #[serde(default)]
@@ -101,6 +102,91 @@ pub struct BoundaryRingConfig {
     /// means this configuration is live.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub closed_by: Option<RingConfigClose>,
+    /// The vacant seats, by seat index in the FULL seat order (SCQ-8.10d). The ring has
+    /// `members.len() + vacant_seats.len()` seats; a vacant seat is an ABSENT vote and never
+    /// reduces n ([`BoundaryRingConfig::full_n_threshold`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub vacant_seats: Vec<RingVacancy>,
+}
+
+/// A vacant ring seat (SCQ-8.10d, SCQ-8.10f (b)): a departure (an exit, or a forced rotation)
+/// whose seat the draw could not refill at its handover. It is an ABSENT vote: it never reduces
+/// n, so a vacancy can only make a threshold harder to reach (the ring halts safe), never easier.
+/// The seat keeps its rotation PHASE while vacant (the phase belongs to the seat, never to an
+/// occupant), so whoever refills it inherits that phase (`ring_selection::seat_phase`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
+pub struct RingVacancy {
+    /// The seat index in the full seat order.
+    pub seat: u32,
+    /// The ring version whose handover left the seat vacant (the version handed over).
+    pub since_version: u64,
+}
+
+/// The full seat order of a ring: the seated `members` in order, with each vacancy at its seat.
+/// Refuses a vacancy outside the seat range or a seat named twice.
+pub fn seat_layout(
+    members: &[AccountId],
+    vacancies: &[RingVacancy],
+) -> Result<Vec<Option<AccountId>>, String> {
+    let seat_count = members.len() + vacancies.len();
+    let mut vacant: BTreeSet<u32> = BTreeSet::new();
+    for vacancy in vacancies {
+        if vacancy.seat as usize >= seat_count {
+            return Err(format!(
+                "vacant seat {} is outside the ring's {seat_count} seats",
+                vacancy.seat
+            ));
+        }
+        if !vacant.insert(vacancy.seat) {
+            return Err(format!("vacant seat {} is named twice", vacancy.seat));
+        }
+    }
+    let mut seated = members.iter();
+    Ok((0..seat_count as u32)
+        .map(|seat| {
+            if vacant.contains(&seat) {
+                None
+            } else {
+                seated.next().copied()
+            }
+        })
+        .collect())
+}
+
+impl BoundaryRingConfig {
+    /// n: every seat, seated or vacant (SCQ-8.10d: a vacancy never reduces n).
+    pub fn seat_count(&self) -> usize {
+        self.members.len() + self.vacant_seats.len()
+    }
+
+    /// The full seat order (see [`seat_layout`]).
+    pub fn seats(&self) -> Result<Vec<Option<AccountId>>, String> {
+        seat_layout(&self.members, &self.vacant_seats)
+    }
+
+    /// A threshold of `numerator / denominator` of the FULL n, rounded up (SCQ-8.10d: quorum and
+    /// thresholds are over the full n; a vacant seat is an absent vote).
+    pub fn full_n_threshold(&self, numerator: u64, denominator: u64) -> usize {
+        let seats = self.seat_count() as u64;
+        if denominator == 0 {
+            return usize::MAX;
+        }
+        seats
+            .saturating_mul(numerator)
+            .div_ceil(denominator)
+            .try_into()
+            .unwrap_or(usize::MAX)
+    }
+
+    /// Whether the SEATED members among `signers` reach `threshold` (a vacant seat never signs;
+    /// a signer who holds no seat never counts).
+    pub fn reaches_threshold(&self, signers: &BTreeSet<AccountId>, threshold: usize) -> bool {
+        self.members
+            .iter()
+            .filter(|member| signers.contains(member))
+            .count()
+            >= threshold
+    }
 }
 
 /// A SIGNED handover approval from one old-ring member. The signature
@@ -372,7 +458,7 @@ pub struct ConstituencyFloor {
     pub min_seats: u32,
 }
 
-fn seat_score(beacon: &[u8; 32], account: &AccountId) -> [u8; 32] {
+pub(crate) fn seat_score(beacon: &[u8; 32], account: &AccountId) -> [u8; 32] {
     use dcrypt::algorithms::hash::{HashFunction, Sha256};
     let mut material = Vec::with_capacity(b"aft::ring::sortition::v1".len() + 32 + 32);
     material.extend_from_slice(b"aft::ring::sortition::v1");
@@ -497,6 +583,7 @@ mod tests {
             member_bonds: BTreeMap::new(),
             activated_at_event: 0,
             closed_by: None,
+            vacant_seats: Vec::new(),
         }
     }
 

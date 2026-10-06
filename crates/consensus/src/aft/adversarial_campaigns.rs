@@ -80,6 +80,7 @@ pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
         member_bonds: Default::default(),
         activated_at_event: 0,
         closed_by: None,
+        vacant_seats: Vec::new(),
     };
     let honest: Vec<bool> = members.iter().map(|_| true).collect();
     BoundaryRingMembershipSim::new(config, &honest).expect("sim")

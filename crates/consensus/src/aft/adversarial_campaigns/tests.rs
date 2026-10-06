@@ -14,6 +14,7 @@ fn byzantine_ring(members: &[u8], honest: &[bool]) -> BoundaryRingMembershipSim 
         member_bonds: Default::default(),
         activated_at_event: 0,
         closed_by: None,
+        vacant_seats: Vec::new(),
     };
     BoundaryRingMembershipSim::new(config, honest).expect("sim")
 }

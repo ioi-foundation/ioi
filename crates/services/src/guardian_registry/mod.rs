@@ -147,6 +147,7 @@ mod archived_history;
 mod materialize;
 mod observer;
 mod reads;
+mod ring_selection;
 mod service;
 #[cfg(test)]
 mod tests;

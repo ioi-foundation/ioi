@@ -61,6 +61,35 @@ pub const GUARDIAN_RING_CONFIG_PREFIX: &[u8] = b"guardian::ring::config::";
 pub const GUARDIAN_RING_LIVE_VERSION_KEY: &[u8] = b"guardian::ring::live_version";
 /// State key for the ring plane's monotone protocol-event counter (AFT-CB R5).
 pub const GUARDIAN_RING_EVENT_COUNTER_KEY: &[u8] = b"guardian::ring::event_counter";
+/// State key for the ring selection parameters (SCQ-8.10, D1-D3; a genesis registry key).
+pub const GUARDIAN_RING_SELECTION_PARAMS_KEY: &[u8] = b"guardian::ring::selection_params";
+/// State key for the live ring's seat ledger (tenure, constituencies, seat phases; SCQ-8.10).
+pub const GUARDIAN_RING_SEAT_LEDGER_KEY: &[u8] = b"guardian::ring::seat_ledger";
+/// State key for the live members' declared exits awaiting a handover (SCQ-8.10).
+pub const GUARDIAN_RING_PENDING_EXITS_KEY: &[u8] = b"guardian::ring::pending_exits";
+/// State key for the pending handover snapshot and its recorded beacon (SCQ-8.10).
+pub const GUARDIAN_RING_HANDOVER_SNAPSHOT_KEY: &[u8] = b"guardian::ring::handover_snapshot";
+/// State key prefix for the per-version handover records (SCQ-8.10).
+pub const GUARDIAN_RING_HANDOVER_RECORD_PREFIX: &[u8] = b"guardian::ring::handover_record::";
+/// State key for the locked bonds of rotated or exited members (D2).
+pub const GUARDIAN_RING_BOND_LOCKS_KEY: &[u8] = b"guardian::ring::bond_locks";
+/// State key prefix for released bonds (custody succession plus the D2 lock).
+pub const GUARDIAN_RING_BOND_RELEASE_PREFIX: &[u8] = b"guardian::ring::bond_release::";
+
+/// Builds the canonical state key for the handover record that activated `version`.
+pub fn guardian_ring_handover_record_key(version: u64) -> Vec<u8> {
+    [GUARDIAN_RING_HANDOVER_RECORD_PREFIX, &version.to_be_bytes()].concat()
+}
+
+/// Builds the canonical state key for a member's released bond at `version`.
+pub fn guardian_ring_bond_release_key(member: &AccountId, version: u64) -> Vec<u8> {
+    [
+        GUARDIAN_RING_BOND_RELEASE_PREFIX,
+        member.as_ref(),
+        &version.to_be_bytes(),
+    ]
+    .concat()
+}
 
 /// Builds the canonical state key for one versioned ring configuration.
 pub fn guardian_ring_config_key(version: u64) -> Vec<u8> {

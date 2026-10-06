@@ -59,6 +59,7 @@ pub mod penalties;
 /// Wire objects for online Query-Unanimity Verification.
 pub mod query_unanimity;
 pub mod ring_membership;
+pub mod ring_selection;
 /// Unified agent runtime substrate and cognitive-loop contracts.
 pub mod runtime;
 /// Compatibility re-export surface for unified agent runtime contracts.
@@ -111,6 +112,7 @@ pub use model_registry::*;
 pub use penalties::*;
 pub use query_unanimity::*;
 pub use ring_membership::*;
+pub use ring_selection::*;
 pub use runtime_contracts::*;
 pub use settlement::*;
 pub use system_activation::*;
