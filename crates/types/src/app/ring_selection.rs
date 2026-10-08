@@ -863,6 +863,18 @@ pub fn draw_genesis_ring(
     Ok(draw)
 }
 
+/// Review r1 MAJOR-2: whether the genesis draw over `snapshot` can succeed, decided BEFORE the
+/// snapshot is committed (a pending snapshot leaves only through a successful settlement, so an
+/// infeasible one would block the ring's start for good). The genesis draw's errors do not depend
+/// on the beacon: at genesis no member is seated and the fill set is every seat, so they come only
+/// from `assign_seats`' counts over the snapshot's candidates (a floored constituency's pool below
+/// its floor, or the pool below n), and without such an error every seat is filled and every floor
+/// met. One probe draw therefore decides the draw for every beacon (a test checks the agreement over
+/// many beacons and pool shapes).
+pub fn check_genesis_draw_feasible(snapshot: &RingHandoverSnapshot) -> Result<(), String> {
+    draw_genesis_ring(snapshot, &[0u8; 32]).map(|_| ())
+}
+
 /// The balanced genesis tenure offsets (module docs, 2.), in seat order: a beacon-derived
 /// permutation of the seats (Fisher-Yates, each step its own value), and the k-th seat of the
 /// permutation starts at tenure ⌊k·T/n⌋. At most ⌈n/T⌉ seats share an offset.

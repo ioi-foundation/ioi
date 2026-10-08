@@ -445,6 +445,8 @@ impl GuardianRegistry {
                 "the genesis configuration's bonds differ from the drawn registrations'".into(),
             ));
         }
+        // Review r1 MINOR-2: settlement's checks run before anything else is written.
+        Self::settle_ring_genesis(state, &config, &pending, &draw)?;
         state.insert(
             &guardian_ring_config_key(config.version),
             &codec::to_bytes_canonical(&config).map_err(TransactionError::Serialization)?,
@@ -458,8 +460,7 @@ impl GuardianRegistry {
         queue
             .entries
             .retain(|entry| !draw.joiners.contains(&entry.account_id));
-        Self::store_ring_queue(state, &queue)?;
-        Self::settle_ring_genesis(state, &config, &pending, &draw)
+        Self::store_ring_queue(state, &queue)
     }
 
     /// AFT-CB R5 stage 3: the assurance-preserving handover against the
@@ -526,12 +527,10 @@ impl GuardianRegistry {
                     .into(),
             ));
         }
-        let current_event = Self::bump_ring_event_counter(state)?;
-        let mut queue = Self::load_ring_queue(state)?;
-        queue
-            .entries
-            .retain(|entry| !draw.joiners.contains(&entry.account_id));
-        Self::store_ring_queue(state, &queue)?;
+        // Review r1 MINOR-2: settlement's checks run BEFORE anything is written here, so a refused
+        // handover writes nothing with or without transaction rollback. Settlement reads neither
+        // the event counter nor the queue; it is handed the event the bump below then takes.
+        let current_event = Self::current_ring_event(state)?.saturating_add(1);
         Self::settle_ring_handover(
             state,
             &live,
@@ -540,6 +539,16 @@ impl GuardianRegistry {
             &draw,
             current_event,
         )?;
+        if Self::bump_ring_event_counter(state)? != current_event {
+            return Err(TransactionError::Invalid(
+                "the ring event counter moved during the handover".into(),
+            ));
+        }
+        let mut queue = Self::load_ring_queue(state)?;
+        queue
+            .entries
+            .retain(|entry| !draw.joiners.contains(&entry.account_id));
+        Self::store_ring_queue(state, &queue)?;
 
         let mut closed = live;
         closed.closed_by = Some(RingConfigClose {

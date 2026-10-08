@@ -30,12 +30,12 @@
 
 use super::*;
 use ioi_types::app::{
-    draw_genesis_ring, draw_vacated_seats, genesis_snapshot, genesis_tenure_offsets,
-    guardian_ring_bond_release_key, guardian_ring_handover_record_key, plan_handover_vacancies,
-    reference_handover_beacon, verify_seat_phases, RingBeaconRecordRequest, RingBeaconSource,
-    RingBondLock, RingBondReleaseRequest, RingHandoverRecord, RingHandoverSnapshot,
-    RingPendingHandover, RingSeatDraw, RingSeatLedger, RingSelectionParams,
-    GUARDIAN_RING_BOND_LOCKS_KEY, GUARDIAN_RING_HANDOVER_SNAPSHOT_KEY,
+    check_genesis_draw_feasible, draw_genesis_ring, draw_vacated_seats, genesis_snapshot,
+    genesis_tenure_offsets, guardian_ring_bond_release_key, guardian_ring_handover_record_key,
+    plan_handover_vacancies, reference_handover_beacon, verify_seat_phases,
+    RingBeaconRecordRequest, RingBeaconSource, RingBondLock, RingBondReleaseRequest,
+    RingHandoverRecord, RingHandoverSnapshot, RingPendingHandover, RingSeatDraw, RingSeatLedger,
+    RingSelectionParams, GUARDIAN_RING_BOND_LOCKS_KEY, GUARDIAN_RING_HANDOVER_SNAPSHOT_KEY,
     GUARDIAN_RING_PENDING_EXITS_KEY, GUARDIAN_RING_SEAT_LEDGER_KEY,
     GUARDIAN_RING_SELECTION_PARAMS_KEY,
 };
@@ -165,14 +165,30 @@ impl GuardianRegistry {
         let snapshot = match Self::load_live_ring_config(state)? {
             None => {
                 params.validate(None).map_err(TransactionError::Invalid)?;
-                let snapshot_event = Self::bump_ring_event_counter(state)?;
+                // Review r1 MAJOR-2: a genesis snapshot the genesis draw cannot fill is refused, and
+                // the refusal writes nothing (the event is bumped only after the check): a pending
+                // snapshot leaves only through a successful settlement, so taking an infeasible one
+                // would block the ring's start for good.
+                let snapshot_event = Self::current_ring_event(state)?.saturating_add(1);
                 let candidates: Vec<RingMemberRegistration> = Self::load_ring_queue(state)?
                     .activatable_at(snapshot_event)
                     .into_iter()
                     .cloned()
                     .collect();
-                genesis_snapshot(snapshot_event, params.ring_seats, candidates, &params)
-                    .map_err(TransactionError::Invalid)?
+                let snapshot =
+                    genesis_snapshot(snapshot_event, params.ring_seats, candidates, &params)
+                        .map_err(TransactionError::Invalid)?;
+                check_genesis_draw_feasible(&snapshot).map_err(|e| {
+                    TransactionError::Invalid(format!(
+                        "the genesis draw cannot succeed over this snapshot, so it is not taken: {e}"
+                    ))
+                })?;
+                if Self::bump_ring_event_counter(state)? != snapshot_event {
+                    return Err(TransactionError::Invalid(
+                        "the ring event counter moved while the genesis snapshot was taken".into(),
+                    ));
+                }
+                snapshot
             }
             Some(live) => Self::handover_snapshot(state, &params, &live)?,
         };

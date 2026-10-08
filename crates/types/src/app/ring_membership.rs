@@ -458,7 +458,7 @@ pub struct ConstituencyFloor {
     pub min_seats: u32,
 }
 
-pub(crate) fn seat_score(beacon: &[u8; 32], account: &AccountId) -> [u8; 32] {
+fn seat_score(beacon: &[u8; 32], account: &AccountId) -> [u8; 32] {
     use dcrypt::algorithms::hash::{HashFunction, Sha256};
     let mut material = Vec::with_capacity(b"aft::ring::sortition::v1".len() + 32 + 32);
     material.extend_from_slice(b"aft::ring::sortition::v1");

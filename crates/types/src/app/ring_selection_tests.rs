@@ -1293,6 +1293,79 @@ fn lemma_fr_at_n_7_forced_rotations_per_handover_never_exceed_ceil_n_over_t() {
     assert!(vacated_forced > 0, "no forced rotation met a starved pool");
 }
 
+/// Review r1 MAJOR-2: the genesis feasibility check agrees with the genesis draw for every beacon,
+/// over feasible and infeasible pools (too few candidates; a floor its pool cannot meet; a floor met
+/// exactly; a pool exactly n).
+#[test]
+fn the_genesis_feasibility_check_agrees_with_the_draw_for_every_beacon() {
+    let reg = |b: u8, constituency: u32| RingMemberRegistration {
+        account_id: AccountId([b; 32]),
+        bond_amount: 100,
+        constituency_id: constituency,
+        registered_at_event: 0,
+    };
+    let mut shapes: Vec<(&str, RingSelectionParams, Vec<RingMemberRegistration>, bool)> =
+        Vec::new();
+    let base = n7_params(4, 2);
+    shapes.push((
+        "seven of seven",
+        base.clone(),
+        (1..=7).map(|b| reg(b, 0)).collect(),
+        true,
+    ));
+    shapes.push((
+        "ten for seven",
+        base.clone(),
+        (1..=10).map(|b| reg(b, 0)).collect(),
+        true,
+    ));
+    shapes.push((
+        "six for seven",
+        base.clone(),
+        (1..=6).map(|b| reg(b, 0)).collect(),
+        false,
+    ));
+    shapes.push(("none", base.clone(), vec![], false));
+    let mut floored = base.clone();
+    floored.floors = vec![ConstituencyFloor {
+        constituency_id: 9,
+        min_seats: 2,
+    }];
+    let one_of_nine: Vec<RingMemberRegistration> =
+        (1..=9).map(|b| reg(b, 0)).chain([reg(20, 9)]).collect();
+    let two_of_nine: Vec<RingMemberRegistration> = (1..=9)
+        .map(|b| reg(b, 0))
+        .chain([reg(20, 9), reg(21, 9)])
+        .collect();
+    let floor_only: Vec<RingMemberRegistration> = (1..=5)
+        .map(|b| reg(b, 0))
+        .chain([reg(20, 9), reg(21, 9)])
+        .collect();
+    shapes.push((
+        "a floor its pool cannot meet",
+        floored.clone(),
+        one_of_nine,
+        false,
+    ));
+    shapes.push(("a floor met exactly", floored.clone(), two_of_nine, true));
+    shapes.push(("a floor met, pool exactly n", floored, floor_only, true));
+    for (name, params, candidates, feasible) in shapes {
+        let snapshot = genesis_snapshot(1, params.ring_seats, candidates, &params).unwrap();
+        assert_eq!(
+            check_genesis_draw_feasible(&snapshot).is_ok(),
+            feasible,
+            "{name}"
+        );
+        for b in 0..64u64 {
+            assert_eq!(
+                draw_genesis_ring(&snapshot, &beacon(5_000 + b)).is_ok(),
+                feasible,
+                "{name}: beacon {b} disagrees with the check"
+            );
+        }
+    }
+}
+
 /// LEMMA LV, over long seeded runs at n = 7 with an ample pool: (1) WITHIN the stated departure
 /// rate, e ≤ c − ⌈n/T⌉ exits per handover (chosen at random, or adversarially: always the
 /// maximum, from the seats rotating soonest), there is NO vacancy and no alarm, ever; (2) BEYOND
