@@ -1366,7 +1366,8 @@ fn the_genesis_feasibility_check_agrees_with_the_draw_for_every_beacon() {
     }
 }
 
-/// Q3 (rulings 2026-10-08 14:54: ALIGN with NET's verified model): on an `assign_seats` error EVERY
+/// MODEL MIRROR (b1r_inherit_check.py:86 `b2[s] = (VAC, (0 if ph >= T else ph, 0))`): the assign_seats-error path.
+/// Q3 (rulings 2026-10-08, as clarified 15:16+ by NET's model): on an `assign_seats` error EVERY
 /// fill seat resets to a fresh vacancy (VAC, age 0: `since_version` = the version handed over), an old
 /// vacancy inside the fill set included, and raises no VacancyAged alarm (its age is 0). An old
 /// vacancy BEYOND the fill set keeps its age and its alarm. Fill set (c = 3): seat 0 (m1, floored,
@@ -1415,6 +1416,264 @@ fn an_assign_error_resets_every_fill_seat_to_a_fresh_vacancy() {
             seat: 5,
             since_version: 4
         }]
+    );
+}
+
+/// MODEL MIRROR (b1r_inherit_check.py:102 `aged.append((k, ((ph + 1) % T, min(own + 1, cap))))` and b1r_inherit_check.py:79 `return 0 if (ph >= T or s in resets) else ph`): a VACANT seat's phase keeps advancing and wraps mod T for as
+/// long as it stays vacant, and a later (non-forced) refill INHERITS it: seat 2, vacant since
+/// version 1, refilled at handover h + 1 for every h in 0..3T, gives its joiner (o_2 + h + 1) mod T,
+/// never 0 by default and never the vacancy's age.
+#[test]
+fn model_mirror_a_vacant_seats_phase_keeps_advancing_and_wraps_and_a_refill_inherits_it() {
+    let mut p = params();
+    p.churn_cap = 4;
+    let members = [account_n(1), account_n(2), account_n(3)];
+    let offsets = [0, 1, 2, 3];
+    for h in 0..12u64 {
+        let candidates: Vec<_> = (10..20).map(|n| registration(n, 0)).collect();
+        let s = live_snapshot(&members, &[vacancy(2, 1)], &offsets, h, &[], candidates, &p);
+        let draw = draw_vacated_seats(&s, &beacon(100 + h)).unwrap();
+        let seats = seat_layout(&draw.successor_members, &draw.successor_vacancies).unwrap();
+        let joiner = seats[2].expect("the vacancy is refilled");
+        let tenure: BTreeMap<AccountId, u32> = draw.joiner_tenure.iter().copied().collect();
+        assert_eq!(tenure[&joiner], ((2 + h + 1) % 4) as u32, "h={h}");
+        assert_eq!(tenure[&joiner], seat_phase(2, h + 1, 4));
+    }
+}
+
+/// MODEL MIRROR (b1r_inherit_check.py:104 `aged.append((k, (min(ph + 1, cap), min(own + 1, cap))))`, b1r_inherit_check.py:110 `forced = [s for s in occ if aged[s][1][0] >= T]` and b1r_inherit_check.py:79 `return 0 if (ph >= T or s in resets) else ph`): an occupant is FORCED exactly at the handover at which
+/// its seat's counter reaches T, and a forced seat's refill restarts at 0.
+#[test]
+fn model_mirror_an_occupant_is_forced_when_its_counter_reaches_t_and_its_refill_starts_at_0() {
+    let mut p = params();
+    p.churn_cap = 4;
+    let members = [account_n(1), account_n(2), account_n(3), account_n(4)];
+    let offsets = [0u32, 1, 2, 3];
+    for h in 0..12u64 {
+        let candidates: Vec<_> = (10..20).map(|n| registration(n, 0)).collect();
+        let s = live_snapshot(&members, &[], &offsets, h, &[], candidates, &p);
+        let draw = draw_vacated_seats(&s, &beacon(200 + h)).unwrap();
+        let seats = seat_layout(&draw.successor_members, &draw.successor_vacancies).unwrap();
+        let tenure: BTreeMap<AccountId, u32> = draw.joiner_tenure.iter().copied().collect();
+        for (seat, o) in offsets.iter().enumerate() {
+            let due = (u64::from(*o) + h + 1) % 4 == 0;
+            assert_eq!(
+                s.forced_rotations.contains(&members[seat]),
+                due,
+                "h={h} seat {seat}"
+            );
+            if due {
+                assert_eq!(
+                    tenure[&seats[seat].unwrap()],
+                    0,
+                    "h={h} seat {seat}: a forced refill"
+                );
+            } else {
+                assert_eq!(seats[seat], Some(members[seat]), "h={h} seat {seat} kept");
+            }
+        }
+    }
+}
+
+/// MODEL MIRROR (b1r_inherit_check.py:127 `ff = sorted(forced, key=lambda s: (-aged[s][1][0], s))[:c]` and b1r_inherit_check.py:129 `vf = sorted(vac, key=lambda s: (-aged[s][1][1], s))[:room]`, then the departures; c caps the fill set): forced seats first,
+/// then the vacancies OLDEST first (the longest vacant; ties by seat), then the departures. Seats:
+/// 0 m1 (forced), 1 vacant since 3, 2 m2 (exits), 3 m3, 4 vacant since 2, 5 vacant since 2; c = 3:
+/// the fill set is seats 0, 4, 5; seat 1 keeps waiting (its age kept) and m2's seat becomes a vacancy.
+#[test]
+fn model_mirror_the_fill_order_is_forced_then_the_oldest_vacancies_then_the_departures() {
+    let mut p = params();
+    p.churn_cap = 3;
+    let members = [account_n(1), account_n(2), account_n(3)];
+    let candidates: Vec<_> = (10..20).map(|n| registration(n, 0)).collect();
+    let s = live_snapshot(
+        &members,
+        &[vacancy(1, 3), vacancy(4, 2), vacancy(5, 2)],
+        &[3, 0, 0, 1, 0, 0],
+        0,
+        &[account_n(2)],
+        candidates,
+        &p,
+    );
+    assert_eq!(s.forced_rotations, vec![account_n(1)]);
+    let draw = draw_vacated_seats(&s, &beacon(300)).unwrap();
+    let seats = seat_layout(&draw.successor_members, &draw.successor_vacancies).unwrap();
+    assert!(
+        seats[0].is_some() && seats[4].is_some() && seats[5].is_some(),
+        "{seats:?}"
+    );
+    assert_eq!(seats[3], Some(account_n(3)));
+    assert_eq!(draw.successor_vacancies, vec![vacancy(1, 3), vacancy(2, 5)]);
+    let tenure: BTreeMap<AccountId, u32> = draw.joiner_tenure.iter().copied().collect();
+    assert_eq!(tenure[&seats[0].unwrap()], 0, "the forced seat restarts");
+    assert_eq!(
+        tenure[&seats[4].unwrap()],
+        seat_phase(0, 1, 4),
+        "a vacancy refill inherits"
+    );
+}
+
+/// MODEL MIRROR (b1r_inherit_check.py:141 `base[s] = (VAC, (base[s][1][0], 0))`): a departure the cap cannot refill becomes a VACANCY whose AGE starts at 0
+/// (since_version = the version handed over, never the departed occupant's age) and whose PHASE
+/// continues: refilled one handover later, its joiner holds the seat's phase then.
+#[test]
+fn model_mirror_an_unfilled_departure_is_a_fresh_vacancy_whose_phase_continues() {
+    let mut p = params();
+    p.churn_cap = 1;
+    let members = [account_n(1), account_n(2), account_n(3), account_n(4)];
+    let offsets = [2u32, 1, 0, 0];
+    let candidates: Vec<_> = (10..20).map(|n| registration(n, 0)).collect();
+    let s = live_snapshot(
+        &members,
+        &[],
+        &offsets,
+        0,
+        &[account_n(1), account_n(2)],
+        candidates,
+        &p,
+    );
+    assert!(s.forced_rotations.is_empty());
+    let draw = draw_vacated_seats(&s, &beacon(400)).unwrap();
+    assert_eq!(
+        draw.successor_vacancies,
+        vec![vacancy(1, 5)],
+        "age 0, not m2's counter"
+    );
+    // One handover later (c = 2): seat 0's joiner is forced, and seat 1's refill inherits its phase.
+    p.churn_cap = 2;
+    let candidates: Vec<_> = (30..40).map(|n| registration(n, 0)).collect();
+    let s2 = live_snapshot(
+        &draw.successor_members,
+        &draw.successor_vacancies,
+        &offsets,
+        1,
+        &[],
+        candidates,
+        &p,
+    );
+    let draw2 = draw_vacated_seats(&s2, &beacon(401)).unwrap();
+    let seats2 = seat_layout(&draw2.successor_members, &draw2.successor_vacancies).unwrap();
+    let tenure2: BTreeMap<AccountId, u32> = draw2.joiner_tenure.iter().copied().collect();
+    assert_eq!(
+        tenure2[&seats2[1].unwrap()],
+        seat_phase(1, 2, 4),
+        "the vacant seat's phase continued"
+    );
+    assert_eq!(tenure2[&seats2[1].unwrap()], 3);
+}
+
+/// MODEL MIRROR (b1r_inherit_check.py:86 `b2[s] = (VAC, (0 if ph >= T else ph, 0))`, then the next handover's b1r_inherit_check.py:102 `aged.append((k, ((ph + 1) % T, min(own + 1, cap))))` and b1r_inherit_check.py:129 `vf = sorted(vac, key=lambda s: (-aged[s][1][1], s))[:room]`): after an assign_seats error the
+/// fill seats are fresh vacancies (age 0) whose phases CONTINUE (a forced seat's from 0, its phase
+/// point having passed); the next handover refills the OLDEST vacancy first (seat 5, which kept its
+/// age), and each refill inherits its seat's phase.
+#[test]
+fn model_mirror_after_an_assign_error_phases_continue_and_ages_order_the_refill() {
+    let mut p = params();
+    p.churn_cap = 3;
+    p.floors = vec![ConstituencyFloor {
+        constituency_id: 9,
+        min_seats: 1,
+    }];
+    let members = [account_n(1), account_n(2), account_n(3), account_n(4)];
+    let offsets = [3u32, 3, 0, 1, 0, 2];
+    let constituencies = vec![
+        (account_n(1), 9),
+        (account_n(2), 0),
+        (account_n(3), 0),
+        (account_n(4), 0),
+    ];
+    let candidates: Vec<_> = (10..30).map(|n| registration(n, 0)).collect();
+    let mut s = live_snapshot(
+        &members,
+        &[vacancy(2, 3), vacancy(5, 4)],
+        &offsets,
+        0,
+        &[],
+        candidates,
+        &p,
+    );
+    s.member_constituencies = constituencies.clone();
+    let draw = draw_vacated_seats(&s, &beacon(500)).unwrap();
+    assert!(draw.joiners.is_empty());
+    let candidates: Vec<_> = (40..50)
+        .map(|n| registration(n, 0))
+        .chain([registration(60, 9)])
+        .collect();
+    let mut s2 = live_snapshot(
+        &draw.successor_members,
+        &draw.successor_vacancies,
+        &offsets,
+        1,
+        &[],
+        candidates,
+        &p,
+    );
+    s2.member_constituencies = constituencies;
+    let draw2 = draw_vacated_seats(&s2, &beacon(501)).unwrap();
+    let seats2 = seat_layout(&draw2.successor_members, &draw2.successor_vacancies).unwrap();
+    assert!(
+        seats2[5].is_some(),
+        "the oldest vacancy (seat 5) is refilled first: {seats2:?}"
+    );
+    assert!(
+        seats2[2].is_none(),
+        "seat 2's age restarted at the error, so it waits behind seats 0 and 1 (ties by seat): {seats2:?}"
+    );
+    let tenure2: BTreeMap<AccountId, u32> = draw2.joiner_tenure.iter().copied().collect();
+    for seat in [0usize, 1, 5] {
+        if let Some(j) = seats2[seat] {
+            assert_eq!(tenure2[&j], seat_phase(offsets[seat], 2, 4), "seat {seat}");
+        }
+    }
+    assert_eq!(
+        tenure2[&seats2[0].unwrap()],
+        1,
+        "forced at handover 0: phase 0 then, 1 now"
+    );
+}
+
+/// MODEL MIRROR (b1r_inherit_check.py:149 `return [[(tuple((k, (a, a)) for k, a in st), p) for st, p in g] for g in gens]`): the genesis members start at their balanced offsets (phase = own = the
+/// offset).
+#[test]
+fn model_mirror_the_genesis_members_start_at_their_balanced_offsets() {
+    let p = params();
+    let pool: Vec<_> = (10..20).map(|n| registration(n, 0)).collect();
+    let genesis = genesis_snapshot(1, p.ring_seats, pool, &p).unwrap();
+    let b = beacon(600);
+    let draw = draw_genesis_ring(&genesis, &b).unwrap();
+    let offsets: BTreeMap<AccountId, u32> =
+        genesis_tenure_offsets(&b, &draw.successor_members, p.tenure_handovers)
+            .into_iter()
+            .collect();
+    for (member, tenure) in &draw.joiner_tenure {
+        assert_eq!(*tenure, offsets[member]);
+    }
+}
+
+/// B1 (NET's B1-R R1 finding): the genesis offsets come from the BEACON alone, under their own
+/// domain tag (`aft::ring::genesis-offsets::v1`): the same beacon gives every seat the same offset
+/// whoever occupies it (identities and constituencies never enter the derivation).
+#[test]
+fn the_genesis_offsets_come_from_the_beacon_alone() {
+    let b = beacon(700);
+    let first: Vec<AccountId> = (1..=7).map(account_n).collect();
+    let other: Vec<AccountId> = (50..=56).map(account_n).collect();
+    let by_seat = |members: &[AccountId]| -> Vec<u32> {
+        genesis_tenure_offsets(&b, members, 4)
+            .into_iter()
+            .map(|(_, o)| o)
+            .collect()
+    };
+    assert_eq!(by_seat(&first), by_seat(&other));
+    let mut reversed = first.clone();
+    reversed.reverse();
+    assert_eq!(by_seat(&first), by_seat(&reversed));
+    assert_ne!(
+        by_seat(&first),
+        genesis_tenure_offsets(&beacon(701), &first, 4)
+            .into_iter()
+            .map(|(_, o)| o)
+            .collect::<Vec<u32>>(),
+        "a different beacon permutes the seats"
     );
 }
 

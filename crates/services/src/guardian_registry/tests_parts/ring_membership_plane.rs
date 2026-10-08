@@ -1158,7 +1158,8 @@ fn a_handover_refused_at_settlement_writes_nothing() {
 /// and recorder-choosable (REFERENCE-UNBOUNDED: no grinding bound exists for it), so EVERY chain
 /// configuration refuses it and fails closed: the production registry, and a registry built from a
 /// chain configuration that names a test admission (no configuration key admits it). No beacon is
-/// recorded, so no draw can be made until a bounded source lands (R11's VDF, or OBS-6b).
+/// recorded, so no draw can be made until a bounded source lands (R11's VDF, or OBS-6b). The
+/// parameters are R = 0 (every chain configuration refuses R >= 1).
 #[test]
 fn the_reference_handover_beacon_is_refused_in_every_chain_configuration() {
     let mut named = serde_json::to_value(GuardianRegistryParams {
@@ -1167,12 +1168,22 @@ fn the_reference_handover_beacon_is_refused_in_every_chain_configuration() {
     })
     .unwrap();
     named["ring_reference_beacon"] = serde_json::json!("reference_unbounded_for_tests");
+    named["ring_selection_admission"] = serde_json::json!("test_only");
     named["reference_unbounded"] = serde_json::json!(true);
     let from_chain_config = GuardianRegistry::new(serde_json::from_value(named).unwrap());
+    let mut r0 = ring_params();
+    r0.floors = vec![ioi_types::app::ConstituencyFloor { constituency_id: 0, min_seats: 3 }];
     for registry in [production_registry(), from_chain_config] {
         let mut state = MockState::default();
         with_ctx(|ctx| {
-            publish_params(&registry, &mut state, ctx);
+            call(
+                &registry,
+                &mut state,
+                ctx,
+                "publish_ring_selection_params@v1",
+                &codec::to_bytes_canonical(&r0).unwrap(),
+            )
+            .unwrap();
             for b in 1u8..=4 {
                 register(&registry, &mut state, ctx, b, 100).unwrap();
             }
@@ -1188,17 +1199,53 @@ fn the_reference_handover_beacon_is_refused_in_every_chain_configuration() {
     }
 }
 
-/// Q2 (rulings 2026-10-08 14:54, PROVISIONAL): each drawn joiner records its acceptance on chain
-/// (`accept_ring_handover_seat@v1`, signed by the joiner) within W_acc ring events of the beacon.
-/// While the window is open the publication is exactly the draw. After it, a joiner that did not
-/// accept leaves its seat VACANT (an absent vote, never redrawn under this beacon) and stays
-/// registered; exactly the non-accepting joiners are vacated, never an accepted one.
+/// Q2 (rulings 2026-10-08, PROVISIONAL), with NET's conditions (a)-(d) and B3. A handover publishes
+/// the EXACT draw, with no joiner's acceptance in it (the joiners accept ON CHAIN, by the deadline
+/// s_h + Δ_b + W_acc); an acceptance never changes the draw or the fill (B3). A joiner that has not
+/// accepted is ABSENT (its seat is held, it is never a vote, n never shrinks) and, once its window
+/// has closed, it is a DEPARTURE fixed at the next snapshot, refilled in the same capped fill order
+/// and counted in the liveness budget. The next snapshot waits for every acceptance window.
 #[test]
-fn a_drawn_joiner_that_does_not_accept_within_the_window_leaves_its_seat_vacant() {
+fn a_drawn_joiner_accepts_on_chain_or_is_absent_and_departs_at_the_next_handover() {
     let registry = production_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
-        let genesis = setup_ring(&registry, &mut state, ctx);
+        let mut p = ring_params();
+        p.handover_interval_events = 12;
+        p.bond_lock_events = 4 * 12 + 3;
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_selection_params@v1",
+            &codec::to_bytes_canonical(&p).unwrap(),
+        )
+        .unwrap();
+        for b in 1u8..=3 {
+            register(&registry, &mut state, ctx, b, 100).unwrap();
+        }
+        register(&registry, &mut state, ctx, 4, 150).unwrap();
+        let (genesis_pending, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 5);
+        let gdraw = ioi_types::app::draw_genesis_ring(&genesis_pending.snapshot, &beacon).unwrap();
+        let genesis = BoundaryRingConfig {
+            version: 1,
+            members: gdraw.successor_members.clone(),
+            member_bonds: gdraw.successor_members.iter().map(|m| (*m, 100)).collect(),
+            activated_at_event: 0,
+            closed_by: None,
+            vacant_seats: vec![],
+        };
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_genesis_config@v1",
+            &codec::to_bytes_canonical(&genesis).unwrap(),
+        )
+        .unwrap();
+        for b in 6u8..=9 {
+            register(&registry, &mut state, ctx, b, 150).unwrap();
+        }
         for member in [ring_member(2), ring_member(3)] {
             ctx.signer_account_id = member;
             call(
@@ -1210,88 +1257,67 @@ fn a_drawn_joiner_that_does_not_accept_within_the_window_leaves_its_seat_vacant(
             )
             .unwrap();
         }
-        let draw = snapshot_and_beacon(&registry, &mut state, ctx, 20);
+        let (pending_handover, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 20);
+        let draw = ioi_types::app::draw_vacated_seats(&pending_handover.snapshot, &beacon).unwrap();
         assert_eq!(draw.joiners.len(), 2, "two exits, c = 2: two joiners");
         let (accepting, silent) = (draw.joiners[0], draw.joiners[1]);
-        let commitment = codec::to_bytes_canonical(&pending(&state).commitment).unwrap();
-        let layout = ioi_types::app::seat_layout(&draw.successor_members, &draw.successor_vacancies)
-            .unwrap();
-        let seat_of = |who: AccountId| layout.iter().position(|m| *m == Some(who)).unwrap() as u32;
-        let vacating = |gone: AccountId| {
-            let members: Vec<AccountId> = draw
-                .successor_members
-                .iter()
-                .copied()
-                .filter(|m| *m != gone)
-                .collect();
-            let mut vacancies = draw.successor_vacancies.clone();
-            vacancies.push(ioi_types::app::RingVacancy {
-                seat: seat_of(gone),
-                since_version: genesis.version,
-            });
-            vacancies.sort_by_key(|v| v.seat);
-            let bonds = bonds_for(&genesis, &members);
-            publication_for(&genesis, members, vacancies, bonds)
-        };
-        // Only a drawn joiner accepts, and only for itself.
+        let commitment = codec::to_bytes_canonical(&pending_handover.commitment).unwrap();
+        // Only a drawn joiner accepts, for itself; an acceptance changes nothing in the draw (B3).
         ctx.signer_account_id = ring_member(1);
         assert!(call(&registry, &mut state, ctx, "accept_ring_handover_seat@v1", &commitment).is_err());
         ctx.signer_account_id = accepting;
         call(&registry, &mut state, ctx, "accept_ring_handover_seat@v1", &commitment).unwrap();
-        // While the window is open, vacating the silent joiner is refused.
-        assert!(call(
-            &registry,
-            &mut state,
-            ctx,
-            "publish_ring_handover@v1",
-            &codec::to_bytes_canonical(&vacating(silent)).unwrap(),
-        )
-        .is_err());
-        // Close the window: ring events past W_acc.
-        for b in 40u8..56 {
-            register(&registry, &mut state, ctx, b, 150).unwrap();
-        }
-        ctx.signer_account_id = silent;
-        assert!(
-            call(&registry, &mut state, ctx, "accept_ring_handover_seat@v1", &commitment).is_err(),
-            "no acceptance after the window"
+        assert_eq!(
+            ioi_types::app::draw_vacated_seats(&pending(&state).snapshot, &beacon).unwrap(),
+            draw
         );
-        // After the window: the exact draw (seating the silent joiner) and vacating the ACCEPTED
-        // joiner are both refused.
-        for wrong in [drawn_publication(&genesis, &draw), vacating(accepting)] {
-            assert!(call(
-                &registry,
-                &mut state,
-                ctx,
-                "publish_ring_handover@v1",
-                &codec::to_bytes_canonical(&wrong).unwrap(),
-            )
-            .is_err());
-        }
+        // The publication is the EXACT draw, carrying the old ring's approvals and the KEPT
+        // members' acceptances only (a silent joiner can no longer stall it).
+        let mut publication = drawn_publication(&genesis, &draw);
+        publication
+            .acceptances
+            .retain(|a| !draw.joiners.contains(&a.member));
         call(
             &registry,
             &mut state,
             ctx,
             "publish_ring_handover@v1",
-            &codec::to_bytes_canonical(&vacating(silent)).unwrap(),
+            &codec::to_bytes_canonical(&publication).unwrap(),
         )
         .unwrap();
-        let live = live_config(&state);
-        assert!(live.members.contains(&accepting) && !live.members.contains(&silent));
-        assert!(live
-            .vacant_seats
-            .iter()
-            .any(|v| v.seat == seat_of(silent) && v.since_version == genesis.version));
-        assert_eq!(live.seat_count(), 3, "n never shrinks");
-        let queue: RingActivationQueue = stored(&state, ioi_types::app::GUARDIAN_RING_QUEUE_KEY);
-        assert!(queue.entries.iter().any(|e| e.account_id == silent), "the silent joiner stays registered");
-        assert!(queue.entries.iter().all(|e| e.account_id != accepting), "the seated joiner left the queue");
-        let record: ioi_types::app::RingHandoverRecord =
-            stored(&state, &ioi_types::app::guardian_ring_handover_record_key(live.version));
+        let ring1 = live_config(&state);
+        assert_eq!(ring1.members, draw.successor_members, "the fill is the draw's (B3)");
+        assert_eq!(ring1.seat_count(), 3, "n never shrinks");
+        // While the silent joiner's window is open, the next snapshot is refused (B3: its decision
+        // is fixed before that snapshot).
+        assert!(call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).is_err());
+        for b in 40u8..50 {
+            register(&registry, &mut state, ctx, b, 150).unwrap();
+        }
+        ctx.signer_account_id = silent;
         assert!(
-            format!("{:?}", record.alarms).contains("JoinerAcceptanceExpired"),
-            "the record names the expired acceptance: {:?}",
-            record.alarms
+            call(&registry, &mut state, ctx, "accept_ring_handover_seat@v1", &commitment).is_err(),
+            "no acceptance after the deadline"
+        );
+        // The next handover: the silent joiner is a DEPARTURE, the accepting joiner is not.
+        call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).unwrap();
+        let snapshot2 = pending(&state).snapshot;
+        assert!(snapshot2.vacated_set.contains(&silent), "{snapshot2:?}");
+        assert!(!snapshot2.vacated_set.contains(&accepting));
+        register(&registry, &mut state, ctx, 51, 150).unwrap();
+        let request = beacon_request(&state);
+        call(&registry, &mut state, ctx, "record_ring_handover_beacon@v1", &request).unwrap();
+        let pending2 = pending(&state);
+        let (beacon2, _, _) = pending2.beacon.unwrap();
+        let draw2 = ioi_types::app::draw_vacated_seats(&pending2.snapshot, &beacon2).unwrap();
+        assert!(draw2.departed.contains(&silent));
+        let silent_seat = ring1.members.iter().position(|m| *m == silent).unwrap();
+        let seats2 =
+            ioi_types::app::seat_layout(&draw2.successor_members, &draw2.successor_vacancies)
+                .unwrap();
+        assert!(
+            matches!(seats2[silent_seat], Some(next) if next != silent),
+            "the seat is refilled within the cap: {seats2:?}"
         );
     });
 }
@@ -1438,5 +1464,125 @@ fn at_r_0_a_vacated_seat_is_refilled_only_from_its_own_constituency() {
             &codec::to_bytes_canonical(&drawn_publication(&ring, &draw)).unwrap(),
         )
         .unwrap();
+    });
+}
+
+/// Q4 (rulings 2026-10-08 15:16): every chain configuration REFUSES ring parameters with non-floor
+/// seats (R >= 1): no checker family covers them yet (NET's queue), so they fail closed. R = 0
+/// parameters (the floors sum to n) are taken.
+#[test]
+fn ring_parameters_with_non_floor_seats_are_refused_in_every_chain_configuration() {
+    let chain_registry = production_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let err = call(
+            &chain_registry,
+            &mut state,
+            ctx,
+            "publish_ring_selection_params@v1",
+            &codec::to_bytes_canonical(&ring_params()).unwrap(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("R >= 1"), "R = 3: {err}");
+        let mut one_free = ring_params();
+        one_free.floors = vec![ioi_types::app::ConstituencyFloor { constituency_id: 0, min_seats: 2 }];
+        let err = call(
+            &chain_registry,
+            &mut state,
+            ctx,
+            "publish_ring_selection_params@v1",
+            &codec::to_bytes_canonical(&one_free).unwrap(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("R >= 1"), "R = 1: {err}");
+        let mut r0 = ring_params();
+        r0.floors = vec![ioi_types::app::ConstituencyFloor { constituency_id: 0, min_seats: 3 }];
+        call(
+            &chain_registry,
+            &mut state,
+            ctx,
+            "publish_ring_selection_params@v1",
+            &codec::to_bytes_canonical(&r0).unwrap(),
+        )
+        .unwrap();
+    });
+}
+
+/// B3 (NET's B1-R R1 finding): every exit decision that affects a handover is fixed at its committed
+/// snapshot, BEFORE the beacon. An exit declared after the beacon changes neither that handover's
+/// draw nor its fill (a publication honouring it is refused); it is planned at the next snapshot.
+#[test]
+fn an_exit_declared_after_the_beacon_changes_neither_the_draw_nor_the_fill() {
+    let registry = production_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let genesis = setup_ring(&registry, &mut state, ctx);
+        ctx.signer_account_id = ring_member(2);
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "declare_ring_exit@v1",
+            &codec::to_bytes_canonical(&ring_member(2)).unwrap(),
+        )
+        .unwrap();
+        let (_, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 20);
+        let draw = ioi_types::app::draw_vacated_seats(&pending(&state).snapshot, &beacon).unwrap();
+        // After the beacon, member 1 declares its exit.
+        ctx.signer_account_id = ring_member(1);
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "declare_ring_exit@v1",
+            &codec::to_bytes_canonical(&ring_member(1)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ioi_types::app::draw_vacated_seats(&pending(&state).snapshot, &beacon).unwrap(),
+            draw,
+            "the draw is the snapshot's"
+        );
+        let honouring = {
+            let seats = ioi_types::app::seat_layout(&draw.successor_members, &draw.successor_vacancies)
+                .unwrap();
+            let gone = seats.iter().position(|m| *m == Some(ring_member(1))).unwrap() as u32;
+            let members: Vec<AccountId> = draw
+                .successor_members
+                .iter()
+                .copied()
+                .filter(|m| *m != ring_member(1))
+                .collect();
+            let mut vacancies = draw.successor_vacancies.clone();
+            vacancies.push(ioi_types::app::RingVacancy { seat: gone, since_version: genesis.version });
+            vacancies.sort_by_key(|v| v.seat);
+            let bonds = bonds_for(&genesis, &members);
+            publication_for(&genesis, members, vacancies, bonds)
+        };
+        assert!(call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&honouring).unwrap(),
+        )
+        .is_err());
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&drawn_publication(&genesis, &draw)).unwrap(),
+        )
+        .unwrap();
+        assert!(live_config(&state).members.contains(&ring_member(1)), "member 1 stays this handover");
+        for b in 40u8..50 {
+            register(&registry, &mut state, ctx, b, 150).unwrap();
+        }
+        call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).unwrap();
+        assert!(
+            pending(&state).snapshot.exits.contains(&ring_member(1)),
+            "the late exit is planned at the next snapshot"
+        );
     });
 }
