@@ -260,6 +260,24 @@ pub(super) async fn replay_committed_block_vote_once<CE>(
         return;
     }
 
+    // A committed-block vote replay is still this node's vote: an exact replay of an admitted
+    // vote passes the engine's vote rules; anything else is checked (P7).
+    if let Err(error) = consensus_engine_ref
+        .lock()
+        .await
+        .admit_local_vote(&block.header)
+        .await
+    {
+        tracing::debug!(
+            target: "consensus",
+            height = block.header.height,
+            view = block.header.view,
+            %error,
+            "Committed block vote replay withheld by the vote rules."
+        );
+        return;
+    }
+
     let vote_hash_vec = match block.header.hash() {
         Ok(hash) => hash,
         Err(error) => {
@@ -1074,11 +1092,35 @@ where
     }
 
     // [FIX] Self-Vote Logic for the Leader/Producer
-    // The producer must vote for their own block to ensure Quorum is reached.
-    if final_block.header.height > 0
+    // The producer must vote for their own block to ensure Quorum is reached, but only if the
+    // engine's vote rules admit it (P7): a producer whose processing outlived its view, or whose
+    // lock the parent does not extend, does not vote for its own stale proposal.
+    let self_vote_admitted = if final_block.header.height > 0
         && matches!(consensus_type, ioi_types::config::ConsensusType::Aft)
         && !final_block.header.signature.is_empty()
     {
+        match consensus_engine_ref
+            .lock()
+            .await
+            .admit_local_vote(&final_block.header)
+            .await
+        {
+            Ok(()) => true,
+            Err(error) => {
+                tracing::warn!(
+                    target: "consensus",
+                    height = final_block.header.height,
+                    view = final_block.header.view,
+                    %error,
+                    "Producer self-vote withheld by the vote rules."
+                );
+                false
+            }
+        }
+    } else {
+        false
+    };
+    if self_vote_admitted {
         // The caller already supplies the exact sender installed in the
         // orchestration context. Re-locking the global context here can form a
         // post-commit lock cycle with concurrent admission processing, leaving

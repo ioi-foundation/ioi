@@ -154,9 +154,37 @@ def parse_markdown_table(raw: str, scenario_filter: str) -> list[dict[str, objec
     return rows
 
 
+FORK_CHECK_PREFIX = "FORK_CHECK "
+FORK_CHECK_SCHEMA = "ioi.aft.fork-check.v1"
+FORK_CHECK_POLICY = "per_node_root_agreement.v1"
+
+
+def parse_fork_checks(raw: str) -> list[dict[str, object]]:
+    """Every `FORK_CHECK {json}` line the harness printed (one per scenario/lane run). Malformed lines fail closed."""
+    checks = []
+    for line in raw.splitlines():
+        if not line.startswith(FORK_CHECK_PREFIX):
+            continue
+        check = json.loads(line[len(FORK_CHECK_PREFIX):])
+        if check.get("schema") != FORK_CHECK_SCHEMA or check.get("verdict") not in ("agree", "forked", "degraded"):
+            raise ValueError("malformed fork check line")
+        checks.append(check)
+    return checks
+
+
 def collect(args: argparse.Namespace) -> None:
     raw_path = Path(args.input)
-    rows = parse_markdown_table(raw_path.read_text(), args.scenario)
+    raw_text = raw_path.read_text()
+    rows = parse_markdown_table(raw_text, args.scenario)
+    fork_checks = parse_fork_checks(raw_text)
+    rank = {"agree": 0, "degraded": 1, "forked": 2}
+    by_key: dict[tuple, str] = {}
+    for check in fork_checks:
+        key = (check.get("scenario"), check.get("lane"))
+        if key not in by_key or rank[check["verdict"]] > rank[by_key[key]]:  # keep the WORST verdict per key
+            by_key[key] = check["verdict"]
+    for row in rows:
+        row["fork_check"] = by_key.get((row["scenario"], row["lane"]), "missing")
     write_json(
         Path(args.output),
         {
@@ -166,6 +194,7 @@ def collect(args: argparse.Namespace) -> None:
             "scenario_filter": args.scenario or None,
             "row_count": len(rows),
             "rows": rows,
+            "fork_checks": fork_checks,
             "raw_sha256": hashlib.sha256(raw_path.read_bytes()).hexdigest(),
         },
     )
@@ -238,6 +267,20 @@ def aggregate(args: argparse.Namespace) -> None:
         raise ValueError("measured pass campaign identity does not match the aggregate")
     if [item["pass"] for item in passes] != list(range(1, args.repeats + 1)):
         raise ValueError("measured pass sequence is incomplete or duplicated")
+    legacy_missing = False
+    for item in passes:
+        for row in item["rows"]:
+            verdict = row.get("fork_check", "missing")
+            if verdict in ("forked", "degraded"):
+                raise ValueError(
+                    f"pass {item['pass']} {row['scenario']}/{row['lane']} fork_check={verdict}: refusing to aggregate a forked or degraded run"
+                )
+            if verdict == "missing":
+                if not getattr(args, "allow_missing_fork_check", False):
+                    raise ValueError(
+                        f"pass {item['pass']} {row['scenario']}/{row['lane']} has no fork check; rerun with the fork-checking harness or pass --allow-missing-fork-check (labelled legacy)"
+                    )
+                legacy_missing = True
     row_maps = [
         {(row["scenario"], row["lane"]): row for row in item["rows"]} for item in passes
     ]
@@ -263,6 +306,8 @@ def aggregate(args: argparse.Namespace) -> None:
         )
 
     verdict = "reproduced_within_threshold" if all_within else "variance_caveated"
+    if legacy_missing:
+        verdict += "_fork_check_missing_legacy"
     result = {
         "schema_version": "ioi.aft.benchmark-campaign.v1",
         "campaign_id": args.campaign,
@@ -270,6 +315,7 @@ def aggregate(args: argparse.Namespace) -> None:
         "row_count_per_pass": len(expected_keys),
         "threshold_policy": THRESHOLDS,
         "verdict": verdict,
+        "fork_check": "missing_legacy" if legacy_missing else FORK_CHECK_POLICY,
         "all_rows_within_threshold": all_within,
         "summaries": summaries,
         "pass_artifacts": [str(path) for path in paths],
@@ -427,6 +473,7 @@ def environment_manifest(args: argparse.Namespace) -> None:
 
     manifest = {
         "schema_version": "ioi.aft.environment-manifest.v1",
+        "fork_check": FORK_CHECK_POLICY,
         "campaign_id": args.campaign,
         "source_commit": args.commit,
         "image_digest": args.image_digest,
@@ -653,6 +700,8 @@ def parser() -> argparse.ArgumentParser:
     aggregate_parser.add_argument("--campaign", required=True)
     aggregate_parser.add_argument("--output-json", required=True)
     aggregate_parser.add_argument("--output-markdown", required=True)
+    aggregate_parser.add_argument("--allow-missing-fork-check", action="store_true",
+                                  help="legacy only: aggregate passes without a fork check; the verdict is labelled")
     aggregate_parser.set_defaults(function=aggregate)
     compare_parser = sub.add_parser("compare")
     compare_parser.add_argument("--campaign-a", required=True)

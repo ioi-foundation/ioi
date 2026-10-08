@@ -55,6 +55,8 @@ impl GuardianMajorityEngine {
             mirror_seed: [0u8; 32],
             echo_pool: HashMap::new(),
             voted_slots: HashSet::new(),
+            local_votes: HashMap::new(),
+            accepted_proposals: HashSet::new(),
             pacemaker: Arc::new(Mutex::new(Pacemaker::new(view_timeout))),
             safety: SafetyGadget::new(),
             mirror_stats: MirrorStats::default(),
@@ -608,6 +610,12 @@ impl GuardianMajorityEngine {
             .entry(qc.height)
             .or_default()
             .insert(qc.block_hash, qc.clone());
+    }
+
+    /// Test-only: records `qc` as held, for wrapper-forwarding tests outside this module.
+    #[cfg(test)]
+    pub(crate) fn remember_qc_for_tests(&mut self, qc: &QuorumCertificate) {
+        self.remember_qc(qc);
     }
 
     pub(super) fn local_recovered_header_for_qc(

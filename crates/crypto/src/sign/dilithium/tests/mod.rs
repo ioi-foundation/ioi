@@ -182,3 +182,74 @@ fn test_cross_level_verification() {
     // (will fail due to key size mismatch detection in verify)
     assert!(keypair3.public_key().verify(message, &signature2).is_err());
 }
+
+/// OBS-9 (P7): a scheme configured for one level refuses a valid key and signature of another
+/// level (the trunk picked the parameter set from the key's length and accepted it).
+#[test]
+fn obs9_a_scheme_refuses_a_valid_key_of_another_level() {
+    let message = b"OBS-9 level binding";
+    let scheme2 = DilithiumScheme::new(SecurityLevel::Level2);
+    let scheme3 = DilithiumScheme::new(SecurityLevel::Level3);
+    let keypair2 = scheme2.generate_keypair().unwrap();
+    let keypair3 = scheme3.generate_keypair().unwrap();
+    let signature2 = keypair2.sign(message).unwrap();
+    let signature3 = keypair3.sign(message).unwrap();
+
+    scheme2
+        .verify(&keypair2.public_key(), message, &signature2)
+        .expect("a scheme verifies its own level");
+    scheme3
+        .verify(&keypair3.public_key(), message, &signature3)
+        .expect("a scheme verifies its own level");
+    // The downgrade: an ML-DSA-65 scheme handed a valid ML-DSA-44 key and signature.
+    assert!(matches!(
+        scheme3.verify(&keypair2.public_key(), message, &signature2),
+        Err(CryptoError::InvalidKey(_))
+    ));
+    // And the other way round.
+    assert!(scheme2
+        .verify(&keypair3.public_key(), message, &signature3)
+        .is_err());
+}
+
+/// OBS-9 (P7): a level ML-DSA has no parameter set for is refused, never silently ML-DSA-44.
+#[test]
+fn obs9_no_silent_ml_dsa_44_fallback() {
+    assert!(matches!(
+        DilithiumScheme::new(SecurityLevel::Level1).generate_keypair(),
+        Err(CryptoError::Unsupported(_))
+    ));
+}
+
+/// OBS-9 (P7): a private key labelled with a level ML-DSA has no parameter set for never signs as
+/// ML-DSA-44, on any of the three signing paths (the scheme, the key pair, the private key). Such a
+/// key is not constructible through the public API (generation refuses the level; `from_bytes`
+/// infers the level from the length), so the refusals are defence in depth, pinned here.
+#[test]
+fn obs9_no_silent_ml_dsa_44_signing() {
+    let message = b"OBS-9 signing";
+    let real = DilithiumScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let mislabelled = MldsaPrivateKey {
+        data: real.private_key.data.clone(),
+        level: SecurityLevel::Level1,
+    };
+    let pair = MldsaKeyPair {
+        public_key: MldsaPublicKey(real.public_key.0.clone()),
+        private_key: mislabelled.clone(),
+        level: SecurityLevel::Level1,
+    };
+    assert!(matches!(
+        DilithiumScheme::new(SecurityLevel::Level1).sign(&mislabelled, message),
+        Err(CryptoError::Unsupported(_))
+    ));
+    assert!(matches!(
+        SigningKeyPair::sign(&pair, message),
+        Err(CryptoError::Unsupported(_))
+    ));
+    assert!(matches!(
+        SigningKey::sign(&mislabelled, message),
+        Err(CryptoError::Unsupported(_))
+    ));
+}

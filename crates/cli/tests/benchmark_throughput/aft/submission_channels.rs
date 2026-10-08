@@ -411,6 +411,277 @@ async fn get_block_by_height_any_rpc(
     Ok(None)
 }
 
+/// fork_check `per_node_root_agreement.v1` (P7, build Ruling 12; NET's
+/// `records/proposals/FORK-CHECK-per_node_root_agreement.v1/`, mirroring
+/// `internal-docs/architecture/protocols/aft/bench/akash/fork_check_reference.py`).
+///
+/// The commit-latency scan above merges nodes by height (`get_block_by_height_any_rpc`), so a
+/// forked run once read as one chain (OBS-10: `recent=[11:6880,12:256]`). This check never merges
+/// nodes: every node must report the SAME (header hash, state_root) at every height up to the
+/// common tip. An unreachable node or a hole below the common tip is `degraded`, never skipped;
+/// a lagging node is not a fork.
+const FORK_CHECK_SCHEMA: &str = "ioi.aft.fork-check.v1";
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct ForkCheckNode {
+    rpc: String,
+    reachable: bool,
+    tip: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct ForkCheckDivergence {
+    height: u64,
+    /// `[rpc, header_hash_hex | null, state_root_hex | null]` per node.
+    per_node: Vec<(String, Option<String>, Option<String>)>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct ForkCheck {
+    schema: &'static str,
+    scenario: String,
+    lane: String,
+    /// `agree`, `forked` or `degraded`.
+    verdict: &'static str,
+    common_tip: u64,
+    nodes: Vec<ForkCheckNode>,
+    first_divergence: Option<ForkCheckDivergence>,
+}
+
+/// One node as the fork check observed it: whether it answered, its tip, and its block identity
+/// (header hash, state root) at each height read.
+#[derive(Debug, Clone, Default)]
+struct ForkCheckObservation {
+    rpc: String,
+    reachable: bool,
+    tip: Option<u64>,
+    blocks: BTreeMap<u64, (Option<String>, Option<String>)>,
+}
+
+/// The verdict over the observations (the pure part of the check, unit-tested below).
+fn root_agreement_verdict(nodes: &[ForkCheckObservation], scenario: &str, lane: &str) -> ForkCheck {
+    let summary: Vec<ForkCheckNode> = nodes
+        .iter()
+        .map(|node| ForkCheckNode {
+            rpc: node.rpc.clone(),
+            reachable: node.reachable,
+            tip: node.tip,
+        })
+        .collect();
+    let verdict = |verdict, common_tip, first_divergence| ForkCheck {
+        schema: FORK_CHECK_SCHEMA,
+        scenario: scenario.to_string(),
+        lane: lane.to_string(),
+        verdict,
+        common_tip,
+        nodes: summary.clone(),
+        first_divergence,
+    };
+    if nodes.is_empty()
+        || nodes
+            .iter()
+            .any(|node| !node.reachable || node.tip.is_none())
+    {
+        // An unreachable node is never silently skipped.
+        return verdict("degraded", 0, None);
+    }
+    let common_tip = nodes.iter().filter_map(|node| node.tip).min().unwrap_or(0);
+    for height in 1..=common_tip {
+        let mut per_node = Vec::with_capacity(nodes.len());
+        for node in nodes {
+            let Some((hash, root)) = node.blocks.get(&height) else {
+                // A hole below the common tip.
+                return verdict("degraded", common_tip, None);
+            };
+            per_node.push((node.rpc.clone(), hash.clone(), root.clone()));
+        }
+        let first = (&per_node[0].1, &per_node[0].2);
+        if per_node[0].1.is_none() || per_node.iter().any(|(_, hash, root)| (hash, root) != first) {
+            return verdict(
+                "forked",
+                common_tip,
+                Some(ForkCheckDivergence { height, per_node }),
+            );
+        }
+    }
+    verdict("agree", common_tip, None)
+}
+
+/// Observes every node separately (tip, then each height up to the common tip) and returns the
+/// verdict. It reads at most `common_tip × nodes` blocks.
+async fn check_per_node_root_agreement(
+    rpc_addrs: &[String],
+    scenario: &str,
+    lane: &str,
+) -> ForkCheck {
+    let mut nodes = Vec::with_capacity(rpc_addrs.len());
+    for rpc_addr in rpc_addrs {
+        let tip = rpc::tip_height_resilient(rpc_addr).await.ok();
+        nodes.push(ForkCheckObservation {
+            rpc: rpc_addr.clone(),
+            reachable: tip.is_some(),
+            tip,
+            blocks: BTreeMap::new(),
+        });
+    }
+    if nodes.iter().all(|node| node.reachable) {
+        let common_tip = nodes.iter().filter_map(|node| node.tip).min().unwrap_or(0);
+        for node in &mut nodes {
+            for height in 1..=common_tip {
+                let block = rpc::get_block_by_height_resilient(&node.rpc, height)
+                    .await
+                    .ok()
+                    .flatten();
+                let Some(block) = block else {
+                    break;
+                };
+                let hash = block.header.hash().ok().map(hex::encode);
+                let root = Some(hex::encode(&block.header.state_root.0));
+                node.blocks.insert(height, (hash, root));
+            }
+        }
+    }
+    root_agreement_verdict(&nodes, scenario, lane)
+}
+
+#[cfg(test)]
+mod fork_check_tests {
+    //! The reference cases of `fork_check_reference.py` (NET, 7/7), on the Rust verdict.
+    use super::*;
+
+    fn node(
+        rpc: &str,
+        tip: Option<u64>,
+        blocks: &[(u64, &str, &str)],
+        reachable: bool,
+    ) -> ForkCheckObservation {
+        ForkCheckObservation {
+            rpc: rpc.to_string(),
+            reachable,
+            tip,
+            blocks: blocks
+                .iter()
+                .map(|(height, hash, root)| {
+                    (*height, (Some(hash.to_string()), Some(root.to_string())))
+                })
+                .collect(),
+        }
+    }
+
+    fn chain_a(to: u64) -> Vec<(u64, String, String)> {
+        (1..=to)
+            .map(|h| (h, format!("h{h}"), format!("r{h}")))
+            .collect()
+    }
+
+    fn refs(chain: &[(u64, String, String)]) -> Vec<(u64, &str, &str)> {
+        chain
+            .iter()
+            .map(|(h, a, b)| (*h, a.as_str(), b.as_str()))
+            .collect()
+    }
+
+    #[test]
+    fn all_nodes_agree() {
+        let a = chain_a(12);
+        let nodes: Vec<_> = (0..4)
+            .map(|i| node(&format!("n{i}"), Some(12), &refs(&a), true))
+            .collect();
+        let verdict = root_agreement_verdict(&nodes, "s", "l");
+        assert_eq!((verdict.verdict, verdict.common_tip), ("agree", 12));
+        assert_eq!(verdict.schema, FORK_CHECK_SCHEMA);
+    }
+
+    #[test]
+    fn a_lagging_node_is_not_a_fork() {
+        let a = chain_a(12);
+        let lag = chain_a(10);
+        let mut nodes: Vec<_> = (0..3)
+            .map(|i| node(&format!("n{i}"), Some(12), &refs(&a), true))
+            .collect();
+        nodes.push(node("n3", Some(10), &refs(&lag), true));
+        let verdict = root_agreement_verdict(&nodes, "s", "l");
+        assert_eq!((verdict.verdict, verdict.common_tip), ("agree", 10));
+    }
+
+    #[test]
+    fn the_obs10_shape_is_forked_at_height_11() {
+        let majority = chain_a(11);
+        let mut b = chain_a(12);
+        b[10] = (11, "hB11".into(), "rB11".into());
+        b[11] = (12, "hB12".into(), "rB12".into());
+        let mut nodes: Vec<_> = (0..3)
+            .map(|i| node(&format!("n{i}"), Some(11), &refs(&majority), true))
+            .collect();
+        nodes.push(node("n3", Some(12), &refs(&b), true));
+        let verdict = root_agreement_verdict(&nodes, "s", "l");
+        assert_eq!(verdict.verdict, "forked");
+        assert_eq!(verdict.first_divergence.map(|d| d.height), Some(11));
+    }
+
+    #[test]
+    fn the_same_hash_with_another_root_is_forked() {
+        let a = chain_a(12);
+        let mut c = chain_a(12);
+        c[4] = (5, "h5".into(), "rX".into());
+        let nodes = vec![
+            node("n0", Some(12), &refs(&a), true),
+            node("n1", Some(12), &refs(&c), true),
+        ];
+        let verdict = root_agreement_verdict(&nodes, "s", "l");
+        assert_eq!(verdict.verdict, "forked");
+        assert_eq!(verdict.first_divergence.map(|d| d.height), Some(5));
+    }
+
+    #[test]
+    fn an_unreachable_node_is_degraded_never_skipped() {
+        let a = chain_a(12);
+        let nodes = vec![
+            node("n0", Some(12), &refs(&a), true),
+            node("n1", None, &[], false),
+        ];
+        assert_eq!(root_agreement_verdict(&nodes, "s", "l").verdict, "degraded");
+    }
+
+    #[test]
+    fn a_missing_block_below_the_common_tip_is_degraded() {
+        let a = chain_a(12);
+        let mut hole = chain_a(12);
+        hole.remove(6);
+        let nodes = vec![
+            node("n0", Some(12), &refs(&a), true),
+            node("n1", Some(12), &refs(&hole), true),
+        ];
+        assert_eq!(root_agreement_verdict(&nodes, "s", "l").verdict, "degraded");
+    }
+
+    #[test]
+    fn a_cluster_of_only_unreachable_nodes_is_degraded_never_agree() {
+        let nodes = vec![node("n0", None, &[], false), node("n1", None, &[], false)];
+        assert_eq!(root_agreement_verdict(&nodes, "s", "l").verdict, "degraded");
+        // A reachable node that reports no tip is also never skipped.
+        let nodes = vec![node("n0", None, &[], true), node("n1", None, &[], true)];
+        assert_eq!(root_agreement_verdict(&nodes, "s", "l").verdict, "degraded");
+    }
+
+    #[test]
+    fn an_empty_node_list_is_degraded() {
+        assert_eq!(root_agreement_verdict(&[], "s", "l").verdict, "degraded");
+    }
+
+    #[test]
+    fn an_unhashable_block_is_forked_not_agreed() {
+        let mut nodes = vec![
+            node("n0", Some(1), &[], true),
+            node("n1", Some(1), &[], true),
+        ];
+        for node in &mut nodes {
+            node.blocks.insert(1, (None, Some("r1".into())));
+        }
+        assert_eq!(root_agreement_verdict(&nodes, "s", "l").verdict, "forked");
+    }
+}
+
 #[derive(Debug, Clone)]
 struct ChainCommitScan {
     committed: u64,

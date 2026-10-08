@@ -721,12 +721,22 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 self.highest_qc.clone()
             };
 
-            // Safety Check: Ensure we don't propose conflicting blocks
-            // Use locked_qc from safety gadget to ensure we extend the correct chain
-            if let Some(_locked) = &self.safety.locked_qc {
-                // If we have a lock, we must extend it.
-                // For simplified Aft deterministic, the highest_qc usually matches the lock or is newer.
-                // The proposal construction in `create_block` uses `highest_qc` (via `parent_qc` logic).
+            // The lock rule on proposing (P7, vote_safety.rs): never propose on a parent below
+            // this node's lock in the (height, view) order. Followers would refuse to vote for it,
+            // and this node's own vote would be refused too. Wait instead: a timeout moves the view.
+            if height > 1 && !self.safety.safe_to_vote(&parent_qc) {
+                let lock = self.safety.locked_qc.clone().unwrap_or_default();
+                warn!(
+                    target: "consensus",
+                    height,
+                    current_view,
+                    parent_qc_height = parent_qc.height,
+                    parent_qc_view = parent_qc.view,
+                    lock_height = lock.height,
+                    lock_view = lock.view,
+                    "Leader withholds a proposal whose parent certificate is below its lock."
+                );
+                return ConsensusDecision::WaitForBlock;
             }
 
             let timing_params = match parent_view.get(BLOCK_TIMING_PARAMS_KEY).await {
@@ -818,6 +828,25 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             } else {
                 (None, None)
             };
+            // The next leader extends the TC's highest QC (P7, vote_safety.rs): a proposal whose
+            // parent is below the highest QC its own certificate carries would be refused.
+            if let Some(certificate) = aft_timeout_certificate.as_ref() {
+                if let Some(high) = super::vote_safety::timeout_certificate_high_qc(certificate) {
+                    if !super::vote_safety::extends(&parent_qc, high) {
+                        warn!(
+                            target: "consensus",
+                            height,
+                            current_view,
+                            parent_qc_height = parent_qc.height,
+                            parent_qc_view = parent_qc.view,
+                            tc_high_qc_height = high.height,
+                            tc_high_qc_view = high.view,
+                            "Leader withholds a proposal that does not extend its timeout certificate's highest QC."
+                        );
+                        return ConsensusDecision::WaitForBlock;
+                    }
+                }
+            }
 
             let (
                 previous_canonical_collapse_commitment_hash,
@@ -875,13 +904,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 "optimistic proposal arrived after durable fallback start".into(),
             ));
         }
-        if let Some(proof) = self.check_divergence(&block.header) {
-            error!(target: "consensus", "CRITICAL: DIVERGENCE PROOF CONSTRUCTED: {:?}", proof);
-            return Err(ConsensusError::BlockVerificationFailed(
-                "Panic:HardwareDivergence".into(),
-            ));
-        }
-
         let header = &block.header;
 
         let parent_state_ref = StateRef {
@@ -1027,6 +1049,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     ));
                 }
                 self.verify_aft_timeout_certificate(certificate, &sets)?;
+                // The next leader extends the TC's highest QC (P7, vote_safety.rs).
+                Self::refuse_proposal_below_tc_high_qc(header, certificate)?;
             } else {
                 let certificate = header.timeout_certificate.as_ref().ok_or_else(|| {
                     ConsensusError::BlockVerificationFailed(format!(
@@ -1046,28 +1070,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
         let block_hash = to_root_hash(&block_hash_bytes)
             .map_err(|_| ConsensusError::BlockVerificationFailed("Hash len".into()))?;
-        // Check votes
-        if let Some(votes) = self
-            .vote_pool
-            .get(&header.height)
-            .and_then(|m| m.get(&block_hash))
-        {
-            if votes.len() >= threshold {
-                let qc = QuorumCertificate {
-                    height: header.height,
-                    view: header.view,
-                    block_hash,
-                    signatures: votes
-                        .iter()
-                        .map(|v| (v.voter, v.signature.clone()))
-                        .collect(),
-                    aggregated_signature: vec![],
-                    signers_bitfield: vec![],
-                };
-                self.accept_quorum_certificate(qc, true).await?;
-            }
-        }
-
         if header.height > 1 {
             let parent_qc = &header.parent_qc;
             if parent_qc.height != header.height - 1 {
@@ -1137,6 +1139,55 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 .await?;
         }
 
+        // B1-P7-DIV: divergence (equivocation) evidence considers only AUTHENTICATED headers. By
+        // Algorithm 2 (divergence.rs) divergence is the accused leader SIGNING two different
+        // payloads for one (height, view), and `verify_divergence_proof` verifies both
+        // signatures. So the check runs here, after the slot leader's signature and the
+        // proposal's certificates verified, and only an authenticated header is recorded in
+        // `seen_headers` by it. (At the trunk it ran at entry: an unauthenticated header gossiped
+        // first at a slot made this node refuse the leader's own proposal there.) A header the
+        // leader signed that fails an earlier structural check (timeout or parent certificate)
+        // is refused before its signature is checked, so it is not divergence evidence here; an
+        // honest node never accepts or votes for such a header.
+        if let Some(proof) = self.check_divergence(&block.header) {
+            error!(target: "consensus", "CRITICAL: DIVERGENCE PROOF CONSTRUCTED: {:?}", proof);
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Panic:HardwareDivergence".into(),
+            ));
+        }
+
+        // Check votes: a certificate the vote pool already holds for this (now authenticated)
+        // header. It stays BEFORE the stale-view refusal, so a stale proposal whose votes arrived
+        // first is certified, and so exempt (vote_safety.rs).
+        if let Some(votes) = self
+            .vote_pool
+            .get(&header.height)
+            .and_then(|m| m.get(&block_hash))
+        {
+            if votes.len() >= threshold {
+                let qc = QuorumCertificate {
+                    height: header.height,
+                    view: header.view,
+                    block_hash,
+                    signatures: votes
+                        .iter()
+                        .map(|v| (v.voter, v.signature.clone()))
+                        .collect(),
+                    aggregated_signature: vec![],
+                    signers_bitfield: vec![],
+                };
+                self.accept_quorum_certificate(qc, true).await?;
+            }
+        }
+
+        // A proposal of an earlier view at a height where a later-view timeout certificate has
+        // formed is refused here (P7, vote_safety.rs): after the slot leader's signature and the
+        // proposal's certificates are authenticated (so the refusal is a statement about an
+        // authentic proposal, which the orchestration may keep and offer again once a
+        // certificate for it is known: round 3, N1), and before the pacemaker, the slot binding,
+        // the accepted record or any execution or persistence (all of which follow `Ok`).
+        self.refuse_stale_view_proposal(header, &block_hash)?;
+
         // Only a fully verified proposal may move the pacemaker. Views are
         // scoped to one height, so a proposal for a newer height first resets
         // the view sequence instead of inheriting the prior height's view.
@@ -1176,6 +1227,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     view = header.view,
                     "Accepted sealed/header enrichment for an already verified block"
                 );
+                self.accepted_proposals
+                    .insert((header.height, header.view, block_hash));
                 return Ok(());
             }
         }
@@ -1191,6 +1244,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         )? {
             // Exact authenticated redelivery is idempotent.  It must not emit
             // another echo or perturb the pacemaker.
+            self.accepted_proposals
+                .insert((header.height, header.view, block_hash));
             return Ok(());
         }
 
@@ -1211,6 +1266,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             self.reconcile_classic_safety_qc(&qc);
         }
 
+        self.accepted_proposals
+            .insert((header.height, header.view, block_hash));
         debug!(target: "consensus", "Aft deterministic: Block {} verified. Initiating ECHO phase.", header.height);
         Ok(())
     }
@@ -1227,10 +1284,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         // a threshold nor appear in a certificate this node assembles.
         self.authenticated_vote(&vote)?;
 
-        // Safety Check: Don't process votes if not safe
-        if !self.safety.safe_to_vote(vote.view, vote.height - 1) {
-            // Logic for unsafe vote handling (optional)
-        }
+        // The lock rule gates THIS node's own vote (`admit_local_vote`, before signing), never a
+        // peer's: a peer's vote is that peer's decision under its own lock. (P7: the trunk computed
+        // `safe_to_vote` here for every vote, with a height as the parent view, and ignored it.)
 
         let threshold = self.quorum_count_threshold_for_height(vote.height);
         let height_map = self.vote_pool.entry(vote.height).or_default();
@@ -1280,6 +1336,18 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             self.accept_quorum_certificate(qc, true).await?;
         }
         Ok(())
+    }
+
+    async fn admit_local_vote(&mut self, header: &BlockHeader) -> Result<(), ConsensusError> {
+        self.admit_own_vote(header).await
+    }
+
+    async fn verify_synced_certificate(
+        &mut self,
+        qc: &QuorumCertificate,
+        view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        self.verify_certificate_against_view(qc, view).await
     }
 
     async fn handle_quorum_certificate(
@@ -1486,6 +1554,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
         self.drain_pending_quorum_certificates()
+    }
+
+    fn holds_certificate_for(&self, height: u64, block_hash: &[u8; 32]) -> bool {
+        // `qc_pool` holds only certificates that passed `authenticated_quorum` (the
+        // `remember_qc` callers), the same set the stale-view refusal's exemption reads.
+        self.qc_pool
+            .get(&height)
+            .is_some_and(|certified| certified.contains_key(block_hash))
     }
 
     fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {

@@ -190,7 +190,10 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             }
 
             let mut ctx = context_arc.lock().await;
-            gossip::handle_gossip_block(&mut ctx, block, mirror_id, from).await
+            // Boxed (P7 round 3): the gossip future is the largest this handler awaits; built
+            // inline it sizes this whole function's frame, which the vote and QC arms (whose
+            // re-offer of a kept proposal also runs the gossip path) then stack on.
+            gossip::boxed_gossip_block(&mut ctx, block, mirror_id, from).await
         }
 
         NetworkEvent::ConsensusVoteReceived { vote, from } => {
@@ -267,6 +270,9 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                     );
                     return;
                 }
+                // P7 round 3 (N1): this vote may have completed a certificate for a kept
+                // stale-view proposal; offer every proposal now certified again.
+                super::gossip::reoffer_certified_stale_proposals(&mut ctx).await;
                 let _ = kick_tx.send(());
             }
         }
@@ -330,6 +336,8 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                     );
                     return;
                 }
+                // P7 round 3 (N1): this certificate may certify a kept stale-view proposal.
+                super::gossip::reoffer_certified_stale_proposals(&mut ctx).await;
                 let _ = kick_tx.send(());
             }
         }

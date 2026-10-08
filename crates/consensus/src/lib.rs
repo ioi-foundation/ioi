@@ -248,6 +248,60 @@ where
         }
     }
 
+    async fn admit_local_vote(&mut self, header: &BlockHeader) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::admit_local_vote(engine, header).await
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::admit_local_vote(engine, header)
+                    .await
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::admit_local_vote(engine, header).await
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::admit_local_vote(engine, header).await
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    async fn verify_synced_certificate(
+        &mut self,
+        qc: &QuorumCertificate,
+        view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::verify_synced_certificate(engine, qc, view).await
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::verify_synced_certificate(
+                    engine, qc, view,
+                )
+                .await
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::verify_synced_certificate(
+                    engine, qc, view,
+                )
+                .await
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::verify_synced_certificate(engine, qc, view)
+                    .await
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
     async fn handle_quorum_certificate(
         &mut self,
         qc: QuorumCertificate,
@@ -778,6 +832,31 @@ where
             }
             Consensus::Solo(engine) => {
                 <SoloEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(engine)
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn holds_certificate_for(&self, height: u64, block_hash: &[u8; 32]) -> bool {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::holds_certificate_for(engine, height, block_hash)
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::holds_certificate_for(
+                    engine, height, block_hash,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::holds_certificate_for(
+                    engine, height, block_hash,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::holds_certificate_for(engine, height, block_hash)
             }
             Consensus::_Phantom(_) => unreachable!(),
         }

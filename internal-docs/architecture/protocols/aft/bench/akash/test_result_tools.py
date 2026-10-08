@@ -35,7 +35,18 @@ HEADER = (
 )
 
 
-def table(multiplier=1.0, truncate=False):
+def fork_check_lines(verdict="agree", only=None):
+    """The `FORK_CHECK {json}` lines the fork-checking harness prints, one per scenario/lane run."""
+    out = []
+    for scenario, lanes in SCENARIOS:
+        for lane in lanes:
+            v = verdict if (only is None or (scenario, lane) == only) else "agree"
+            out.append("FORK_CHECK " + json.dumps({"schema": "ioi.aft.fork-check.v1", "scenario": scenario, "lane": lane,
+                                                    "verdict": v, "common_tip": 12, "nodes": [], "first_divergence": None}))
+    return out
+
+
+def table(multiplier=1.0, truncate=False, fork_check="agree", fork_only=None):
     lines = [HEADER, "|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     rows = []
     for scenario, lanes in SCENARIOS:
@@ -51,7 +62,8 @@ def table(multiplier=1.0, truncate=False):
             )
     if truncate:
         rows.pop()
-    return "\n".join(lines + rows) + "\n"
+    tail = fork_check_lines(fork_check, fork_only) if fork_check is not None else []
+    return "\n".join(lines + rows + tail) + "\n"
 
 
 class ResultToolsTests(unittest.TestCase):

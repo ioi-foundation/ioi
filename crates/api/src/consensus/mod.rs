@@ -222,6 +222,30 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     /// This is used to aggregate votes towards a Quorum Certificate (QC).
     async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError>;
 
+    /// Admits or refuses THIS node's own vote for `header`, before the vote is signed or sent.
+    ///
+    /// Every local vote path (a follower's vote after durable apply, the producer's self-vote,
+    /// a catch-up vote, a tip or committed-block replay) calls this first and votes only on
+    /// `Ok`. An engine with vote-safety rules (the AFT engine: the lock rule, no vote in a view
+    /// this node has timed out of, one block per slot) refuses here; a wrapper engine must
+    /// forward to the engine it wraps, never fall back to this default. The default admits.
+    async fn admit_local_vote(&mut self, _header: &BlockHeader) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
+    /// Verifies `qc` as a certificate for the block it names, against the validator membership
+    /// in `view` (an anchored state whose sets cover `qc.height`), before sync applies or
+    /// replaces anything on its authority. An engine with certificates (AFT) verifies here; a
+    /// wrapper engine must forward, never fall back to this default. The default accepts, for
+    /// engines whose blocks carry no certificate.
+    async fn verify_synced_certificate(
+        &mut self,
+        _qc: &QuorumCertificate,
+        _view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
     /// Handles a quorum certificate that was propagated directly by a peer.
     ///
     /// Engines that do not need explicit QC propagation can ignore this.
@@ -325,6 +349,14 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     /// Returns newly formed quorum certificates that should be propagated to peers.
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
         Vec::new()
+    }
+
+    /// Whether an authenticated quorum certificate this engine holds certifies the block
+    /// `block_hash` at `height`. A caller that kept a proposal the engine refused as a stale-view
+    /// proposal (`ConsensusError::StaleViewProposal`) offers it again once this holds. Engines
+    /// without quorum certificates hold none.
+    fn holds_certificate_for(&self, _height: u64, _block_hash: &[u8; 32]) -> bool {
+        false
     }
 
     /// Returns newly authenticated timeout certificates for prompt relay.

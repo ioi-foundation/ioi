@@ -625,6 +625,24 @@ where
         return Ok(());
     }
 
+    // A replayed tip vote is still this node's vote: the engine's vote rules apply first (P7).
+    // An exact replay of a vote the engine already admitted passes; a new vote is checked.
+    if let Err(error) = consensus_engine_ref
+        .lock()
+        .await
+        .admit_local_vote(&tip_block.header)
+        .await
+    {
+        tracing::debug!(
+            target: "consensus",
+            height = tip_block.header.height,
+            view = tip_block.header.view,
+            %error,
+            "Tip-vote replay withheld by the vote rules."
+        );
+        return Ok(());
+    }
+
     let vote_hash = to_root_hash(&tip_block.header.hash()?)?;
     let replay_marker = (tip_block.header.height, tip_block.header.view, vote_hash);
     // ML-DSA signing is intentionally much more expensive than Ed25519.

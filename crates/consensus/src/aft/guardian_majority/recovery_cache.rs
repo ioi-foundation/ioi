@@ -35,6 +35,8 @@ impl GuardianMajorityEngine {
             .retain(|(qc_height, _)| *qc_height + 2 >= height);
         self.echo_pool.retain(|(h, _), _| *h >= height);
         self.voted_slots.retain(|(h, _)| *h >= height);
+        self.local_votes.retain(|(h, _), _| *h >= height);
+        self.accepted_proposals.retain(|(h, _, _)| *h >= height);
 
         if let Ok(mut pm) = self.pacemaker.try_lock() {
             pm.start_height();

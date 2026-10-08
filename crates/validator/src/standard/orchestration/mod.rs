@@ -75,6 +75,8 @@ mod consensus;
 
 /// Context structures for the orchestration main loop.
 pub mod context;
+/// Exit-cause records for the orchestration process (P7).
+pub mod exit_cause;
 mod gossip;
 mod grpc_public;
 mod hash_async;
@@ -88,6 +90,14 @@ mod peer_management;
 mod quv;
 mod remote_state_view;
 mod sync;
+mod sync_authority;
+mod stale_proposals;
+#[cfg(test)]
+mod sync_harness;
+#[cfg(test)]
+mod sync_p7_tests;
+#[cfg(test)]
+mod gossip_p7_tests;
 /// Verifier selection logic.
 pub mod verifier_select;
 mod view_resolver;

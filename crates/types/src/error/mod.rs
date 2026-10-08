@@ -143,6 +143,19 @@ pub enum ConsensusError {
     /// A required component (e.g., key) was not found in state.
     #[error("Consensus dependency not found in state: {0}")]
     DependencyNotFound(String),
+    /// An authenticated proposal of an earlier view at a height where a timeout certificate for
+    /// a later view has formed, while no quorum certificate held here certifies it. The proposal
+    /// is authentic (it passed the slot leader's signature checks): a caller may keep it, bounded,
+    /// and offer it again once a certificate for it is known.
+    #[error("stale proposal at H={height} V={view}: a timeout certificate for view {superseding_view} has formed at this height")]
+    StaleViewProposal {
+        /// The proposal's height.
+        height: u64,
+        /// The proposal's view.
+        view: u64,
+        /// The later view whose timeout certificate formed at this height.
+        superseding_view: u64,
+    },
 }
 
 impl ErrorCode for ConsensusError {
@@ -154,6 +167,7 @@ impl ErrorCode for ConsensusError {
             Self::ClientError(_) => "CONSENSUS_CLIENT_ERROR",
             Self::InvalidSignature => "CONSENSUS_INVALID_SIGNATURE",
             Self::DependencyNotFound(_) => "CONSENSUS_DEPENDENCY_NOT_FOUND",
+            Self::StaleViewProposal { .. } => "CONSENSUS_STALE_VIEW_PROPOSAL",
         }
     }
 }

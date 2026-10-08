@@ -3,7 +3,6 @@ use super::*;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use std::collections::{HashMap, HashSet};
-use std::time::Instant;
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
 where
@@ -327,32 +326,15 @@ where
                     }
 
                     {
+                        // Timeouts and target choice honour T5 and the refused set (P7 round 2,
+                        // M4): sync.rs `sync_retry_tick`.
                         let mut ctx = context_arc.lock().await;
-                        if let Some(progress) = ctx.sync_progress.as_mut() {
-                            let request_timed_out = progress.inflight
-                                && progress.requested_at.elapsed()
-                                    >= Duration::from_millis(sync_timeout_ms);
-                            let deferred_retry_due = !progress.inflight
-                                && progress
-                                    .retry_not_before
-                                    .is_some_and(|not_before| Instant::now() >= not_before);
-                            if request_timed_out || deferred_retry_due {
-                                tracing::warn!(
-                                    target: "sync",
-                                    target = ?progress.target,
-                                    next = progress.next,
-                                    tip = progress.tip,
-                                    timeout_ms = sync_timeout_ms,
-                                    request_timed_out,
-                                    "Retrying an incomplete sync batch."
-                                );
-                                progress.inflight = false;
-                                if progress.target.is_none() {
-                                    progress.target = peers.first().copied();
-                                }
-                                super::sync::request_next_batch(&mut ctx).await;
-                            }
-                        }
+                        super::sync::sync_retry_tick(
+                            &mut ctx,
+                            &peers,
+                            Duration::from_millis(sync_timeout_ms),
+                        )
+                        .await;
                     }
 
                     let random_peer = {
@@ -1487,6 +1469,8 @@ where
             consensus_kick_scheduled: Arc::new(AtomicBool::new(false)),
             next_due_wakeup_at_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             sync_progress: None,
+            sync_peer_cooldown: Default::default(),
+            stale_proposals: Default::default(),
             nonce_manager: self.nonce_manager.clone(),
             signer: self.signer.clone(),
             batch_verifier: self.batch_verifier.clone(),

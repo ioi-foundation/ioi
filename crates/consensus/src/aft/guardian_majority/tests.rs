@@ -6,3 +6,5 @@ include!("tests_parts/observer_challenges.rs");
 include!("tests_parts/canonical_surfaces.rs");
 include!("tests_parts/async_pipeline.rs");
 include!("tests_parts/authenticated_runtime.rs");
+include!("tests_parts/vote_safety.rs");
+include!("tests_parts/p7_call_sites.rs");

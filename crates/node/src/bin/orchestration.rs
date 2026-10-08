@@ -720,11 +720,30 @@ where
     // [FIX] Explicitly log startup complete here to stderr
     eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
 
-    tokio::select! {
-        _ = tokio::signal::ctrl_c() => {
-            tracing::info!(target: "orchestration", event = "shutdown", reason = "ctrl-c");
+    // P7 exit-cause logging: every terminating signal the process can handle is named and
+    // recorded (the trunk handled only Ctrl-C, so a TERM or HUP ended it with no line at all).
+    #[cfg(unix)]
+    let exit_signal = {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut terminate = signal(SignalKind::terminate())?;
+        let mut hangup = signal(SignalKind::hangup())?;
+        let mut quit = signal(SignalKind::quit())?;
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => "SIGINT",
+            _ = terminate.recv() => "SIGTERM",
+            _ = hangup.recv() => "SIGHUP",
+            _ = quit.recv() => "SIGQUIT",
         }
-    }
+    };
+    #[cfg(not(unix))]
+    let exit_signal = {
+        tokio::signal::ctrl_c().await?;
+        "ctrl-c"
+    };
+    tracing::info!(target: "orchestration", event = "shutdown", reason = exit_signal);
+    ioi_validator::standard::orchestration::exit_cause::record_exit_cause(&format!(
+        "signal: {exit_signal}"
+    ));
 
     tracing::info!(target: "orchestration", "Shutdown signal received.");
 
@@ -763,11 +782,32 @@ async fn main() -> Result<()> {
     tokio::spawn(ioi_telemetry::http::run_server(telemetry_addr));
 
     check_features();
+    // P7: the trunk's hook used `eprintln!`, which panics when stderr's pipe is closed and turns a
+    // panic into a silent abort. Record the panic durably and print without panicking.
     std::panic::set_hook(Box::new(|info| {
-        eprintln!("ORCHESTRATION_PANIC: {}", info);
+        ioi_validator::standard::orchestration::exit_cause::record_exit_cause(&format!(
+            "panic: {info}"
+        ));
     }));
 
     let opts = OrchestrationOpts::parse();
+    if let Some(dir) = opts.config.parent() {
+        ioi_validator::standard::orchestration::exit_cause::set_exit_cause_dir(dir);
+    }
+    let result = run_main(opts).await;
+    match &result {
+        Ok(()) => {
+            ioi_validator::standard::orchestration::exit_cause::record_exit_cause("clean return")
+        }
+        Err(error) => ioi_validator::standard::orchestration::exit_cause::record_exit_cause(
+            &format!("error: {error:#}"),
+        ),
+    }
+    result
+}
+
+/// The orchestrator's body after argument parsing; `main` records how it ended (P7).
+async fn run_main(opts: OrchestrationOpts) -> Result<()> {
     tracing::info!(
         target: "orchestration",
         event = "startup",
