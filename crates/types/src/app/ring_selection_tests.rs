@@ -1299,7 +1299,10 @@ fn lemma_fr_at_n_7_forced_rotations_per_handover_never_exceed_ceil_n_over_t() {
 /// it (e = rate + 1), vacancies appear; a heavy burst (every unforced occupant exits) drives the
 /// ring below the full-n threshold, where it HALTS SAFE (the threshold stays 5 of 7; a vacancy is
 /// an absent vote); (3) back within the rate, the vacancies are bounded and REFILLED, oldest
-/// first, each at its seat's phase (checked in `Sim`).
+/// first, each at its seat's phase (checked in `Sim`). At (T, c) = (4, 2) the rate is 0 at n = 7:
+/// that set's within-rate arm has NO departures (forced rotations alone); the other six sets have
+/// rates 1-2, and the counters below assert their departures happened and the adversarial arm
+/// spent the whole cap (forced + exits = c) at some handover (review r1 MINOR-5).
 #[test]
 fn lemma_lv_at_n_7_no_vacancy_within_the_departure_rate_beyond_it_refilled_and_a_safe_halt() {
     let mut halted_configs = 0usize;
@@ -1312,6 +1315,8 @@ fn lemma_lv_at_n_7_no_vacancy_within_the_departure_rate_beyond_it_refilled_and_a
                 let mut rng = XorShift(0x1A7E_0000 + seed * 104_729 + u64::from(t * 17 + c));
                 let mut sim = Sim::new(&p, rng.beacon(seed));
                 // (1) Within the rate.
+                let mut within_exits = 0usize;
+                let mut cap_spent = 0usize;
                 for h in 0..600u64 {
                     let unforced = sim.unforced_next();
                     let exits: BTreeSet<AccountId> = if adversarial {
@@ -1327,12 +1332,25 @@ fn lemma_lv_at_n_7_no_vacancy_within_the_departure_rate_beyond_it_refilled_and_a
                         )
                     };
                     let candidates = sim.fresh(2 * c + 2, 0);
-                    let (_, draw) = sim.handover(&exits, candidates, rng.beacon(h));
+                    within_exits += exits.len();
+                    let (plan, draw) = sim.handover(&exits, candidates, rng.beacon(h));
+                    cap_spent += (plan.forced_rotations.len() + exits.len() == c as usize) as usize;
                     assert!(
                         draw.successor_vacancies.is_empty() && draw.alarms.is_empty(),
                         "Lemma LV: a vacancy within the rate e ≤ {rate} (T={t} c={c} seed {seed} adversarial {adversarial} h={h}): {draw:?}"
                     );
                     assert!(!assert_full_n_halt(&sim.config));
+                }
+                if rate == 0 {
+                    assert_eq!(within_exits, 0, "a rate of 0 admits no departure");
+                } else {
+                    assert!(within_exits > 0, "T={t} c={c} seed {seed} adversarial {adversarial}: no within-rate departure");
+                    if adversarial {
+                        assert!(
+                            cap_spent > 0,
+                            "T={t} c={c} seed {seed}: the adversary never spent the whole cap"
+                        );
+                    }
                 }
                 // (2) Beyond the rate: rate + 1 departures per handover.
                 let mut max_vacant = 0usize;

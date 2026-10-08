@@ -588,7 +588,8 @@ fn the_handover_is_the_recomputed_draw_and_the_old_ring_cannot_choose() {
     assert_eq!(locks.len(), 1);
     assert_eq!(locks[0].member, ring_member(2));
     assert_eq!(locks[0].amount, 100);
-    // The joiner inherits the exited seat's phase: member 2's genesis offset plus one, mod T+1.
+    // The joiner inherits the exited seat's phase: member 2's genesis offset advanced by one
+    // handover, mod T.
     let genesis_record: ioi_types::app::RingHandoverRecord =
         stored(&state, &ioi_types::app::guardian_ring_handover_record_key(1));
     let offset_of_2 = genesis_record
@@ -953,5 +954,202 @@ fn members_rotate_at_the_tenure_cap_in_their_balanced_phases() {
         let mut expected = genesis_members.clone();
         expected.sort();
         assert_eq!(rotated, expected, "each genesis member rotated exactly once");
+    });
+}
+
+/// Review r1 MAJOR-2: a GENESIS snapshot over a pool the genesis draw cannot fill (fewer than n
+/// activatable registrants, or a floor its pool cannot meet) is REFUSED and writes nothing. Before,
+/// it was taken, the draw could never succeed, and no later snapshot could replace it (a pending
+/// snapshot leaves only through a successful settlement): the ring could never start. After the
+/// refusal, once n registrants are activatable, the genesis proceeds.
+#[test]
+fn an_infeasible_genesis_snapshot_is_refused_writes_nothing_and_the_ring_can_still_start() {
+    let registry = production_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        publish_params(&registry, &mut state, ctx);
+        register(&registry, &mut state, ctx, 1, 100).unwrap();
+        register(&registry, &mut state, ctx, 2, 100).unwrap();
+        let counter_before = state
+            .get(ioi_types::app::GUARDIAN_RING_EVENT_COUNTER_KEY)
+            .unwrap();
+        let err = call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[])
+            .unwrap_err();
+        assert!(err.to_string().contains("genesis draw"), "{err}");
+        assert!(
+            state
+                .get(ioi_types::app::GUARDIAN_RING_HANDOVER_SNAPSHOT_KEY)
+                .unwrap()
+                .is_none(),
+            "no snapshot is pending"
+        );
+        assert_eq!(
+            state
+                .get(ioi_types::app::GUARDIAN_RING_EVENT_COUNTER_KEY)
+                .unwrap(),
+            counter_before,
+            "a refused snapshot writes nothing"
+        );
+        // Later registrants: 1..=4 are activatable at the next snapshot (D_act = 2).
+        register(&registry, &mut state, ctx, 3, 100).unwrap();
+        register(&registry, &mut state, ctx, 4, 150).unwrap();
+        register(&registry, &mut state, ctx, 5, 150).unwrap();
+        let (genesis_pending, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 6);
+        assert!(genesis_pending.snapshot.is_genesis());
+        assert!(genesis_pending.snapshot.candidates.len() >= 3);
+        let draw = ioi_types::app::draw_genesis_ring(&genesis_pending.snapshot, &beacon).unwrap();
+        let genesis = BoundaryRingConfig {
+            version: 1,
+            members: draw.successor_members.clone(),
+            member_bonds: genesis_pending
+                .snapshot
+                .candidates
+                .iter()
+                .filter(|c| draw.successor_members.contains(&c.account_id))
+                .map(|c| (c.account_id, c.bond_amount))
+                .collect(),
+            activated_at_event: 0,
+            closed_by: None,
+            vacant_seats: vec![],
+        };
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_genesis_config@v1",
+            &codec::to_bytes_canonical(&genesis).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(live_config(&state).members, draw.successor_members);
+    });
+}
+
+/// Review r1 MAJOR-3 (the trunk's "joiner consumed from the queue", lost in the replacement): a
+/// handover takes its joiners out of the activation queue, so a joiner that later departs is never
+/// a candidate again while its bond is locked (D2: re-entry needs a new registration, refused
+/// during the lock). The reviewer's probe, kept as a pin.
+#[test]
+fn a_handover_takes_its_joiners_out_of_the_queue_so_a_departed_joiner_is_not_redrawn() {
+    let registry = production_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let genesis = setup_ring(&registry, &mut state, ctx);
+        ctx.signer_account_id = ring_member(2);
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "declare_ring_exit@v1",
+            &codec::to_bytes_canonical(&ring_member(2)).unwrap(),
+        )
+        .unwrap();
+        let draw = snapshot_and_beacon(&registry, &mut state, ctx, 20);
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&drawn_publication(&genesis, &draw)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(draw.joiners.len(), 1);
+        let joiner = draw.joiners[0];
+        let queue: RingActivationQueue = stored(&state, ioi_types::app::GUARDIAN_RING_QUEUE_KEY);
+        assert!(
+            queue.entries.iter().all(|entry| entry.account_id != joiner),
+            "the handover consumed its joiner's queue entry"
+        );
+        let ring1 = live_config(&state);
+        ctx.signer_account_id = joiner;
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "declare_ring_exit@v1",
+            &codec::to_bytes_canonical(&joiner).unwrap(),
+        )
+        .unwrap();
+        let draw2 = snapshot_and_beacon(&registry, &mut state, ctx, 21);
+        assert!(draw2.departed.contains(&joiner), "the joiner departs at the second handover");
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&drawn_publication(&ring1, &draw2)).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            register(&registry, &mut state, ctx, joiner.0[0], 150).is_err(),
+            "re-entry waits for the D2 lock"
+        );
+        call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).unwrap();
+        assert!(
+            pending(&state)
+                .snapshot
+                .candidates
+                .iter()
+                .all(|c| c.account_id != joiner),
+            "the departed joiner (bond locked, D2) is never a candidate again"
+        );
+    });
+}
+
+/// Review r1 MINOR-2: a handover refused at SETTLEMENT (here a kept member whose ledger counter was
+/// moved off its seat's phase after the snapshot) writes nothing: not the ring-event counter, not
+/// the activation queue, not the ledger, and the pending snapshot stays. Before, the counter and
+/// the queue were written before settlement's checks ran.
+#[test]
+fn a_handover_refused_at_settlement_writes_nothing() {
+    let registry = production_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let genesis = setup_ring(&registry, &mut state, ctx);
+        ctx.signer_account_id = ring_member(2);
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "declare_ring_exit@v1",
+            &codec::to_bytes_canonical(&ring_member(2)).unwrap(),
+        )
+        .unwrap();
+        let draw = snapshot_and_beacon(&registry, &mut state, ctx, 20);
+        let kept = *draw
+            .successor_members
+            .iter()
+            .find(|m| !draw.joiners.contains(m))
+            .expect("a kept member");
+        let mut ledger: ioi_types::app::RingSeatLedger =
+            stored(&state, ioi_types::app::GUARDIAN_RING_SEAT_LEDGER_KEY);
+        let served = ledger.tenure[&kept];
+        ledger
+            .tenure
+            .insert(kept, if served > 0 { served - 1 } else { served + 1 });
+        state
+            .insert(
+                ioi_types::app::GUARDIAN_RING_SEAT_LEDGER_KEY,
+                &codec::to_bytes_canonical(&ledger).unwrap(),
+            )
+            .unwrap();
+        let keys: Vec<Vec<u8>> = vec![
+            ioi_types::app::GUARDIAN_RING_EVENT_COUNTER_KEY.to_vec(),
+            ioi_types::app::GUARDIAN_RING_QUEUE_KEY.to_vec(),
+            ioi_types::app::GUARDIAN_RING_SEAT_LEDGER_KEY.to_vec(),
+            ioi_types::app::GUARDIAN_RING_HANDOVER_SNAPSHOT_KEY.to_vec(),
+            ioi_types::app::GUARDIAN_RING_LIVE_VERSION_KEY.to_vec(),
+        ];
+        let before: Vec<Option<Vec<u8>>> = keys.iter().map(|k| state.get(k).unwrap()).collect();
+        let err = call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&drawn_publication(&genesis, &draw)).unwrap(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("phase"), "refused at settlement: {err}");
+        let after: Vec<Option<Vec<u8>>> = keys.iter().map(|k| state.get(k).unwrap()).collect();
+        assert_eq!(after, before, "a handover refused at settlement writes nothing");
     });
 }
