@@ -1153,3 +1153,290 @@ fn a_handover_refused_at_settlement_writes_nothing() {
         assert_eq!(after, before, "a handover refused at settlement writes nothing");
     });
 }
+
+/// Q1 (C) (rulings 2026-10-08 14:54): the REFERENCE handover beacon is predictable at snapshot time
+/// and recorder-choosable (REFERENCE-UNBOUNDED: no grinding bound exists for it), so EVERY chain
+/// configuration refuses it and fails closed: the production registry, and a registry built from a
+/// chain configuration that names a test admission (no configuration key admits it). No beacon is
+/// recorded, so no draw can be made until a bounded source lands (R11's VDF, or OBS-6b).
+#[test]
+fn the_reference_handover_beacon_is_refused_in_every_chain_configuration() {
+    let mut named = serde_json::to_value(GuardianRegistryParams {
+        enabled: true,
+        ..Default::default()
+    })
+    .unwrap();
+    named["ring_reference_beacon"] = serde_json::json!("reference_unbounded_for_tests");
+    named["reference_unbounded"] = serde_json::json!(true);
+    let from_chain_config = GuardianRegistry::new(serde_json::from_value(named).unwrap());
+    for registry in [production_registry(), from_chain_config] {
+        let mut state = MockState::default();
+        with_ctx(|ctx| {
+            publish_params(&registry, &mut state, ctx);
+            for b in 1u8..=4 {
+                register(&registry, &mut state, ctx, b, 100).unwrap();
+            }
+            register(&registry, &mut state, ctx, 5, 150).unwrap();
+            call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).unwrap();
+            register(&registry, &mut state, ctx, 6, 150).unwrap();
+            let request = beacon_request(&state);
+            let err = call(&registry, &mut state, ctx, "record_ring_handover_beacon@v1", &request)
+                .unwrap_err();
+            assert!(err.to_string().contains("REFERENCE-UNBOUNDED"), "{err}");
+            assert!(pending(&state).beacon.is_none(), "no beacon is recorded");
+        });
+    }
+}
+
+/// Q2 (rulings 2026-10-08 14:54, PROVISIONAL): each drawn joiner records its acceptance on chain
+/// (`accept_ring_handover_seat@v1`, signed by the joiner) within W_acc ring events of the beacon.
+/// While the window is open the publication is exactly the draw. After it, a joiner that did not
+/// accept leaves its seat VACANT (an absent vote, never redrawn under this beacon) and stays
+/// registered; exactly the non-accepting joiners are vacated, never an accepted one.
+#[test]
+fn a_drawn_joiner_that_does_not_accept_within_the_window_leaves_its_seat_vacant() {
+    let registry = production_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let genesis = setup_ring(&registry, &mut state, ctx);
+        for member in [ring_member(2), ring_member(3)] {
+            ctx.signer_account_id = member;
+            call(
+                &registry,
+                &mut state,
+                ctx,
+                "declare_ring_exit@v1",
+                &codec::to_bytes_canonical(&member).unwrap(),
+            )
+            .unwrap();
+        }
+        let draw = snapshot_and_beacon(&registry, &mut state, ctx, 20);
+        assert_eq!(draw.joiners.len(), 2, "two exits, c = 2: two joiners");
+        let (accepting, silent) = (draw.joiners[0], draw.joiners[1]);
+        let commitment = codec::to_bytes_canonical(&pending(&state).commitment).unwrap();
+        let layout = ioi_types::app::seat_layout(&draw.successor_members, &draw.successor_vacancies)
+            .unwrap();
+        let seat_of = |who: AccountId| layout.iter().position(|m| *m == Some(who)).unwrap() as u32;
+        let vacating = |gone: AccountId| {
+            let members: Vec<AccountId> = draw
+                .successor_members
+                .iter()
+                .copied()
+                .filter(|m| *m != gone)
+                .collect();
+            let mut vacancies = draw.successor_vacancies.clone();
+            vacancies.push(ioi_types::app::RingVacancy {
+                seat: seat_of(gone),
+                since_version: genesis.version,
+            });
+            vacancies.sort_by_key(|v| v.seat);
+            let bonds = bonds_for(&genesis, &members);
+            publication_for(&genesis, members, vacancies, bonds)
+        };
+        // Only a drawn joiner accepts, and only for itself.
+        ctx.signer_account_id = ring_member(1);
+        assert!(call(&registry, &mut state, ctx, "accept_ring_handover_seat@v1", &commitment).is_err());
+        ctx.signer_account_id = accepting;
+        call(&registry, &mut state, ctx, "accept_ring_handover_seat@v1", &commitment).unwrap();
+        // While the window is open, vacating the silent joiner is refused.
+        assert!(call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&vacating(silent)).unwrap(),
+        )
+        .is_err());
+        // Close the window: ring events past W_acc.
+        for b in 40u8..56 {
+            register(&registry, &mut state, ctx, b, 150).unwrap();
+        }
+        ctx.signer_account_id = silent;
+        assert!(
+            call(&registry, &mut state, ctx, "accept_ring_handover_seat@v1", &commitment).is_err(),
+            "no acceptance after the window"
+        );
+        // After the window: the exact draw (seating the silent joiner) and vacating the ACCEPTED
+        // joiner are both refused.
+        for wrong in [drawn_publication(&genesis, &draw), vacating(accepting)] {
+            assert!(call(
+                &registry,
+                &mut state,
+                ctx,
+                "publish_ring_handover@v1",
+                &codec::to_bytes_canonical(&wrong).unwrap(),
+            )
+            .is_err());
+        }
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&vacating(silent)).unwrap(),
+        )
+        .unwrap();
+        let live = live_config(&state);
+        assert!(live.members.contains(&accepting) && !live.members.contains(&silent));
+        assert!(live
+            .vacant_seats
+            .iter()
+            .any(|v| v.seat == seat_of(silent) && v.since_version == genesis.version));
+        assert_eq!(live.seat_count(), 3, "n never shrinks");
+        let queue: RingActivationQueue = stored(&state, ioi_types::app::GUARDIAN_RING_QUEUE_KEY);
+        assert!(queue.entries.iter().any(|e| e.account_id == silent), "the silent joiner stays registered");
+        assert!(queue.entries.iter().all(|e| e.account_id != accepting), "the seated joiner left the queue");
+        let record: ioi_types::app::RingHandoverRecord =
+            stored(&state, &ioi_types::app::guardian_ring_handover_record_key(live.version));
+        assert!(
+            format!("{:?}", record.alarms).contains("JoinerAcceptanceExpired"),
+            "the record names the expired acceptance: {:?}",
+            record.alarms
+        );
+    });
+}
+
+fn register_in(
+    registry: &GuardianRegistry,
+    state: &mut MockState,
+    ctx: &mut TxContext<'_>,
+    b: u8,
+    constituency: u32,
+    bond: u128,
+) {
+    let registration = RingMemberRegistration {
+        account_id: ring_member(b),
+        bond_amount: bond,
+        constituency_id: constituency,
+        registered_at_event: 0,
+    };
+    call(
+        registry,
+        state,
+        ctx,
+        "register_ring_member@v1",
+        &codec::to_bytes_canonical(&registration).unwrap(),
+    )
+    .unwrap();
+}
+
+/// Q4 (rulings 2026-10-08 14:54; B1-R v1 M7 (i)): at R = 0 (the floors sum to n) every seat is
+/// labelled with its constituency, and a fill seat is refilled ONLY from its own constituency. Here
+/// constituency 2 (floor 1, listed first) loses its seat to an exit when its pool is empty (the seat
+/// goes vacant); later a constituency-1 seat is FORCED while that vacancy waits beyond the fill set
+/// (c = 1). The forced seat is refilled from constituency 1, never from constituency 2's newcomer.
+#[test]
+fn at_r_0_a_vacated_seat_is_refilled_only_from_its_own_constituency() {
+    let registry = production_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let mut p = ring_params();
+        p.churn_cap = 1;
+        p.floors = vec![
+            ioi_types::app::ConstituencyFloor { constituency_id: 2, min_seats: 1 },
+            ioi_types::app::ConstituencyFloor { constituency_id: 1, min_seats: 2 },
+        ];
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_selection_params@v1",
+            &codec::to_bytes_canonical(&p).unwrap(),
+        )
+        .unwrap();
+        register_in(&registry, &mut state, ctx, 1, 1, 100);
+        register_in(&registry, &mut state, ctx, 2, 1, 100);
+        register_in(&registry, &mut state, ctx, 3, 2, 100);
+        register_in(&registry, &mut state, ctx, 10, 1, 150);
+        register_in(&registry, &mut state, ctx, 11, 1, 150);
+        let (genesis_pending, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 5);
+        let draw = ioi_types::app::draw_genesis_ring(&genesis_pending.snapshot, &beacon).unwrap();
+        assert_eq!(draw.successor_members[0], ring_member(3), "constituency 2's floor fills seat 0");
+        let genesis = BoundaryRingConfig {
+            version: 1,
+            members: draw.successor_members.clone(),
+            member_bonds: genesis_pending
+                .snapshot
+                .candidates
+                .iter()
+                .filter(|c| draw.successor_members.contains(&c.account_id))
+                .map(|c| (c.account_id, c.bond_amount))
+                .collect(),
+            activated_at_event: 0,
+            closed_by: None,
+            vacant_seats: vec![],
+        };
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_genesis_config@v1",
+            &codec::to_bytes_canonical(&genesis).unwrap(),
+        )
+        .unwrap();
+        let ledger: ioi_types::app::RingSeatLedger =
+            stored(&state, ioi_types::app::GUARDIAN_RING_SEAT_LEDGER_KEY);
+        // The first handover at which a constituency-1 seat (1 or 2) is forced: T - offset.
+        let first_forced = (1..=2usize)
+            .map(|seat| u64::from(p.tenure_handovers - ledger.seat_offsets[seat]))
+            .min()
+            .unwrap();
+        assert!((2..=4).contains(&first_forced), "{first_forced}");
+        // Handover 1: constituency 2's member exits; its pool is empty, so its seat goes vacant.
+        ctx.signer_account_id = ring_member(3);
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "declare_ring_exit@v1",
+            &codec::to_bytes_canonical(&ring_member(3)).unwrap(),
+        )
+        .unwrap();
+        let mut ring = genesis;
+        for h in 1..first_forced {
+            call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).unwrap();
+            // Before the handover that precedes the forced one, constituency 2 gains a newcomer,
+            // too late for this snapshot and activatable at the next.
+            if h + 1 == first_forced {
+                register_in(&registry, &mut state, ctx, 30, 2, 150);
+            } else {
+                register(&registry, &mut state, ctx, 60 + h as u8, 150).unwrap();
+            }
+            let request = beacon_request(&state);
+            call(&registry, &mut state, ctx, "record_ring_handover_beacon@v1", &request).unwrap();
+            let pending_handover = pending(&state);
+            let (beacon, _, _) = pending_handover.beacon.unwrap();
+            let step = ioi_types::app::draw_vacated_seats(&pending_handover.snapshot, &beacon).unwrap();
+            assert!(step.joiners.is_empty(), "h={h}: constituency 2's pool is empty");
+            assert!(step.successor_vacancies.iter().any(|v| v.seat == 0));
+            call(
+                &registry,
+                &mut state,
+                ctx,
+                "publish_ring_handover@v1",
+                &codec::to_bytes_canonical(&drawn_publication(&ring, &step)).unwrap(),
+            )
+            .unwrap();
+            ring = live_config(&state);
+        }
+        // The forced handover: the fill set is the forced constituency-1 seat (c = 1); seat 0's
+        // vacancy waits beyond it.
+        let draw = snapshot_and_beacon(&registry, &mut state, ctx, 70);
+        assert_eq!(draw.joiners.len(), 1);
+        let joined = draw.joiners[0];
+        assert_ne!(joined, ring_member(30), "constituency 2's newcomer never fills a constituency-1 seat");
+        assert!(
+            [1u8, 2, 10, 11].iter().any(|b| ring_member(*b) == joined),
+            "refilled from constituency 1: {joined:?}"
+        );
+        assert!(draw.successor_vacancies.iter().any(|v| v.seat == 0), "seat 0 still waits");
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&drawn_publication(&ring, &draw)).unwrap(),
+        )
+        .unwrap();
+    });
+}

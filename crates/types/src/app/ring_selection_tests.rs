@@ -1366,6 +1366,58 @@ fn the_genesis_feasibility_check_agrees_with_the_draw_for_every_beacon() {
     }
 }
 
+/// Q3 (rulings 2026-10-08 14:54: ALIGN with NET's verified model): on an `assign_seats` error EVERY
+/// fill seat resets to a fresh vacancy (VAC, age 0: `since_version` = the version handed over), an old
+/// vacancy inside the fill set included, and raises no VacancyAged alarm (its age is 0). An old
+/// vacancy BEYOND the fill set keeps its age and its alarm. Fill set (c = 3): seat 0 (m1, floored,
+/// forced), seat 1 (m2, forced), seat 2 (a vacancy since 3); beyond it, seat 5 (a vacancy since 4).
+#[test]
+fn an_assign_error_resets_every_fill_seat_to_a_fresh_vacancy() {
+    let mut p = params();
+    p.churn_cap = 3;
+    p.floors = vec![ConstituencyFloor {
+        constituency_id: 9,
+        min_seats: 1,
+    }];
+    let members = [account_n(1), account_n(2), account_n(3), account_n(4)];
+    let candidates: Vec<_> = (10..30).map(|n| registration(n, 0)).collect();
+    let mut s = live_snapshot(
+        &members,
+        &[vacancy(2, 3), vacancy(5, 4)],
+        &[3, 3, 0, 1, 0, 2],
+        0,
+        &[],
+        candidates,
+        &p,
+    );
+    s.member_constituencies = vec![
+        (account_n(1), 9),
+        (account_n(2), 0),
+        (account_n(3), 0),
+        (account_n(4), 0),
+    ];
+    assert_eq!(s.forced_rotations, vec![account_n(1), account_n(2)]);
+    let draw = draw_vacated_seats(&s, &beacon(7)).unwrap();
+    assert!(draw.joiners.is_empty());
+    assert_eq!(
+        draw.successor_vacancies,
+        vec![vacancy(0, 5), vacancy(1, 5), vacancy(2, 5), vacancy(5, 4)],
+        "the fill set's old vacancy (seat 2) resets; seat 5, beyond the fill set, keeps its age"
+    );
+    let aged: Vec<_> = draw
+        .alarms
+        .iter()
+        .filter(|a| matches!(a, RingSelectionAlarm::VacancyAged { .. }))
+        .collect();
+    assert_eq!(
+        aged,
+        vec![&RingSelectionAlarm::VacancyAged {
+            seat: 5,
+            since_version: 4
+        }]
+    );
+}
+
 /// LEMMA LV, over long seeded runs at n = 7 with an ample pool: (1) WITHIN the stated departure
 /// rate, e ≤ c − ⌈n/T⌉ exits per handover (chosen at random, or adversarially: always the
 /// maximum, from the seats rotating soonest), there is NO vacancy and no alarm, ever; (2) BEYOND
