@@ -407,9 +407,12 @@ fn seats_fill_forced_first_then_the_oldest_vacancy_then_exits_and_an_unfilled_ex
 }
 
 /// NO DEFERRAL (SCQ-8.10d FINAL; SCQ-8.10f (b)): a forced rotation the pool cannot refill still
-/// happens. The occupant leaves, its seat goes VACANT, and the alarm names the cause. An old
-/// vacancy left unfilled raises the aged alarm; a new one does not yet. (Fill set, c = 3: seat 0
-/// forced, seat 2 the old vacancy, seat 4 the exit.)
+/// happens. The occupant leaves, its seat goes VACANT, and the alarm names the cause. (Fill set,
+/// c = 3: seat 0 forced, seat 2 the old vacancy, seat 4 the exit.) The empty pool is an
+/// `assign_seats` error, so EVERY fill seat, the old vacancy at seat 2 included, becomes a FRESH
+/// vacancy (b1r_inherit_check.py:86 `b2[s] = (VAC, (0 if ph >= T else ph, 0))`; Q3 as ordered
+/// 2026-10-08 15:19): since_version 5, and no aged alarm (this pin asserted the pre-ruling age,
+/// since 3 with an aged alarm, until the Q3 fix).
 #[test]
 fn a_forced_rotation_the_pool_cannot_refill_leaves_its_seat_vacant_never_deferred() {
     let members = [
@@ -443,15 +446,11 @@ fn a_forced_rotation_the_pool_cannot_refill_leaves_its_seat_vacant_never_deferre
                 tenure: 3,
                 cause: RingUnfilledCause::CandidatePoolExhausted,
             },
-            RingSelectionAlarm::VacancyAged {
-                seat: 2,
-                since_version: 3,
-            },
         ]
     );
     assert_eq!(
         draw.successor_vacancies,
-        vec![vacancy(0, 5), vacancy(2, 3), vacancy(4, 5)]
+        vec![vacancy(0, 5), vacancy(2, 5), vacancy(4, 5)]
     );
     // PIN (NET's verified model, B1-R v1 M7 (i)): a pool SMALLER than the fill set (one registrant
     // for three seats) is an `assign_seats` error too: the whole fill set stays vacant, with no
@@ -466,7 +465,7 @@ fn a_forced_rotation_the_pool_cannot_refill_leaves_its_seat_vacant_never_deferre
     );
     assert_eq!(
         draw.successor_vacancies,
-        vec![vacancy(0, 5), vacancy(2, 3), vacancy(4, 5)]
+        vec![vacancy(0, 5), vacancy(2, 5), vacancy(4, 5)]
     );
     // Exactly enough registrants: the whole fill set is drawn.
     let mut enough = s.clone();
@@ -734,7 +733,10 @@ fn an_empty_floor_pool_leaves_the_floored_seat_vacant_never_deferred() {
 /// PIN (Director, 10-05: MATCH NET'S VERIFIED MODEL, B1-R v1 M7 (i)): an exhausted floor pool is
 /// an `assign_seats` error, and on it the WHOLE fill set stays VACANT, not only the floored
 /// constituency's seats, although the whole pool could fill the rest. Fill set (c = 4): seat 0
-/// (m1, floored, forced), seat 1 (m2, forced), seat 2 (an old vacancy), seat 3 (m3's exit).
+/// (m1, floored, forced), seat 1 (m2, forced), seat 2 (an old vacancy), seat 3 (m3's exit). Every
+/// fill seat becomes a FRESH vacancy, the old one at seat 2 included (b1r_inherit_check.py:86; Q3
+/// as ordered 2026-10-08 15:19): since_version 5 and no aged alarm (this pin asserted the
+/// pre-ruling since 3 with an aged alarm until the Q3 fix).
 #[test]
 fn an_exhausted_floor_pool_leaves_the_whole_fill_set_vacant() {
     let mut p = params();
@@ -781,7 +783,7 @@ fn an_exhausted_floor_pool_leaves_the_whole_fill_set_vacant() {
     assert_eq!(draw.successor_members, vec![account_n(4), account_n(5)]);
     assert_eq!(
         draw.successor_vacancies,
-        vec![vacancy(0, 5), vacancy(1, 5), vacancy(2, 3), vacancy(3, 5)]
+        vec![vacancy(0, 5), vacancy(1, 5), vacancy(2, 5), vacancy(3, 5)]
     );
     assert_eq!(
         draw.alarms,
@@ -797,10 +799,6 @@ fn an_exhausted_floor_pool_leaves_the_whole_fill_set_vacant() {
                 seat: 1,
                 tenure: 3,
                 cause: RingUnfilledCause::FloorPoolExhausted,
-            },
-            RingSelectionAlarm::VacancyAged {
-                seat: 2,
-                since_version: 3,
             },
         ]
     );

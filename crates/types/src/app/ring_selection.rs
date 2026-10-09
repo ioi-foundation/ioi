@@ -45,8 +45,19 @@
 //!      the model NET's exact checker verified): a floored constituency whose pool cannot meet its
 //!      instance floor (SCQ-8.10f (b) withdrew 8.10 item 2's `floor_pool_empty` DEFERRAL), or a
 //!      pool smaller than the fill set. No forced rotation is deferred, no partial fill is made,
-//!      and no second beacon is drawn. A floor the successor misses flags the configuration as
-//!      outside the selection model.
+//!      and no second beacon is drawn. Each such seat is a FRESH vacancy: its AGE restarts at 0
+//!      (NET's `b1r_inherit_check.py` `_apply_inh`, `(VAC, (0 if ph >= T else ph, 0))`), its PHASE
+//!      continuing (a forced seat's from 0, its phase point having passed), and it raises no
+//!      VacancyAged alarm. A floor the successor misses flags the configuration as outside the
+//!      selection model.
+//!    - **the seat state mirrors NET's (kind, (phase, own))** (rulings 2026-10-08 15:16 and 15:19,
+//!      Q3 as reversed): the PHASE is the seat's counter, implicit here ([`seat_phase`]), kept and
+//!      wrapping mod T while the seat is vacant, restarted only at a forced seat's refill (and, on
+//!      an `assign_seats` error, at a forced seat whose phase point has passed); a non-forced
+//!      refill inherits it. OWN is the occupant's age since its draw, and for a vacant seat the
+//!      vacancy AGE, `since_version`: the version whose handover left the seat vacant (age 0 at
+//!      that handover, growing by one per handover). It restarts at 0 on vacating and is NEVER the
+//!      departed occupant's age. The oldest-first refill reads it.
 //! 5. **The per-seat draw** (Theorem TX's dependence condition; SCQ-8.10b/c): each seat is filled
 //!    by its OWN value, derived from the beacon and the seat index
 //!    (`SHA-256("aft::ring::seat-draw::v1" ‖ beacon ‖ seat ‖ attempt)`), choosing uniformly among
@@ -609,6 +620,8 @@ pub fn draw_vacated_seats(
     let cap = snapshot.churn_cap as usize;
     let fill_len = slots.len().min(cap);
     let mut state = vec![SlotState::Open; slots.len()];
+    // The fill set's seats (on an assign_seats error each becomes a FRESH vacancy, Q3).
+    let fill_seats: BTreeSet<u32> = slots[..fill_len].iter().map(|(seat, _)| *seat).collect();
 
     // The pool: activatable registrants holding no seat, in canonical account order, once each.
     let mut pool: Vec<RingMemberRegistration> = snapshot
@@ -776,6 +789,15 @@ pub fn draw_vacated_seats(
                     Some(joiner) => {
                         successor_members.push(*joiner);
                         start_tenure.insert(*joiner, joiner_phase(seat));
+                    }
+                    // NET's model (b1r_inherit_check.py:86, the assign_seats-error path): every
+                    // fill seat becomes a FRESH vacancy, its age restarting at 0 (its phase,
+                    // implicit here, continues), so it raises no VacancyAged alarm.
+                    None if assign_error.is_some() && fill_seats.contains(&seat) => {
+                        successor_vacancies.push(RingVacancy {
+                            seat,
+                            since_version: snapshot.live_version,
+                        });
                     }
                     None => {
                         successor_vacancies.push(vacancy);
