@@ -11,6 +11,31 @@
 /// Fixture parameters only (the production numbers are the numbers author's): n=3, T=4, c=2,
 /// b=100, W = 4×4+3 = 19, D_act = the beacon interval = 2. The balanced genesis offsets are
 /// {0, 1, 2}, so the genesis seats rotate at handovers 4, 3 and 2 (T − o) and none at the first.
+/// Rulings 2026-10-08 Q1 (C) and Q4: the ring plane's tests draw with the REFERENCE-UNBOUNDED
+/// beacon and use R >= 1 fixtures, which only the explicit TEST admission admits (every chain
+/// configuration refuses both: the `..._refused_in_every_chain_configuration` tests). The paths that
+/// need it: this file's ring tests, and no other (no local, single-node or Alpha path draws a ring).
+struct RingTestRegistry {
+    registry: GuardianRegistry,
+    _admission: super::ring_selection::RingSelectionTestAdmission,
+}
+
+impl std::ops::Deref for RingTestRegistry {
+    type Target = GuardianRegistry;
+    fn deref(&self) -> &GuardianRegistry {
+        &self.registry
+    }
+}
+
+/// A production-configured registry whose ring plane runs, for this test's thread and while the
+/// returned value lives, under the TEST-only admission (REFERENCE-UNBOUNDED).
+fn ring_test_registry() -> RingTestRegistry {
+    RingTestRegistry {
+        registry: production_registry(),
+        _admission: super::ring_selection::RingSelectionTestAdmission::hold(),
+    }
+}
+
 fn ring_params() -> ioi_types::app::RingSelectionParams {
     ioi_types::app::RingSelectionParams {
         ring_seats: 3,
@@ -227,7 +252,7 @@ fn setup_ring(
 
 #[test]
 fn ring_registration_needs_parameters_the_bond_floor_and_refuses_duplicates() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         // No parameters: no default values exist.
@@ -253,7 +278,7 @@ fn ring_registration_needs_parameters_the_bond_floor_and_refuses_duplicates() {
 
 #[test]
 fn ring_parameters_are_set_once_and_enforce_d3_at_configuration() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let mut too_shallow = ring_params();
@@ -287,7 +312,7 @@ fn ring_parameters_are_set_once_and_enforce_d3_at_configuration() {
 /// records the offsets.
 #[test]
 fn the_genesis_ring_is_the_selector_draw_and_no_configuration_chooses_it() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     let mut drawn_members = Vec::new();
     let mut genesis_beacon = [0u8; 32];
@@ -407,7 +432,7 @@ fn the_genesis_ring_is_the_selector_draw_and_no_configuration_chooses_it() {
 
 #[test]
 fn the_handover_is_the_recomputed_draw_and_the_old_ring_cannot_choose() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     let mut joiner = ring_member(0);
     let mut genesis_members = Vec::new();
@@ -618,7 +643,7 @@ fn the_handover_is_the_recomputed_draw_and_the_old_ring_cannot_choose() {
 /// handover can proceed from it.
 #[test]
 fn a_ledger_holding_a_joiner_off_its_seats_phase_is_refused_at_the_next_snapshot() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let genesis = setup_ring(&registry, &mut state, ctx);
@@ -673,7 +698,7 @@ fn a_ledger_holding_a_joiner_off_its_seats_phase_is_refused_at_the_next_snapshot
 /// the oldest vacancy first.
 #[test]
 fn an_exit_the_cap_cannot_refill_leaves_a_vacancy_the_next_handover_refills_first() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let genesis = setup_ring(&registry, &mut state, ctx);
@@ -752,7 +777,7 @@ fn an_exit_the_cap_cannot_refill_leaves_a_vacancy_the_next_handover_refills_firs
 /// seat's rotation).
 #[test]
 fn a_handover_snapshot_refuses_a_seat_ledger_that_does_not_describe_the_live_ring() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         setup_ring(&registry, &mut state, ctx);
@@ -785,7 +810,7 @@ fn a_handover_snapshot_refuses_a_seat_ledger_that_does_not_describe_the_live_rin
 /// ledger change, the pending snapshot kept).
 #[test]
 fn settlement_refuses_a_joiner_off_its_seats_phase_and_writes_nothing() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let genesis = setup_ring(&registry, &mut state, ctx);
@@ -838,7 +863,7 @@ fn settlement_refuses_a_joiner_off_its_seats_phase_and_writes_nothing() {
 /// and the release needs the lock's expiry AND custody succession.
 #[test]
 fn a_departed_members_bond_is_locked_for_w_and_its_re_entry_waits() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let genesis = setup_ring(&registry, &mut state, ctx);
@@ -913,7 +938,7 @@ fn a_departed_members_bond_is_locked_for_w_and_its_re_entry_waits() {
 /// member rotates exactly once.
 #[test]
 fn members_rotate_at_the_tenure_cap_in_their_balanced_phases() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let mut ring = setup_ring(&registry, &mut state, ctx);
@@ -964,7 +989,7 @@ fn members_rotate_at_the_tenure_cap_in_their_balanced_phases() {
 /// refusal, once n registrants are activatable, the genesis proceeds.
 #[test]
 fn an_infeasible_genesis_snapshot_is_refused_writes_nothing_and_the_ring_can_still_start() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         publish_params(&registry, &mut state, ctx);
@@ -1030,7 +1055,7 @@ fn an_infeasible_genesis_snapshot_is_refused_writes_nothing_and_the_ring_can_sti
 /// during the lock). The reviewer's probe, kept as a pin.
 #[test]
 fn a_handover_takes_its_joiners_out_of_the_queue_so_a_departed_joiner_is_not_redrawn() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let genesis = setup_ring(&registry, &mut state, ctx);
@@ -1101,7 +1126,7 @@ fn a_handover_takes_its_joiners_out_of_the_queue_so_a_departed_joiner_is_not_red
 /// the queue were written before settlement's checks ran.
 #[test]
 fn a_handover_refused_at_settlement_writes_nothing() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let genesis = setup_ring(&registry, &mut state, ctx);
@@ -1207,7 +1232,7 @@ fn the_reference_handover_beacon_is_refused_in_every_chain_configuration() {
 /// and counted in the liveness budget. The next snapshot waits for every acceptance window.
 #[test]
 fn a_drawn_joiner_accepts_on_chain_or_is_absent_and_departs_at_the_next_handover() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let mut p = ring_params();
@@ -1353,7 +1378,7 @@ fn register_in(
 /// (c = 1). The forced seat is refilled from constituency 1, never from constituency 2's newcomer.
 #[test]
 fn at_r_0_a_vacated_seat_is_refilled_only_from_its_own_constituency() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let mut p = ring_params();
@@ -1513,7 +1538,7 @@ fn ring_parameters_with_non_floor_seats_are_refused_in_every_chain_configuration
 /// draw nor its fill (a publication honouring it is refused); it is planned at the next snapshot.
 #[test]
 fn an_exit_declared_after_the_beacon_changes_neither_the_draw_nor_the_fill() {
-    let registry = production_registry();
+    let registry = ring_test_registry();
     let mut state = MockState::default();
     with_ctx(|ctx| {
         let genesis = setup_ring(&registry, &mut state, ctx);

@@ -75,9 +75,14 @@
 //! - ᾱ is the per-constituency maximum, ᾱ = max_i ᾱ_i, with ᾱ_i ≤ A_i / (A_i + H_i) and
 //!   A_i ≤ ⌊B_adv,i / b⌋ (D1). ᾱ also covers adversarial SUPPRESSION of honest eligibility: a
 //!   suppressed honest registrant does not count in H_i.
-//! - The beacon is the REFERENCE beacon ([`reference_handover_beacon`]) until R11's VDF plane:
-//!   drawn STRICTLY AFTER the eligibility snapshot is committed, recorded with it, never derived
-//!   from old-ring signatures or approvals. Its grinding bound is NET's to publish.
+//! - The beacon: drawn STRICTLY AFTER the eligibility snapshot is committed, recorded with it,
+//!   never derived from old-ring signatures or approvals. The REFERENCE beacon
+//!   ([`reference_handover_beacon`]) is predictable at snapshot time and recorder-choosable
+//!   (REFERENCE-UNBOUNDED: no grinding bound exists for it), so EVERY chain configuration refuses
+//!   it (rulings 2026-10-08 Q1 (C), SCQ-8.10 (a)); only the registry's TEST admission admits it.
+//!   The ring plane fails closed until a bounded source lands: OBS-6b, a UNIQUE-OUTPUT beacon (a
+//!   threshold signature, a VRF with uniqueness, or R11's VDF) over inputs fixed before the
+//!   snapshot, with no producer-chosen field, domain-separated per use.
 //!
 //! **Every number here is a CONFIGURATION POINT** whose value comes from the numbers author. No
 //! production value is hard-coded; the constraints between the values are enforced in code

@@ -455,7 +455,11 @@ impl BlockchainService for GuardianRegistry {
             "publish_ring_selection_params@v1" => {
                 let selection: ioi_types::app::RingSelectionParams =
                     codec::from_bytes_canonical(params)?;
-                Self::materialize_ring_selection_params(state, selection)
+                Self::materialize_ring_selection_params(
+                    state,
+                    selection,
+                    self.ring_selection_admission(),
+                )
             }
             "declare_ring_exit@v1" => {
                 let member: AccountId = codec::from_bytes_canonical(params)?;
@@ -470,6 +474,7 @@ impl BlockchainService for GuardianRegistry {
                     request,
                     ctx.block_height,
                     ctx.block_timestamp,
+                    self.ring_selection_admission(),
                 )
             }
             "release_ring_bond@v1" => {

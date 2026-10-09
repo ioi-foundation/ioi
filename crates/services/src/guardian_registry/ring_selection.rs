@@ -5,6 +5,8 @@
 //!
 //! - `publish_ring_selection_params@v1`: the parameters, once (a genesis registry key; a later
 //!   change is the governance timelock's, not built here). Validated against the live ring's n.
+//!   Parameters with non-floor seats (R >= 1) are REFUSED in every chain configuration (rulings
+//!   2026-10-08 Q4, 15:16): no checker family covers R >= 1 yet ([`RingSelectionAdmission`]).
 //! - `register_ring_member@v1` (materialize.rs) requires the parameters: `bond ≥ b` (D1), `D_act`
 //!   from the parameters (D3), and an account whose bond is LOCKED (D2) cannot re-register.
 //! - `declare_ring_exit@v1`: a live member (the signer) declares its exit.
@@ -15,7 +17,11 @@
 //!   vacancies, the seat offsets and the activatable registrants.
 //! - `record_ring_handover_beacon@v1`: at least `snapshot_to_beacon_events` ring events later,
 //!   the registry DERIVES the reference beacon itself from the snapshot commitment and the block;
-//!   a beacon claimed from old-ring signatures (or a VDF before R11) is refused.
+//!   a beacon claimed from old-ring signatures (or a VDF before R11) is refused. The REFERENCE
+//!   beacon is REFERENCE-UNBOUNDED (predictable at snapshot time and recorder-choosable; no
+//!   grinding bound exists for it), so EVERY chain configuration refuses it (rulings 2026-10-08
+//!   Q1 (C); SCQ-8.10 (a)) and the ring plane fails closed until a bounded, unique-output source
+//!   lands (OBS-6b). Only this crate's TEST builds admit it ([`RingSelectionAdmission`]).
 //! - `publish_ring_genesis_config@v1` (materialize.rs): the genesis ring must be EXACTLY the
 //!   selector's draw from the genesis snapshot and its beacon (SCQ-8.10c (v)); the registry sets
 //!   the balanced tenure offsets itself (SCQ-8.10b (2)), records them, and keeps them as the
@@ -63,7 +69,83 @@ fn store<T: parity_scale_codec::Encode>(
     Ok(())
 }
 
+/// Rulings 2026-10-08 Q1 (C) (14:54, restated 15:16) and Q4 (15:16): what the ring plane admits
+/// beyond a chain configuration's fail-closed rules.
+///
+/// Every registry, whatever chain configuration built it, runs under `Chain`: it REFUSES the
+/// REFERENCE-UNBOUNDED handover beacon (predictable at snapshot time and recorder-choosable, so no
+/// grinding bound exists for it) and REFUSES ring parameters with non-floor seats (R >= 1: no
+/// checker family covers them yet). The ring plane therefore fails closed until a bounded beacon
+/// (OBS-6b) and NET's R >= 1 checker family exist.
+///
+/// `TestOnly` admits both, labelled REFERENCE-UNBOUNDED. It exists only in this crate's TEST
+/// builds: the variant itself is `cfg(test)`, and it is reached only while a
+/// [`RingSelectionTestAdmission`] guard is held on the calling thread (each libtest test runs on its
+/// own thread). No configuration key, constructor or field reaches it, and a non-test build
+/// compiles `Chain` alone. The paths that need it: the ring plane's own unit tests
+/// (`tests_parts/ring_membership_plane.rs`), and no other (no local, single-node or Alpha path
+/// draws a ring).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RingSelectionAdmission {
+    /// Every chain configuration.
+    Chain,
+    /// TEST builds only: the ring plane's own unit tests (REFERENCE-UNBOUNDED).
+    #[cfg(test)]
+    TestOnly,
+}
+
+impl RingSelectionAdmission {
+    /// Whether the REFERENCE-UNBOUNDED beacon and R >= 1 parameters are admitted: never in a
+    /// non-test build.
+    pub(crate) fn admits_reference_unbounded(self) -> bool {
+        match self {
+            Self::Chain => false,
+            #[cfg(test)]
+            Self::TestOnly => true,
+        }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    static RING_SELECTION_TEST_ADMISSIONS: std::cell::Cell<u32> = std::cell::Cell::new(0);
+}
+
+/// TEST builds only: while a guard lives, every registry call on this thread runs under
+/// [`RingSelectionAdmission::TestOnly`]; dropping the last guard restores `Chain`.
+#[cfg(test)]
+pub(crate) struct RingSelectionTestAdmission(());
+
+#[cfg(test)]
+impl RingSelectionTestAdmission {
+    pub(crate) fn hold() -> Self {
+        RING_SELECTION_TEST_ADMISSIONS.with(|held| held.set(held.get() + 1));
+        Self(())
+    }
+}
+
+#[cfg(test)]
+impl Drop for RingSelectionTestAdmission {
+    fn drop(&mut self) {
+        RING_SELECTION_TEST_ADMISSIONS.with(|held| held.set(held.get().saturating_sub(1)));
+    }
+}
+
 impl GuardianRegistry {
+    /// The admission this registry's ring plane runs under ([`RingSelectionAdmission`]): `Chain`
+    /// in every non-test build.
+    pub(super) fn ring_selection_admission(&self) -> RingSelectionAdmission {
+        #[cfg(test)]
+        let admission = if RING_SELECTION_TEST_ADMISSIONS.with(|held| held.get() > 0) {
+            RingSelectionAdmission::TestOnly
+        } else {
+            RingSelectionAdmission::Chain
+        };
+        #[cfg(not(test))]
+        let admission = RingSelectionAdmission::Chain;
+        admission
+    }
+
     /// The ring selection parameters, or a typed refusal when none are configured: NO production
     /// value is hard-coded (the numbers author sets them).
     pub(super) fn load_ring_selection_params(
@@ -105,11 +187,26 @@ impl GuardianRegistry {
         Ok(load(state, GUARDIAN_RING_BOND_LOCKS_KEY)?.unwrap_or_default())
     }
 
-    /// `publish_ring_selection_params@v1`: once, validated against the live ring (if any).
+    /// `publish_ring_selection_params@v1`: once, validated against the live ring (if any). Q4:
+    /// parameters with non-floor seats (R >= 1) are refused unless the admission is TEST-only.
     pub(super) fn materialize_ring_selection_params(
         state: &mut dyn StateAccess,
         params: RingSelectionParams,
+        admission: RingSelectionAdmission,
     ) -> Result<(), TransactionError> {
+        // Q4 (rulings 2026-10-08 15:16): non-floor seats (R >= 1) have no checker family yet, so
+        // every chain configuration refuses them (fail closed). R = 0: the floors sum to n.
+        let floor_total: u64 = params
+            .floors
+            .iter()
+            .map(|floor| u64::from(floor.min_seats))
+            .sum();
+        if !admission.admits_reference_unbounded() && floor_total != u64::from(params.ring_seats) {
+            return Err(TransactionError::Invalid(format!(
+                "ring selection: R >= 1 (the floors cover {floor_total} of n={} seats) is refused in every chain configuration until NET's R >= 1 checker family exists (rulings 2026-10-08 Q4)",
+                params.ring_seats
+            )));
+        }
         if state.get(GUARDIAN_RING_SELECTION_PARAMS_KEY)?.is_some() {
             return Err(TransactionError::Invalid(
                 "ring selection parameters are already set; a change goes through the governance timelock"
@@ -281,8 +378,19 @@ impl GuardianRegistry {
         request: RingBeaconRecordRequest,
         block_height: u64,
         block_timestamp: u64,
+        admission: RingSelectionAdmission,
     ) -> Result<(), TransactionError> {
         match request.source {
+            // Q1 (C): fail closed in every chain configuration, before anything is read or written.
+            RingBeaconSource::Reference if !admission.admits_reference_unbounded() => {
+                return Err(TransactionError::Invalid(
+                    "REFERENCE-UNBOUNDED: the reference handover beacon is predictable at snapshot \
+                     time and recorder-choosable, so every chain configuration refuses it \
+                     (SCQ-8.10 (a); rulings 2026-10-08 Q1 (C)); only a bounded, unique-output \
+                     source may draw (OBS-6b)"
+                        .into(),
+                ))
+            }
             RingBeaconSource::Reference => {}
             RingBeaconSource::OldRingSignatures => return Err(TransactionError::Invalid(
                 "a ring handover beacon is never derived from old-ring signatures or approvals \
@@ -290,8 +398,7 @@ impl GuardianRegistry {
                     .into(),
             )),
             RingBeaconSource::Vdf => return Err(TransactionError::Invalid(
-                "the VDF beacon is R11's and is not available yet; the reference beacon applies"
-                    .into(),
+                "the VDF beacon is R11's and is not available yet".into(),
             )),
         }
         let params = Self::load_ring_selection_params(state)?;
