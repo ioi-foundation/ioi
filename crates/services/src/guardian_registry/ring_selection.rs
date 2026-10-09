@@ -25,10 +25,14 @@
 //! - `publish_ring_genesis_config@v1` (materialize.rs): the genesis ring must be EXACTLY the
 //!   selector's draw from the genesis snapshot and its beacon (SCQ-8.10c (v)); the registry sets
 //!   the balanced tenure offsets itself (SCQ-8.10b (2)), records them, and keeps them as the
-//!   seats' phases for the ring's life.
-//! - `publish_ring_handover@v1` (materialize.rs): the seated old ring's unanimity and the KEPT
-//!   members' acceptance stay the ACCEPTANCE gate (the joiners accept on chain, Q2), but the
-//!   registry RECOMPUTES the draw from
+//!   seats' phases for the ring's life. Q5 holds at genesis by the same rule (NET's ruling
+//!   2026-10-09 3): genesis is handover 0, so its version is 1 and its activated_at_event
+//!   s_0 + Δ_b + W_acc (s_0 the genesis snapshot event), verified exactly as for a successor.
+//! - `publish_ring_handover@v1` (materialize.rs): the successor's version must be the live
+//!   version plus one and its activated_at_event s_h + Δ_b + W_acc (rulings 2026-10-08 Q5; never
+//!   the publisher's choice). The PRESENT old ring's unanimity and the KEPT members' acceptance stay
+//!   the ACCEPTANCE gate (the joiners accept on chain, Q2), but the registry RECOMPUTES the draw
+//!   from
 //!   (snapshot, beacon) and refuses any successor (members or vacancies) that differs. The
 //!   handover record keeps everything a verifier needs, with the alarms. Each joiner's tenure is
 //!   its seat's phase, computed by the draw (never supplied), and the new ledger is checked

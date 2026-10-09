@@ -1056,6 +1056,9 @@ pub fn genesis_seat_labels(
 
 /// Q2 (PROVISIONAL; module docs, 8.): a handover's acceptance deadline, s_h + Δ_b + W_acc, where
 /// s_h is the snapshot event. A joiner accepts on chain while the ring event counter is below it.
+/// Q5 (rulings 2026-10-08): it is also the successor's `activated_at_event`, which the registry
+/// verifies (never a publisher's value); at genesis (handover 0, NET's ruling 2026-10-09 3) the
+/// genesis configuration's, with s_0 the genesis snapshot event.
 pub fn acceptance_deadline(params: &RingSelectionParams, snapshot_event: u64) -> u64 {
     snapshot_event
         .saturating_add(params.snapshot_to_beacon_events)

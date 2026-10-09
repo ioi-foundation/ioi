@@ -411,12 +411,22 @@ impl GuardianRegistry {
     /// publishable exactly once, before any live configuration exists, and EXACTLY the selector's
     /// draw from the genesis snapshot and its recorded beacon. No configuration chooses a genesis
     /// member: a publication naming any other ring (or any vacancy) is refused. The registry then
-    /// starts each member at its balanced tenure offset (SCQ-8.10b (2)).
+    /// starts each member at its balanced tenure offset (SCQ-8.10b (2)). Q5 at genesis (NET's
+    /// ruling 2026-10-09 3, one uniform rule): genesis is handover 0 with its snapshot event s_0,
+    /// so its version is 1 (the live version + 1, with no live ring) and its activated_at_event
+    /// is s_0 + Δ_b + W_acc, verified exactly as for a successor (the publisher chooses neither).
     pub(super) fn materialize_ring_genesis_config(
         state: &mut dyn StateAccess,
         config: BoundaryRingConfig,
     ) -> Result<(), TransactionError> {
-        if config.version != 1 || config.members.is_empty() || config.closed_by.is_some() {
+        // Q5 at genesis: the version is the live version + 1 with no live ring, i.e. 1.
+        if config.version != 1 {
+            return Err(TransactionError::Invalid(format!(
+                "Q5: the genesis configuration's version must be 1 (no live ring: the live version + 1), not {}",
+                config.version
+            )));
+        }
+        if config.members.is_empty() || config.closed_by.is_some() {
             return Err(TransactionError::Invalid(
                 "ring genesis must be an open version-1 configuration with members".into(),
             ));
@@ -427,6 +437,18 @@ impl GuardianRegistry {
             ));
         }
         let (pending, draw) = Self::recompute_ring_genesis_draw(state)?;
+        // Q5 at genesis: activated_at_event = s_0 + Δ_b + W_acc, s_0 the genesis snapshot event
+        // (the same rule, and the same validate() bound Δ_b + W_acc below the handover period, as a
+        // successor's); anything else is refused before anything is written.
+        let params = Self::load_ring_selection_params(state)?;
+        let expected_activation =
+            ioi_types::app::acceptance_deadline(&params, pending.snapshot.snapshot_event);
+        if config.activated_at_event != expected_activation {
+            return Err(TransactionError::Invalid(format!(
+                "Q5: the genesis configuration activates at s_0 + Δ_b + W_acc = {expected_activation}, not {}",
+                config.activated_at_event
+            )));
+        }
         if config.members != draw.successor_members || !config.vacant_seats.is_empty() {
             return Err(TransactionError::Invalid(
                 "the genesis ring differs from the draw recomputed from the genesis snapshot and its beacon"
@@ -490,6 +512,29 @@ impl GuardianRegistry {
         // draw from the committed snapshot and its recorded beacon and refuses any successor ring
         // that differs (the churn cap and D_act are inside the draw).
         let (pending, draw) = Self::recompute_ring_handover_draw(state, &live)?;
+        // Q5 (rulings 2026-10-08 15:16 "DECISION Q5" and 15:19; OBS-6c (iv)): the successor's
+        // version and its activation are the registry's, never the publisher's. version = the live
+        // version + 1; activated_at_event = s_h + Δ_b + W_acc, the acceptance deadline (Δ_b >= 1
+        // and Δ_b + W_acc below the handover period, both by validate()). Anything else is
+        // refused, before anything is written.
+        let expected_version = live.version.checked_add(1).ok_or_else(|| {
+            TransactionError::Invalid("Q5: the live ring version cannot be succeeded".into())
+        })?;
+        if publication.new_config.version != expected_version {
+            return Err(TransactionError::Invalid(format!(
+                "Q5: the successor's version must be the live version + 1 ({expected_version}), not {}",
+                publication.new_config.version
+            )));
+        }
+        let params = Self::load_ring_selection_params(state)?;
+        let expected_activation =
+            ioi_types::app::acceptance_deadline(&params, pending.snapshot.snapshot_event);
+        if publication.new_config.activated_at_event != expected_activation {
+            return Err(TransactionError::Invalid(format!(
+                "Q5: the successor activates at s_h + Δ_b + W_acc = {expected_activation}, not {}",
+                publication.new_config.activated_at_event
+            )));
+        }
         // The gate: the unanimity of the PRESENT old ring, and the acceptance of every successor
         // member that is not a joiner; the joiners accept on chain (Q2, PROVISIONAL). A joiner of
         // the previous handover that never accepted is ABSENT (Q2 (a)): it never votes, so its
