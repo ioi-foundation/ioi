@@ -1358,6 +1358,128 @@ fn a_drawn_joiner_accepts_on_chain_or_is_absent_and_departs_at_the_next_handover
     });
 }
 
+/// Q2 (a) (NET's condition: a joiner that has not accepted is ABSENT and never votes), at the NEXT
+/// handover: the old ring's unanimity is over its PRESENT members. A joiner that never accepted (its
+/// window closed; it departs at this handover) need not approve, so its silence cannot stall the
+/// next handover (review r1 MINOR-1's stall, moved one handover later, is closed); every present
+/// member's approval stays required.
+#[test]
+fn an_absent_joiner_never_votes_so_its_silence_cannot_stall_the_next_handover() {
+    let registry = ring_test_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let mut p = ring_params();
+        p.handover_interval_events = 12;
+        p.bond_lock_events = 4 * 12 + 3;
+        p.acceptance_window_events = 6;
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_selection_params@v1",
+            &codec::to_bytes_canonical(&p).unwrap(),
+        )
+        .unwrap();
+        for b in 1u8..=3 {
+            register(&registry, &mut state, ctx, b, 100).unwrap();
+        }
+        register(&registry, &mut state, ctx, 4, 150).unwrap();
+        let (genesis_pending, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 5);
+        let gdraw = ioi_types::app::draw_genesis_ring(&genesis_pending.snapshot, &beacon).unwrap();
+        let genesis = BoundaryRingConfig {
+            version: 1,
+            members: gdraw.successor_members.clone(),
+            member_bonds: gdraw.successor_members.iter().map(|m| (*m, 100)).collect(),
+            activated_at_event: 0,
+            closed_by: None,
+            vacant_seats: vec![],
+        };
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_genesis_config@v1",
+            &codec::to_bytes_canonical(&genesis).unwrap(),
+        )
+        .unwrap();
+        for b in 6u8..=9 {
+            register(&registry, &mut state, ctx, b, 150).unwrap();
+        }
+        for member in [ring_member(2), ring_member(3)] {
+            ctx.signer_account_id = member;
+            call(
+                &registry,
+                &mut state,
+                ctx,
+                "declare_ring_exit@v1",
+                &codec::to_bytes_canonical(&member).unwrap(),
+            )
+            .unwrap();
+        }
+        let (pending_handover, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 20);
+        let draw = ioi_types::app::draw_vacated_seats(&pending_handover.snapshot, &beacon).unwrap();
+        assert_eq!(draw.joiners.len(), 2);
+        let (accepting, silent) = (draw.joiners[0], draw.joiners[1]);
+        let commitment = codec::to_bytes_canonical(&pending_handover.commitment).unwrap();
+        ctx.signer_account_id = accepting;
+        call(&registry, &mut state, ctx, "accept_ring_handover_seat@v1", &commitment).unwrap();
+        let mut publication = drawn_publication(&genesis, &draw);
+        publication
+            .acceptances
+            .retain(|a| !draw.joiners.contains(&a.member));
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&publication).unwrap(),
+        )
+        .unwrap();
+        let ring1 = live_config(&state);
+        assert!(ring1.members.contains(&silent) && ring1.members.contains(&accepting));
+        // The silent joiner's window closes; the next handover is drawn with it as a departure.
+        for b in 40u8..50 {
+            register(&registry, &mut state, ctx, b, 150).unwrap();
+        }
+        call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).unwrap();
+        register(&registry, &mut state, ctx, 51, 150).unwrap();
+        let request = beacon_request(&state);
+        call(&registry, &mut state, ctx, "record_ring_handover_beacon@v1", &request).unwrap();
+        let pending2 = pending(&state);
+        let (beacon2, _, _) = pending2.beacon.unwrap();
+        let draw2 = ioi_types::app::draw_vacated_seats(&pending2.snapshot, &beacon2).unwrap();
+        assert!(draw2.departed.contains(&silent));
+        // Every PRESENT old member approves; the absent joiner does not; the joiners accept on chain.
+        let mut publication2 = drawn_publication(&ring1, &draw2);
+        publication2.approvals.retain(|a| a.member != silent);
+        publication2
+            .acceptances
+            .retain(|a| !draw2.joiners.contains(&a.member));
+        // A PRESENT member's approval stays required (old-ring unanimity over the present members).
+        let mut missing_present = publication2.clone();
+        missing_present.approvals.retain(|a| a.member != accepting);
+        let err = call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&missing_present).unwrap(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("UNANIMITY"), "{err}");
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&publication2).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(live_config(&state).members, draw2.successor_members);
+        assert!(!live_config(&state).members.contains(&silent), "the absent joiner departed");
+    });
+}
+
 fn register_in(
     registry: &GuardianRegistry,
     state: &mut MockState,
