@@ -452,6 +452,40 @@ impl BlockchainService for GuardianRegistry {
                 let publication: RingHandoverPublication = codec::from_bytes_canonical(params)?;
                 Self::materialize_ring_handover(state, publication)
             }
+            "publish_ring_selection_params@v1" => {
+                let selection: ioi_types::app::RingSelectionParams =
+                    codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_selection_params(
+                    state,
+                    selection,
+                    self.ring_selection_admission(),
+                )
+            }
+            "declare_ring_exit@v1" => {
+                let member: AccountId = codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_exit_declaration(state, member, ctx.signer_account_id)
+            }
+            "commit_ring_handover_snapshot@v1" => Self::materialize_ring_handover_snapshot(state),
+            "record_ring_handover_beacon@v1" => {
+                let request: ioi_types::app::RingBeaconRecordRequest =
+                    codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_handover_beacon(
+                    state,
+                    request,
+                    ctx.block_height,
+                    ctx.block_timestamp,
+                    self.ring_selection_admission(),
+                )
+            }
+            "accept_ring_handover_seat@v1" => {
+                let commitment: [u8; 32] = codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_seat_acceptance(state, commitment, ctx.signer_account_id)
+            }
+            "release_ring_bond@v1" => {
+                let request: ioi_types::app::RingBondReleaseRequest =
+                    codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_bond_release(state, request)
+            }
             "publish_aft_bulletin_commitment@v1" => {
                 let bulletin: BulletinCommitment = codec::from_bytes_canonical(params)?;
                 if bulletin.height == 0 {

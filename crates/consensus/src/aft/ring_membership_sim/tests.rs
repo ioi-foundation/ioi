@@ -15,6 +15,7 @@ fn config(version: u64, member_bytes: &[u8]) -> BoundaryRingConfig {
         member_bonds: Default::default(),
         activated_at_event: 0,
         closed_by: None,
+        vacant_seats: Vec::new(),
     }
 }
 
@@ -224,4 +225,23 @@ fn sortition_reproduces_and_watchtowers_gate_nothing() {
         sim.seals
     };
     assert_eq!(run(false), run(true), "the watchtower record gates NOTHING");
+}
+
+/// SCQ-8.10d: the simulator's quorums count members only, so it refuses a configuration with a
+/// vacant seat (a vacancy never reduces n), at construction and at a handover.
+#[test]
+fn the_simulator_refuses_a_ring_with_a_vacant_seat() {
+    let mut vacant = config(1, &[1, 2, 3]);
+    vacant.vacant_seats = vec![ioi_types::app::RingVacancy {
+        seat: 3,
+        since_version: 1,
+    }];
+    assert!(BoundaryRingMembershipSim::new(vacant.clone(), &[true, true, true]).is_err());
+    let mut sim =
+        BoundaryRingMembershipSim::new(config(1, &[1, 2, 3]), &[true, true, true]).expect("sim");
+    let mut successor = vacant;
+    successor.version = 2;
+    let approvals: Vec<_> = [1u8, 2, 3].iter().map(|m| approval(*m, 1, 2)).collect();
+    let acceptances: Vec<_> = [1u8, 2, 3].iter().map(|m| acceptance(*m, 2)).collect();
+    assert!(sim.handover(successor, &approvals, &acceptances).is_err());
 }

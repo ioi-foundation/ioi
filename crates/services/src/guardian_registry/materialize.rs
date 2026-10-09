@@ -285,15 +285,15 @@ impl GuardianRegistry {
         Ok(())
     }
 
-    /// The activation depth (D_act) for the ring membership queue and
-    /// the per-handover churn cap (AFT-CB R5 stage 3). Constants at the
-    /// reference stage; governance parameterization is a NAMED RESIDUAL
-    /// for the improvement-governance plane.
+    /// The queue depth a queue created BEFORE any selection parameters existed carries (the
+    /// AFT-CB R5 reference stage). SCQ-8.10 (P7): registration and the handover now take `D_act`
+    /// and the churn cap from the configured `RingSelectionParams`; this value only seeds an empty
+    /// queue record and is overwritten at the first registration.
     pub(super) const RING_ACTIVATION_DEPTH_EVENTS: u64 = 2;
-    /// Maximum members that may JOIN in one handover.
-    pub(super) const RING_HANDOVER_CHURN_CAP: usize = 2;
 
-    fn bump_ring_event_counter(state: &mut dyn StateAccess) -> Result<u64, TransactionError> {
+    pub(super) fn bump_ring_event_counter(
+        state: &mut dyn StateAccess,
+    ) -> Result<u64, TransactionError> {
         let next = state
             .get(GUARDIAN_RING_EVENT_COUNTER_KEY)?
             .map(|bytes| {
@@ -310,7 +310,9 @@ impl GuardianRegistry {
         Ok(next)
     }
 
-    fn load_ring_queue(state: &dyn StateAccess) -> Result<RingActivationQueue, TransactionError> {
+    pub(super) fn load_ring_queue(
+        state: &dyn StateAccess,
+    ) -> Result<RingActivationQueue, TransactionError> {
         Ok(state
             .get(GUARDIAN_RING_QUEUE_KEY)?
             .map(|bytes| {
@@ -325,7 +327,7 @@ impl GuardianRegistry {
             }))
     }
 
-    fn store_ring_queue(
+    pub(super) fn store_ring_queue(
         state: &mut dyn StateAccess,
         queue: &RingActivationQueue,
     ) -> Result<(), TransactionError> {
@@ -362,12 +364,28 @@ impl GuardianRegistry {
         state: &mut dyn StateAccess,
         mut registration: RingMemberRegistration,
     ) -> Result<(), TransactionError> {
-        if registration.bond_amount == 0 {
+        // SCQ-8.10 (P7): the re-entry bound. D1, the bond floor b (no hard-coded value: the
+        // parameters must be configured); D3, D_act from the parameters; D2, an account whose
+        // bond is still locked after rotation or exit cannot re-enter.
+        let params = Self::load_ring_selection_params(state)?;
+        if registration.bond_amount == 0 || registration.bond_amount < params.bond_floor {
+            return Err(TransactionError::Invalid(format!(
+                "ring registration requires a bond of at least the floor b={} (D1)",
+                params.bond_floor
+            )));
+        }
+        let next_event = Self::current_ring_event(state)?.saturating_add(1);
+        if Self::load_ring_bond_locks(state)?
+            .iter()
+            .any(|lock| lock.member == registration.account_id && lock.is_locked_at(next_event))
+        {
             return Err(TransactionError::Invalid(
-                "ring registration requires a non-zero bond".into(),
+                "the account's ring bond is still locked after its rotation or exit (D2); it cannot re-enter yet"
+                    .into(),
             ));
         }
         let mut queue = Self::load_ring_queue(state)?;
+        queue.activation_depth_events = params.activation_depth_events;
         if queue
             .entries
             .iter()
@@ -389,13 +407,26 @@ impl GuardianRegistry {
         Self::store_ring_queue(state, &queue)
     }
 
-    /// AFT-CB R5 stage 3: the genesis ring configuration — version 1,
-    /// publishable exactly once, before any live configuration exists.
+    /// AFT-CB R5 stage 3, with SCQ-8.10c (v): the genesis ring configuration — version 1,
+    /// publishable exactly once, before any live configuration exists, and EXACTLY the selector's
+    /// draw from the genesis snapshot and its recorded beacon. No configuration chooses a genesis
+    /// member: a publication naming any other ring (or any vacancy) is refused. The registry then
+    /// starts each member at its balanced tenure offset (SCQ-8.10b (2)). Q5 at genesis (NET's
+    /// ruling 2026-10-09 3, one uniform rule): genesis is handover 0 with its snapshot event s_0,
+    /// so its version is 1 (the live version + 1, with no live ring) and its activated_at_event
+    /// is s_0 + Δ_b + W_acc, verified exactly as for a successor (the publisher chooses neither).
     pub(super) fn materialize_ring_genesis_config(
         state: &mut dyn StateAccess,
         config: BoundaryRingConfig,
     ) -> Result<(), TransactionError> {
-        if config.version != 1 || config.members.is_empty() || config.closed_by.is_some() {
+        // Q5 at genesis: the version is the live version + 1 with no live ring, i.e. 1.
+        if config.version != 1 {
+            return Err(TransactionError::Invalid(format!(
+                "Q5: the genesis configuration's version must be 1 (no live ring: the live version + 1), not {}",
+                config.version
+            )));
+        }
+        if config.members.is_empty() || config.closed_by.is_some() {
             return Err(TransactionError::Invalid(
                 "ring genesis must be an open version-1 configuration with members".into(),
             ));
@@ -405,6 +436,39 @@ impl GuardianRegistry {
                 "a live ring configuration already exists; use the handover ceremony".into(),
             ));
         }
+        let (pending, draw) = Self::recompute_ring_genesis_draw(state)?;
+        // Q5 at genesis: activated_at_event = s_0 + Δ_b + W_acc, s_0 the genesis snapshot event
+        // (the same rule, and the same validate() bound Δ_b + W_acc below the handover period, as a
+        // successor's); anything else is refused before anything is written.
+        let params = Self::load_ring_selection_params(state)?;
+        let expected_activation =
+            ioi_types::app::acceptance_deadline(&params, pending.snapshot.snapshot_event);
+        if config.activated_at_event != expected_activation {
+            return Err(TransactionError::Invalid(format!(
+                "Q5: the genesis configuration activates at s_0 + Δ_b + W_acc = {expected_activation}, not {}",
+                config.activated_at_event
+            )));
+        }
+        if config.members != draw.successor_members || !config.vacant_seats.is_empty() {
+            return Err(TransactionError::Invalid(
+                "the genesis ring differs from the draw recomputed from the genesis snapshot and its beacon"
+                    .into(),
+            ));
+        }
+        let expected_bonds: BTreeMap<AccountId, u128> = pending
+            .snapshot
+            .candidates
+            .iter()
+            .filter(|candidate| draw.successor_members.contains(&candidate.account_id))
+            .map(|candidate| (candidate.account_id, candidate.bond_amount))
+            .collect();
+        if config.member_bonds != expected_bonds {
+            return Err(TransactionError::Invalid(
+                "the genesis configuration's bonds differ from the drawn registrations'".into(),
+            ));
+        }
+        // Review r1 MINOR-2: settlement's checks run before anything else is written.
+        Self::settle_ring_genesis(state, &config, &pending, &draw)?;
         state.insert(
             &guardian_ring_config_key(config.version),
             &codec::to_bytes_canonical(&config).map_err(TransactionError::Serialization)?,
@@ -414,15 +478,27 @@ impl GuardianRegistry {
             &codec::to_bytes_canonical(&config.version).map_err(TransactionError::Serialization)?,
         )?;
         Self::bump_ring_event_counter(state)?;
-        Ok(())
+        let mut queue = Self::load_ring_queue(state)?;
+        queue
+            .entries
+            .retain(|entry| !draw.joiners.contains(&entry.account_id));
+        Self::store_ring_queue(state, &queue)
     }
 
     /// AFT-CB R5 stage 3: the assurance-preserving handover against the
-    /// STORED live configuration — old-ring unanimity + full new-ring
-    /// acceptance (verified by the types-layer builder), every joiner
-    /// drawn ACTIVATABLE from the public queue (D_act respected), and
-    /// the churn cap enforced. On success the old configuration closes
-    /// with its successor named and the new one becomes live.
+    /// STORED live configuration — old-ring unanimity + the acceptance of
+    /// every successor member that is not a joiner (verified by the
+    /// types-layer builder; the joiners accept ON CHAIN, rulings 2026-10-08
+    /// Q2, PROVISIONAL) — and, by SCQ-8.10,
+    /// the successor EXACTLY the draw recomputed from the snapshot and its
+    /// beacon (members and vacancies; D_act, the churn cap, the fill order
+    /// and the floors are inside the draw). On success the old configuration
+    /// closes with its successor named and the new one becomes live.
+    ///
+    /// The unanimity and acceptance are an ACCEPTANCE gate over the SEATED
+    /// members (a vacant seat holds no member, so it neither approves nor
+    /// accepts). They are not one of the ring's safety thresholds, which count
+    /// over the full n (`BoundaryRingConfig::full_n_threshold`, SCQ-8.10d).
     pub(super) fn materialize_ring_handover(
         state: &mut dyn StateAccess,
         publication: RingHandoverPublication,
@@ -432,43 +508,104 @@ impl GuardianRegistry {
                 "no live ring configuration exists; publish the genesis first".into(),
             ));
         };
-        build_assurance_preserving_handover(
+        // SCQ-8.10 (P7): the old ring approves, but it cannot choose. The registry recomputes the
+        // draw from the committed snapshot and its recorded beacon and refuses any successor ring
+        // that differs (the churn cap and D_act are inside the draw).
+        let (pending, draw) = Self::recompute_ring_handover_draw(state, &live)?;
+        // Q5 (rulings 2026-10-08 15:16 "DECISION Q5" and 15:19; OBS-6c (iv)): the successor's
+        // version and its activation are the registry's, never the publisher's. version = the live
+        // version + 1; activated_at_event = s_h + Δ_b + W_acc, the acceptance deadline (Δ_b >= 1
+        // and Δ_b + W_acc below the handover period, both by validate()). Anything else is
+        // refused, before anything is written.
+        let expected_version = live.version.checked_add(1).ok_or_else(|| {
+            TransactionError::Invalid("Q5: the live ring version cannot be succeeded".into())
+        })?;
+        if publication.new_config.version != expected_version {
+            return Err(TransactionError::Invalid(format!(
+                "Q5: the successor's version must be the live version + 1 ({expected_version}), not {}",
+                publication.new_config.version
+            )));
+        }
+        let params = Self::load_ring_selection_params(state)?;
+        let expected_activation =
+            ioi_types::app::acceptance_deadline(&params, pending.snapshot.snapshot_event);
+        if publication.new_config.activated_at_event != expected_activation {
+            return Err(TransactionError::Invalid(format!(
+                "Q5: the successor activates at s_h + Δ_b + W_acc = {expected_activation}, not {}",
+                publication.new_config.activated_at_event
+            )));
+        }
+        // The gate: the unanimity of the PRESENT old ring, and the acceptance of every successor
+        // member that is not a joiner; the joiners accept on chain (Q2, PROVISIONAL). A joiner of
+        // the previous handover that never accepted is ABSENT (Q2 (a)): it never votes, so its
+        // approval is not required. Every such window has closed (no snapshot is taken while one
+        // is open), and each such joiner departs at this handover.
+        let absent: Vec<AccountId> = Self::load_ring_seat_ledger(state, &live)?
+            .awaiting_acceptance
+            .iter()
+            .map(|(joiner, _)| *joiner)
+            .collect();
+        ioi_types::app::verify_drawn_handover_gate(
             &live,
             &publication.new_config,
+            &draw.joiners,
+            &absent,
             &publication.approvals,
             &publication.acceptances,
         )
         .map_err(TransactionError::Invalid)?;
-
-        let old_members: BTreeSet<&AccountId> = live.members.iter().collect();
-        let joiners: Vec<&AccountId> = publication
-            .new_config
-            .members
-            .iter()
-            .filter(|member| !old_members.contains(member))
-            .collect();
-
-        if joiners.len() > Self::RING_HANDOVER_CHURN_CAP {
+        if publication.new_config.members != draw.successor_members
+            || publication.new_config.vacant_seats != draw.successor_vacancies
+        {
             return Err(TransactionError::Invalid(
-                "handover exceeds the ring churn cap".into(),
+                "the successor ring differs from the draw recomputed from the snapshot and its beacon"
+                    .into(),
             ));
         }
-        let current_event = Self::bump_ring_event_counter(state)?;
-        let mut queue = Self::load_ring_queue(state)?;
-        for joiner in &joiners {
-            let activatable = queue
-                .activatable_at(current_event)
+        // The successor's bonds are the kept members' recorded bonds and the joiners' registered
+        // ones: the publisher cannot rewrite what a later D2 lock will hold.
+        let mut expected_bonds: BTreeMap<AccountId, u128> = BTreeMap::new();
+        for member in &draw.successor_members {
+            if let Some(bond) = live.member_bonds.get(member) {
+                expected_bonds.insert(*member, *bond);
+            } else if let Some(candidate) = pending
+                .snapshot
+                .candidates
                 .iter()
-                .any(|entry| entry.account_id == **joiner);
-            if !activatable {
-                return Err(TransactionError::Invalid(
-                    "handover joiner is not an activatable queued registrant (D_act)".into(),
-                ));
+                .find(|candidate| candidate.account_id == *member)
+            {
+                expected_bonds.insert(*member, candidate.bond_amount);
             }
         }
+        if publication.new_config.member_bonds != expected_bonds
+            || publication.new_config.closed_by.is_some()
+        {
+            return Err(TransactionError::Invalid(
+                "the successor configuration's bonds or close record differ from the registry's"
+                    .into(),
+            ));
+        }
+        // Review r1 MINOR-2: settlement's checks run BEFORE anything is written here, so a refused
+        // handover writes nothing with or without transaction rollback. Settlement reads neither
+        // the event counter nor the queue; it is handed the event the bump below then takes.
+        let current_event = Self::current_ring_event(state)?.saturating_add(1);
+        Self::settle_ring_handover(
+            state,
+            &live,
+            &publication.new_config,
+            &pending,
+            &draw,
+            current_event,
+        )?;
+        if Self::bump_ring_event_counter(state)? != current_event {
+            return Err(TransactionError::Invalid(
+                "the ring event counter moved during the handover".into(),
+            ));
+        }
+        let mut queue = Self::load_ring_queue(state)?;
         queue
             .entries
-            .retain(|entry| !joiners.iter().any(|joiner| **joiner == entry.account_id));
+            .retain(|entry| !draw.joiners.contains(&entry.account_id));
         Self::store_ring_queue(state, &queue)?;
 
         let mut closed = live;
