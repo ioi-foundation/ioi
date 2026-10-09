@@ -1604,10 +1604,24 @@ fn an_exit_declared_after_the_beacon_changes_neither_the_draw_nor_the_fill() {
         for b in 40u8..50 {
             register(&registry, &mut state, ctx, b, 150).unwrap();
         }
+        // The late exit is CARRIED to the next snapshot (never dropped by this handover).
+        let carried: BTreeSet<AccountId> =
+            stored(&state, ioi_types::app::GUARDIAN_RING_PENDING_EXITS_KEY);
+        assert!(carried.contains(&ring_member(1)), "the late exit is kept for the next snapshot");
         call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).unwrap();
+        // It is planned there: member 1 departs at the next handover, as an exit, or as a forced
+        // rotation when its seat's phase point falls there (a forced rotation subsumes an exit;
+        // which one holds depends on the beacon, so the pin covers both).
+        let next = pending(&state).snapshot;
+        let forced = next.forced_rotations.contains(&ring_member(1));
+        println!("B3 pin: member 1 forced at the next handover: {forced}");
         assert!(
-            pending(&state).snapshot.exits.contains(&ring_member(1)),
-            "the late exit is planned at the next snapshot"
+            next.vacated_set.contains(&ring_member(1)),
+            "the late exit is planned at the next snapshot: {next:?}"
+        );
+        assert!(
+            forced || next.exits.contains(&ring_member(1)),
+            "unforced, the late exit is an exit of the next snapshot: {next:?}"
         );
     });
 }

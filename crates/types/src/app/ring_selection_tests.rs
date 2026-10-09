@@ -99,6 +99,7 @@ fn live_snapshot(
         seat_offsets: offsets.to_vec(),
         tenure_counters: tenure.into_iter().collect(),
         member_constituencies: vec![],
+        seat_constituencies: vec![],
         vacated_set: plan
             .exits
             .iter()
@@ -1157,6 +1158,7 @@ impl Sim {
             seat_offsets: self.offsets.clone(),
             tenure_counters: self.tenure.iter().map(|(a, t)| (*a, *t)).collect(),
             member_constituencies: vec![],
+            seat_constituencies: vec![],
             vacated_set: plan
                 .exits
                 .iter()
@@ -1673,6 +1675,169 @@ fn the_genesis_offsets_come_from_the_beacon_alone() {
             .collect::<Vec<u32>>(),
         "a different beacon permutes the seats"
     );
+}
+
+/// Q4 (B1-R v1 M7 (i)): a four-seat ring at R = 0 (floors: constituency 1 two seats, constituency 2
+/// two seats), seats labelled [1, 1, 2, 2]; m1 (seat 0) and m3 (seat 2) are forced. For every
+/// beacon, seat 0 is refilled from constituency 1 and seat 2 from constituency 2, although the pool
+/// also holds constituency 0 and the other constituency.
+#[test]
+fn at_r_0_every_fill_seat_is_filled_from_its_own_label_for_every_beacon() {
+    let mut p = params();
+    p.churn_cap = 2;
+    p.floors = vec![
+        ConstituencyFloor {
+            constituency_id: 1,
+            min_seats: 2,
+        },
+        ConstituencyFloor {
+            constituency_id: 2,
+            min_seats: 2,
+        },
+    ];
+    let members = [account_n(1), account_n(2), account_n(3), account_n(4)];
+    let candidates: Vec<_> = (10..15)
+        .map(|n| registration(n, 1))
+        .chain((20..25).map(|n| registration(n, 2)))
+        .chain((30..35).map(|n| registration(n, 0)))
+        .collect();
+    let mut s = live_snapshot(&members, &[], &[3, 0, 3, 1], 0, &[], candidates, &p);
+    s.member_constituencies = vec![
+        (account_n(1), 1),
+        (account_n(2), 1),
+        (account_n(3), 2),
+        (account_n(4), 2),
+    ];
+    s.seat_constituencies = vec![1, 1, 2, 2];
+    assert_eq!(s.forced_rotations.len(), 2);
+    for b in 0..64u64 {
+        let draw = draw_vacated_seats(&s, &beacon(7_000 + b)).unwrap();
+        let seats = seat_layout(&draw.successor_members, &draw.successor_vacancies).unwrap();
+        let seat0 = seats[0].expect("seat 0 refilled");
+        let seat2 = seats[2].expect("seat 2 refilled");
+        assert!(
+            (10..15).any(|n| account_n(n) == seat0),
+            "beacon {b}: seat 0 from constituency 1"
+        );
+        assert!(
+            (20..25).any(|n| account_n(n) == seat2),
+            "beacon {b}: seat 2 from constituency 2"
+        );
+        assert!(!draw.outside_selection_model);
+    }
+}
+
+/// Q4: at R = 0 only the FILL seats' labels decide an assign error. Seats labelled [1, 1, 2, 2];
+/// seat 3 (constituency 2) waits vacant BEYOND the fill set (c = 1: the fill set is m1's forced
+/// seat 0); constituency 2's pool is empty, constituency 1's is not. Seat 0 is refilled from
+/// constituency 1 (the R >= 1 rule, which counts seat 3's miss with constituency 2's floor listed
+/// first, would call it an error and leave the fill set vacant).
+#[test]
+fn at_r_0_only_the_fill_seats_labels_decide_an_assign_error() {
+    let mut p = params();
+    p.churn_cap = 1;
+    p.floors = vec![
+        ConstituencyFloor {
+            constituency_id: 2,
+            min_seats: 2,
+        },
+        ConstituencyFloor {
+            constituency_id: 1,
+            min_seats: 2,
+        },
+    ];
+    let members = [account_n(1), account_n(2), account_n(3)];
+    let candidates: Vec<_> = (10..13).map(|n| registration(n, 1)).collect();
+    let mut s = live_snapshot(
+        &members,
+        &[vacancy(3, 3)],
+        &[3, 0, 1, 2],
+        0,
+        &[],
+        candidates,
+        &p,
+    );
+    s.member_constituencies = vec![(account_n(1), 1), (account_n(2), 1), (account_n(3), 2)];
+    s.seat_constituencies = vec![1, 1, 2, 2];
+    assert_eq!(s.forced_rotations, vec![account_n(1)]);
+    let draw = draw_vacated_seats(&s, &beacon(8)).unwrap();
+    assert_eq!(draw.joiners.len(), 1, "{draw:?}");
+    assert!((10..13).any(|n| account_n(n) == draw.joiners[0]));
+    assert_eq!(draw.successor_vacancies, vec![vacancy(3, 3)]);
+    // A fill seat whose label's pool is short: the whole fill set stays vacant.
+    let mut short = s.clone();
+    short.candidates = (20..23).map(|n| registration(n, 2)).collect();
+    let draw = draw_vacated_seats(&short, &beacon(8)).unwrap();
+    assert!(draw.joiners.is_empty());
+    assert_eq!(draw.successor_vacancies, vec![vacancy(0, 5), vacancy(3, 3)]);
+}
+
+/// Q4: at R = 0 a handover snapshot must carry every seat's label (the ledger's), and labels are
+/// refused outside R = 0.
+#[test]
+fn seat_labels_are_required_at_r_0_and_refused_otherwise() {
+    let mut p = params();
+    p.churn_cap = 2;
+    p.floors = vec![
+        ConstituencyFloor {
+            constituency_id: 1,
+            min_seats: 2,
+        },
+        ConstituencyFloor {
+            constituency_id: 2,
+            min_seats: 2,
+        },
+    ];
+    let members = [account_n(1), account_n(2), account_n(3), account_n(4)];
+    let candidates: Vec<_> = (10..15).map(|n| registration(n, 1)).collect();
+    let unlabelled = live_snapshot(&members, &[], &[3, 0, 3, 1], 0, &[], candidates.clone(), &p);
+    let err = draw_vacated_seats(&unlabelled, &beacon(9)).unwrap_err();
+    assert!(err.contains("R = 0"), "{err}");
+    let mut misnamed = unlabelled.clone();
+    misnamed.seat_constituencies = vec![1, 1, 2, 7];
+    assert!(draw_vacated_seats(&misnamed, &beacon(9))
+        .unwrap_err()
+        .contains("names no floored"));
+    let mut r1 = p.clone();
+    r1.floors = vec![ConstituencyFloor {
+        constituency_id: 1,
+        min_seats: 2,
+    }];
+    let mut labelled_at_r_2 = live_snapshot(&members, &[], &[3, 0, 3, 1], 0, &[], candidates, &r1);
+    labelled_at_r_2.seat_constituencies = vec![1, 1, 0, 0];
+    assert!(draw_vacated_seats(&labelled_at_r_2, &beacon(9))
+        .unwrap_err()
+        .contains("only at R = 0"));
+}
+
+/// Q4: the genesis labels are the genesis members' constituencies in seat order at R = 0, and
+/// empty at R >= 1.
+#[test]
+fn genesis_seat_labels_are_the_genesis_members_constituencies_at_r_0_only() {
+    let floors = vec![
+        ConstituencyFloor {
+            constituency_id: 2,
+            min_seats: 1,
+        },
+        ConstituencyFloor {
+            constituency_id: 1,
+            min_seats: 2,
+        },
+    ];
+    let members = [account_n(3), account_n(1), account_n(2)];
+    let constituencies: BTreeMap<AccountId, u32> =
+        [(account_n(1), 1), (account_n(2), 1), (account_n(3), 2)]
+            .into_iter()
+            .collect();
+    assert_eq!(
+        genesis_seat_labels(&floors, &members, &constituencies).unwrap(),
+        vec![2, 1, 1]
+    );
+    assert!(genesis_seat_labels(&floors[..1], &members, &constituencies)
+        .unwrap()
+        .is_empty());
+    let partial: BTreeMap<AccountId, u32> = [(account_n(1), 1)].into_iter().collect();
+    assert!(genesis_seat_labels(&floors, &members, &partial).is_err());
 }
 
 /// LEMMA LV, over long seeded runs at n = 7 with an ample pool: (1) WITHIN the stated departure

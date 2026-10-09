@@ -36,8 +36,8 @@
 
 use super::*;
 use ioi_types::app::{
-    check_genesis_draw_feasible, draw_genesis_ring, draw_vacated_seats, genesis_snapshot,
-    genesis_tenure_offsets, guardian_ring_bond_release_key, guardian_ring_handover_record_key,
+    check_genesis_draw_feasible, draw_genesis_ring, draw_vacated_seats, genesis_seat_labels,
+    genesis_snapshot, genesis_tenure_offsets, guardian_ring_bond_release_key, guardian_ring_handover_record_key,
     plan_handover_vacancies, reference_handover_beacon, verify_seat_phases,
     RingBeaconRecordRequest, RingBeaconSource, RingBondLock, RingBondReleaseRequest,
     RingHandoverRecord, RingHandoverSnapshot, RingPendingHandover, RingSeatDraw, RingSeatLedger,
@@ -360,6 +360,7 @@ impl GuardianRegistry {
                 .iter()
                 .map(|(a, c)| (*a, *c))
                 .collect(),
+            seat_constituencies: ledger.seat_constituencies.clone(),
             exits: plan.exits,
             vacated_set,
             forced_rotations: plan.forced_rotations,
@@ -519,6 +520,13 @@ impl GuardianRegistry {
                 .filter_map(|member| candidates.get(member).map(|c| (*member, *c)))
                 .collect(),
             seat_offsets: offsets.iter().map(|(_, offset)| *offset).collect(),
+            // Q4: at R = 0 each seat's constituency label, fixed here for the ring's life.
+            seat_constituencies: genesis_seat_labels(
+                &pending.snapshot.floors,
+                &config.members,
+                &candidates,
+            )
+            .map_err(TransactionError::Invalid)?,
         };
         verify_seat_phases(
             &config.members,
@@ -580,6 +588,7 @@ impl GuardianRegistry {
             version: new_config.version,
             handover_index: old_ledger.handover_index.saturating_add(1),
             seat_offsets: old_ledger.seat_offsets.clone(),
+            seat_constituencies: old_ledger.seat_constituencies.clone(),
             ..Default::default()
         };
         for member in &new_config.members {

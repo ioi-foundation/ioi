@@ -39,8 +39,14 @@
 //!    - the FILL SET is the first c slots of this order: the forced rotations (oldest first, then
 //!      seat order), then the OLDEST vacancies, then this handover's exits (seat order). A
 //!      departure outside the fill set leaves its seat VACANT;
-//!    - floored constituencies the ring would miss are filled FIRST, from their own pools (the
-//!      instance floors, cut to the fill set in floor order), then the rest from the whole pool;
+//!    - the floors: at R = 0 (the floors sum to n; B1-R v1 M7 (i); rulings 2026-10-08 Q4) every
+//!      seat carries its constituency LABEL, fixed by the genesis draw ([`genesis_seat_labels`]),
+//!      and each fill seat is refilled ONLY from its own label's pool (the instance floor of i =
+//!      the fill seats labelled i), so no constituency's vacated seat is refilled from another. At
+//!      R >= 1, floored constituencies the ring would miss are filled FIRST, from their own pools
+//!      (the instance floors, cut to the fill set in floor order), then the rest from the whole
+//!      pool; NO checker family covers R >= 1 yet, so every chain configuration REFUSES R >= 1
+//!      parameters (rulings 2026-10-08 15:16; the registry's test admission alone admits them);
 //!    - **on an `assign_seats` error EVERY seat of the fill set stays VACANT** (B1-R v1, M7 (i):
 //!      the model NET's exact checker verified): a floored constituency whose pool cannot meet its
 //!      instance floor (SCQ-8.10f (b) withdrew 8.10 item 2's `floor_pool_empty` DEFERRAL), or a
@@ -226,6 +232,10 @@ pub struct RingSeatLedger {
     /// The balanced genesis offsets, by seat index, fixed for the ring's life (the seat's phase
     /// at the genesis draw).
     pub seat_offsets: Vec<u32>,
+    /// R = 0 only (the floors sum to n; B1-R v1 M7 (i)): each seat's constituency label, by seat
+    /// index, assigned by the genesis draw and fixed for the ring's life ([`genesis_seat_labels`]).
+    /// Empty when R >= 1.
+    pub seat_constituencies: Vec<u32>,
 }
 
 /// INHERITED PHASE (module docs, 3.): seat s's tenure counter after handover `handover_index`
@@ -340,6 +350,9 @@ pub struct RingHandoverSnapshot {
     pub tenure_counters: Vec<(AccountId, u32)>,
     /// Known constituencies, per member.
     pub member_constituencies: Vec<(AccountId, u32)>,
+    /// R = 0 only: the seats' constituency labels (the ledger's), by seat index. Empty when R >= 1
+    /// and for the genesis draw (which assigns them).
+    pub seat_constituencies: Vec<u32>,
     /// The declared exits of occupants not forced at this handover (seat order).
     pub exits: Vec<AccountId>,
     /// The departing members: the exits, then the forced rotations.
@@ -558,6 +571,37 @@ pub fn draw_vacated_seats(
             tenure_handovers,
         )?;
     }
+    // Q4 (B1-R v1 M7 (i)): at R = 0 (the floors sum to n) every seat carries its constituency
+    // label, and each fill seat is filled only from its own label's pool. The labels are the
+    // ledger's, never a publisher's; a snapshot without them at R = 0 is refused.
+    let floor_total: u64 = snapshot
+        .floors
+        .iter()
+        .map(|floor| u64::from(floor.min_seats))
+        .sum();
+    let seat_labelled = !genesis && floor_total == u64::from(snapshot.seat_count);
+    if seat_labelled {
+        if snapshot.seat_constituencies.len() != seats.len() {
+            return Err(
+                "R = 0: the snapshot must carry every seat's constituency label (B1-R v1 M7 (i))"
+                    .into(),
+            );
+        }
+        if let Some(label) = snapshot.seat_constituencies.iter().find(|label| {
+            !snapshot
+                .floors
+                .iter()
+                .any(|floor| floor.constituency_id == **label)
+        }) {
+            return Err(format!(
+                "R = 0: seat label {label} names no floored constituency"
+            ));
+        }
+    } else if !snapshot.seat_constituencies.is_empty() {
+        return Err(
+            "seat constituency labels are carried only at R = 0, after the genesis draw".into(),
+        );
+    }
     // No deferral: the departures are exactly the plan's.
     let declared: BTreeSet<AccountId> = snapshot.exits.iter().copied().collect();
     let plan = plan_handover_vacancies(&snapshot.members, &tenure, &declared, tenure_handovers);
@@ -633,20 +677,35 @@ pub fn draw_vacated_seats(
     pool.sort_by(|left, right| left.account_id.0.cmp(&right.account_id.0));
     pool.dedup_by(|left, right| left.account_id == right.account_id);
 
-    // The instance floors: each floor the kept ring misses, in floor order, cut to the fill set.
-    let mut room = fill_len;
+    // The instance floors. R >= 1: each floor the kept ring misses, in floor order, cut to the
+    // fill set. R = 0 (Q4): the instance floor of i is |V_h ∩ g⁻¹(i)|, the fill seats labelled i.
     let mut instance_floors: Vec<(u32, usize)> = Vec::new();
-    for floor in &snapshot.floors {
-        let kept_count = kept
-            .iter()
-            .filter(|member| constituencies.get(member) == Some(&floor.constituency_id))
-            .count();
-        let need = (floor.min_seats as usize)
-            .saturating_sub(kept_count)
-            .min(room);
-        room -= need;
-        if need > 0 {
-            instance_floors.push((floor.constituency_id, need));
+    if seat_labelled {
+        for floor in &snapshot.floors {
+            let need = slots[..fill_len]
+                .iter()
+                .filter(|(seat, _)| {
+                    snapshot.seat_constituencies[*seat as usize] == floor.constituency_id
+                })
+                .count();
+            if need > 0 {
+                instance_floors.push((floor.constituency_id, need));
+            }
+        }
+    } else {
+        let mut room = fill_len;
+        for floor in &snapshot.floors {
+            let kept_count = kept
+                .iter()
+                .filter(|member| constituencies.get(member) == Some(&floor.constituency_id))
+                .count();
+            let need = (floor.min_seats as usize)
+                .saturating_sub(kept_count)
+                .min(room);
+            room -= need;
+            if need > 0 {
+                instance_floors.push((floor.constituency_id, need));
+            }
         }
     }
     // `assign_seats`' errors (canon's `assign_seats`, and the model NET's exact checker verified):
@@ -688,15 +747,25 @@ pub fn draw_vacated_seats(
             *next += 1;
             Ok(())
         };
-        for (constituency, need) in &instance_floors {
-            for _ in 0..*need {
+        if seat_labelled {
+            // R = 0 (Q4): each fill seat, in fill order, from its own label's pool.
+            while next < fill_len {
+                let label = snapshot.seat_constituencies[slots[next].0 as usize];
                 fill(&mut next, &mut pool, &|candidate| {
-                    candidate.constituency_id == *constituency
+                    candidate.constituency_id == label
                 })?;
             }
-        }
-        while next < fill_len {
-            fill(&mut next, &mut pool, &|_| true)?;
+        } else {
+            for (constituency, need) in &instance_floors {
+                for _ in 0..*need {
+                    fill(&mut next, &mut pool, &|candidate| {
+                        candidate.constituency_id == *constituency
+                    })?;
+                }
+            }
+            while next < fill_len {
+                fill(&mut next, &mut pool, &|_| true)?;
+            }
         }
     }
     // Every slot not filled is VACANT. A forced rotation's seat left vacant raises the alarm; it is
@@ -900,6 +969,30 @@ pub fn draw_genesis_ring(
 /// many beacons and pool shapes).
 pub fn check_genesis_draw_feasible(snapshot: &RingHandoverSnapshot) -> Result<(), String> {
     draw_genesis_ring(snapshot, &[0u8; 32]).map(|_| ())
+}
+
+/// Q4 (B1-R v1 M7 (i)): the seats' constituency labels the genesis draw assigns at R = 0 (the
+/// floors sum to n): each seat is labelled with its genesis occupant's constituency (at R = 0 every
+/// genesis seat is a floor seat, filled from its floor's pool). Empty when R >= 1. Fixed for the
+/// ring's life.
+pub fn genesis_seat_labels(
+    floors: &[ConstituencyFloor],
+    members_in_seat_order: &[AccountId],
+    constituencies: &BTreeMap<AccountId, u32>,
+) -> Result<Vec<u32>, String> {
+    let floor_total: u64 = floors.iter().map(|floor| u64::from(floor.min_seats)).sum();
+    if floor_total != members_in_seat_order.len() as u64 {
+        return Ok(Vec::new());
+    }
+    members_in_seat_order
+        .iter()
+        .map(|member| {
+            constituencies
+                .get(member)
+                .copied()
+                .ok_or_else(|| "R = 0: a genesis member has no constituency".to_string())
+        })
+        .collect()
 }
 
 /// The balanced genesis tenure offsets (module docs, 2.), in seat order: a beacon-derived
