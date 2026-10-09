@@ -26,17 +26,23 @@
 //!   selector's draw from the genesis snapshot and its beacon (SCQ-8.10c (v)); the registry sets
 //!   the balanced tenure offsets itself (SCQ-8.10b (2)), records them, and keeps them as the
 //!   seats' phases for the ring's life.
-//! - `publish_ring_handover@v1` (materialize.rs): the seated old ring's unanimity and the seated
-//!   new ring's acceptance stay the ACCEPTANCE gate, but the registry RECOMPUTES the draw from
+//! - `publish_ring_handover@v1` (materialize.rs): the seated old ring's unanimity and the KEPT
+//!   members' acceptance stay the ACCEPTANCE gate (the joiners accept on chain, Q2), but the
+//!   registry RECOMPUTES the draw from
 //!   (snapshot, beacon) and refuses any successor (members or vacancies) that differs. The
 //!   handover record keeps everything a verifier needs, with the alarms. Each joiner's tenure is
 //!   its seat's phase, computed by the draw (never supplied), and the new ledger is checked
 //!   against the seats' phases BEFORE anything is written.
+//! - `accept_ring_handover_seat@v1` (rulings 2026-10-08 Q2, PROVISIONAL; NET's conditions
+//!   (a)-(d) and B3): a drawn joiner accepts its seat ON CHAIN by s_h + Δ_b + W_acc, never inside
+//!   the publication. Until it accepts it is ABSENT; once its window closes it departs at the next
+//!   snapshot (refilled in the same capped fill order), and the next snapshot is refused while any
+//!   window is open. An acceptance never changes a draw.
 //! - `release_ring_bond@v1`: custody succession AND the D2 lock gate a departed member's bond.
 
 use super::*;
 use ioi_types::app::{
-    check_genesis_draw_feasible, draw_genesis_ring, draw_vacated_seats, genesis_seat_labels,
+    acceptance_deadline, check_genesis_draw_feasible, draw_genesis_ring, draw_vacated_seats, genesis_seat_labels,
     genesis_snapshot, genesis_tenure_offsets, guardian_ring_bond_release_key, guardian_ring_handover_record_key,
     plan_handover_vacancies, reference_handover_beacon, verify_seat_phases,
     RingBeaconRecordRequest, RingBeaconSource, RingBondLock, RingBondReleaseRequest,
@@ -297,6 +303,7 @@ impl GuardianRegistry {
                 snapshot,
                 commitment,
                 beacon: None,
+                accepted_joiners: Vec::new(),
             },
         )
     }
@@ -321,10 +328,24 @@ impl GuardianRegistry {
             params.tenure_handovers,
         )
         .map_err(TransactionError::Invalid)?;
+        // Q2 (c) and B3: every acceptance decision of the previous handover is fixed BEFORE this
+        // snapshot: while a joiner's window is open, no snapshot is taken.
+        let now = Self::current_ring_event(state)?;
+        if let Some((joiner, deadline)) = ledger
+            .awaiting_acceptance
+            .iter()
+            .find(|(_, deadline)| now < *deadline)
+        {
+            return Err(TransactionError::Invalid(format!(
+                "a drawn joiner's acceptance window is open until ring event {deadline} ({joiner:?}); the next snapshot waits for it"
+            )));
+        }
+        // The declared exits, and (Q2 (b), (d)) every joiner that did not accept: a departure.
         let exits: BTreeSet<AccountId> =
             load::<BTreeSet<AccountId>>(state, GUARDIAN_RING_PENDING_EXITS_KEY)?
                 .unwrap_or_default()
                 .into_iter()
+                .chain(ledger.awaiting_acceptance.iter().map(|(joiner, _)| *joiner))
                 .filter(|member| live.members.contains(member))
                 .collect();
         let snapshot_event = Self::bump_ring_event_counter(state)?;
@@ -437,6 +458,70 @@ impl GuardianRegistry {
         store(state, GUARDIAN_RING_HANDOVER_SNAPSHOT_KEY, &pending)
     }
 
+    /// `accept_ring_handover_seat@v1` (Q2, PROVISIONAL; module docs, 8.): the signer, a joiner
+    /// drawn by the handover whose snapshot commitment it names, accepts its seat on chain while
+    /// the ring event counter is below that handover's deadline: before the publication (the
+    /// pending draw's joiner) or after it (a joiner the live ledger awaits). Only the joiner itself
+    /// accepts; an acceptance never changes the draw or the fill (B3), only the joiner's absence.
+    /// It is not a ring event.
+    pub(super) fn materialize_ring_seat_acceptance(
+        state: &mut dyn StateAccess,
+        commitment: [u8; 32],
+        signer: AccountId,
+    ) -> Result<(), TransactionError> {
+        let Some(live) = Self::load_live_ring_config(state)? else {
+            return Err(TransactionError::Invalid(
+                "no live ring: a genesis seat needs no acceptance".into(),
+            ));
+        };
+        let params = Self::load_ring_selection_params(state)?;
+        let now = Self::current_ring_event(state)?;
+        let pending = load::<RingPendingHandover>(state, GUARDIAN_RING_HANDOVER_SNAPSHOT_KEY)?;
+        if let Some(mut pending) = pending.filter(|p| p.commitment == commitment) {
+            let (_, draw) = Self::recompute_ring_handover_draw(state, &live)?;
+            if !draw.joiners.contains(&signer) {
+                return Err(TransactionError::Invalid(
+                    "only a joiner of the drawn handover accepts its own seat".into(),
+                ));
+            }
+            if pending.accepted_joiners.contains(&signer) {
+                return Err(TransactionError::Invalid(
+                    "this joiner's acceptance is already recorded".into(),
+                ));
+            }
+            if now >= acceptance_deadline(&params, pending.snapshot.snapshot_event) {
+                return Err(TransactionError::Invalid(
+                    "the acceptance deadline has passed".into(),
+                ));
+            }
+            pending.accepted_joiners.push(signer);
+            pending.accepted_joiners.sort();
+            return store(state, GUARDIAN_RING_HANDOVER_SNAPSHOT_KEY, &pending);
+        }
+        let mut ledger = Self::load_ring_seat_ledger(state, &live)?;
+        if ledger.acceptance_commitment != commitment {
+            return Err(TransactionError::Invalid(
+                "the acceptance names no handover awaiting it".into(),
+            ));
+        }
+        let Some(at) = ledger
+            .awaiting_acceptance
+            .iter()
+            .position(|(joiner, _)| *joiner == signer)
+        else {
+            return Err(TransactionError::Invalid(
+                "only a joiner the live ring awaits accepts its own seat".into(),
+            ));
+        };
+        if now >= ledger.awaiting_acceptance[at].1 {
+            return Err(TransactionError::Invalid(
+                "the acceptance deadline has passed".into(),
+            ));
+        }
+        ledger.awaiting_acceptance.remove(at);
+        store(state, GUARDIAN_RING_SEAT_LEDGER_KEY, &ledger)
+    }
+
     fn pending_with_beacon(
         state: &dyn StateAccess,
     ) -> Result<(RingPendingHandover, [u8; 32]), TransactionError> {
@@ -527,6 +612,7 @@ impl GuardianRegistry {
                 &candidates,
             )
             .map_err(TransactionError::Invalid)?,
+            ..Default::default()
         };
         verify_seat_phases(
             &config.members,
@@ -589,6 +675,20 @@ impl GuardianRegistry {
             handover_index: old_ledger.handover_index.saturating_add(1),
             seat_offsets: old_ledger.seat_offsets.clone(),
             seat_constituencies: old_ledger.seat_constituencies.clone(),
+            // Q2 (PROVISIONAL): the joiners that have not accepted on chain are ABSENT until they
+            // do, each with this handover's deadline.
+            awaiting_acceptance: draw
+                .joiners
+                .iter()
+                .filter(|joiner| !pending.accepted_joiners.contains(joiner))
+                .map(|joiner| {
+                    (
+                        *joiner,
+                        acceptance_deadline(&params, pending.snapshot.snapshot_event),
+                    )
+                })
+                .collect(),
+            acceptance_commitment: pending.commitment,
             ..Default::default()
         };
         for member in &new_config.members {

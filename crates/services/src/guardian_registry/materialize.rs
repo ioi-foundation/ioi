@@ -464,8 +464,10 @@ impl GuardianRegistry {
     }
 
     /// AFT-CB R5 stage 3: the assurance-preserving handover against the
-    /// STORED live configuration — old-ring unanimity + full new-ring
-    /// acceptance (verified by the types-layer builder) — and, by SCQ-8.10,
+    /// STORED live configuration — old-ring unanimity + the acceptance of
+    /// every successor member that is not a joiner (verified by the
+    /// types-layer builder; the joiners accept ON CHAIN, rulings 2026-10-08
+    /// Q2, PROVISIONAL) — and, by SCQ-8.10,
     /// the successor EXACTLY the draw recomputed from the snapshot and its
     /// beacon (members and vacancies; D_act, the churn cap, the fill order
     /// and the floors are inside the draw). On success the old configuration
@@ -484,18 +486,20 @@ impl GuardianRegistry {
                 "no live ring configuration exists; publish the genesis first".into(),
             ));
         };
-        build_assurance_preserving_handover(
-            &live,
-            &publication.new_config,
-            &publication.approvals,
-            &publication.acceptances,
-        )
-        .map_err(TransactionError::Invalid)?;
-
         // SCQ-8.10 (P7): the old ring approves, but it cannot choose. The registry recomputes the
         // draw from the committed snapshot and its recorded beacon and refuses any successor ring
         // that differs (the churn cap and D_act are inside the draw).
         let (pending, draw) = Self::recompute_ring_handover_draw(state, &live)?;
+        // The gate: old-ring unanimity, and the acceptance of every successor member that is not a
+        // joiner; the joiners accept on chain (Q2, PROVISIONAL), so none can stall the handover.
+        ioi_types::app::verify_drawn_handover_gate(
+            &live,
+            &publication.new_config,
+            &draw.joiners,
+            &publication.approvals,
+            &publication.acceptances,
+        )
+        .map_err(TransactionError::Invalid)?;
         if publication.new_config.members != draw.successor_members
             || publication.new_config.vacant_seats != draw.successor_vacancies
         {

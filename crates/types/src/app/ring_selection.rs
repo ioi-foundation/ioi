@@ -72,13 +72,31 @@
 //! 6. **Vacancy and liveness** (SCQ-8.10d, conditions 1 and 3; Lemma LV): a vacant seat is an
 //!    ABSENT vote and never reduces n ([`super::BoundaryRingConfig::full_n_threshold`]). With an
 //!    ample activatable pool there is no vacancy within the stated departure rate (Lemma LV: at
-//!    most c − ⌈n/T⌉ exits per handover); beyond it vacancies are bounded and refilled (oldest
-//!    first), with the safe halt beyond the liveness bound (a threshold over the full n becomes
-//!    unreachable: the ring halts, never unsafely).
+//!    most c − ⌈n/T⌉ departures per handover, a joiner's NON-ACCEPTANCE (8.) counting as a
+//!    departure); beyond it vacancies are bounded and refilled (oldest first), with the safe
+//!    halt beyond the liveness bound (a threshold over the full n becomes unreachable: the ring
+//!    halts, never unsafely).
 //! 7. **Alarms** ([`RingSelectionAlarm`], recorded in every handover record): a forced rotation
 //!    whose seat went vacant, with its cause (the floor's pool, the whole pool, or the churn cap;
 //!    the last means Lemma FR's premise was false, so the churn-cap premise of SCQ-8.10b (3) is
 //!    never silent), and a vacancy older than one handover (SCQ-8.10d).
+//! 8. **The acceptance window** (rulings 2026-10-08 Q2, PROVISIONAL until NET's checker has an
+//!    acceptance step; NET's conditions (a)-(d), and B3): a handover publishes the EXACT draw; its
+//!    joiners accept ON CHAIN (`accept_ring_handover_seat@v1`, signed by the joiner), never inside
+//!    the publication, by the deadline s_h + Δ_b + W_acc ([`acceptance_deadline`]; s_h the
+//!    snapshot event, Δ_b the snapshot-to-beacon interval, W_acc the window).
+//!    - (a) A joiner that has not accepted is ABSENT: it holds its seat but never votes (its
+//!      signature never counts toward a threshold, [`present_signers_reach_threshold`]), it is
+//!      never adversarial, and it never reduces n.
+//!    - (b) Once its window has closed it is a DEPARTURE of the next handover, refilled in the
+//!      same capped fill order within c.
+//!    - (c) The window ENDS BEFORE the next beacon: the next snapshot is refused while any window
+//!      is open, and `validate()` refuses Δ_b + W_acc >= the handover period.
+//!    - (d) A non-acceptance counts as a departure in Lemma LV's budget.
+//!    - **B3 (anticipation; NET's B1-R R1 finding):** every exit and acceptance decision that
+//!      affects a handover is fixed at its committed snapshot, before its beacon: a decision
+//!      recorded after the beacon never changes that handover's draw or fill (it acts at the next
+//!      snapshot), and an acceptance never changes any draw (only the joiner's absence).
 //!
 //! **What the bounds are, and what they are not** (SCQ-8.10a-e):
 //! - The selection term's HEADLINE bound is the timed-exit form, (1 − (1 − ᾱ)^T)^n per handover.
@@ -133,8 +151,13 @@ pub struct RingSelectionParams {
     pub exit_challenge_window_events: u64,
     /// D_act (D3): how many ring events a registration waits before it is activatable.
     pub activation_depth_events: u64,
-    /// How many ring events after the snapshot commitment the beacon may be recorded.
+    /// How many ring events after the snapshot commitment the beacon may be recorded (Δ_b, the
+    /// acceptance deadline's beacon term; at least 1).
     pub snapshot_to_beacon_events: u64,
+    /// W_acc (rulings 2026-10-08 Q2, PROVISIONAL; module docs, 8.): the ring events after
+    /// s_h + Δ_b by which each drawn joiner records its acceptance on chain. The numbers author's
+    /// value; fixtures carry test values only.
+    pub acceptance_window_events: u64,
     /// The constituency floors (C5): validity conditions on every configuration record.
     pub floors: Vec<ConstituencyFloor>,
 }
@@ -176,6 +199,24 @@ impl RingSelectionParams {
             return Err(format!(
                 "ring selection (D3): D_act={} is below the snapshot-to-beacon interval ({})",
                 self.activation_depth_events, self.snapshot_to_beacon_events
+            ));
+        }
+        if self.acceptance_window_events == 0 {
+            return Err(
+                "ring selection (Q2): the acceptance window W_acc must be at least one ring event"
+                    .into(),
+            );
+        }
+        if self
+            .snapshot_to_beacon_events
+            .saturating_add(self.acceptance_window_events)
+            >= self.handover_interval_events
+        {
+            return Err(format!(
+                "ring selection (Q2 (c)): Δ_b + W_acc = {} + {} must end before the next handover (the handover period is {})",
+                self.snapshot_to_beacon_events,
+                self.acceptance_window_events,
+                self.handover_interval_events
             ));
         }
         let mut constituencies = BTreeSet::new();
@@ -236,6 +277,12 @@ pub struct RingSeatLedger {
     /// index, assigned by the genesis draw and fixed for the ring's life ([`genesis_seat_labels`]).
     /// Empty when R >= 1.
     pub seat_constituencies: Vec<u32>,
+    /// Q2 (PROVISIONAL; module docs, 8.): the joiners of the handover that produced this version
+    /// that have not yet accepted on chain, each with its deadline (a ring event). They are ABSENT
+    /// until they accept; after the deadline they depart at the next snapshot.
+    pub awaiting_acceptance: Vec<(AccountId, u64)>,
+    /// The snapshot commitment of the handover that produced this version (an acceptance names it).
+    pub acceptance_commitment: [u8; 32],
 }
 
 /// INHERITED PHASE (module docs, 3.): seat s's tenure counter after handover `handover_index`
@@ -995,6 +1042,47 @@ pub fn genesis_seat_labels(
         .collect()
 }
 
+/// Q2 (PROVISIONAL; module docs, 8.): a handover's acceptance deadline, s_h + Δ_b + W_acc, where
+/// s_h is the snapshot event. A joiner accepts on chain while the ring event counter is below it.
+pub fn acceptance_deadline(params: &RingSelectionParams, snapshot_event: u64) -> u64 {
+    snapshot_event
+        .saturating_add(params.snapshot_to_beacon_events)
+        .saturating_add(params.acceptance_window_events)
+}
+
+/// Q2 (PROVISIONAL; module docs, 8.): the handover gate. EVERY old-ring member approves (old-ring
+/// unanimity, unchanged), and every successor member that is NOT a joiner of the draw accepts;
+/// the joiners accept on chain instead, so a joiner that never accepts can never stall the
+/// handover (it is absent, then departs).
+pub fn verify_drawn_handover_gate(
+    old_config: &super::BoundaryRingConfig,
+    new_config: &super::BoundaryRingConfig,
+    joiners: &[AccountId],
+    approvals: &[super::HandoverApproval],
+    acceptances: &[super::HandoverAcceptance],
+) -> Result<(), String> {
+    let mut kept = new_config.clone();
+    kept.members.retain(|member| !joiners.contains(member));
+    super::build_assurance_preserving_handover(old_config, &kept, approvals, acceptances)
+        .map(|_| ())
+}
+
+/// Q2 (a): whether the PRESENT signers reach a threshold over the FULL n. A seated joiner that has
+/// not accepted (`absent`) is never a vote; a vacant seat never signs; n never shrinks.
+pub fn present_signers_reach_threshold(
+    config: &super::BoundaryRingConfig,
+    absent: &BTreeSet<AccountId>,
+    signers: &BTreeSet<AccountId>,
+    threshold: usize,
+) -> bool {
+    let present: BTreeSet<AccountId> = signers
+        .iter()
+        .filter(|signer| !absent.contains(signer))
+        .copied()
+        .collect();
+    config.reaches_threshold(&present, threshold)
+}
+
 /// The balanced genesis tenure offsets (module docs, 2.), in seat order: a beacon-derived
 /// permutation of the seats (Fisher-Yates, each step its own value), and the k-th seat of the
 /// permutation starts at tenure ⌊k·T/n⌋. At most ⌈n/T⌉ seats share an offset.
@@ -1076,6 +1164,9 @@ pub struct RingPendingHandover {
     pub commitment: [u8; 32],
     /// The recorded beacon, its source and the ring event it was recorded at.
     pub beacon: Option<([u8; 32], RingBeaconSource, u64)>,
+    /// Q2 (PROVISIONAL): the drawn joiners that accepted on chain before the publication, in
+    /// account order (an acceptance never changes the draw: B3).
+    pub accepted_joiners: Vec<AccountId>,
 }
 
 /// A request to record the pending snapshot's beacon (`record_ring_handover_beacon@v1`). It names

@@ -33,6 +33,7 @@ fn params() -> RingSelectionParams {
         exit_challenge_window_events: 5,
         activation_depth_events: 3,
         snapshot_to_beacon_events: 3,
+        acceptance_window_events: 4,
         floors: vec![],
     }
 }
@@ -1838,6 +1839,103 @@ fn genesis_seat_labels_are_the_genesis_members_constituencies_at_r_0_only() {
         .is_empty());
     let partial: BTreeMap<AccountId, u32> = [(account_n(1), 1)].into_iter().collect();
     assert!(genesis_seat_labels(&floors, &members, &partial).is_err());
+}
+
+/// Q2 (PROVISIONAL; NET's condition (c)): W_acc is at least one ring event, and the window ends
+/// before the next handover: validate() refuses Δ_b + W_acc >= the handover period. The deadline is
+/// s_h + Δ_b + W_acc.
+#[test]
+fn the_acceptance_window_is_at_least_one_event_and_ends_before_the_next_handover() {
+    let mut p = params();
+    assert!(p.validate(None).is_ok());
+    assert_eq!(acceptance_deadline(&p, 100), 100 + 3 + 4);
+    p.acceptance_window_events = 0;
+    assert!(p.validate(None).unwrap_err().contains("W_acc"));
+    p.acceptance_window_events = 7; // 3 + 7 = 10 = the handover period
+    assert!(p.validate(None).unwrap_err().contains("Q2 (c)"));
+    p.acceptance_window_events = 6;
+    assert!(p.validate(None).is_ok());
+}
+
+/// Q2 (a): a seated joiner that has not accepted is ABSENT: its signature never counts toward a
+/// threshold, which stays over the FULL n.
+#[test]
+fn an_absent_joiner_is_never_a_vote_and_never_reduces_n() {
+    let config = crate::app::BoundaryRingConfig {
+        version: 2,
+        members: vec![account_n(1), account_n(2), account_n(3)],
+        member_bonds: Default::default(),
+        activated_at_event: 0,
+        closed_by: None,
+        vacant_seats: vec![],
+    };
+    let threshold = config.full_n_threshold(2, 3);
+    assert_eq!(threshold, 2);
+    let absent: BTreeSet<AccountId> = [account_n(3)].into_iter().collect();
+    let with_absent: BTreeSet<AccountId> = [account_n(1), account_n(3)].into_iter().collect();
+    assert!(!present_signers_reach_threshold(
+        &config,
+        &absent,
+        &with_absent,
+        threshold
+    ));
+    assert!(
+        config.reaches_threshold(&with_absent, threshold),
+        "counted, it would reach"
+    );
+    let present: BTreeSet<AccountId> = [account_n(1), account_n(2)].into_iter().collect();
+    assert!(present_signers_reach_threshold(
+        &config, &absent, &present, threshold
+    ));
+}
+
+/// Q2: the handover gate needs every old member's approval and every NON-joiner successor's
+/// acceptance; a joiner's acceptance is never required in the publication (it accepts on chain).
+#[test]
+fn the_handover_gate_needs_no_joiner_acceptance() {
+    let old = crate::app::BoundaryRingConfig {
+        version: 1,
+        members: vec![account_n(1), account_n(2), account_n(3)],
+        ..Default::default()
+    };
+    let new = crate::app::BoundaryRingConfig {
+        version: 2,
+        members: vec![account_n(1), account_n(9), account_n(3)],
+        ..Default::default()
+    };
+    let approvals: Vec<crate::app::HandoverApproval> = old
+        .members
+        .iter()
+        .map(|m| crate::app::HandoverApproval {
+            member: *m,
+            old_version: 1,
+            new_version: 2,
+            signature_bytes: vec![1],
+        })
+        .collect();
+    let accept = |m: AccountId| crate::app::HandoverAcceptance {
+        member: m,
+        new_version: 2,
+        signature_bytes: vec![1],
+    };
+    let kept_only = vec![accept(account_n(1)), accept(account_n(3))];
+    assert!(
+        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &approvals, &kept_only).is_ok()
+    );
+    assert!(
+        verify_drawn_handover_gate(&old, &new, &[], &approvals, &kept_only).is_err(),
+        "without the joiner exemption, the joiner's acceptance would be required"
+    );
+    assert!(
+        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &approvals[..2], &kept_only)
+            .is_err(),
+        "old-ring unanimity stays"
+    );
+    assert!(
+        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &approvals, &kept_only[..1])
+            .is_err(),
+        "a kept member's acceptance stays required"
+    );
 }
 
 /// LEMMA LV, over long seeded runs at n = 7 with an ample pool: (1) WITHIN the stated departure

@@ -47,6 +47,7 @@ fn ring_params() -> ioi_types::app::RingSelectionParams {
         exit_challenge_window_events: 3,
         activation_depth_events: 2,
         snapshot_to_beacon_events: 2,
+        acceptance_window_events: 1,
         floors: vec![],
     }
 }
@@ -206,7 +207,16 @@ fn snapshot_and_beacon(
     filler: u8,
 ) -> ioi_types::app::RingSeatDraw {
     let (pending_handover, beacon) = snapshot_and_beacon_raw(registry, state, ctx, filler);
-    ioi_types::app::draw_vacated_seats(&pending_handover.snapshot, &beacon).unwrap()
+    let draw = ioi_types::app::draw_vacated_seats(&pending_handover.snapshot, &beacon).unwrap();
+    // Q2: every drawn joiner accepts on chain (B3: this never changes the draw).
+    let signer = ctx.signer_account_id;
+    let commitment = codec::to_bytes_canonical(&pending_handover.commitment).unwrap();
+    for joiner in &draw.joiners {
+        ctx.signer_account_id = *joiner;
+        call(registry, state, ctx, "accept_ring_handover_seat@v1", &commitment).unwrap();
+    }
+    ctx.signer_account_id = signer;
+    draw
 }
 
 /// The parameters; registrants 1..=3 (bonds 100), the only ones activatable at the genesis
@@ -1238,6 +1248,7 @@ fn a_drawn_joiner_accepts_on_chain_or_is_absent_and_departs_at_the_next_handover
         let mut p = ring_params();
         p.handover_interval_events = 12;
         p.bond_lock_events = 4 * 12 + 3;
+        p.acceptance_window_events = 6;
         call(
             &registry,
             &mut state,

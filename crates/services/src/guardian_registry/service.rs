@@ -477,6 +477,10 @@ impl BlockchainService for GuardianRegistry {
                     self.ring_selection_admission(),
                 )
             }
+            "accept_ring_handover_seat@v1" => {
+                let commitment: [u8; 32] = codec::from_bytes_canonical(params)?;
+                Self::materialize_ring_seat_acceptance(state, commitment, ctx.signer_account_id)
+            }
             "release_ring_bond@v1" => {
                 let request: ioi_types::app::RingBondReleaseRequest =
                     codec::from_bytes_canonical(params)?;
