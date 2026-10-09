@@ -490,12 +490,21 @@ impl GuardianRegistry {
         // draw from the committed snapshot and its recorded beacon and refuses any successor ring
         // that differs (the churn cap and D_act are inside the draw).
         let (pending, draw) = Self::recompute_ring_handover_draw(state, &live)?;
-        // The gate: old-ring unanimity, and the acceptance of every successor member that is not a
-        // joiner; the joiners accept on chain (Q2, PROVISIONAL), so none can stall the handover.
+        // The gate: the unanimity of the PRESENT old ring, and the acceptance of every successor
+        // member that is not a joiner; the joiners accept on chain (Q2, PROVISIONAL). A joiner of
+        // the previous handover that never accepted is ABSENT (Q2 (a)): it never votes, so its
+        // approval is not required. Every such window has closed (no snapshot is taken while one
+        // is open), and each such joiner departs at this handover.
+        let absent: Vec<AccountId> = Self::load_ring_seat_ledger(state, &live)?
+            .awaiting_acceptance
+            .iter()
+            .map(|(joiner, _)| *joiner)
+            .collect();
         ioi_types::app::verify_drawn_handover_gate(
             &live,
             &publication.new_config,
             &draw.joiners,
+            &absent,
             &publication.approvals,
             &publication.acceptances,
         )

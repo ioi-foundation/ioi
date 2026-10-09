@@ -1920,21 +1920,66 @@ fn the_handover_gate_needs_no_joiner_acceptance() {
     };
     let kept_only = vec![accept(account_n(1)), accept(account_n(3))];
     assert!(
-        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &approvals, &kept_only).is_ok()
+        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &[], &approvals, &kept_only)
+            .is_ok()
     );
     assert!(
-        verify_drawn_handover_gate(&old, &new, &[], &approvals, &kept_only).is_err(),
+        verify_drawn_handover_gate(&old, &new, &[], &[], &approvals, &kept_only).is_err(),
         "without the joiner exemption, the joiner's acceptance would be required"
     );
     assert!(
-        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &approvals[..2], &kept_only)
+        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &[], &approvals[..2], &kept_only)
             .is_err(),
         "old-ring unanimity stays"
     );
     assert!(
-        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &approvals, &kept_only[..1])
+        verify_drawn_handover_gate(&old, &new, &[account_n(9)], &[], &approvals, &kept_only[..1])
             .is_err(),
         "a kept member's acceptance stays required"
+    );
+    // Q2 (a): an ABSENT old member (a previous joiner that never accepted, departing now: account
+    // 2, whose seat account 9 takes) never votes: its approval is not required, while every
+    // present member's still is.
+    let without = |gone: AccountId| -> Vec<crate::app::HandoverApproval> {
+        approvals
+            .iter()
+            .filter(|a| a.member != gone)
+            .cloned()
+            .collect()
+    };
+    let absent = [account_n(2)];
+    assert!(verify_drawn_handover_gate(
+        &old,
+        &new,
+        &[account_n(9)],
+        &absent,
+        &without(account_n(2)),
+        &kept_only
+    )
+    .is_ok());
+    assert!(
+        verify_drawn_handover_gate(
+            &old,
+            &new,
+            &[account_n(9)],
+            &[],
+            &without(account_n(2)),
+            &kept_only
+        )
+        .is_err(),
+        "without the absence, the departing member's approval would be required"
+    );
+    assert!(
+        verify_drawn_handover_gate(
+            &old,
+            &new,
+            &[account_n(9)],
+            &absent,
+            &without(account_n(1)),
+            &kept_only
+        )
+        .is_err(),
+        "a PRESENT member's approval stays required"
     );
 }
 

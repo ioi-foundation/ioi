@@ -86,8 +86,9 @@
 //!    the publication, by the deadline s_h + Δ_b + W_acc ([`acceptance_deadline`]; s_h the
 //!    snapshot event, Δ_b the snapshot-to-beacon interval, W_acc the window).
 //!    - (a) A joiner that has not accepted is ABSENT: it holds its seat but never votes (its
-//!      signature never counts toward a threshold, [`present_signers_reach_threshold`]), it is
-//!      never adversarial, and it never reduces n.
+//!      signature never counts toward a threshold, [`present_signers_reach_threshold`], and its
+//!      approval is neither required nor counted in the next handover's old-ring unanimity,
+//!      [`verify_drawn_handover_gate`]), it is never adversarial, and it never reduces n.
 //!    - (b) Once its window has closed it is a DEPARTURE of the next handover, refilled in the
 //!      same capped fill order within c.
 //!    - (c) The window ENDS BEFORE the next beacon: the next snapshot is refused while any window
@@ -1061,20 +1062,24 @@ pub fn acceptance_deadline(params: &RingSelectionParams, snapshot_event: u64) ->
         .saturating_add(params.acceptance_window_events)
 }
 
-/// Q2 (PROVISIONAL; module docs, 8.): the handover gate. EVERY old-ring member approves (old-ring
-/// unanimity, unchanged), and every successor member that is NOT a joiner of the draw accepts;
-/// the joiners accept on chain instead, so a joiner that never accepts can never stall the
-/// handover (it is absent, then departs).
+/// Q2 (PROVISIONAL; module docs, 8.): the handover gate. Every PRESENT old-ring member approves
+/// (old-ring unanimity over the members that are not `absent`: a joiner of the previous handover
+/// that never accepted is ABSENT and never votes, condition (a)), and every successor member that
+/// is NOT a joiner of this draw accepts; the joiners accept on chain instead. So a joiner that
+/// never accepts can stall neither its own handover nor the next one (it is absent, then departs).
 pub fn verify_drawn_handover_gate(
     old_config: &super::BoundaryRingConfig,
     new_config: &super::BoundaryRingConfig,
     joiners: &[AccountId],
+    absent: &[AccountId],
     approvals: &[super::HandoverApproval],
     acceptances: &[super::HandoverAcceptance],
 ) -> Result<(), String> {
+    let mut present = old_config.clone();
+    present.members.retain(|member| !absent.contains(member));
     let mut kept = new_config.clone();
     kept.members.retain(|member| !joiners.contains(member));
-    super::build_assurance_preserving_handover(old_config, &kept, approvals, acceptances)
+    super::build_assurance_preserving_handover(&present, &kept, approvals, acceptances)
         .map(|_| ())
 }
 
