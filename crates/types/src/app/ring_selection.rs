@@ -118,6 +118,17 @@
 //!   The ring plane fails closed until a bounded source lands: OBS-6b, a UNIQUE-OUTPUT beacon (a
 //!   threshold signature, a VRF with uniqueness, or R11's VDF) over inputs fixed before the
 //!   snapshot, with no producer-chosen field, domain-separated per use.
+//! - **TC's model assumption** (rulings 2026-10-08, decision A3: the tenure rule stays INHERITED
+//!   PHASE): honest departures follow the occupant's OWN age since its draw. A forced rotation is
+//!   a protocol event at the seat's phase point, NOT an honest departure: TC's hazard covers only
+//!   voluntary honest exits of non-forced occupants (NET, 15:19). The code keeps no per-occupant
+//!   own age (a seated member's tenure is its seat's phase): TC's hazard is a model input. The
+//!   pre-registered revisit trigger (A3) waits on NET's CHECKED-or-NOT report on the sharper
+//!   inherited bound.
+//! - **The genesis offsets** (2.) are derived from the beacon alone, under their own domain tag
+//!   (`aft::ring::genesis-offsets::v1`): [`genesis_tenure_offsets`] permutes seat INDICES, and
+//!   identities are only zipped onto the result, so nothing that sees occupants' identities or
+//!   types enters the derivation (NET's B1-R R1 finding B1; rulings 2026-10-08 15:16).
 //!
 //! **Every number here is a CONFIGURATION POINT** whose value comes from the numbers author. No
 //! production value is hard-coded; the constraints between the values are enforced in code
