@@ -1866,6 +1866,203 @@ fn ruling_2_pin_never_accepted_joiners_are_never_required_approvers_a_stalled_ap
     });
 }
 
+/// Q2 (PROVISIONAL; module docs, 8.): a joiner may also accept AFTER the publication, while its
+/// window is open: the live ledger awaits it with the deadline s_h + Δ_b + W_acc recorded at
+/// settlement. Only an awaited joiner, naming the awaited handover, accepts, and only once; an
+/// accepted joiner is PRESENT (it does not depart at the next snapshot, and its approval is
+/// required at the next handover). A joiner of a PENDING draw accepts once, and never after its
+/// deadline.
+#[test]
+fn a_joiner_accepts_after_the_publication_within_its_window_and_is_then_present() {
+    let registry = ring_test_registry();
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let mut p = ring_params();
+        p.handover_interval_events = 12;
+        p.bond_lock_events = 4 * 12 + 3;
+        p.acceptance_window_events = 6;
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_selection_params@v1",
+            &codec::to_bytes_canonical(&p).unwrap(),
+        )
+        .unwrap();
+        for b in 1u8..=3 {
+            register(&registry, &mut state, ctx, b, 100).unwrap();
+        }
+        register(&registry, &mut state, ctx, 4, 150).unwrap();
+        let (genesis_pending, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 5);
+        let gdraw = ioi_types::app::draw_genesis_ring(&genesis_pending.snapshot, &beacon).unwrap();
+        let genesis = BoundaryRingConfig {
+            version: 1,
+            members: gdraw.successor_members.clone(),
+            member_bonds: gdraw.successor_members.iter().map(|m| (*m, 100)).collect(),
+            activated_at_event: expected_activation(&state),
+            closed_by: None,
+            vacant_seats: vec![],
+        };
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_genesis_config@v1",
+            &codec::to_bytes_canonical(&genesis).unwrap(),
+        )
+        .unwrap();
+        for b in 6u8..=9 {
+            register(&registry, &mut state, ctx, b, 150).unwrap();
+        }
+        for member in [ring_member(2), ring_member(3)] {
+            ctx.signer_account_id = member;
+            call(
+                &registry,
+                &mut state,
+                ctx,
+                "declare_ring_exit@v1",
+                &codec::to_bytes_canonical(&member).unwrap(),
+            )
+            .unwrap();
+        }
+        let (pending_handover, beacon) = snapshot_and_beacon_raw(&registry, &mut state, ctx, 20);
+        let draw = ioi_types::app::draw_vacated_seats(&pending_handover.snapshot, &beacon).unwrap();
+        assert_eq!(draw.joiners.len(), 2);
+        let (early, late) = (draw.joiners[0], draw.joiners[1]);
+        let commitment = codec::to_bytes_canonical(&pending_handover.commitment).unwrap();
+        let accept = |state: &mut MockState, ctx: &mut TxContext<'_>, signer: AccountId, commitment: &[u8]| {
+            ctx.signer_account_id = signer;
+            call(&registry, state, ctx, "accept_ring_handover_seat@v1", commitment)
+        };
+        // Before the publication (the pending draw's joiner): once.
+        accept(&mut state, ctx, early, &commitment).unwrap();
+        let err = accept(&mut state, ctx, early, &commitment).unwrap_err();
+        assert!(err.to_string().contains("already recorded"), "{err}");
+        let mut publication = drawn_publication(&state, &genesis, &draw);
+        publication
+            .acceptances
+            .retain(|a| !draw.joiners.contains(&a.member));
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&publication).unwrap(),
+        )
+        .unwrap();
+        let ring1 = live_config(&state);
+        // The settled window: only the late joiner is awaited, until s_h + Δ_b + W_acc.
+        let deadline = pending_handover.snapshot.snapshot_event + 2 + 6;
+        let ledger: ioi_types::app::RingSeatLedger =
+            stored(&state, ioi_types::app::GUARDIAN_RING_SEAT_LEDGER_KEY);
+        assert_eq!(ledger.awaiting_acceptance, vec![(late, deadline)]);
+        let now: u64 = stored(&state, ioi_types::app::GUARDIAN_RING_EVENT_COUNTER_KEY);
+        assert!(now < deadline, "the window is open: {now} < {deadline}");
+        // After the publication (the live ledger's path): another commitment, a joiner no longer
+        // awaited, and a member that never joined are refused.
+        let other = codec::to_bytes_canonical(&[7u8; 32]).unwrap();
+        let err = accept(&mut state, ctx, late, &other).unwrap_err();
+        assert!(err.to_string().contains("no handover awaiting"), "{err}");
+        for outsider in [early, ring_member(1)] {
+            let err = accept(&mut state, ctx, outsider, &commitment).unwrap_err();
+            assert!(err.to_string().contains("only a joiner the live ring awaits"), "{err}");
+        }
+        accept(&mut state, ctx, late, &commitment).unwrap();
+        let ledger: ioi_types::app::RingSeatLedger =
+            stored(&state, ioi_types::app::GUARDIAN_RING_SEAT_LEDGER_KEY);
+        assert!(ledger.awaiting_acceptance.is_empty(), "{:?}", ledger.awaiting_acceptance);
+        assert!(accept(&mut state, ctx, late, &commitment).is_err(), "only once");
+        // The next handover: both joiners are PRESENT, so neither is an unaccepted departure (either
+        // may still be FORCED, by its seat's phase).
+        for b in 40u8..50 {
+            register(&registry, &mut state, ctx, b, 150).unwrap();
+        }
+        call(&registry, &mut state, ctx, "commit_ring_handover_snapshot@v1", &[]).unwrap();
+        let snapshot2 = pending(&state).snapshot;
+        assert!(
+            !snapshot2.exits.contains(&early) && !snapshot2.exits.contains(&late),
+            "{snapshot2:?}"
+        );
+        register(&registry, &mut state, ctx, 51, 150).unwrap();
+        let request = beacon_request(&state);
+        call(&registry, &mut state, ctx, "record_ring_handover_beacon@v1", &request).unwrap();
+        let pending2 = pending(&state);
+        let (beacon2, _, _) = pending2.beacon.unwrap();
+        let draw2 = ioi_types::app::draw_vacated_seats(&pending2.snapshot, &beacon2).unwrap();
+        assert!(!draw2.joiners.is_empty(), "{draw2:?}");
+        // A pending draw's joiner accepts only before ITS deadline: handover 2's window is let pass.
+        let deadline2 = pending2.snapshot.snapshot_event + 2 + 6;
+        let mut filler = 60u8;
+        while stored::<u64>(&state, ioi_types::app::GUARDIAN_RING_EVENT_COUNTER_KEY) < deadline2 {
+            register(&registry, &mut state, ctx, filler, 150).unwrap();
+            filler += 1;
+        }
+        let commitment2 = codec::to_bytes_canonical(&pending2.commitment).unwrap();
+        let err = accept(&mut state, ctx, draw2.joiners[0], &commitment2).unwrap_err();
+        assert!(err.to_string().contains("deadline"), "{err}");
+        // The late joiner accepted, so its approval is required at handover 2.
+        let mut publication2 = drawn_publication(&state, &ring1, &draw2);
+        publication2
+            .acceptances
+            .retain(|a| !draw2.joiners.contains(&a.member));
+        let mut without_late = publication2.clone();
+        without_late.approvals.retain(|a| a.member != late);
+        let err = call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&without_late).unwrap(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("UNANIMITY"), "{err}");
+        call(
+            &registry,
+            &mut state,
+            ctx,
+            "publish_ring_handover@v1",
+            &codec::to_bytes_canonical(&publication2).unwrap(),
+        )
+        .unwrap();
+    });
+}
+
+/// NET's ruling 1 (2026-10-09, provisional): the TEST admission lives only while a guard is held on
+/// the test's own thread. After the guard drops, that thread's registries are chain-configured
+/// again (R >= 1 parameters refused), and of two nested guards, dropping the inner one leaves the
+/// outer one's admission.
+#[test]
+fn the_test_admission_ends_when_its_guard_drops() {
+    {
+        let registry = ring_test_registry();
+        let mut state = MockState::default();
+        with_ctx(|ctx| publish_params(&registry, &mut state, ctx));
+    }
+    let refused = |registry: &GuardianRegistry| -> bool {
+        let mut state = MockState::default();
+        let mut out = false;
+        with_ctx(|ctx| {
+            out = call(
+                registry,
+                &mut state,
+                ctx,
+                "publish_ring_selection_params@v1",
+                &codec::to_bytes_canonical(&ring_params()).unwrap(),
+            )
+            .is_err_and(|err| err.to_string().contains("R >= 1"));
+        });
+        out
+    };
+    assert!(refused(&production_registry()), "after the guard drops: chain-configured");
+    let outer = super::ring_selection::RingSelectionTestAdmission::hold();
+    {
+        let _inner = super::ring_selection::RingSelectionTestAdmission::hold();
+    }
+    assert!(!refused(&production_registry()), "the outer guard still admits");
+    drop(outer);
+    assert!(refused(&production_registry()), "no guard: chain-configured");
+}
+
 fn register_in(
     registry: &GuardianRegistry,
     state: &mut MockState,

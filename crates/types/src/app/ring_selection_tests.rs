@@ -1678,6 +1678,54 @@ fn the_genesis_offsets_come_from_the_beacon_alone() {
     );
 }
 
+/// B1 (NET's B1-R R1 finding): the genesis offsets are derived under their OWN domain tag,
+/// checked against an independent mirror of the documented derivation: a Fisher-Yates permutation
+/// of the seat indices whose step k swaps with SHA-256("aft::ring::genesis-offsets::v1" ‖ beacon ‖
+/// k ‖ attempt) (the first 8 bytes big-endian, rejection-sampled uniform over k + 1), and the seat
+/// at rank r starts at ⌊r·T/n⌋. A shared tag (the seat draw's, say) would correlate a seat's offset
+/// with the draw of its occupant.
+#[test]
+fn the_genesis_offsets_follow_their_own_domain_tag_by_an_independent_mirror() {
+    fn mirror_index(beacon: &[u8; 32], step: u64, len: u64) -> usize {
+        let limit = (u64::MAX / len) * len;
+        for attempt in 0u64..64 {
+            let mut material = b"aft::ring::genesis-offsets::v1".to_vec();
+            material.extend_from_slice(beacon);
+            material.extend_from_slice(&step.to_be_bytes());
+            material.extend_from_slice(&attempt.to_be_bytes());
+            use dcrypt::algorithms::hash::{HashFunction, Sha256};
+            let digest = Sha256::digest(&material).unwrap();
+            let word = u64::from_be_bytes(digest.as_ref()[..8].try_into().unwrap());
+            if word < limit {
+                return (word % len) as usize;
+            }
+        }
+        unreachable!()
+    }
+    fn mirror(beacon: &[u8; 32], n: usize, t: u32) -> Vec<u32> {
+        let mut order: Vec<usize> = (0..n).collect();
+        for step in (1..n).rev() {
+            order.swap(step, mirror_index(beacon, step as u64, step as u64 + 1));
+        }
+        let mut offsets = vec![0u32; n];
+        for (rank, seat) in order.iter().enumerate() {
+            offsets[*seat] = ((rank as u64 * u64::from(t)) / n as u64) as u32;
+        }
+        offsets
+    }
+    for (n, t) in [(3u32, 4u32), (7, 4), (7, 3), (5, 7)] {
+        let members: Vec<AccountId> = (1..=n).map(account_n).collect();
+        for i in 0..32u64 {
+            let b = beacon(800 + i);
+            let got: Vec<u32> = genesis_tenure_offsets(&b, &members, t)
+                .into_iter()
+                .map(|(_, o)| o)
+                .collect();
+            assert_eq!(got, mirror(&b, n as usize, t), "n={n} T={t} beacon {i}");
+        }
+    }
+}
+
 /// Q4 (B1-R v1 M7 (i)): a four-seat ring at R = 0 (floors: constituency 1 two seats, constituency 2
 /// two seats), seats labelled [1, 1, 2, 2]; m1 (seat 0) and m3 (seat 2) are forced. For every
 /// beacon, seat 0 is refilled from constituency 1 and seat 2 from constituency 2, although the pool
