@@ -308,15 +308,17 @@ as ambient reusable access. aiagent.xyz records the exact
 composition and owner visibility, while the local Hypervisor/home domain owns
 pairing proof, adapter/MCP mediation, credentials, execution, and receipts.
 
-**Keep as Agent (declared 2026-08-12).** The same private registration owner
-carries the declared reification path from ordinary governed Hypervisor
-work: when a run succeeds, "Keep as Agent" promotes that run into a private
-Worker registration draft whose composition is bound from the session's own
-lineage — the exact model route, harness or adapter, tools, and policy
-posture the run actually used. This is a declared target over the existing
-registration and binding owners, not a new object or admission path: the
-draft is an ordinary **My workers** registration draft, private by default,
-and every later elevation — benchmark, listing, routing eligibility —
+**Keep as Agent (declared 2026-08-12; re-homed by owner ruling, 2026-09-29).**
+The declared reification path from ordinary governed Hypervisor work lands in
+the Hypervisor, not in this registry: when a run succeeds, "Keep as Agent"
+creates the principal's own private Agent, a daemon `AgentRecord` whose
+composition is bound from the session's own lineage — the exact model route,
+harness or adapter, tools, and policy posture the run actually used
+([`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md)).
+**My workers** lists a kept Agent as a view over that record, read through
+the public API, never as a second agent store. This is a declared target
+over the existing agent and binding owners, not a new object or admission
+path, and every later elevation — benchmark, listing, routing eligibility —
 remains the separate explicit promotion path above. Nothing publishes,
 benchmarks, widens authority, or creates a publisher profile because a run
 was kept.
