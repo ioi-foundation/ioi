@@ -344,6 +344,10 @@ claims it. The posture stays `production_candidate`.
   **No claim on a deterministic clock**: a deployment that mints standing
   envelopes runs its authority node on the wall clock, because an envelope's
   expiry is a real-time promise the daemon checks at every bind and draw.
+  **No claim of renewal at sign-in yet**: an envelope ends at its expiry, and
+  until the renewal of unchanged bounds at the principal's passkey sign-in is
+  built (`core-clients-surfaces.md` § *Attach-time envelope and policy-derived
+  posture*), renewing it is Set limits again.
 - No claim of general availability: `production_candidate` names a bounded
   alpha whose every unqualified row in the tables above stays unqualified.
 - No claim of an end-to-end standalone product pass; that remains the

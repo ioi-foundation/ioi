@@ -3608,6 +3608,40 @@ that window closes ends refused (`envelope_revoked`); the connection keeps
 whichever grant the authority holds live: the predecessor if nothing was
 recorded, else its successor.
 
+**An envelope whose bounds are unchanged renews at the principal's sign-in**
+(target contract; not built). With Set limits signed with the passkey, the
+principal also signs, once, a standing renewal rule (`StandingRenewalRuleV1`)
+for that connection's envelope, whose first term is at most the rule's presence
+window (60 days by default). After that, a passkey sign-in renews the envelope
+when doing so extends it, at most once every seven days: the passkey unseals
+the principal's own approval key (the same unsealing that signs limits), which
+signs a successor equal to the envelope but for its window and is wiped at
+once. A password sign-in never renews. Every front door's sign-in offers the
+passkey. A sign-in renews only when it reaches this node's passkey sign-in with
+a passkey enrolled here; the command line's device-authorization flow does so
+when completed in a browser that reaches this node, and a phone does so as the
+passkey for such a browser. When a due renewal was missed, the week before the
+expiry shows one line asking for that sign-in. The authority records the
+successor only if it equals the envelope it replaces in every other respect,
+and the successor **inherits the predecessor's remaining usages and budget**:
+it extends the window and never grants a fresh allowance. The predecessor ends
+when its successor is recorded. A renewal cannot widen, cannot revive a revoked
+envelope, and cannot clear containment; a contained envelope does not renew.
+Renewal at sign-in applies only where one principal's passkey meets the whole
+of the envelope's authorization; one that needs more signers or a stronger
+factor renews by its own act, with its signers, once per term of at most 90
+days. While the principal signs in with the passkey at least once in every
+presence window (60 days by default; with at most one renewal a week, the
+envelope ends between 53 and 60 days after the last such sign-in, and never
+before the expiry the principal set), the daemon writes a renewal receipt,
+shown on demand and never as a digest line, and nothing asks; only a change of
+bounds, or a fresh allowance once the allowance is exhausted, asks. Past that
+window the envelope ends at its expiry, and its remedy is Set limits. Revoking
+the envelope or removing the limits ends its current grant, whichever renewal
+it is, and its renewals; withdrawing the rule ends the renewals. A
+rolling-window grant is not used, because it would change what an envelope's
+maximum usages mean.
+
 Within a session, each governed act's posture is the **daemon's admission
 outcome**, never a presentation choice:
 
