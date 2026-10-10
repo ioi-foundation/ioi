@@ -762,14 +762,18 @@ lives with the
 
 ### Consumer Surface Mapping
 
-The E-deltas above bind to EXISTING consumer surfaces, not empty ground: the
-ioi.ai application (QM) already ships the consumer tier — concurrent session
+The E-deltas above bind to EXISTING consumer surfaces, not empty ground. The
+consumer's service is aiagent.xyz (owner ruling, 2026-09-29): a person's
+agents there are the Hypervisor's own agents, read through the public API,
+and ioi.ai keeps what makes an outcome valuable, its outcome rooms. The
+ioi.ai application (QM) already ships a consumer tier — concurrent session
 panes, mid-run steering input, Memory and Keychain as first-class navigation,
-multiplayer scopes across Slack and web, and a multi-harness core — and the
-declared semantics here (receipted memory, boundary rendering, the Agent Map,
-org sharing) land on those surfaces as each rebinds to kernel truth under the
-standing QM-rebind direction. The declarations never fork a parallel consumer
-surface to host them.
+multiplayer scopes across Slack and web, and a multi-harness core — and those
+shipped surfaces seed aiagent.xyz's consumer surfaces, on which the declared
+semantics here (receipted memory, boundary rendering, the Agent Map, org
+sharing) land as each rebinds to kernel truth under the standing QM-rebind
+direction. The declarations never fork a parallel consumer surface to host
+them, inside the Hypervisor or anywhere else.
 
 ### Nonclaims
 
