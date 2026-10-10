@@ -485,6 +485,10 @@ ambiguous external effect. Environment restoration never proves outcome
 restoration. `reconciliation_required` and `non_retryable` must fail closed
 rather than replaying an effect whose prior commit state is unknown.
 
+It is retry semantics, not a measure of harm, and nothing gates on it as one:
+what an effect can cost, and whether it can be undone, are its action type's
+`undo` and `loss_bound_kind` (below).
+
 Implementation grounding: ENFORCED at the daemon's two-phase claim gate, and
 still planned elsewhere. The claim path types this field and lets the declared
 class only NARROW what the two-phase substrate would already allow: it never
@@ -517,6 +521,53 @@ table that states what each retired member meant (`none` to `replayable`,
 to `reconciliation_required`), a value in neither vocabulary is refused, and a
 record declaring NO class is refused rather than defaulted. Never silently
 reinterpreted. See `_meta/canon-to-code-delta.md`.
+
+## Action Harm Axes (`undo`, `loss_bound_kind`)
+
+Every action type declares both, once, on its `OntologyActionContract`
+([`objects/semantic-plane.md`](./objects/semantic-plane.md)), beside
+`risk_class` and `effect_recovery_class`:
+
+```text
+undo
+  in_kind | compensating | none
+
+loss_bound_kind        (a set of dimensions; the empty set is admissible)
+  money(<parameter>) | count(<unit>) | records(<object>.<attribute>)
+```
+
+- `in_kind`: an inverse effect restores the prior state, and nothing is harmed
+  in the window before it runs.
+- `compensating`: the contract's `compensation_profile_ref`, which must then be
+  non-null, repairs the effect after the fact; harm in the window is possible.
+- `none`: nothing undoes the effect.
+
+`loss_bound_kind` names each dimension along which one effect of the type can
+cost something, over a declared parameter or object attribute: an amount of
+money, a count of units (messages, calls, pages), or a number of records (the
+subjects a disclosure reaches, the rows a deploy changes). The empty set states
+that the type has no boundable loss dimension.
+
+Both fields are policy-bearing: a contract revision that loosens either one is a
+widening, and is decided as one. They are read beside the ladder, not in place
+of it. A standing rule or grant over the type bounds its loss only when it
+places both a per-effect bound and a per-period counter on every declared
+dimension, whatever `undo` is; a type with `undo: none` and no loss dimension
+has nothing a rule can bound, and every effect of it is final. Checked at
+install against `risk_class`:
+
+- `undo: in_kind` only for `read`, `draft`, `local_write` and
+  `write_reversible`, and only on a contract that names no egress, external
+  message or third-party-visible state;
+- `write_reversible` requires `undo` other than `none`;
+- `system_destructive` requires `undo: none` unless a compensation profile
+  exists;
+- a contract missing either field is refused.
+
+Implementation grounding: planned. The registered
+`ontology-action-contract/v1` contract carries neither field and admits no field
+it does not name, so both land in its successor contract, never as an edit of
+v1.
 
 ## Model-Route Commercial Rights
 

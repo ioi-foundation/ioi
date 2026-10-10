@@ -196,11 +196,70 @@ OntologyActionContractEnvelope:
   idempotency_and_retry_profile_ref: policy://...
   ambiguous_effect_and_reconciliation_profile_ref: policy://...
   compensation_profile_ref: policy://... | null
+  undo: in_kind | compensating | none  # successor contract (target)
+  loss_bound_kind:  # successor contract (target)
+    - money(<parameter>) | count(<unit>) | records(<object>.<attribute>)
+  write_set:  # successor contract (target)
+    - object_attr: object-model://...
+      mode: delete | overwrite | redact | append
+  parameters:  # successor contract (target)
+    - param: string
+      type: string
+      canonicalizer_ref: policy://...
+      operators_allowed:
+        - string
+      generalization_chain:
+        - string
+      keep_granularity: string
+      sentence_templates:
+        - string
+      tie_break_rank: integer
+  regulated_slots:  # successor contract (target)
+    - string
+  exposure_fn_ref: function://... | policy://... | null  # successor contract (target)
+  default_floor_template_ref: policy://... | null  # successor contract (target)
+  expected_cadence: duration | null  # successor contract (target)
+  redecide_within: duration | null  # successor contract (target)
   verifier_and_evidence_refs:
     - verifier_path://... | evidence://... | schema://...
   physical_safety_profile_ref: safety://... | null
   status: draft | validating | active | deprecated | revoked
 ```
+
+`undo` and `loss_bound_kind` are the action type's harm axes; their member sets
+and install checks are owned by [`canonical-enums.md`](../canonical-enums.md).
+Every field from `undo` through `redecide_within` is policy-bearing: a contract
+revision that loosens any of them (a smaller `write_set`, a longer
+generalization chain, a weaker floor template, a longer `redecide_within`) is a
+widening and is decided as one, never adopted as an ordinary update.
+
+- `write_set` is required and complete: every object attribute the effect can
+  write, consequential child writes included. It is empty only for `read` and
+  `draft`, or with a witness that the action cannot impair preservation. An
+  absent, incomplete or unresolved set counts as impairing, never as read-only.
+- `parameters` declare each typed parameter a rule may constrain: its
+  canonicalizer, the operators allowed on it, and the generalization chain a
+  standing rule may relax along, up to its keep granularity.
+- `regulated_slots` name the slots the executor renders from pinned templates;
+  the guest supplies only their values.
+- `exposure_fn_ref` computes an effect's worst-case exposure over its life
+  where one of its loss dimensions is money at risk rather than money spent.
+- `default_floor_template_ref` names the floor template a rule over the type
+  compiles against. For `external_message`, `commerce`, `funds`,
+  `credential_access`, `policy_widening`, `secret_export`, `identity_change`,
+  `system_destructive` and `physical_action` the install check maps the class
+  either to a required floor template or to always-ask; a contract whose class
+  requires a template and names none is refused at install.
+- `expected_cadence` is how often the type normally runs: a standing rule over
+  it that goes unused for twice that long, and at least a minimum period, is
+  suspended with a notice.
+- `redecide_within` is the age past which an effect blocked by a narrowing is
+  withdrawn at the clear rather than re-decided.
+
+The fields marked `# successor contract (target)` are not in the registered
+`ontology-action-contract/v1` contract, which refuses any field it does not
+name, so a v1 record never carries them. They land in its successor contract,
+never as an edit of v1.
 
 ## FunctionRevision
 
