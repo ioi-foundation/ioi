@@ -657,6 +657,19 @@ the daemon and Agentgres (owner ruling, 2026-09-29). aiagent.xyz's
 second agent store; publishing it stays the separate explicit promotion path
 ([`worker-marketplace.md`](../../domains/aiagent/worker-marketplace.md)).
 
+The path has an executable acceptance, not only a declaration (2026-09-30):
+acceptance journey ACC-B, the builder's first outcome and first week, composes
+its clauses on one basis in `scripts/check-acceptance-builder-first-week.mjs`,
+a clause table over the shared journey harness. Its clauses cover time against
+the raw harness, no ask inside signed permissions, attributable silence, a
+rendering that parses back to what is enforced, Keep derived from the run's
+own receipts, parity across the doors, no kernel vocabulary on ordinary
+surfaces, the steady-state prompt measures, typed out-of-bounds refusal,
+acceptance the agent cannot weaken, principal acts an agent can only propose,
+CI safety, a hardened landing, the daemon-written evidence block, the review
+round-trip, and fork mode. Like every ACC runner, it reports PARTIAL while any
+clause is a typed absence.
+
 ### Placement Defaults At Run One
 
 A first run defaults to eligible-auto placement. The local/hosted choice and
@@ -804,6 +817,9 @@ them, inside the Hypervisor or anywhere else.
 - Implementation pulls through the reserved thin measured-usability profile
   only after the `DEF-SEQ-1` substrate prerequisites close; declaration is
   not scheduling.
+- ACC-B defines the reification path's acceptance; a PARTIAL verdict is not
+  evidence that the path works, and its time clause is one measurement the
+  first nonclaim above waits on.
 
 ## Hypervisor Core
 
