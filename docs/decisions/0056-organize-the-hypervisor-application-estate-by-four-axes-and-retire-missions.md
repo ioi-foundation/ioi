@@ -316,6 +316,20 @@ The M6 order is therefore M6a (done), Marketplace, Artifacts after the port, and
    packages. The wording is corrected in the cut that builds the Functions lane.
 5. **M7b needs no wait for M8.** It moves no live population, so it lands with M7.
 
+## Amendment 4 (2026-09-30, under the owner's authorization of 2026-09-29): Ruling 2 holds
+
+The owner authorized one reviewed canon change set, to be applied once its end state was settled.
+That set keeps canon's shell, so Ruling 2 stands as written:
+
+1. **The shell navigation is unchanged.** `+ New`, Home, Systems, Projects, Automations,
+   Applications and Work stay as `core-clients-surfaces.md` § Top-Level Product IA lists them.
+   `+ New` loses Goal, a residue of R-192 (unaffected, above); that is not a navigation change.
+2. **Home's composition changes inside Home.** Home becomes the composer over the board (Needs you,
+   Working, Ready for review, Done) with "Your agents" and "Your systems" strips, and its
+   Needs-you count opens Home filtered to what needs the viewer. `core-clients-surfaces.md`
+   § Hypervisor Home owns that composition; no separate decision record is minted for it.
+3. **Whether Systems keeps a permanent nav entry** remains the separate decision Ruling 2 names.
+
 ## Consequences
 
 - The catalog reads as four jobs a buyer recognizes, and each owner application keeps
