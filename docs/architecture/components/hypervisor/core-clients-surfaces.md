@@ -2011,6 +2011,26 @@ truth.
 
 **Hypervisor Home** is the default command and resume surface.
 
+Its composition (2026-09-30) is **the composer over the board**:
+
+- **the composer** is New Session's composer (§ Hypervisor New Session): a
+  submission creates one bounded Session and nothing else, and its optional
+  Plan fixes the run's acceptance before the run starts;
+- **the board** groups the viewer's work as **Needs you** (first, hidden when
+  empty), **Working** (queued work included), **Ready for review** and
+  **Done**. Needs you is a viewer-filtered projection of owned queues:
+  approval requests, notices of failed or refused runs, a run's request for
+  input, unknown outcomes, handoffs, System push items and proposals. Each
+  item is decided in its owning surface, and Home owns none of them. The
+  Needs-you count, shown with Home in the shell, is the viewer's open items in
+  those queues, never digest lines, and opens Home filtered to Needs you;
+- **"Your agents"**, a strip of the viewer's kept Agents, and **"Your
+  systems"**, a strip shown only to a person who owns a named System. Each
+  entry opens its owner surface; neither strip makes Home an owner.
+
+Home stays the default command surface of § Top-Level Product IA and is still
+no ioi.ai chat replacement (below).
+
 Implementation status: partial (the explorer and the full readout are live;
 the canonical `/home` route is an honest shell page). Last implementation
 audit: 2026-08-20. Home is an owned EXPLORER rendered over the shell at `/ai`
@@ -2026,8 +2046,9 @@ quiet, naming a daemon outage rather than papering over it); Recent tabs
 (sessions / projects / runs) with honest empty states; and the Applications
 estate grid. It expands into the owned full readout `/__ioi/home`
 (`renderHome` in `serve-product-ui.mjs`: decisions / blocked / resume /
-newest-proof strips with honest empty + degraded states). The composer is
-deliberately NOT the home page — it is New Session.
+newest-proof strips with honest empty + degraded states). Today the composer
+is New Session's page (`/ai#new-session`); the composition above, with the
+composer on Home over the board, is not built.
 
 > **Superseded 2026-08-20 (E7-1 cockpit retirement).** The `home` registry row
 > and its `/__ioi/home-cockpit` legacy lane are retired, together with
@@ -2059,6 +2080,7 @@ Correct:
 Home starts or resumes governed work.
 Home can ask Hypervisor Core to create a New Session.
 Home can draft an Automation or Foundry job for review.
+Home shows what needs you, what is working, what is ready for review, and what is done.
 ```
 
 Avoid:
@@ -2067,6 +2089,7 @@ Avoid:
 Home = durable automation owner
 Home = ioi.ai chat replacement
 Home = default deploy-as-service funnel
+Home = owner of the items it counts (each is decided in its owning queue)
 ```
 
 ## Hypervisor Projects
