@@ -3,12 +3,17 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createReadStream } from 'node:fs'
+import { checkModelIntegrity } from './scripts/avatars/check_model_integrity.mjs'
 
 const appRoot = fileURLToPath(new URL('.', import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), {
+    name: 'avatar-model-integrity',
+    apply: 'build',
+    async buildStart() { await checkModelIntegrity(appRoot); },
+  }, {
     name: 'local-avatar-authoring-models',
     configureServer(server) {
       const sources = new Set(['human-authored-v1.glb', 'anime-performance-v1.vrm']);

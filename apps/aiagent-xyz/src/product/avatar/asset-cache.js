@@ -5,7 +5,7 @@ import { FrontSide } from 'three';
 import { AVATAR_BODIES, AVATAR_RIG } from '../../../shared/avatar-catalog.mjs';
 import { acquireVrmAvatar, vrmCacheState } from './vrm-adapter';
 import { createHologramMaterial } from './hologram-material';
-import { verifiedModel } from './model-integrity.js';
+import { fetchModel } from './model-integrity.js';
 
 const entries = new Map();
 
@@ -41,12 +41,7 @@ export function acquireAvatar(bodyId, { quality = 'desktop' } = {}) {
     const loader = new GLTFLoader().setDRACOLoader(draco);
     entry = { references: 0, controller, original: null, draco };
     const created = entry;
-    created.promise = fetch(body.asset, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error('The avatar model could not be loaded.');
-        return response.arrayBuffer();
-      })
-      .then((buffer) => verifiedModel(body.asset, buffer))
+    created.promise = fetchModel(body.asset, { signal: controller.signal })
       .then((buffer) => loader.parseAsync(buffer, '/models/avatars/'))
       .then((gltf) => {
         const rigs = [];
