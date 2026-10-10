@@ -164,6 +164,10 @@ not. The exact shared schemas live in
 Every serious autonomous system declares:
 
 - purpose and prohibited purposes;
+- the objectives the institution is measured by (KPIs), held as verifiable
+  state: each figure is computed by a declared verifier and carries its
+  provenance, and the workers or guest drivers that pursue an objective may
+  annotate it but never author it;
 - accountable principals and the parties able to revoke or intervene;
 - beneficiaries and materially affected parties;
 - ontology, object, action, policy, and interface roots;
@@ -175,6 +179,22 @@ Every serious autonomous system declares:
 - emergency stop, quarantine, rollback, recovery, and guardian paths;
 - succession, migration, fork, adoption, abandonment, and dissolution rules;
 - residual-asset, data, key, authority, obligation, and evidence disposition.
+
+A System that runs unattended declares these, together with the authority it
+operates under, as one **charter**: the constitution above and its objectives,
+each mapped to the action classes that can move it, so that how much of each
+objective is reachable within the standing grants can be computed and a
+blocking grant gap named; budgets per period and per action class, enforced
+when an effect is decided; each worker's standing grant; the driver seat, which
+an agent occupies by one principal act that never amends the charter (unbinding
+it stops new commissions at once, and open ones keep running under the workers'
+grants); and the standing release rules (a sealed
+evaluation, guardrail metrics on authority use, commitments, cost and data
+flows, a canary share, and rollback) under which improvements are promoted.
+The charter is rendered in full and signed as one change set; a later change to
+it is a proposal, and a change to its constitution still takes the amendment
+path below. An improvement promoted under a release rule never widens
+authority: work that needs more authority is a proposal to change the charter.
 
 Ordinary work and improvement proposals may change governed mutable objects;
 they may not silently rewrite the constitution that defines whether the system
