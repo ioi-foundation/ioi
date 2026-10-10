@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
+  "title": "AgentHarnessAdapter",
+  "x-ioi-schema-version": "ioi.agent-harness-adapter.v2",
+  "description": "The versioned concrete bridge to an external or embedded agent harness (docs/architecture/components/daemon-runtime/default-harness-profile.md#agentharnessadapterenvelope). v2, the successor of v1 (owner ruling, 2026-09-30), adds `own_layer_ref`: the content-addressed declaration of the harness's own permission layer (its prompts, rules, modes, and any model classifier). The declaration records nothing about its own outcome; whether the layer is delegated (`delegated`, `counted`, `unqualified`) is a separate qualification record over the declaration's hash, never a field here. A harness the daemon launches as a local process or daemon plugin must name one; it is null only for an adapter the daemon does not launch. The declaration grants no authority, and a v1 revision is never launched in a cell.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter_id",
+    "revision_ref",
+    "predecessor_revision_ref",
+    "content_hash",
+    "owner_ref",
+    "adapter_family",
+    "transport_kind",
+    "compatible_harness_profile_revision_refs",
+    "supported_task_brief_schema_refs",
+    "supported_event_and_result_schema_refs",
+    "supported_runtime_and_model_route_refs",
+    "rendering_and_normalization_contract_refs",
+    "required_runtime_tool_contract_revision_refs",
+    "capability_and_context_requirement_refs",
+    "provenance_evaluation_and_conformance_refs",
+    "own_layer_ref",
+    "registry_lifecycle_ref",
+    "registry_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agent-harness-adapter.v2"
+    },
+    "adapter_id": {
+      "type": "string",
+      "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}$"
+    },
+    "revision_ref": {
+      "type": "string",
+      "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:(?:org|project|system|user)://[^\\s]{1,500}|ioi://publisher/[^\\s]{1,500})$"
+    },
+    "adapter_family": {
+      "enum": [
+        "codex_cli",
+        "claude_code",
+        "openhands",
+        "hermes",
+        "deepseek_tui",
+        "local_agent",
+        "remote_agent_api",
+        "custom"
+      ]
+    },
+    "transport_kind": {
+      "enum": [
+        "local_process",
+        "daemon_plugin",
+        "remote_api",
+        "aiip",
+        "mcp",
+        "custom"
+      ]
+    },
+    "compatible_harness_profile_revision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "supported_task_brief_schema_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "supported_event_and_result_schema_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "supported_runtime_and_model_route_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "rendering_and_normalization_contract_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "required_runtime_tool_contract_revision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "capability_and_context_requirement_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "provenance_evaluation_and_conformance_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "own_layer_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^harness-own-layer://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "registry_lifecycle_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "registry_status": {
+      "enum": [
+        "draft",
+        "evaluable",
+        "released",
+        "deprecated",
+        "revoked"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "transport_kind": {
+            "enum": [
+              "local_process",
+              "daemon_plugin"
+            ]
+          }
+        },
+        "required": [
+          "transport_kind"
+        ]
+      },
+      "then": {
+        "type": "object",
+        "description": "A harness the daemon launches declares its own permission layer. Only an adapter the daemon does not launch may leave own_layer_ref null, and such an adapter never runs in a cell.",
+        "properties": {
+          "own_layer_ref": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

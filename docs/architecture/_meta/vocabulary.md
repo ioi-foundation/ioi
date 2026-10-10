@@ -1464,6 +1464,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   the Hypervisor Daemon, but they are not Hypervisor clients and not runtime
   truth. HarnessInvocation selects the exact adapter revision/hash; vendor,
   process, and transport mechanics never become a semantic HarnessProfile.
+  Each revision declares how the harness's own permission layer is delegated
+  (`own_layer_ref`); inside a cell that layer is never an authority.
 - `HypervisorHarnessSelectionOption`: New Session selection object for either
   a selected `HarnessProfile` or a selected `AgentHarnessAdapter`. It is the
   app/API-facing object that keeps Default Harness Profile as IOI's reference

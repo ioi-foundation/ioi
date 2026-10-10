@@ -3066,10 +3066,10 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
         "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
+        "migration_policy": "successor_revision",
+        "predecessor_remains_valid": true,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
       },
@@ -3094,6 +3094,58 @@
       "negative_fixture_refs": [
         {
           "path": "fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
+      "canonical_name": "AgentHarnessAdapter",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/default-harness-profile.md#agentharnessadapterenvelope",
+      "schema_version": "ioi.agent-harness-adapter.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "successor_revision",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "agent-harness-adapter.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AgentHarnessAdapterV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AgentHarnessAdapterV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/agent-harness-adapter-v2/positive-minimal.json",
+        "fixtures/agent-harness-adapter-v2/positive-remote-agent-api-without-own-layer.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/agent-harness-adapter-v2/negative-local-process-without-own-layer.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/agent-harness-adapter-v2/negative-own-layer-ref-absent.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/agent-harness-adapter-v2/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]

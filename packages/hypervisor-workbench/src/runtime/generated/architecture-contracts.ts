@@ -1965,6 +1965,28 @@ export type AgentHarnessAdapterV1 = {
   registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
 };
 
+export type AgentHarnessAdapterV2 = {
+  schema_version: "ioi.agent-harness-adapter.v2";
+  adapter_id: string;
+  revision_ref: string;
+  predecessor_revision_ref: string | null;
+  content_hash: string;
+  owner_ref: string;
+  adapter_family: "codex_cli" | "claude_code" | "openhands" | "hermes" | "deepseek_tui" | "local_agent" | "remote_agent_api" | "custom";
+  transport_kind: "local_process" | "daemon_plugin" | "remote_api" | "aiip" | "mcp" | "custom";
+  compatible_harness_profile_revision_refs: Array<string>;
+  supported_task_brief_schema_refs: Array<string>;
+  supported_event_and_result_schema_refs: Array<string>;
+  supported_runtime_and_model_route_refs: Array<string>;
+  rendering_and_normalization_contract_refs: Array<string>;
+  required_runtime_tool_contract_revision_refs: Array<string>;
+  capability_and_context_requirement_refs: Array<string>;
+  provenance_evaluation_and_conformance_refs: Array<string>;
+  own_layer_ref: string | null;
+  registry_lifecycle_ref: string | null;
+  registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
+};
+
 export type AuthorityEffectAdmissionReceiptV1 = {
   schema_version: "ioi.components.daemon-runtime.authority-effect-admission-receipt.v1";
   receipt_id: string;
@@ -18343,6 +18365,46 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/positive-remote-agent-api-without-own-layer.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-local-process-without-own-layer.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-own-layer-ref-absent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -35742,6 +35804,11 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json","contract_id":"schema://ioi/components/daemon-runtime/action-request-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/positive-remote-agent-api-without-own-layer.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/positive-remote-agent-api-without-own-layer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-local-process-without-own-layer.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-local-process-without-own-layer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-own-layer-ref-absent.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-own-layer-ref-absent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json","contract_id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json","mutation_id":null,"value_json":null}),
@@ -38444,6 +38511,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$",
   "^guardian://[^\\s]{1,500}$",
   "^handoff://\\S+$",
+  "^harness-own-layer://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s]{1,500}$",
   "^harness-profile:[^\\s]{1,200}$",
@@ -38967,6 +39035,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:acc0b12e275584302f9fa0d30937e7439bdb8bf9af7805edcba0b861e24e3ae5",
   "schema://ioi/components/daemon-runtime/action-request-envelope/v1": "sha256:7187aa163181dc69f8c40b219307ea6bd23b74cb7b246602032bc1b78688c4ad",
   "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": "sha256:d24b7088e5bac7d24b7d967aa9ae56920f38d063f468b96ba80379dd311fd25c",
+  "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2": "sha256:7c0329cbdd32352041f7f9074735ad7e9c759f03a7e327bc69a3e0e78fc083d4",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": "sha256:6af61ba9d156c2e04c5641dbf78324ccc719d9da10d6269c87e358802d49feff",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2": "sha256:3c85c272d8f2901b66eb4e922accff02315ac0ee5d15803c7fd0e1e24f69a2bd",
   "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1": "sha256:cfa5011714e9088b41f1bdf0a1d8e63899e47c3d379dd335ee4b52a0b5d1561b",
@@ -55070,6 +55139,212 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     }
+  },
+  "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2",
+    "title": "AgentHarnessAdapter",
+    "x-ioi-schema-version": "ioi.agent-harness-adapter.v2",
+    "description": "The versioned concrete bridge to an external or embedded agent harness (docs/architecture/components/daemon-runtime/default-harness-profile.md#agentharnessadapterenvelope). v2, the successor of v1 (owner ruling, 2026-09-30), adds `own_layer_ref`: the content-addressed declaration of the harness's own permission layer (its prompts, rules, modes, and any model classifier). The declaration records nothing about its own outcome; whether the layer is delegated (`delegated`, `counted`, `unqualified`) is a separate qualification record over the declaration's hash, never a field here. A harness the daemon launches as a local process or daemon plugin must name one; it is null only for an adapter the daemon does not launch. The declaration grants no authority, and a v1 revision is never launched in a cell.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "adapter_id",
+      "revision_ref",
+      "predecessor_revision_ref",
+      "content_hash",
+      "owner_ref",
+      "adapter_family",
+      "transport_kind",
+      "compatible_harness_profile_revision_refs",
+      "supported_task_brief_schema_refs",
+      "supported_event_and_result_schema_refs",
+      "supported_runtime_and_model_route_refs",
+      "rendering_and_normalization_contract_refs",
+      "required_runtime_tool_contract_revision_refs",
+      "capability_and_context_requirement_refs",
+      "provenance_evaluation_and_conformance_refs",
+      "own_layer_ref",
+      "registry_lifecycle_ref",
+      "registry_status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.agent-harness-adapter.v2"
+      },
+      "adapter_id": {
+        "type": "string",
+        "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}$"
+      },
+      "revision_ref": {
+        "type": "string",
+        "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "predecessor_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:(?:org|project|system|user)://[^\\s]{1,500}|ioi://publisher/[^\\s]{1,500})$"
+      },
+      "adapter_family": {
+        "enum": [
+          "codex_cli",
+          "claude_code",
+          "openhands",
+          "hermes",
+          "deepseek_tui",
+          "local_agent",
+          "remote_agent_api",
+          "custom"
+        ]
+      },
+      "transport_kind": {
+        "enum": [
+          "local_process",
+          "daemon_plugin",
+          "remote_api",
+          "aiip",
+          "mcp",
+          "custom"
+        ]
+      },
+      "compatible_harness_profile_revision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "supported_task_brief_schema_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "supported_event_and_result_schema_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "supported_runtime_and_model_route_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "rendering_and_normalization_contract_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "required_runtime_tool_contract_revision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "capability_and_context_requirement_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "provenance_evaluation_and_conformance_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "own_layer_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^harness-own-layer://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "registry_lifecycle_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "evaluable",
+          "released",
+          "deprecated",
+          "revoked"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "transport_kind": {
+              "enum": [
+                "local_process",
+                "daemon_plugin"
+              ]
+            }
+          },
+          "required": [
+            "transport_kind"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "description": "A harness the daemon launches declares its own permission layer. Only an adapter the daemon does not launch may leave own_layer_ref null, and such an adapter never runs in a cell.",
+          "properties": {
+            "own_layer_ref": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    ]
   },
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -165683,6 +165958,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     }
   ],
   "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": [],
+  "schema://ioi/components/daemon-runtime/agent-harness-adapter/v2": [],
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": [],
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2": [
     {
@@ -186163,6 +186439,12 @@ export function validateAgentHarnessAdapterV1(
   value: unknown,
 ): value is AgentHarnessAdapterV1 {
   return validateArchitectureContract("schema://ioi/components/daemon-runtime/agent-harness-adapter/v1", value).ok;
+}
+
+export function validateAgentHarnessAdapterV2(
+  value: unknown,
+): value is AgentHarnessAdapterV2 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/agent-harness-adapter/v2", value).ok;
 }
 
 export function validateAuthorityEffectAdmissionReceiptV1(

@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.agent-harness-adapter.v2",
+  "adapter_id": "agent-harness-adapter://remote",
+  "revision_ref": "agent-harness-adapter://remote/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "predecessor_revision_ref": null,
+  "content_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "owner_ref": "system://ioi",
+  "adapter_family": "remote_agent_api",
+  "transport_kind": "remote_api",
+  "compatible_harness_profile_revision_refs": [
+    "harness-profile://research/revision/3"
+  ],
+  "supported_task_brief_schema_refs": [],
+  "supported_event_and_result_schema_refs": [],
+  "supported_runtime_and_model_route_refs": [],
+  "rendering_and_normalization_contract_refs": [],
+  "required_runtime_tool_contract_revision_refs": [],
+  "capability_and_context_requirement_refs": [],
+  "provenance_evaluation_and_conformance_refs": [],
+  "own_layer_ref": null,
+  "registry_lifecycle_ref": null,
+  "registry_status": "released"
+}

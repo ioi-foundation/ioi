@@ -268,7 +268,7 @@ in the semantic HarnessProfile family.
 
 ```yaml
 AgentHarnessAdapterEnvelope:
-  schema_version: ioi.agent-harness-adapter.v1
+  schema_version: ioi.agent-harness-adapter.v2
   adapter_id: agent-harness-adapter://...
   revision_ref: agent-harness-adapter://.../revision/...
   predecessor_revision_ref: agent-harness-adapter://.../revision/... | null
@@ -287,14 +287,83 @@ AgentHarnessAdapterEnvelope:
   required_runtime_tool_contract_revision_refs: []
   capability_and_context_requirement_refs: []
   provenance_evaluation_and_conformance_refs: []
+  own_layer_ref: harness-own-layer://.../revision/... | null
   registry_lifecycle_ref: agentgres://object/... | package://.../release/... | null
   registry_status: draft | evaluable | released | deprecated | revoked
 ```
 
 A released adapter revision is immutable and content-addressed; registry
 lifecycle/status are excluded projections. It owns transport, rendering, and
-normalization compatibility only. It owns no GoalRun, workflow graph, context
-lease, credential, authority grant, persistent memory, or execution truth.
+normalization compatibility, and the declaration of how the harness's own
+permission layer is delegated (`own_layer_ref`), only. It owns no GoalRun,
+workflow graph, context lease, credential, authority grant, persistent memory,
+or execution truth.
+
+`own_layer_ref` names the content-addressed declaration of the harness's own
+permission layer: its prompts, rules, modes, and any model classifier (owner
+ruling, 2026-09-30; target, not built: the declaration's own contract and its
+qualification do not exist yet). The declaration records the vendor's documented no-prompt
+launch mode; the managed settings, mounted read-only where the vendor reads
+them, so neither the repository nor the guest can change them; each delegation
+point, with its transport, its timeout, and what the harness does when the
+point fails; the fall-through; whether a classifier exists and the setting that
+turns it off; the refusals the vendor fixes and gives operators no way to turn
+off; the harness version range; and nothing about its own outcome. The
+outcome, `delegated`, `counted` or `unqualified`, is a separate qualification
+record the daemon issues over the declaration's hash (target; not built), and
+it is never chosen or relaxed at run time. A mode whose delegation points let a
+call proceed when they fail is never qualified `delegated`. A refusal the vendor
+fixes is an unsupported capability, excluded before any grant coverage is
+promised; a refusal of a supported call the daemon allowed is an override, and
+one override keeps the revision from `delegated`.
+
+Inside a cell (a workload-bound isolation boundary the daemon launches the
+harness in; ADR 0027), the harness's own layer is never an authority (target;
+not built: no cell and no adapter invocation exist yet). The daemon
+launches the harness in the declared no-prompt mode, and each call the harness
+would gate is answered by the daemon's decision through the harness's own
+extension point: an allowed call runs with a receipt, and a refused call returns
+a typed refusal on the channel the model reads, never a prompt to a person. A
+"yes" typed into a harness prompt is not an approval of the exact effect and
+satisfies none. The daemon configures only the modes, settings, and hooks the
+vendor documents; it never patches a harness or answers its prompts. A cell
+launches an adapter revision only when the qualification record over its
+declaration's hash says `delegated`, or `counted` for a run a person is
+attending; an unattended run (an Automation,
+a tracker- or chat-started Session, or a run another agent started) launches
+only `delegated`. `counted` means the layer fails closed but cannot be fully
+delegated: each prompt it shows and each refusal of a call the daemon allowed
+is recorded and counted per harness. Any other revision, a null
+`own_layer_ref`, or a harness version outside the declared range is refused
+before any process starts.
+
+`own_layer_ref` is null only for an adapter the daemon does not launch (a
+remote agent API, AIIP, or MCP peer). Such an adapter never runs in a cell, and
+the asks its harness raises on its own side are never the daemon's decisions;
+where the daemon observes them, they count in the owner's attention measures.
+Registered wire contracts:
+`schema://ioi/components/daemon-runtime/agent-harness-adapter/v1` has no
+`own_layer_ref`; its successor
+`schema://ioi/components/daemon-runtime/agent-harness-adapter/v2` adds it and
+requires it for the `local_process` and `daemon_plugin` transports. A v1
+revision remains a valid record but is never launched in a cell (target; not
+built).
+
+A harness a person starts at a host terminal is not in a cell. On the
+Workbench's host-terminal lane (`HarnessSessionLaunch` `host_dev_pty`,
+`HarnessSessionSpawn` `host_terminal_session`, and
+[`HarnessSessionTerminalAttach`](../hypervisor/core-clients-surfaces.md#harnesssessionterminalattach)),
+no adapter revision is selected (`agent_harness_adapter_id: null`) and the
+harness keeps its own permission layer: the Codex launch contract's
+`--ask-for-approval on-request` sends Codex's approvals to the person at that
+terminal. The lane's records and receipts label its permission posture "the
+harness's own permissions" and claim no delegation (target; not built: the label
+needs a successor of the registered `HarnessSessionTerminalAttach` contract): no
+own-layer declaration applies, a prompt answered there is not a daemon decision,
+and nothing on that lane counts toward a declaration's qualification. Each
+prompt the harness shows on that lane, as the daemon observes it in the PTY
+transcript, counts in the owner's attention measures as a harness ask on the
+host-terminal door (target; not built).
 
 ## Agent Operating Contract
 

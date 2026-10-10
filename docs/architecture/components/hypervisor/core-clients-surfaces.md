@@ -4057,7 +4057,12 @@ over the hypervisor client terminal adapter lane, requires the exact
 client attach contract and the transcript projection cite the same
 daemon-owned transcript stream, and the transcript's opening stdin line is
 byte-equal to the daemon-resolved command line (the client never authors the
-initial command record).
+initial command record). This lane is not a cell: the harness keeps its own
+permission layer (Codex's `--ask-for-approval on-request` sends its approvals to
+the person at this terminal), so the attach record and its receipt label the
+lane's permission posture "the harness's own permissions" and claim no
+delegation (target; not built: the label needs a successor of this contract; see
+[`default-harness-profile.md`](../daemon-runtime/default-harness-profile.md#agentharnessadapterenvelope)).
 
 The native Hypervisor client may attach a host PTY only after the attach
 admission exists, then write the daemon-resolved `initial_write` and stream
