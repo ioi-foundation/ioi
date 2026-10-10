@@ -155,6 +155,9 @@ async function run() {
   const bogus = await invoke(A.connector_id, sRef, { wallet_approval_grant: { schema_version: 1, forged: true } });
   ok("ACC-18: a bogus exact grant against the review refuses at the exact lane (never silently admitted, nothing consumed)", bogus.status >= 400 && bogus.body?.ok !== true && consumedIntents() === 2, `${bogus.status}/${bogus.body?.reason}`);
   await jd(`/v1/hypervisor/connectors/${encodeURIComponent(A.connector_id)}/policy`, { method: "POST", body: JSON.stringify({ allowed_tools: null, risk_posture: "standard" }) });
+  const kept = await invoke(A.connector_id, sRef);
+  ok("a policy write that OMITS exact_review_tools keeps the review mark (a mark is cleared only by its own act): the act still takes its exact-effect review and draws nothing", kept.status === 202 && kept.body?.reason === "exact_effect_review_required" && consumedIntents() === 2, `${kept.status}/${kept.body?.reason} · consumed ${consumedIntents()}`);
+  await jd(`/v1/hypervisor/connectors/${encodeURIComponent(A.connector_id)}/policy`, { method: "POST", body: JSON.stringify({ allowed_tools: null, risk_posture: "standard", exact_review_tools: [] }) });
   const third = await invoke(A.connector_id, sRef);
   ok("with the policy mark removed the act is silent again — silence is a policy outcome, not a UI choice", third.status === 200 && third.body?.ok === true && consumedIntents() === 3, `${third.status} · consumed ${consumedIntents()}`);
 

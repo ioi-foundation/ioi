@@ -3595,7 +3595,12 @@ outcome**, never a presentation choice:
   (payload hash, destination, subject session, policy and request commitments,
   expiry) and refuses to draw the envelope; only an exact grant bound to that
   request admits it. A standing envelope, budget or device posture cannot
-  suppress this;
+  suppress this. A review mark survives an org-policy write that omits the
+  marks, and clearing one is its own act; the marks are signed with the
+  envelope, as part of Set limits' one signature (target contract; today they
+  are an unsigned field of the connector's org policy). A marked tool's review
+  is the operator's explicit, counted per-run lane, beside a session that names
+  no connection;
 - typed refusal — the act is outside the envelope (usages, budget, expiry,
   revoked lease, tool outside the template): the daemon refuses naming the
   bound, records a refusal receipt on the session, and points widening at

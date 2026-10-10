@@ -17923,13 +17923,18 @@ pub(crate) async fn handle_connector_set_policy(
                 .unwrap_or(false)
         });
     // M13.5: tools the org policy marks for individual exact-effect review; a standing envelope
-    // never admits them silently. Absent → none marked (the prior value is NOT preserved: the
-    // policy is set whole, so a stale mark cannot outlive the policy that carried it).
+    // never admits them silently. Absent → the prior marks are PRESERVED (the owner's set-once
+    // ruling, 2026-09-29): a policy write that omits them must never clear a review mark the
+    // operator set; clearing is its own explicit act (an array, `[]` clearing every mark).
     let exact_review_tools = body
         .get("exact_review_tools")
         .cloned()
         .filter(Value::is_array)
-        .unwrap_or_else(|| json!([]));
+        .unwrap_or_else(|| {
+            Some(connector["org_policy"]["exact_review_tools"].clone())
+                .filter(Value::is_array)
+                .unwrap_or_else(|| json!([]))
+        });
     let org_policy = json!({ "allowed_tools": allowed_tools, "risk_posture": risk_posture, "principal_scoped": principal_scoped, "exact_review_tools": exact_review_tools, "set_at": iso_now() });
     connector["org_policy"] = org_policy.clone();
     // This is an enforcement control, not a preference: the invoke crossing refuses with
