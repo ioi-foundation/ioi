@@ -78,6 +78,12 @@ def encode_glb(source, destination, motion):
     document['animations']=animations
     document['buffers']=[{'byteLength':len(binary)}]
     document.setdefault('asset',{}).setdefault('extras',{})['avatarMotionRevision']='performance-v1'
+    if ((document.get('extensions') or {}).get('VRMC_vrm') or {}).get('meta') is not None:
+        # A derived VRM must not present itself as the unmodified base sample (attribute_vrm.py; vrm-attribution.json).
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('attribute_vrm',Path(__file__).resolve().parent/'attribute_vrm.py')
+        attribution=importlib.util.module_from_spec(spec);spec.loader.exec_module(attribution)
+        attribution.attribute(document)
     js=json.dumps(document,separators=(',',':')).encode()
     js+=b' '*((-len(js))%4);binary.extend(b'\0'*((-len(binary))%4))
     destination.write_bytes(struct.pack('<4sII',b'glTF',2,12+8+len(js)+8+len(binary))+struct.pack('<II',len(js),0x4e4f534a)+js+struct.pack('<II',len(binary),0x004e4942)+binary)

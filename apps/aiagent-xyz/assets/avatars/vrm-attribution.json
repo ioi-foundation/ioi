@@ -1,0 +1,13 @@
+{
+  "schema": "aiagent.vrm-attribution.v1",
+  "applies_to": "every VRM the avatar pipeline derives from pixiv Inc.'s VRM1_Constraint_Twist_Sample v1.0.1",
+  "base_identity": { "name": "VRM1_Constraint_Twist_Sample", "version": "v1.0.1", "authors": ["pixiv Inc."] },
+  "set": {
+    "name": "aiagent.xyz anime performance",
+    "version": "performance-v1",
+    "authors": ["aiagent.xyz avatar system (modifications)", "pixiv Inc. (base model)"],
+    "copyrightInformation": "Base model: VRM1_Constraint_Twist_Sample v1.0.1, (c) 2022 pixiv Inc., under the VRM Public License 1.0. Modifications (coat, boots, headband, fitted underlayers, baked motion) by the aiagent.xyz avatar system.",
+    "references": ["https://github.com/pixiv/three-vrm/blob/5a3242b66124386c32b085c6693d9059040e72e5/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm"]
+  },
+  "preserve": ["licenseUrl", "thirdPartyLicenses", "avatarPermission", "allowExcessivelyViolentUsage", "allowExcessivelySexualUsage", "commercialUsage", "allowPoliticalOrReligiousUsage", "allowAntisocialOrHateUsage", "creditNotation", "allowRedistribution", "modification", "otherLicenseUrl"]
+}

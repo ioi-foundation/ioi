@@ -590,8 +590,8 @@
         {
           "quality": "desktop",
           "asset": "/models/avatars/anime-performance-baked-v1.vrm",
-          "bytes": 14859948,
-          "sha256": "50e3f5b3c2008f3e94eba83271c4b8c207ab24704957c74db51f49a2386bf724",
+          "bytes": 14860372,
+          "sha256": "e63335b95d0f1961c2ff445aa3e024e5c86fc2e44037341f7d1fdac65f10fa4d",
           "baseTriangles": 66465,
           "materials": [
             "Body_00_SKIN",
@@ -645,8 +645,8 @@
         {
           "quality": "mobile",
           "asset": "/models/avatars/anime-performance-baked-mobile-v1.vrm",
-          "bytes": 13944516,
-          "sha256": "ea76d47edd502b7f1c32183e177119e13602e233cba534b4ce23586461b22881",
+          "bytes": 13944936,
+          "sha256": "20a8503a4005353577fa5be0cc59dd8af23479f80e13fc3555c02fbf41477a19",
           "baseTriangles": 38387,
           "materials": [
             "Body_00_SKIN",
@@ -712,7 +712,8 @@
         "sha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
         "license": "VRM Public License 1.0 with embedded metadata",
         "license_url": "https://vrm.dev/licenses/1.0/",
-        "changes": "Base retained for reproducible authoring. Derived performance model adds coat, boots, headband, fitted underlayers, and baked clips; source license metadata is preserved."
+        "changes": "Base retained for reproducible authoring. Derived performance model adds coat, boots, headband, fitted underlayers, and baked clips; source license metadata is preserved.",
+        "location": "outside git: see assets/avatars/AUTHORING-ARTIFACTS.json"
       },
       {
         "file": "public/models/avatars/human-performance-v1.glb",
@@ -737,6 +738,87 @@
         "source_sha256": "d113107bd7eb59f3af4df6fc0ec29bfcc593f496d0b336aec14f086a80ce7146",
         "license": "CC0-1.0",
         "changes": "Fitted to an authored MakeHuman body; compatible outfit, materials, blend shapes, garment controls, and baked motion."
+      },
+      {
+        "file": "public/models/avatars/anime-performance-baked-v1.vrm",
+        "sha256": "e63335b95d0f1961c2ff445aa3e024e5c86fc2e44037341f7d1fdac65f10fa4d",
+        "derived_from": "assets/avatars/source-models/anime-base-v1.vrm",
+        "authors": [
+          "aiagent.xyz avatar system (modifications)",
+          "pixiv Inc. (base model)"
+        ],
+        "source": "https://github.com/pixiv/three-vrm/blob/5a3242b66124386c32b085c6693d9059040e72e5/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm",
+        "license": "VRM Public License 1.0 with embedded metadata",
+        "license_url": "https://vrm.dev/licenses/1.0/",
+        "public_redistribution": "YES: embedded VRMC_vrm.meta allowRedistribution true, modification allowModificationRedistribution, commercialUsage corporation, avatarPermission everyone (unchanged from the base)",
+        "changes": "Coat, boots, headband, fitted underlayers and baked motion; identity fields rewritten by scripts/avatars/attribute_vrm.py so the model is not presented as the unmodified sample."
+      },
+      {
+        "file": "public/models/avatars/anime-performance-baked-mobile-v1.vrm",
+        "sha256": "20a8503a4005353577fa5be0cc59dd8af23479f80e13fc3555c02fbf41477a19",
+        "derived_from": "assets/avatars/source-models/anime-performance-mobile-v1.vrm",
+        "same_terms_as": "public/models/avatars/anime-performance-baked-v1.vrm",
+        "public_redistribution": "YES (as the desktop model)"
+      },
+      {
+        "file": "public/models/avatars/human-performance-mobile-v1.glb",
+        "sha256": "63d295f43f59a3255df773e39e639d24ca31a5214c4f185d5937f2866d94b417",
+        "same_terms_as": "public/models/avatars/human-performance-v1.glb",
+        "license": "CC0-1.0",
+        "public_redistribution": "YES (MakeHuman and MPFB assets are CC0)"
+      },
+      {
+        "file": "public/models/avatars/robot-study-v1.glb",
+        "sha256": "6630c439ab73a3654f7a33690157b0dd9d8a6ce8d6f34d4177306498b61d6de7",
+        "derived_from": "public/models/cyborg/cyborg_female_separated.glb",
+        "license": "UNCLEAR",
+        "public_redistribution": "UNCLEAR",
+        "missing": "the cyborg mesh's author, how it was acquired, and whether its license allows redistributing it or a derived mesh publicly (owner question routed by the IOI Director, 2026-10-10)"
+      },
+      {
+        "file": "public/models/avatars/robot-study-mobile-v1.glb",
+        "sha256": "8653ec787ccab9386d66e8ac9598ff371bec5919ac14e6b9279ccfe637e8f752",
+        "same_terms_as": "public/models/avatars/robot-study-v1.glb",
+        "license": "UNCLEAR",
+        "public_redistribution": "UNCLEAR"
+      },
+      {
+        "file": "public/models/avatars/portraits/performance-v1/*.webp",
+        "count": 208,
+        "authors": [
+          "aiagent.xyz avatar system (renders)"
+        ],
+        "derived_from": "the anime and human performance models",
+        "public_redistribution": "YES (inherits the anime and human rows)"
+      },
+      {
+        "file": "public/models/avatars/portraits/study-v1/*.webp",
+        "count": 128,
+        "authors": [
+          "aiagent.xyz avatar system (renders)"
+        ],
+        "derived_from": "the robot-study models",
+        "license": "UNCLEAR",
+        "public_redistribution": "UNCLEAR (inherits the robot-study row)"
+      },
+      {
+        "file": "public/{ai-mark,animated-logo,animated-logo-dark,favicon}.svg",
+        "authors": [
+          "the IOI owner (first-party marks)"
+        ],
+        "license": "reserved: brand marks are not licensed by the repository's code or content licenses",
+        "public_redistribution": "YES as the owner's own marks; no trademark rights granted"
+      },
+      {
+        "file": "motion: the entrance, cup-kick, settle and idle clips baked into every avatar model",
+        "authors": [
+          "aiagent.xyz avatar system (procedural authoring: scripts/avatars/build_avatars.py, capture_motion.mjs, bake_motion.py; shared/avatar-choreography.json)"
+        ],
+        "method": "authored procedurally and retargeted; no motion capture and no downloaded clips",
+        "reference": "owner-supplied screenshots of an UNIDENTIFIED 2D animation (plans/aiagent/avatar-system-2026-10-09/, outside every repository)",
+        "license": "UNCLEAR",
+        "public_redistribution": "UNCLEAR",
+        "missing": "the reference animation's title and rights-holder, and an owner or counsel decision on whether a routine, outfits and scene matched to it need clearance (owner question routed by the IOI Director, 2026-10-10)"
       }
     ],
     "authoring_tools": [
