@@ -571,6 +571,18 @@ Term map for product surfaces:
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
 | ContributionReceipt | contribution record, payout evidence, attribution |
 | Work Credits | managed-work allowance and usage budget |
+| standing envelope, standing grant, `session_execute` | your limits on a connection; "Runs Sessions on this computer" |
+
+**The vocabulary binds every surface a user sees, the served App and its pages
+included** (2026-09-30, the owner's rule that the bounded alpha may limit what
+the product does, never how it looks, reads or asks). A served page renders
+product names: limits, runs, budget, permissions. It never renders envelope,
+grant, custody, passphrase, authority node, operation ids, reason codes or exit
+codes outside Evidence, developer views, `--json` and `--verbose`, and the
+consumer-path vocabulary check scans the served routes as well as the native
+surfaces. Until standing limits are signed with the principal's passkey (not
+built), the served Set limits and Remove limits forms ask for "your password
+on this computer", never an operator passphrase.
 
 Application-owned terms map in their owner's canon, not here: the
 `OutcomeRoom` / `CollaborativeWorkGraph` and
