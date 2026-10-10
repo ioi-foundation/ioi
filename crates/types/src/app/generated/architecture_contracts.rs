@@ -270,6 +270,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/work-claim-lease-envelope/v1", "sha256:ebe0f6bca0871c8be2c763bc4c9b29cd558bb58ef6ca4262c010f7e1fda05ed5"),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v1", "sha256:7f20bf2e1c5cf6e056051a647676c045f41d0af0ccd418805eb8e9f2a280d627"),
     ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", "sha256:0512d443c8bbfe28b3f4ff9906ee081b0a471506882a9f6fb891d7697c4aebb7"),
+    ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2", "sha256:3d5b4f764328d84b64dc55fae2d40fbec1efa41057055d815818357ba67838e8"),
     ("schema://ioi/foundations/objects/attempt-envelope/v1", "sha256:8f96ce5059c6b5c0deac5ee781f29f709b17ad5b314a7ecb6655773de687d21b"),
     ("schema://ioi/foundations/objects/finding-envelope/v1", "sha256:3f6670b624ce8921e3aacaa62a3caa25bf7754e325f2848050cb54d0b78887d5"),
     ("schema://ioi/foundations/objects/work-result-envelope/v1", "sha256:71268aebf0e18716c1d964bb99c403542ff87b7dc39365e24fc4d21071963c04"),
@@ -102123,6 +102124,1207 @@ pub enum LocalAgentPairingSessionEnvelopeV1Status {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2 {
+    pub schema_version: LocalAgentPairingSessionEnvelopeV2SchemaVersion,
+    pub pairing_session_id: String,
+    pub initiated_by_ref: String,
+    pub initiating_surface_ref: String,
+    pub target_kind: LocalAgentPairingSessionEnvelopeV2TargetKind,
+    pub target_scope_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_discovery_ref: Option<String>,
+    pub claimed_local_agent: LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgent,
+    pub pairing_transport: LocalAgentPairingSessionEnvelopeV2PairingTransport,
+    pub challenge: Option<LocalAgentPairingSessionEnvelopeV2Challenge>,
+    pub client_binding: Option<LocalAgentPairingSessionEnvelopeV2ClientBinding>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seat_binding: Option<LocalAgentPairingSessionEnvelopeV2SeatBinding>,
+    pub claim_attempt_policy: LocalAgentPairingSessionEnvelopeV2ClaimAttemptPolicy,
+    pub allowed_bootstrap_actions:
+        Vec<LocalAgentPairingSessionEnvelopeV2AllowedBootstrapActionsItem>,
+    pub bootstrap_non_grants: LocalAgentPairingSessionEnvelopeV2BootstrapNonGrants,
+    pub submission_refs: LocalAgentPairingSessionEnvelopeV2SubmissionRefs,
+    pub contribution_lane: LocalAgentPairingSessionEnvelopeV2ContributionLane,
+    pub assurance_posture: LocalAgentPairingSessionEnvelopeV2AssurancePosture,
+    pub failure_reason_code: Option<LocalAgentPairingSessionEnvelopeV2FailureReasonCode>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub completed_at: Option<String>,
+    pub status: LocalAgentPairingSessionEnvelopeV2Status,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","title":"LocalAgentPairingSessionEnvelope","x-ioi-schema-version":"ioi.foundations.local-agent-pairing-session-envelope.v2","description":"The short-lived, pre-AIIP bootstrap contract binding one product-initiated pairing challenge to one local client key and origin, so an already-running user-owned local agent can submit typed proposals without receiving ambient product, room, runtime, or authority access. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The `challenge` and `client_binding` subobjects are phase-qualified and null before their phase; the phase rules themselves stay with the owner. `bootstrap_non_grants` is projected as its canon literal `none` values because the contract's whole point is that pairing grants nothing. v2, the successor of v1 (owner ruling, 2026-09-30), adds the `system_driver` target, whose scope is one `system://` ref and which carries no bootstrap action and no submission, since only the principal's separate signed seat binding admits the agent; and the `seat_sheet` transport and `relay_client` origin, by which a vendor's hosted agent's signed claim is carried into the principal's local seat sheet (never through the relay), which only `system_driver` may use. v1 remains valid for the targets it carries. A `system_driver` pairing also records `seat_binding` once the principal signs the seat sheet: a persistent seat bound to the agent's N6 identity (`identity_id`), never to a raw key, whose presented key is checked through KeyStateView `valid_for` on each use, with proof of possession of the bound key; its `agent_ref` (vendor, product, and the model the vendor reports) is declared metadata, never an assurance class or an authorization input; and a minimum assurance, when the seat needs one, is only a grant carrying `caveat://ioi/foundations/min-assurance/v1`, evidenced by a named attester from the registered set.","type":"object","additionalProperties":false,"required":["schema_version","pairing_session_id","initiated_by_ref","initiating_surface_ref","target_kind","target_scope_ref","claimed_local_agent","pairing_transport","challenge","client_binding","claim_attempt_policy","allowed_bootstrap_actions","bootstrap_non_grants","submission_refs","contribution_lane","assurance_posture","failure_reason_code","created_at","updated_at","completed_at","status"],"properties":{"schema_version":{"const":"ioi.foundations.local-agent-pairing-session-envelope.v2"},"pairing_session_id":{"type":"string","pattern":"^local-agent-pairing://[^\\s]{1,500}$"},"initiated_by_ref":{"type":"string","pattern":"^(?:user|org)://[^\\s]{1,500}$"},"initiating_surface_ref":{"type":"string","pattern":"^surface://[^\\s]{1,500}$"},"target_kind":{"enum":["room_guest","private_worker","organization_worker","system_driver"]},"target_scope_ref":{"type":"string","pattern":"^(?:outcome-room|user|org|system)://[^\\s]{1,500}$"},"room_discovery_ref":{"oneOf":[{"type":"string","pattern":"^room-discovery://[^\\s]{1,500}$"},{"type":"null"}]},"claimed_local_agent":{"type":"object","additionalProperties":false,"required":["display_name","resolver_kind","resolver_revision_ref","resolver_content_hash","semantic_harness_profile_revision_ref","semantic_harness_profile_content_hash","execution_posture"],"properties":{"display_name":{"type":"string","minLength":1,"maxLength":500},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"semantic_harness_profile_revision_ref":{"oneOf":[{"type":"string","pattern":"^harness-profile://[^\\s]{1,500}$"},{"type":"null"}]},"semantic_harness_profile_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"execution_posture":{"enum":["instrumented_adapter","prompt_only"]}}},"pairing_transport":{"enum":["loopback","device_code","copy_command","seat_sheet"]},"challenge":{"oneOf":[{"type":"object","additionalProperties":false,"required":["challenge_hash","authentication_factor_kind","issued_at","expires_at","single_use"],"properties":{"challenge_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authentication_factor_kind":{"enum":["one_time_challenge","device_code","signed_nonce"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"single_use":{"const":true}}},{"type":"null"}]},"client_binding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["agent_public_key_ref","proof_of_possession_hash","origin_kind","origin_binding_hash","bound_at"],"properties":{"agent_public_key_ref":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"proof_of_possession_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"origin_kind":{"enum":["loopback_endpoint","device_client","bootstrap_client","relay_client"]},"origin_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"bound_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},{"type":"null"}]},"seat_binding":{"description":"system_driver only (rule 4), and null until the principal signs the seat sheet; pairing never writes it. The record, on the completed system_driver pairing it names, of the principal's one signed seat binding: a PERSISTENT seat binds the agent's N6 identity (identity_id), never a raw key, so the identity's rotation and freeze apply to the seat without re-pairing; each use of the credential checks the presented key through KeyStateView valid_for; and the binding carries proof of possession of the bound key (the key the pairing's client_binding bound).","oneOf":[{"type":"object","additionalProperties":false,"required":["seat_ref","seat_persistence","identity_id","presented_key_check","bound_key_ref","proof_of_possession_hash","agent_ref","min_assurance","bound_at"],"properties":{"seat_ref":{"type":"string","pattern":"^seat://[^\\s]{1,500}$"},"seat_persistence":{"const":"persistent"},"identity_id":{"type":"string","pattern":"^[0-9a-f]{64}$"},"presented_key_check":{"const":"key_state_view_valid_for"},"bound_key_ref":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"proof_of_possession_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"agent_ref":{"type":"object","additionalProperties":false,"description":"DECLARED metadata naming the agent the credential agent(agent_ref, seat_ref) is issued to: its vendor, its product, and the model as the vendor reports it. Each value is data the agent declares, never a schema label. agent_ref is never an assurance class and never an authorization input: no assurance or authorization field of this contract reads it, and a minimum assurance is carried only by min_assurance.","required":["vendor","product","vendor_reported_model","assurance_input","authorization_input"],"properties":{"vendor":{"type":"string","minLength":1,"maxLength":500},"product":{"type":"string","minLength":1,"maxLength":500},"vendor_reported_model":{"oneOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"assurance_input":{"const":false},"authorization_input":{"const":false}}},"min_assurance":{"oneOf":[{"type":"object","additionalProperties":false,"description":"A seat that needs a minimum assurance gets a grant carrying caveat://ioi/foundations/min-assurance/v1, evidenced by a NAMED attester from the registered set: the pinned class order and attester set (by digest), the class, the attester's N6 identity, and the attestation's digest. A class that the agent or its vendor only declares is never a bound.","required":["grant_ref","caveat_ref","class_order_ref","attester_set_ref","min_class","attester_identity_id","attestation_hash"],"properties":{"grant_ref":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"caveat_ref":{"const":"caveat://ioi/foundations/min-assurance/v1"},"class_order_ref":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"attester_set_ref":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"min_class":{"type":"string","minLength":1,"maxLength":500},"attester_identity_id":{"type":"string","pattern":"^[0-9a-f]{64}$"},"attestation_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},{"type":"null"}]},"bound_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}},{"type":"null"}]},"claim_attempt_policy":{"type":"object","additionalProperties":false,"required":["failed_attempt_limit","failed_attempt_count","rate_limit_policy_ref"],"properties":{"failed_attempt_limit":{"type":"integer","minimum":1,"maximum":9007199254740991},"failed_attempt_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"rate_limit_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}},"allowed_bootstrap_actions":{"type":"array","uniqueItems":true,"items":{"enum":["read_discovery","submit_worker_composition","submit_room_participation_request"]}},"bootstrap_non_grants":{"type":"object","additionalProperties":false,"required":["authority","room_membership","room_database_access","private_context_access","connector_or_secret_access","budget_or_spend","effect_execution"],"properties":{"authority":{"const":"none"},"room_membership":{"const":"none"},"room_database_access":{"const":"none"},"private_context_access":{"const":"none"},"connector_or_secret_access":{"const":"none"},"budget_or_spend":{"const":"none"},"effect_execution":{"const":"none"}}},"submission_refs":{"type":"object","additionalProperties":false,"required":["worker_composition_ref","room_participation_request_ref","first_aiip_packet_ref"],"properties":{"worker_composition_ref":{"oneOf":[{"type":"string","pattern":"^composition://[^\\s]{1,500}$"},{"type":"null"}]},"room_participation_request_ref":{"oneOf":[{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},{"type":"null"}]},"first_aiip_packet_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]}}},"contribution_lane":{"enum":["instrumented_candidate","proposal_only"]},"assurance_posture":{"type":"object","additionalProperties":false,"required":["pairing_proves","prompt_only_ceiling"],"properties":{"pairing_proves":{"const":"client_key_and_origin_binding_only"},"prompt_only_ceiling":{"const":"attested"}}},"failure_reason_code":{"oneOf":[{"enum":["challenge_expired","challenge_replayed","invalid_proof","key_mismatch","origin_mismatch","attempt_exhausted","rate_limited","scope_escalation","malformed_submission","policy_denied","target_unavailable"]},{"type":"null"}]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"completed_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"status":{"enum":["created","challenge_issued","agent_proof_received","bootstrap_bound","composition_submitted","participation_submitted","completed","expired","rejected","cancelled","revoked","failed_closed"]}},"allOf":[{"if":{"type":"object","properties":{"target_kind":{"const":"system_driver"}},"required":["target_kind"]},"then":{"type":"object","description":"A system_driver pairing binds a candidate for one System's driver seat and nothing else: its scope is a system:// ref, it reads no discovery and submits no composition or participation request, and only the principal's separate signed seat binding admits it.","properties":{"target_scope_ref":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"room_discovery_ref":{"type":"null"},"allowed_bootstrap_actions":{"type":"array","maxItems":0},"submission_refs":{"type":"object","properties":{"worker_composition_ref":{"type":"null"},"room_participation_request_ref":{"type":"null"},"first_aiip_packet_ref":{"type":"null"}}}}}},{"if":{"type":"object","properties":{"target_kind":{"enum":["room_guest","private_worker","organization_worker"]}},"required":["target_kind"]},"then":{"type":"object","description":"A system:// scope belongs to system_driver alone; the v1 targets keep their v1 scopes.","properties":{"target_scope_ref":{"type":"string","pattern":"^(?:outcome-room|user|org)://[^\\s]{1,500}$"}}}},{"if":{"type":"object","properties":{"pairing_transport":{"const":"seat_sheet"}},"required":["pairing_transport"]},"then":{"type":"object","description":"Only a system_driver claim is made through the principal's local seat sheet; a room guest or reusable worker pairs as in v1.","properties":{"target_kind":{"const":"system_driver"}}}},{"if":{"type":"object","properties":{"client_binding":{"type":"object","properties":{"origin_kind":{"const":"relay_client"}},"required":["origin_kind"]}},"required":["client_binding"]},"then":{"type":"object","description":"A relay_client origin, the origin a seated hosted agent calls from through the principal's relay, is bound only by a claim made through the local seat sheet.","properties":{"pairing_transport":{"const":"seat_sheet"}}}},{"if":{"type":"object","properties":{"seat_binding":{"type":"object"}},"required":["seat_binding"]},"then":{"type":"object","description":"A seat binding belongs to a system_driver pairing alone: a room guest or reusable worker is never bound to a System's driver seat.","properties":{"target_kind":{"const":"system_driver"}}}}]}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<LocalAgentPairingSessionEnvelopeV2SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            pairing_session_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pairing_session_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pairing_session_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initiated_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initiated_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initiated_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initiating_surface_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initiating_surface_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initiating_surface_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_kind: serde_json::from_value::<LocalAgentPairingSessionEnvelopeV2TargetKind>(
+                object
+                    .remove(r#"target_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_discovery_ref: match object.remove(r#"room_discovery_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            claimed_local_agent: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgent,
+            >(
+                object
+                    .remove(r#"claimed_local_agent"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claimed_local_agent"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pairing_transport: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2PairingTransport,
+            >(
+                object
+                    .remove(r#"pairing_transport"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pairing_transport"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge:
+                serde_json::from_value::<Option<LocalAgentPairingSessionEnvelopeV2Challenge>>(
+                    object
+                        .remove(r#"challenge"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"challenge"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            client_binding: serde_json::from_value::<
+                Option<LocalAgentPairingSessionEnvelopeV2ClientBinding>,
+            >(
+                object
+                    .remove(r#"client_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"client_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            seat_binding: match object.remove(r#"seat_binding"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<LocalAgentPairingSessionEnvelopeV2SeatBinding>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            claim_attempt_policy: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2ClaimAttemptPolicy,
+            >(
+                object
+                    .remove(r#"claim_attempt_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_attempt_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            allowed_bootstrap_actions: serde_json::from_value::<
+                Vec<LocalAgentPairingSessionEnvelopeV2AllowedBootstrapActionsItem>,
+            >(
+                object
+                    .remove(r#"allowed_bootstrap_actions"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"allowed_bootstrap_actions"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bootstrap_non_grants: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2BootstrapNonGrants,
+            >(
+                object
+                    .remove(r#"bootstrap_non_grants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bootstrap_non_grants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            submission_refs: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2SubmissionRefs,
+            >(
+                object
+                    .remove(r#"submission_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"submission_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contribution_lane: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2ContributionLane,
+            >(
+                object
+                    .remove(r#"contribution_lane"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contribution_lane"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_posture: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2AssurancePosture,
+            >(
+                object
+                    .remove(r#"assurance_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assurance_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_reason_code: serde_json::from_value::<
+                Option<LocalAgentPairingSessionEnvelopeV2FailureReasonCode>,
+            >(
+                object
+                    .remove(r#"failure_reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failure_reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            completed_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"completed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"completed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<LocalAgentPairingSessionEnvelopeV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.local-agent-pairing-session-envelope.v2"#)]
+    IoiFoundationsLocalAgentPairingSessionEnvelopeV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2TargetKind {
+    #[serde(rename = r#"room_guest"#)]
+    RoomGuest,
+    #[serde(rename = r#"private_worker"#)]
+    PrivateWorker,
+    #[serde(rename = r#"organization_worker"#)]
+    OrganizationWorker,
+    #[serde(rename = r#"system_driver"#)]
+    SystemDriver,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgent {
+    pub display_name: String,
+    pub resolver_kind: LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgentResolverKind,
+    pub resolver_revision_ref: Option<String>,
+    pub resolver_content_hash: Option<String>,
+    pub semantic_harness_profile_revision_ref: Option<String>,
+    pub semantic_harness_profile_content_hash: Option<String>,
+    pub execution_posture: LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgentExecutionPosture,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["display_name","resolver_kind","resolver_revision_ref","resolver_content_hash","semantic_harness_profile_revision_ref","semantic_harness_profile_content_hash","execution_posture"],"properties":{"display_name":{"type":"string","minLength":1,"maxLength":500},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"semantic_harness_profile_revision_ref":{"oneOf":[{"type":"string","pattern":"^harness-profile://[^\\s]{1,500}$"},{"type":"null"}]},"semantic_harness_profile_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"execution_posture":{"enum":["instrumented_adapter","prompt_only"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolver_kind: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgentResolverKind,
+            >(
+                object
+                    .remove(r#"resolver_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolver_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolver_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resolver_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolver_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolver_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resolver_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolver_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_harness_profile_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"semantic_harness_profile_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_harness_profile_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_harness_profile_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"semantic_harness_profile_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_harness_profile_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            execution_posture: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgentExecutionPosture,
+            >(
+                object
+                    .remove(r#"execution_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"execution_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgentResolverKind {
+    #[serde(rename = r#"harness_profile"#)]
+    HarnessProfile,
+    #[serde(rename = r#"agent_harness_adapter"#)]
+    AgentHarnessAdapter,
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2ClaimedLocalAgentExecutionPosture {
+    #[serde(rename = r#"instrumented_adapter"#)]
+    InstrumentedAdapter,
+    #[serde(rename = r#"prompt_only"#)]
+    PromptOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2PairingTransport {
+    #[serde(rename = r#"loopback"#)]
+    Loopback,
+    #[serde(rename = r#"device_code"#)]
+    DeviceCode,
+    #[serde(rename = r#"copy_command"#)]
+    CopyCommand,
+    #[serde(rename = r#"seat_sheet"#)]
+    SeatSheet,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2Challenge {
+    pub challenge_hash: String,
+    pub authentication_factor_kind:
+        LocalAgentPairingSessionEnvelopeV2ChallengeAuthenticationFactorKind,
+    pub issued_at: String,
+    pub expires_at: String,
+    pub single_use: LocalAgentPairingSessionEnvelopeV2ChallengeSingleUse,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2Challenge {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["challenge_hash","authentication_factor_kind","issued_at","expires_at","single_use"],"properties":{"challenge_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authentication_factor_kind":{"enum":["one_time_challenge","device_code","signed_nonce"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"single_use":{"const":true}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            challenge_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"challenge_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authentication_factor_kind: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2ChallengeAuthenticationFactorKind,
+            >(
+                object
+                    .remove(r#"authentication_factor_kind"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authentication_factor_kind"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            single_use: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2ChallengeSingleUse,
+            >(
+                object
+                    .remove(r#"single_use"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"single_use"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2ChallengeAuthenticationFactorKind {
+    #[serde(rename = r#"one_time_challenge"#)]
+    OneTimeChallenge,
+    #[serde(rename = r#"device_code"#)]
+    DeviceCode,
+    #[serde(rename = r#"signed_nonce"#)]
+    SignedNonce,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalAgentPairingSessionEnvelopeV2ChallengeSingleUse {
+    True,
+}
+
+impl serde::Serialize for LocalAgentPairingSessionEnvelopeV2ChallengeSingleUse {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2ChallengeSingleUse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2ClientBinding {
+    pub agent_public_key_ref: String,
+    pub proof_of_possession_hash: String,
+    pub origin_kind: LocalAgentPairingSessionEnvelopeV2ClientBindingOriginKind,
+    pub origin_binding_hash: String,
+    pub bound_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2ClientBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["agent_public_key_ref","proof_of_possession_hash","origin_kind","origin_binding_hash","bound_at"],"properties":{"agent_public_key_ref":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"proof_of_possession_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"origin_kind":{"enum":["loopback_endpoint","device_client","bootstrap_client","relay_client"]},"origin_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"bound_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            agent_public_key_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agent_public_key_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agent_public_key_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proof_of_possession_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proof_of_possession_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proof_of_possession_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin_kind: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2ClientBindingOriginKind,
+            >(
+                object
+                    .remove(r#"origin_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin_binding_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"origin_binding_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin_binding_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"bound_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bound_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2ClientBindingOriginKind {
+    #[serde(rename = r#"loopback_endpoint"#)]
+    LoopbackEndpoint,
+    #[serde(rename = r#"device_client"#)]
+    DeviceClient,
+    #[serde(rename = r#"bootstrap_client"#)]
+    BootstrapClient,
+    #[serde(rename = r#"relay_client"#)]
+    RelayClient,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2SeatBinding {
+    pub seat_ref: String,
+    pub seat_persistence: LocalAgentPairingSessionEnvelopeV2SeatBindingSeatPersistence,
+    pub identity_id: String,
+    pub presented_key_check: LocalAgentPairingSessionEnvelopeV2SeatBindingPresentedKeyCheck,
+    pub bound_key_ref: String,
+    pub proof_of_possession_hash: String,
+    pub agent_ref: LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRef,
+    pub min_assurance: Option<LocalAgentPairingSessionEnvelopeV2SeatBindingMinAssurance>,
+    pub bound_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2SeatBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["seat_ref","seat_persistence","identity_id","presented_key_check","bound_key_ref","proof_of_possession_hash","agent_ref","min_assurance","bound_at"],"properties":{"seat_ref":{"type":"string","pattern":"^seat://[^\\s]{1,500}$"},"seat_persistence":{"const":"persistent"},"identity_id":{"type":"string","pattern":"^[0-9a-f]{64}$"},"presented_key_check":{"const":"key_state_view_valid_for"},"bound_key_ref":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"proof_of_possession_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"agent_ref":{"type":"object","additionalProperties":false,"description":"DECLARED metadata naming the agent the credential agent(agent_ref, seat_ref) is issued to: its vendor, its product, and the model as the vendor reports it. Each value is data the agent declares, never a schema label. agent_ref is never an assurance class and never an authorization input: no assurance or authorization field of this contract reads it, and a minimum assurance is carried only by min_assurance.","required":["vendor","product","vendor_reported_model","assurance_input","authorization_input"],"properties":{"vendor":{"type":"string","minLength":1,"maxLength":500},"product":{"type":"string","minLength":1,"maxLength":500},"vendor_reported_model":{"oneOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"assurance_input":{"const":false},"authorization_input":{"const":false}}},"min_assurance":{"oneOf":[{"type":"object","additionalProperties":false,"description":"A seat that needs a minimum assurance gets a grant carrying caveat://ioi/foundations/min-assurance/v1, evidenced by a NAMED attester from the registered set: the pinned class order and attester set (by digest), the class, the attester's N6 identity, and the attestation's digest. A class that the agent or its vendor only declares is never a bound.","required":["grant_ref","caveat_ref","class_order_ref","attester_set_ref","min_class","attester_identity_id","attestation_hash"],"properties":{"grant_ref":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"caveat_ref":{"const":"caveat://ioi/foundations/min-assurance/v1"},"class_order_ref":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"attester_set_ref":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"min_class":{"type":"string","minLength":1,"maxLength":500},"attester_identity_id":{"type":"string","pattern":"^[0-9a-f]{64}$"},"attestation_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},{"type":"null"}]},"bound_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            seat_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"seat_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"seat_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            seat_persistence: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2SeatBindingSeatPersistence,
+            >(
+                object
+                    .remove(r#"seat_persistence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"seat_persistence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"identity_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            presented_key_check: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2SeatBindingPresentedKeyCheck,
+            >(
+                object
+                    .remove(r#"presented_key_check"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"presented_key_check"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_key_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bound_key_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bound_key_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proof_of_possession_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proof_of_possession_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proof_of_possession_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agent_ref: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRef,
+            >(
+                object
+                    .remove(r#"agent_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agent_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            min_assurance: serde_json::from_value::<
+                Option<LocalAgentPairingSessionEnvelopeV2SeatBindingMinAssurance>,
+            >(
+                object
+                    .remove(r#"min_assurance"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"min_assurance"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bound_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bound_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2SeatBindingSeatPersistence {
+    #[serde(rename = r#"persistent"#)]
+    Persistent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2SeatBindingPresentedKeyCheck {
+    #[serde(rename = r#"key_state_view_valid_for"#)]
+    KeyStateViewValidFor,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRef {
+    pub vendor: String,
+    pub product: String,
+    pub vendor_reported_model: Option<String>,
+    pub assurance_input: LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAssuranceInput,
+    pub authorization_input:
+        LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAuthorizationInput,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"description":"DECLARED metadata naming the agent the credential agent(agent_ref, seat_ref) is issued to: its vendor, its product, and the model as the vendor reports it. Each value is data the agent declares, never a schema label. agent_ref is never an assurance class and never an authorization input: no assurance or authorization field of this contract reads it, and a minimum assurance is carried only by min_assurance.","required":["vendor","product","vendor_reported_model","assurance_input","authorization_input"],"properties":{"vendor":{"type":"string","minLength":1,"maxLength":500},"product":{"type":"string","minLength":1,"maxLength":500},"vendor_reported_model":{"oneOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"assurance_input":{"const":false},"authorization_input":{"const":false}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            vendor: serde_json::from_value::<String>(
+                object
+                    .remove(r#"vendor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"vendor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            product: serde_json::from_value::<String>(
+                object
+                    .remove(r#"product"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"product"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            vendor_reported_model: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"vendor_reported_model"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"vendor_reported_model"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_input: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAssuranceInput,
+            >(
+                object
+                    .remove(r#"assurance_input"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assurance_input"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authorization_input: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAuthorizationInput,
+            >(
+                object
+                    .remove(r#"authorization_input"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authorization_input"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAssuranceInput {
+    False,
+}
+
+impl serde::Serialize for LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAssuranceInput {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAssuranceInput
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAuthorizationInput {
+    False,
+}
+
+impl serde::Serialize for LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAuthorizationInput {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for LocalAgentPairingSessionEnvelopeV2SeatBindingAgentRefAuthorizationInput
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2SeatBindingMinAssurance {
+    pub grant_ref: String,
+    pub caveat_ref: LocalAgentPairingSessionEnvelopeV2SeatBindingMinAssuranceCaveatRef,
+    pub class_order_ref: String,
+    pub attester_set_ref: String,
+    pub min_class: String,
+    pub attester_identity_id: String,
+    pub attestation_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2SeatBindingMinAssurance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"description":"A seat that needs a minimum assurance gets a grant carrying caveat://ioi/foundations/min-assurance/v1, evidenced by a NAMED attester from the registered set: the pinned class order and attester set (by digest), the class, the attester's N6 identity, and the attestation's digest. A class that the agent or its vendor only declares is never a bound.","required":["grant_ref","caveat_ref","class_order_ref","attester_set_ref","min_class","attester_identity_id","attestation_hash"],"properties":{"grant_ref":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"caveat_ref":{"const":"caveat://ioi/foundations/min-assurance/v1"},"class_order_ref":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"attester_set_ref":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"min_class":{"type":"string","minLength":1,"maxLength":500},"attester_identity_id":{"type":"string","pattern":"^[0-9a-f]{64}$"},"attestation_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            grant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"grant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            caveat_ref: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2SeatBindingMinAssuranceCaveatRef,
+            >(
+                object
+                    .remove(r#"caveat_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"caveat_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            class_order_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"class_order_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"class_order_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attester_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attester_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attester_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            min_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"min_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"min_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attester_identity_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attester_identity_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attester_identity_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attestation_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attestation_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attestation_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2SeatBindingMinAssuranceCaveatRef {
+    #[serde(rename = r#"caveat://ioi/foundations/min-assurance/v1"#)]
+    CaveatIoiFoundationsMinAssuranceV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2ClaimAttemptPolicy {
+    pub failed_attempt_limit: ArchitectureContractInteger,
+    pub failed_attempt_count: ArchitectureContractInteger,
+    pub rate_limit_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2ClaimAttemptPolicy {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["failed_attempt_limit","failed_attempt_count","rate_limit_policy_ref"],"properties":{"failed_attempt_limit":{"type":"integer","minimum":1,"maximum":9007199254740991},"failed_attempt_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"rate_limit_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            failed_attempt_limit: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"failed_attempt_limit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failed_attempt_limit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failed_attempt_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"failed_attempt_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failed_attempt_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_limit_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_limit_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_limit_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2AllowedBootstrapActionsItem {
+    #[serde(rename = r#"read_discovery"#)]
+    ReadDiscovery,
+    #[serde(rename = r#"submit_worker_composition"#)]
+    SubmitWorkerComposition,
+    #[serde(rename = r#"submit_room_participation_request"#)]
+    SubmitRoomParticipationRequest,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2BootstrapNonGrants {
+    pub authority: LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsAuthority,
+    pub room_membership: LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsRoomMembership,
+    pub room_database_access:
+        LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsRoomDatabaseAccess,
+    pub private_context_access:
+        LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsPrivateContextAccess,
+    pub connector_or_secret_access:
+        LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsConnectorOrSecretAccess,
+    pub budget_or_spend: LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsBudgetOrSpend,
+    pub effect_execution: LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsEffectExecution,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2BootstrapNonGrants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["authority","room_membership","room_database_access","private_context_access","connector_or_secret_access","budget_or_spend","effect_execution"],"properties":{"authority":{"const":"none"},"room_membership":{"const":"none"},"room_database_access":{"const":"none"},"private_context_access":{"const":"none"},"connector_or_secret_access":{"const":"none"},"budget_or_spend":{"const":"none"},"effect_execution":{"const":"none"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsAuthority,
+            >(
+                object
+                    .remove(r#"authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_membership: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsRoomMembership,
+            >(
+                object
+                    .remove(r#"room_membership"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_membership"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_database_access: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsRoomDatabaseAccess,
+            >(
+                object
+                    .remove(r#"room_database_access"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_database_access"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            private_context_access: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsPrivateContextAccess,
+            >(
+                object
+                    .remove(r#"private_context_access"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"private_context_access"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_or_secret_access: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsConnectorOrSecretAccess,
+            >(
+                object
+                    .remove(r#"connector_or_secret_access"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connector_or_secret_access"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_or_spend: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsBudgetOrSpend,
+            >(
+                object
+                    .remove(r#"budget_or_spend"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget_or_spend"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_execution: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsEffectExecution,
+            >(
+                object
+                    .remove(r#"effect_execution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_execution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsAuthority {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsRoomMembership {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsRoomDatabaseAccess {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsPrivateContextAccess {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsConnectorOrSecretAccess {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsBudgetOrSpend {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2BootstrapNonGrantsEffectExecution {
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2SubmissionRefs {
+    pub worker_composition_ref: Option<String>,
+    pub room_participation_request_ref: Option<String>,
+    pub first_aiip_packet_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2SubmissionRefs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["worker_composition_ref","room_participation_request_ref","first_aiip_packet_ref"],"properties":{"worker_composition_ref":{"oneOf":[{"type":"string","pattern":"^composition://[^\\s]{1,500}$"},{"type":"null"}]},"room_participation_request_ref":{"oneOf":[{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},{"type":"null"}]},"first_aiip_packet_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            worker_composition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"worker_composition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_composition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_participation_request_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"room_participation_request_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"room_participation_request_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            first_aiip_packet_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"first_aiip_packet_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"first_aiip_packet_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2ContributionLane {
+    #[serde(rename = r#"instrumented_candidate"#)]
+    InstrumentedCandidate,
+    #[serde(rename = r#"proposal_only"#)]
+    ProposalOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LocalAgentPairingSessionEnvelopeV2AssurancePosture {
+    pub pairing_proves: LocalAgentPairingSessionEnvelopeV2AssurancePosturePairingProves,
+    pub prompt_only_ceiling: LocalAgentPairingSessionEnvelopeV2AssurancePosturePromptOnlyCeiling,
+}
+
+impl<'de> serde::Deserialize<'de> for LocalAgentPairingSessionEnvelopeV2AssurancePosture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["pairing_proves","prompt_only_ceiling"],"properties":{"pairing_proves":{"const":"client_key_and_origin_binding_only"},"prompt_only_ceiling":{"const":"attested"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            pairing_proves: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2AssurancePosturePairingProves,
+            >(
+                object
+                    .remove(r#"pairing_proves"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pairing_proves"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prompt_only_ceiling: serde_json::from_value::<
+                LocalAgentPairingSessionEnvelopeV2AssurancePosturePromptOnlyCeiling,
+            >(
+                object
+                    .remove(r#"prompt_only_ceiling"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prompt_only_ceiling"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2AssurancePosturePairingProves {
+    #[serde(rename = r#"client_key_and_origin_binding_only"#)]
+    ClientKeyAndOriginBindingOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2AssurancePosturePromptOnlyCeiling {
+    #[serde(rename = r#"attested"#)]
+    Attested,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2FailureReasonCode {
+    #[serde(rename = r#"challenge_expired"#)]
+    ChallengeExpired,
+    #[serde(rename = r#"challenge_replayed"#)]
+    ChallengeReplayed,
+    #[serde(rename = r#"invalid_proof"#)]
+    InvalidProof,
+    #[serde(rename = r#"key_mismatch"#)]
+    KeyMismatch,
+    #[serde(rename = r#"origin_mismatch"#)]
+    OriginMismatch,
+    #[serde(rename = r#"attempt_exhausted"#)]
+    AttemptExhausted,
+    #[serde(rename = r#"rate_limited"#)]
+    RateLimited,
+    #[serde(rename = r#"scope_escalation"#)]
+    ScopeEscalation,
+    #[serde(rename = r#"malformed_submission"#)]
+    MalformedSubmission,
+    #[serde(rename = r#"policy_denied"#)]
+    PolicyDenied,
+    #[serde(rename = r#"target_unavailable"#)]
+    TargetUnavailable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LocalAgentPairingSessionEnvelopeV2Status {
+    #[serde(rename = r#"created"#)]
+    Created,
+    #[serde(rename = r#"challenge_issued"#)]
+    ChallengeIssued,
+    #[serde(rename = r#"agent_proof_received"#)]
+    AgentProofReceived,
+    #[serde(rename = r#"bootstrap_bound"#)]
+    BootstrapBound,
+    #[serde(rename = r#"composition_submitted"#)]
+    CompositionSubmitted,
+    #[serde(rename = r#"participation_submitted"#)]
+    ParticipationSubmitted,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"cancelled"#)]
+    Cancelled,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct AttemptEnvelopeV1 {
     pub schema_version: AttemptEnvelopeV1SchemaVersion,
     pub attempt_id: String,
@@ -186594,6 +187796,110 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/attempt-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json",
         expected_accept: true,
@@ -207558,6 +208864,149 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json"#,
         contract_id: r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
         source_fixture_path: Some(
@@ -222166,6 +223615,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/work-claim-lease-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/work-claim-lease-envelope/v1","title":"WorkClaimLeaseEnvelope","x-ioi-schema-version":"ioi.foundations.work-claim-lease-envelope.v1","description":"The claim lease under which bounded work is awarded. `active` is the executable award and requires the exact accepted terms root, an admitted CollaborationTermsAcceptanceReceipt, the required context/resource/tool/budget leases, applicable authority, and a room/domain admission receipt. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The room-scoped and direct bilateral shapes differ only by which nullable fields are populated; the cross-field rules binding them stay with the owner and are not restated as schema logic.","type":"object","additionalProperties":false,"required":["schema_version","work_claim_id","claimant_ref","collaboration_terms_ref","collaboration_terms_root","terms_acceptance_ref","contribution_policy_ref","settlement_profile_ref","bounded_scope_ref","duplicate_work_policy","issued_at","expires_at","renewal_count","status"],"properties":{"schema_version":{"const":"ioi.foundations.work-claim-lease-envelope.v1"},"work_claim_id":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"frontier_item_ref":{"oneOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"claimant_ref":{"type":"string","pattern":"^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"},"claimant_participant_lease_ref":{"oneOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"eligibility_match_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"task_offer_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"task_acceptance_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"routing_decision_ref":{"oneOf":[{"type":"string","pattern":"^routing-decision://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"quote_ref":{"oneOf":[{"type":"string","pattern":"^quote://[^\\s]{1,500}$"},{"type":"null"}]},"budget_reservation_ref":{"oneOf":[{"type":"string","pattern":"^(?:budget|spend|allocation)://[^\\s]{1,500}$"},{"type":"null"}]},"settlement_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"bounded_scope_ref":{"type":"string","pattern":"^(?:task|task_brief|policy)://[^\\s]{1,500}$"},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^context_lease://[^\\s]{1,500}$"}},"authority_resource_compute_data_budget_and_tool_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"}},"duplicate_work_policy":{"enum":["exclusive","allowed","independent_replication","adversarial_replication"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"heartbeat_ref":{"oneOf":[{"type":"string","pattern":"^(?:heartbeat|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"renewal_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"release_or_reassignment_reason":{"oneOf":[{"type":"string","minLength":1,"maxLength":1000},{"type":"null"}]},"status":{"enum":["proposed","active","waiting","released","expired","reassigned","completed","quarantined","revoked"]}}}"#),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v1","title":"VerifierChallengeEnvelope","x-ioi-schema-version":"ioi.foundations.verifier-challenge-envelope.v1","description":"A typed challenge against a metric, rule, verifier, evidence set, eligibility decision, result, exploit, independence claim, collusion claim, or ontology mapping. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here.","type":"object","additionalProperties":false,"required":["schema_version","verifier_challenge_id","challenger_ref","challenged_ref","challenge_kind","adjudicator_policy_ref","reverification_required","status"],"properties":{"schema_version":{"const":"ioi.foundations.verifier-challenge-envelope.v1"},"verifier_challenge_id":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"challenger_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"},"challenged_ref":{"type":"string","pattern":"^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"},"challenge_kind":{"enum":["metric","rule","verifier","evidence","eligibility","result","exploit","independence","collusion","mapping"]},"challenge_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"adjudicator_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"prior_rule_version_ref":{"oneOf":[{"type":"string","pattern":"^(?:rubric|verifier_path)://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_rule_version_ref":{"oneOf":[{"type":"string","pattern":"^(?:rubric|verifier_path)://[^\\s]{1,500}$"},{"type":"null"}]},"affected_attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"}},"reverification_required":{"type":"boolean"},"adjudication_ref":{"oneOf":[{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["proposed","admitted","investigating","upheld","rejected","rule_changed","reverifying","resolved","withdrawn"]}}}"#),
     ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1","title":"LocalAgentPairingSessionEnvelope","x-ioi-schema-version":"ioi.foundations.local-agent-pairing-session-envelope.v1","description":"The short-lived, pre-AIIP bootstrap contract binding one product-initiated pairing challenge to one local client key and origin, so an already-running user-owned local agent can submit typed proposals without receiving ambient product, room, runtime, or authority access. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The `challenge` and `client_binding` subobjects are phase-qualified and null before their phase; the phase rules themselves stay with the owner. `bootstrap_non_grants` is projected as its canon literal `none` values because the contract's whole point is that pairing grants nothing.","type":"object","additionalProperties":false,"required":["schema_version","pairing_session_id","initiated_by_ref","initiating_surface_ref","target_kind","target_scope_ref","claimed_local_agent","pairing_transport","challenge","client_binding","claim_attempt_policy","allowed_bootstrap_actions","bootstrap_non_grants","submission_refs","contribution_lane","assurance_posture","failure_reason_code","created_at","updated_at","completed_at","status"],"properties":{"schema_version":{"const":"ioi.foundations.local-agent-pairing-session-envelope.v1"},"pairing_session_id":{"type":"string","pattern":"^local-agent-pairing://[^\\s]{1,500}$"},"initiated_by_ref":{"type":"string","pattern":"^(?:user|org)://[^\\s]{1,500}$"},"initiating_surface_ref":{"type":"string","pattern":"^surface://[^\\s]{1,500}$"},"target_kind":{"enum":["room_guest","private_worker","organization_worker"]},"target_scope_ref":{"type":"string","pattern":"^(?:outcome-room|user|org)://[^\\s]{1,500}$"},"room_discovery_ref":{"oneOf":[{"type":"string","pattern":"^room-discovery://[^\\s]{1,500}$"},{"type":"null"}]},"claimed_local_agent":{"type":"object","additionalProperties":false,"required":["display_name","resolver_kind","resolver_revision_ref","resolver_content_hash","semantic_harness_profile_revision_ref","semantic_harness_profile_content_hash","execution_posture"],"properties":{"display_name":{"type":"string","minLength":1,"maxLength":500},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"semantic_harness_profile_revision_ref":{"oneOf":[{"type":"string","pattern":"^harness-profile://[^\\s]{1,500}$"},{"type":"null"}]},"semantic_harness_profile_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"execution_posture":{"enum":["instrumented_adapter","prompt_only"]}}},"pairing_transport":{"enum":["loopback","device_code","copy_command"]},"challenge":{"oneOf":[{"type":"object","additionalProperties":false,"required":["challenge_hash","authentication_factor_kind","issued_at","expires_at","single_use"],"properties":{"challenge_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authentication_factor_kind":{"enum":["one_time_challenge","device_code","signed_nonce"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"single_use":{"const":true}}},{"type":"null"}]},"client_binding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["agent_public_key_ref","proof_of_possession_hash","origin_kind","origin_binding_hash","bound_at"],"properties":{"agent_public_key_ref":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"proof_of_possession_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"origin_kind":{"enum":["loopback_endpoint","device_client","bootstrap_client"]},"origin_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"bound_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},{"type":"null"}]},"claim_attempt_policy":{"type":"object","additionalProperties":false,"required":["failed_attempt_limit","failed_attempt_count","rate_limit_policy_ref"],"properties":{"failed_attempt_limit":{"type":"integer","minimum":1,"maximum":9007199254740991},"failed_attempt_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"rate_limit_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}},"allowed_bootstrap_actions":{"type":"array","uniqueItems":true,"items":{"enum":["read_discovery","submit_worker_composition","submit_room_participation_request"]}},"bootstrap_non_grants":{"type":"object","additionalProperties":false,"required":["authority","room_membership","room_database_access","private_context_access","connector_or_secret_access","budget_or_spend","effect_execution"],"properties":{"authority":{"const":"none"},"room_membership":{"const":"none"},"room_database_access":{"const":"none"},"private_context_access":{"const":"none"},"connector_or_secret_access":{"const":"none"},"budget_or_spend":{"const":"none"},"effect_execution":{"const":"none"}}},"submission_refs":{"type":"object","additionalProperties":false,"required":["worker_composition_ref","room_participation_request_ref","first_aiip_packet_ref"],"properties":{"worker_composition_ref":{"oneOf":[{"type":"string","pattern":"^composition://[^\\s]{1,500}$"},{"type":"null"}]},"room_participation_request_ref":{"oneOf":[{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},{"type":"null"}]},"first_aiip_packet_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]}}},"contribution_lane":{"enum":["instrumented_candidate","proposal_only"]},"assurance_posture":{"type":"object","additionalProperties":false,"required":["pairing_proves","prompt_only_ceiling"],"properties":{"pairing_proves":{"const":"client_key_and_origin_binding_only"},"prompt_only_ceiling":{"const":"attested"}}},"failure_reason_code":{"oneOf":[{"enum":["challenge_expired","challenge_replayed","invalid_proof","key_mismatch","origin_mismatch","attempt_exhausted","rate_limited","scope_escalation","malformed_submission","policy_denied","target_unavailable"]},{"type":"null"}]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"completed_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"status":{"enum":["created","challenge_issued","agent_proof_received","bootstrap_bound","composition_submitted","participation_submitted","completed","expired","rejected","cancelled","revoked","failed_closed"]}}}"#),
+    ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","title":"LocalAgentPairingSessionEnvelope","x-ioi-schema-version":"ioi.foundations.local-agent-pairing-session-envelope.v2","description":"The short-lived, pre-AIIP bootstrap contract binding one product-initiated pairing challenge to one local client key and origin, so an already-running user-owned local agent can submit typed proposals without receiving ambient product, room, runtime, or authority access. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The `challenge` and `client_binding` subobjects are phase-qualified and null before their phase; the phase rules themselves stay with the owner. `bootstrap_non_grants` is projected as its canon literal `none` values because the contract's whole point is that pairing grants nothing. v2, the successor of v1 (owner ruling, 2026-09-30), adds the `system_driver` target, whose scope is one `system://` ref and which carries no bootstrap action and no submission, since only the principal's separate signed seat binding admits the agent; and the `seat_sheet` transport and `relay_client` origin, by which a vendor's hosted agent's signed claim is carried into the principal's local seat sheet (never through the relay), which only `system_driver` may use. v1 remains valid for the targets it carries. A `system_driver` pairing also records `seat_binding` once the principal signs the seat sheet: a persistent seat bound to the agent's N6 identity (`identity_id`), never to a raw key, whose presented key is checked through KeyStateView `valid_for` on each use, with proof of possession of the bound key; its `agent_ref` (vendor, product, and the model the vendor reports) is declared metadata, never an assurance class or an authorization input; and a minimum assurance, when the seat needs one, is only a grant carrying `caveat://ioi/foundations/min-assurance/v1`, evidenced by a named attester from the registered set.","type":"object","additionalProperties":false,"required":["schema_version","pairing_session_id","initiated_by_ref","initiating_surface_ref","target_kind","target_scope_ref","claimed_local_agent","pairing_transport","challenge","client_binding","claim_attempt_policy","allowed_bootstrap_actions","bootstrap_non_grants","submission_refs","contribution_lane","assurance_posture","failure_reason_code","created_at","updated_at","completed_at","status"],"properties":{"schema_version":{"const":"ioi.foundations.local-agent-pairing-session-envelope.v2"},"pairing_session_id":{"type":"string","pattern":"^local-agent-pairing://[^\\s]{1,500}$"},"initiated_by_ref":{"type":"string","pattern":"^(?:user|org)://[^\\s]{1,500}$"},"initiating_surface_ref":{"type":"string","pattern":"^surface://[^\\s]{1,500}$"},"target_kind":{"enum":["room_guest","private_worker","organization_worker","system_driver"]},"target_scope_ref":{"type":"string","pattern":"^(?:outcome-room|user|org|system)://[^\\s]{1,500}$"},"room_discovery_ref":{"oneOf":[{"type":"string","pattern":"^room-discovery://[^\\s]{1,500}$"},{"type":"null"}]},"claimed_local_agent":{"type":"object","additionalProperties":false,"required":["display_name","resolver_kind","resolver_revision_ref","resolver_content_hash","semantic_harness_profile_revision_ref","semantic_harness_profile_content_hash","execution_posture"],"properties":{"display_name":{"type":"string","minLength":1,"maxLength":500},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"semantic_harness_profile_revision_ref":{"oneOf":[{"type":"string","pattern":"^harness-profile://[^\\s]{1,500}$"},{"type":"null"}]},"semantic_harness_profile_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"execution_posture":{"enum":["instrumented_adapter","prompt_only"]}}},"pairing_transport":{"enum":["loopback","device_code","copy_command","seat_sheet"]},"challenge":{"oneOf":[{"type":"object","additionalProperties":false,"required":["challenge_hash","authentication_factor_kind","issued_at","expires_at","single_use"],"properties":{"challenge_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authentication_factor_kind":{"enum":["one_time_challenge","device_code","signed_nonce"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"single_use":{"const":true}}},{"type":"null"}]},"client_binding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["agent_public_key_ref","proof_of_possession_hash","origin_kind","origin_binding_hash","bound_at"],"properties":{"agent_public_key_ref":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"proof_of_possession_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"origin_kind":{"enum":["loopback_endpoint","device_client","bootstrap_client","relay_client"]},"origin_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"bound_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},{"type":"null"}]},"seat_binding":{"description":"system_driver only (rule 4), and null until the principal signs the seat sheet; pairing never writes it. The record, on the completed system_driver pairing it names, of the principal's one signed seat binding: a PERSISTENT seat binds the agent's N6 identity (identity_id), never a raw key, so the identity's rotation and freeze apply to the seat without re-pairing; each use of the credential checks the presented key through KeyStateView valid_for; and the binding carries proof of possession of the bound key (the key the pairing's client_binding bound).","oneOf":[{"type":"object","additionalProperties":false,"required":["seat_ref","seat_persistence","identity_id","presented_key_check","bound_key_ref","proof_of_possession_hash","agent_ref","min_assurance","bound_at"],"properties":{"seat_ref":{"type":"string","pattern":"^seat://[^\\s]{1,500}$"},"seat_persistence":{"const":"persistent"},"identity_id":{"type":"string","pattern":"^[0-9a-f]{64}$"},"presented_key_check":{"const":"key_state_view_valid_for"},"bound_key_ref":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"proof_of_possession_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"agent_ref":{"type":"object","additionalProperties":false,"description":"DECLARED metadata naming the agent the credential agent(agent_ref, seat_ref) is issued to: its vendor, its product, and the model as the vendor reports it. Each value is data the agent declares, never a schema label. agent_ref is never an assurance class and never an authorization input: no assurance or authorization field of this contract reads it, and a minimum assurance is carried only by min_assurance.","required":["vendor","product","vendor_reported_model","assurance_input","authorization_input"],"properties":{"vendor":{"type":"string","minLength":1,"maxLength":500},"product":{"type":"string","minLength":1,"maxLength":500},"vendor_reported_model":{"oneOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"assurance_input":{"const":false},"authorization_input":{"const":false}}},"min_assurance":{"oneOf":[{"type":"object","additionalProperties":false,"description":"A seat that needs a minimum assurance gets a grant carrying caveat://ioi/foundations/min-assurance/v1, evidenced by a NAMED attester from the registered set: the pinned class order and attester set (by digest), the class, the attester's N6 identity, and the attestation's digest. A class that the agent or its vendor only declares is never a bound.","required":["grant_ref","caveat_ref","class_order_ref","attester_set_ref","min_class","attester_identity_id","attestation_hash"],"properties":{"grant_ref":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"caveat_ref":{"const":"caveat://ioi/foundations/min-assurance/v1"},"class_order_ref":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"attester_set_ref":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"min_class":{"type":"string","minLength":1,"maxLength":500},"attester_identity_id":{"type":"string","pattern":"^[0-9a-f]{64}$"},"attestation_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},{"type":"null"}]},"bound_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}},{"type":"null"}]},"claim_attempt_policy":{"type":"object","additionalProperties":false,"required":["failed_attempt_limit","failed_attempt_count","rate_limit_policy_ref"],"properties":{"failed_attempt_limit":{"type":"integer","minimum":1,"maximum":9007199254740991},"failed_attempt_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"rate_limit_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}},"allowed_bootstrap_actions":{"type":"array","uniqueItems":true,"items":{"enum":["read_discovery","submit_worker_composition","submit_room_participation_request"]}},"bootstrap_non_grants":{"type":"object","additionalProperties":false,"required":["authority","room_membership","room_database_access","private_context_access","connector_or_secret_access","budget_or_spend","effect_execution"],"properties":{"authority":{"const":"none"},"room_membership":{"const":"none"},"room_database_access":{"const":"none"},"private_context_access":{"const":"none"},"connector_or_secret_access":{"const":"none"},"budget_or_spend":{"const":"none"},"effect_execution":{"const":"none"}}},"submission_refs":{"type":"object","additionalProperties":false,"required":["worker_composition_ref","room_participation_request_ref","first_aiip_packet_ref"],"properties":{"worker_composition_ref":{"oneOf":[{"type":"string","pattern":"^composition://[^\\s]{1,500}$"},{"type":"null"}]},"room_participation_request_ref":{"oneOf":[{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},{"type":"null"}]},"first_aiip_packet_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]}}},"contribution_lane":{"enum":["instrumented_candidate","proposal_only"]},"assurance_posture":{"type":"object","additionalProperties":false,"required":["pairing_proves","prompt_only_ceiling"],"properties":{"pairing_proves":{"const":"client_key_and_origin_binding_only"},"prompt_only_ceiling":{"const":"attested"}}},"failure_reason_code":{"oneOf":[{"enum":["challenge_expired","challenge_replayed","invalid_proof","key_mismatch","origin_mismatch","attempt_exhausted","rate_limited","scope_escalation","malformed_submission","policy_denied","target_unavailable"]},{"type":"null"}]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"completed_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"status":{"enum":["created","challenge_issued","agent_proof_received","bootstrap_bound","composition_submitted","participation_submitted","completed","expired","rejected","cancelled","revoked","failed_closed"]}},"allOf":[{"if":{"type":"object","properties":{"target_kind":{"const":"system_driver"}},"required":["target_kind"]},"then":{"type":"object","description":"A system_driver pairing binds a candidate for one System's driver seat and nothing else: its scope is a system:// ref, it reads no discovery and submits no composition or participation request, and only the principal's separate signed seat binding admits it.","properties":{"target_scope_ref":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"room_discovery_ref":{"type":"null"},"allowed_bootstrap_actions":{"type":"array","maxItems":0},"submission_refs":{"type":"object","properties":{"worker_composition_ref":{"type":"null"},"room_participation_request_ref":{"type":"null"},"first_aiip_packet_ref":{"type":"null"}}}}}},{"if":{"type":"object","properties":{"target_kind":{"enum":["room_guest","private_worker","organization_worker"]}},"required":["target_kind"]},"then":{"type":"object","description":"A system:// scope belongs to system_driver alone; the v1 targets keep their v1 scopes.","properties":{"target_scope_ref":{"type":"string","pattern":"^(?:outcome-room|user|org)://[^\\s]{1,500}$"}}}},{"if":{"type":"object","properties":{"pairing_transport":{"const":"seat_sheet"}},"required":["pairing_transport"]},"then":{"type":"object","description":"Only a system_driver claim is made through the principal's local seat sheet; a room guest or reusable worker pairs as in v1.","properties":{"target_kind":{"const":"system_driver"}}}},{"if":{"type":"object","properties":{"client_binding":{"type":"object","properties":{"origin_kind":{"const":"relay_client"}},"required":["origin_kind"]}},"required":["client_binding"]},"then":{"type":"object","description":"A relay_client origin, the origin a seated hosted agent calls from through the principal's relay, is bound only by a claim made through the local seat sheet.","properties":{"pairing_transport":{"const":"seat_sheet"}}}},{"if":{"type":"object","properties":{"seat_binding":{"type":"object"}},"required":["seat_binding"]},"then":{"type":"object","description":"A seat binding belongs to a system_driver pairing alone: a room guest or reusable worker is never bound to a System's driver seat.","properties":{"target_kind":{"const":"system_driver"}}}}]}"#),
     ("schema://ioi/foundations/objects/attempt-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/attempt-envelope/v1","title":"AttemptEnvelope","x-ioi-schema-version":"ioi.foundations.attempt-envelope.v1","description":"Durable provenance for positive, negative, inconclusive, invalid, exploit-finding, and superseded work over an already admitted GoalRun. Creating or transitioning it does not launch work or grant execution authority. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. `bound_coordinates` is non-null only for a room-scoped Attempt; the rule that a non-room Attempt MUST NOT fabricate room coordinates stays with the owner and is not restated as schema logic.","type":"object","additionalProperties":false,"required":["schema_version","attempt_id","work_subject_ref","participant_ref","bound_coordinates","outcome_class","reproduction_state","status"],"properties":{"schema_version":{"const":"ioi.foundations.attempt-envelope.v1"},"attempt_id":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\\s]{1,500}$"},"goal_run_ref":{"oneOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_item_ref":{"oneOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"work_claim_ref":{"oneOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"participant_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$"},"bound_coordinates":{"oneOf":[{"type":"object","additionalProperties":false,"required":["outcome_room","frontier_item","work_claim","participant_lease","goal_run"],"properties":{"outcome_room":{"type":"object","additionalProperties":false,"required":["record_ref","host_domain_ref","control_hash"],"properties":{"record_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"host_domain_ref":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$"},"control_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"frontier_item":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_claim":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","frontier_item_ref","claimant_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"frontier_item_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"claimant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"goal_run":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}},{"type":"null"}]},"declared_method_and_hypothesis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|finding|artifact)://[^\\s]{1,500}$"}},"parent_and_derivation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|artifact|finding)://[^\\s]{1,500}$"}},"input_state_and_environment_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$"}},"worker_model_resolver_tool_and_runtime_version_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\\s]{1,500}$"}},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|policy)://[^\\s]{1,500}$"}},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$"}},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_ref":{"oneOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"}},"artifact_evidence_and_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"}},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|verifier-challenge)://[^\\s]{1,500}$"}},"reproduction_state":{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},"artifact_license_ip_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"contribution_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|receipt)://[^\\s]{1,500}$"}},"status":{"enum":["draft","running","submitted","admitted","challenged","accepted","rejected","superseded"]}}}"#),
     ("schema://ioi/foundations/objects/finding-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/finding-envelope/v1","title":"FindingEnvelope","x-ioi-schema-version":"ioi.foundations.finding-envelope.v1","description":"A provenance-bearing assertion a domain admitted. Admission proves the domain admitted the assertion; it does not make the proposition universally true, so uncertainty, applicability, contradiction, time, and dispute state are preserved. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The rule that `supersedes_ref` must strictly resolve to a Finding in the same room is a cross-record constraint owned by the owner doc, not expressible here.","type":"object","additionalProperties":false,"required":["schema_version","finding_id","attempt_ref","work_result_ref","participant_ref","proposed_by_ref","bound_coordinates","proposition","finding_kind","transaction_time","status"],"properties":{"schema_version":{"const":"ioi.foundations.finding-envelope.v1"},"finding_id":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"attempt_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"proposed_by_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"},"bound_coordinates":{"oneOf":[{"type":"object","additionalProperties":false,"required":["attempt","work_result","participant_lease","supersedes_finding"],"properties":{"attempt":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","participant_ref","work_result_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_result":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","goal_run_ref","goal_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"supersedes_finding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},{"type":"null"}]}}},{"type":"null"}]},"proposition":{"type":"string","minLength":1,"maxLength":8000},"finding_kind":{"enum":["hypothesis","observation","claim","negative_result","integrity_incident","mapping_claim","causal_claim","counterexample","synthesis"]},"confidence_or_uncertainty":{"oneOf":[{"type":"number"},{"type":"null"}]},"valid_time":{"oneOf":[{"type":"object","additionalProperties":false,"description":"A closed or half-open interval, per canon's `interval` type.","required":["start","end"],"properties":{"start":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"end":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},{"type":"null"}]},"transaction_time":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"source_and_observation_context_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"}},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"proof_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|finding)://[^\\s]{1,500}$"}},"applicability_and_counterexample_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|ontology)://[^\\s]{1,500}$"}},"provenance_ontology_and_mapping_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"}},"proposed_effect_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"}},"supersedes_ref":{"oneOf":[{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},{"type":"null"}]},"dispute_ref":{"oneOf":[{"type":"string","pattern":"^dispute://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["branch_local","proposed","admitted","contradicted","superseded","disputed","rejected","archived"]}}}"#),
     ("schema://ioi/foundations/objects/work-result-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/work-result-envelope/v1","title":"WorkResultEnvelope","x-ioi-schema-version":"ioi.foundations.work-result-envelope.v1","description":"The generic bounded result seam returned by a GoalRun, claim, worker, harness, service, research attempt, ontology operation, incident response, or embodied mission. Profile-specific fields stay behind `result_profile_ref` and `result_payload_ref`. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly; producers and readers refuse an over-bound record rather than truncating it.","type":"object","additionalProperties":false,"required":["schema_version","work_result_id","work_subject_ref","produced_by_ref","submitted_by_ref","result_profile","producer_component_resolution","outcome_class","status","uncertainty","reproduction_state","next_action"],"properties":{"schema_version":{"const":"ioi.foundations.work-result-envelope.v1"},"work_result_id":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"produced_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"submitted_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"operator_and_affiliation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"invocation_or_run_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$"},{"type":"null"}]},"result_profile":{"enum":["software_implementation","research","ontology_mutation","incident_resolution","service_delivery","physical_mission","review","evaluation","custom"]},"result_profile_ref":{"oneOf":[{"type":"string","pattern":"^(?:schema|profile)://[^\\s]{1,500}$"},{"type":"null"}]},"result_payload_ref":{"oneOf":[{"type":"string","description":"An implementation_result://, artifact://, or cid:// ref, or the literal `encrypted_ref`, per canon.","pattern":"^(?:(?:implementation_result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},{"type":"null"}]},"producer_component_resolution":{"type":"object","additionalProperties":false,"required":["resolved_component_set_snapshot_ref","resolved_component_set_hash","component_resolution_receipt_ref","resolver_kind","resolver_revision_ref","resolver_content_hash"],"properties":{"resolved_component_set_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},{"type":"null"}]},"resolved_component_set_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"component_resolution_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"declared_method_and_lineage_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$"},"maxItems":64},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"},"maxItems":64},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"},"maxItems":64},"observation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"},"maxItems":64},"uncertainty":{"anyOf":[{"type":"number"},{"type":"string","minLength":1,"maxLength":2000},{"type":"object","description":"A profile-defined uncertainty structure; canon leaves its shape to the declared result profile."},{"type":"null"}]},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"},"maxItems":64},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"},"maxItems":64},"artifact_receipt_and_trace_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"},"maxItems":64},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"},"maxItems":64},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","description":"A URI-shaped ref or a scope: authority selector, per canon.","pattern":"^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"},"maxItems":64},"blocker_and_decision_request_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"},"maxItems":64},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$"},"maxItems":64},"license_disclosure_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy|restricted_view|receipt)://[^\\s]{1,500}$"},"maxItems":64},"reproduction_state":{"oneOf":[{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},{"type":"null"}]},"reproduction_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"},"maxItems":64},"acceptance_ref":{"oneOf":[{"type":"string","pattern":"^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"review_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"supersedes_work_result_ref":{"oneOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"superseded_by_ref":{"oneOf":[{"type":"string","pattern":"^(?:work-result|outcome-delta)://[^\\s]{1,500}$"},{"type":"null"}]},"summary_ref":{"oneOf":[{"type":"string","pattern":"^(?:message|artifact)://[^\\s]{1,500}$"},{"type":"null"}]},"next_action":{"enum":["none","repair","review","verify","replicate","synthesize","ask_user","escalate","update_work_queue"]}}}"#),
@@ -222546,6 +223996,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/work-claim-lease-envelope/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2", r#"[]"#),
     ("schema://ioi/foundations/objects/attempt-envelope/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/finding-envelope/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/work-result-envelope/v1", r#"[]"#),
@@ -223431,6 +224882,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:outcome-room|user|org)://[^\s]{1,500}$"#,
         r#"^(?:outcome-room|user|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:outcome-room|user|org|system)://[^\s]{1,500}$"#,
+        r#"^(?:outcome-room|user|org|system)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:packet|handoff|object|query|ontology-action|artifact)://[^\s]{1,240}$"#,
@@ -226753,6 +228208,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     ),
     (r#"^sd_[0-9a-f]{17}$"#, r#"^sd_[0-9a-f]{17}$"#),
     (
+        r#"^seat://[^\s]{1,500}$"#,
+        r#"^seat://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^sensor://[^\s]+$"#,
         r#"^sensor://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -229348,6 +230807,19 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json"))),
@@ -231668,6 +233140,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2" => {
+            serde_json::from_value::<LocalAgentPairingSessionEnvelopeV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/objects/attempt-envelope/v1" => {
             serde_json::from_value::<AttemptEnvelopeV1>(value.clone())
                 .map(|_| ())
@@ -233559,6 +235036,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2" => {
+            let projection = serde_json::from_value::<LocalAgentPairingSessionEnvelopeV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/objects/attempt-envelope/v1" => {
             let projection = serde_json::from_value::<AttemptEnvelopeV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -234445,8 +235927,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            2080,
-            "the registered golden corpus must remain the explicit 2080-fixture bar",
+            2093,
+            "the registered golden corpus must remain the explicit 2093-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -234688,7 +236170,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1197,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1199,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

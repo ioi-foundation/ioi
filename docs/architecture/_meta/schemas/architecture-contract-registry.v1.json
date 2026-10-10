@@ -12103,10 +12103,10 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
         "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
+        "migration_policy": "successor_revision",
+        "predecessor_remains_valid": true,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
       },
@@ -12135,6 +12135,87 @@
         },
         {
           "path": "fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+      "canonical_name": "LocalAgentPairingSessionEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope",
+      "schema_version": "ioi.foundations.local-agent-pairing-session-envelope.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "successor_revision",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "local-agent-pairing-session-envelope.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "LocalAgentPairingSessionEnvelopeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "LocalAgentPairingSessionEnvelopeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json",
+        "fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json",
+        "fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]

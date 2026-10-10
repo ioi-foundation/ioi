@@ -255,9 +255,11 @@ derived wallet ownership is permitted.
 ### Local-agent pairing sessions
 
 Hypervisor owns the pairing and adapter boundary that lets an already-running
-local agent or harness become an authenticated candidate participant without
-making the agent a Hypervisor client, room member, marketplace listing, or
-authority holder. ioi.ai may embed the user-facing **Connect local agent** flow
+local agent or harness (or, for a System's driver seat, a vendor's hosted
+agent, claimed through the principal's local seat sheet) become an authenticated
+candidate participant without making the agent a Hypervisor client, room member,
+System driver, marketplace listing, or authority holder. ioi.ai may embed the
+user-facing **Connect local agent** flow
 inside a Goal Space. Hypervisor creates and resolves the pairing session,
 candidate key, origin binding, adapter, daemon ingress, and scoped gateway
 boundary. aiagent.xyz owns any later private reusable Worker record or public
@@ -269,21 +271,30 @@ The screenshot-simple product flow is:
 
 ```text
 Connect local agent
-  -> choose room_guest, private_worker, or organization_worker target
+  -> choose room_guest, private_worker, organization_worker, or system_driver
+     target
   -> declare agent/harness and optional display profile
   -> create one-time pairing challenge/device code
-  -> copy a bootstrap command or prompt into the local agent
+  -> copy a bootstrap command or prompt into the local agent; a hosted
+     system_driver agent's signed claim is carried into the local seat sheet
   -> candidate proves possession and binds its public key plus origin
   -> bootstrap_bound authenticates a candidate only
-  -> submit the target-specific WorkerComposition proposal
+  -> submit the target-specific WorkerComposition proposal (none for
+     system_driver)
   -> for room_guest, read discovery and submit RoomParticipationRequestEnvelope
   -> completed records the required bootstrap submissions only
-  -> registry or room admission separately accepts, rejects, or quarantines
+  -> registry, room, or seat admission separately accepts, rejects, or
+     quarantines
   -> room_guest: after room admission, issue an expiring gateway profile bound
      to participant lease, candidate key, origin, room, and policy
   -> private_worker / organization_worker: after registry admission, a later
      direct call, Session, Automation, or WorkRun obtains its own invocation,
      context, tool, resource, budget, and authority admission before gateway use
+  -> system_driver: the seat sheet's one signature binds the seat, issues the
+     credential agent(agent_ref, seat_ref) and an expiring gateway profile bound
+     to the seat, candidate key, origin, and policy, and, for a hosted agent,
+     opens the relay route for that credential; each call is a brokered run
+     under the seat
 ```
 
 [`bounded-system-genesis.md`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope)
@@ -311,7 +322,10 @@ profile. A `private_worker` or `organization_worker` may instead receive a
 private registry admission; each later direct invocation, Session, Automation,
 WorkRun, or room participation still requires its own policy, context, tools,
 resources, budget, and authority admission. No reusable worker inherits a room
-lease, and no direct invocation requires a fictitious room lease.
+lease, and no direct invocation requires a fictitious room lease. A
+`system_driver` receives nothing through pairing: only the principal's separate
+signed seat binding may admit the bound candidate to a System's driver seat,
+and only that binding issues its credential.
 
 A `prompt_only` agent still generates or presents a bootstrap-client public key
 and binds its origin. What it cannot bind is a native adapter and instrumented
@@ -319,6 +333,32 @@ daemon execution path. It therefore remains a low-assurance proposal source:
 its messages and artifacts stay tainted, it gets no ambient context or
 effectful tools, and it cannot acquire portable reputation, payout eligibility,
 or public marketplace status from pairing alone.
+
+A `system_driver` pairs a vendor's agent, local or hosted, to one System's
+driver seat (owner ruling, 2026-09-30). Its credential is
+`agent(agent_ref, seat_ref)`: the agent's own identity, whose key the agent
+generated, bound to the seat by the principal's one signed seat binding, never a
+principal's key or a copy of one. `agent_ref` names the vendor and product, and
+the model the vendor asserts stays vendor-reported; all three are declared
+metadata, never an assurance class or an authorization input. Each call made
+with the credential runs as a brokered run under the seat, so its proposals,
+attention items, and receipts name the agent, and a principal act presented with
+it is recorded as a proposal, never as the principal's act. Its authority is the
+seat's. A vendor's own reviews and approvals never satisfy an approval here.
+
+A hosted agent's claim is made through the principal's local seat sheet: its
+signed claim, pasted or delivered by the platform's connector sign-in landing on
+the node's sign-in, reaches the node locally and never through the relay. The
+seat sheet's one signature binds the seat and opens the relay route for that
+credential only. The node then dials out to the relay, which forwards only that
+credential's gateway-profile calls, authenticated and encrypted end to end
+between the agent's key and the daemon, and, for a connector sign-in, the one
+token request the seat signature opens (single use, PKCE-bound). With no seat
+bound, the node dials nothing out, and no route opens for a pairing's claim. The
+relay holds no key and can mint or read nothing, so losing it is an outage,
+never a change of authority. The relay's operator (IOI-run by default, or
+self-hosted) is a deployment setting the principal chooses. A hosted deployment
+of the node is the alternative to the relay.
 
 Target API shape (planned):
 

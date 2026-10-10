@@ -24,7 +24,8 @@ Work workspaces, taxonomy-v2 registrations/compiler, Packages-first product
 home, Developer Workspace rename, generated/installed application registry,
 and corresponding routes are target contracts
 and are not shipped as one complete path. `LocalAgentPairingSessionEnvelope`,
-Connect local agent UX, and room-admitted local-agent gateway issuance also
+Connect local agent UX, room-admitted local-agent gateway issuance, the
+`system_driver` pairing target, and the principal's relay for seated agents also
 remain planned. The bounded ImprovementCampaign, EvaluationEpoch, protected-
 evaluation exposure, and evaluator-validity owner paths are target contracts,
 not one shipped end-to-end implementation).
@@ -5666,8 +5667,16 @@ not mutate host state directly.
 - Connect local agent must use `LocalAgentPairingSessionEnvelope` with a
   one-time expiring challenge/device code stored hash-only at rest, a candidate-
   generated key, and an origin binding. Pairing authenticates a candidate but
-  never grants room membership, context, tools, authority, reputation, payout,
-  or publication.
+  never grants room membership, a driver seat, context, tools, authority,
+  reputation, payout, or publication.
+- A `system_driver` pairing (a vendor's agent, local, or hosted and claimed
+  through the principal's local seat sheet) issues nothing by itself. Only the
+  seat sheet's one signature binds the seat and issues its credential,
+  `agent(agent_ref, seat_ref)`, never a principal's key, and a gateway profile
+  scoped to that seat; for a hosted agent it also opens the relay route for
+  that credential, and with no seat bound the node dials nothing out. Each call
+  runs as a brokered run under the seat, and a principal act presented with the
+  credential is recorded as a proposal.
 - A local-agent MCP/gateway profile may be issued only after a matching typed
   room-admission decision creates an active participant lease. The profile must
   be scoped, expiring, revocable, bound to candidate key/origin/room/policy, and

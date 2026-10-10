@@ -2738,9 +2738,11 @@ HypervisorOSNodeEnvelope:
 contract for connecting an already-running, user-owned local agent or harness
 to an IOI product surface. It binds one product-initiated pairing challenge to
 one local client key and origin so the client can submit typed proposals
-without receiving ambient product, room, runtime, or authority access.
+without receiving ambient product, room, runtime, or authority access. For the
+`system_driver` target only, the client may instead be a vendor's hosted agent,
+whose claim is made through the principal's local seat sheet.
 
-Pairing has three target kinds:
+Pairing has four target kinds:
 
 - `room_guest` creates a room-scoped, unpublished Worker composition proposal
   and a typed request to participate in one discoverable OutcomeRoom;
@@ -2748,22 +2750,29 @@ Pairing has three target kinds:
   initiating user until separately admitted or published;
 - `organization_worker` proposes a reusable Worker composition to an
   organization-controlled admission path. Pairing does not prove that the
-  agent represents the organization and does not bypass organization policy.
+  agent represents the organization and does not bypass organization policy;
+- `system_driver` proposes nothing: it binds a vendor's agent, local or
+  hosted, as a candidate for one System's driver seat. Only the principal's
+  separate signed seat binding admits it, and only that binding issues its
+  credential `agent(agent_ref, seat_ref)`, never a principal's key.
 
-The pairing transport may be a loopback exchange, a device-code flow, or a
-copyable bootstrap command. Those are transport choices, not protocol identity
+The pairing transport may be a loopback exchange, a device-code flow, a
+copyable bootstrap command, or, for `system_driver` only, the principal's local
+seat sheet, into which a hosted agent's signed claim is carried (pasted, or by
+the platform's connector sign-in landing on the node's sign-in); no claim
+crosses the principal's relay. Those are transport choices, not protocol identity
 or authority. Raw one-time factors, access tokens, private keys, prompts, and
 secrets must not be persisted in this envelope.
 
 ```yaml
 LocalAgentPairingSessionEnvelope:
   pairing_session_id: local-agent-pairing://...
-  schema_version: ioi.local-agent-pairing-session.v1
+  schema_version: ioi.local-agent-pairing-session.v2
   initiated_by_ref: user://... | org://...
   initiating_surface_ref: surface://...
-  target_kind: room_guest | private_worker | organization_worker
+  target_kind: room_guest | private_worker | organization_worker | system_driver
   target_scope_ref:
-    outcome-room://... | user://... | org://...
+    outcome-room://... | user://... | org://... | system://...
   room_discovery_ref: room-discovery://... | null
   claimed_local_agent:
     display_name: string
@@ -2776,7 +2785,7 @@ LocalAgentPairingSessionEnvelope:
       harness-profile://.../revision/... | null
     semantic_harness_profile_content_hash: hash | null
     execution_posture: instrumented_adapter | prompt_only
-  pairing_transport: loopback | device_code | copy_command
+  pairing_transport: loopback | device_code | copy_command | seat_sheet
   challenge: null | object
     challenge_hash: hash
     authentication_factor_kind:
@@ -2787,9 +2796,31 @@ LocalAgentPairingSessionEnvelope:
   client_binding: null | object
     agent_public_key_ref: key://...
     proof_of_possession_hash: hash
-    origin_kind: loopback_endpoint | device_client | bootstrap_client
+    origin_kind: loopback_endpoint | device_client | bootstrap_client | relay_client
     origin_binding_hash: hash
     bound_at: timestamp | null
+  seat_binding: null | object
+    seat_ref: seat://...
+    seat_persistence: persistent
+    identity_id: n6_identity_id
+    presented_key_check: key_state_view_valid_for
+    bound_key_ref: key://...
+    proof_of_possession_hash: hash
+    agent_ref:
+      vendor: string
+      product: string
+      vendor_reported_model: string | null
+      assurance_input: false
+      authorization_input: false
+    min_assurance: null | object
+      grant_ref: grant://...
+      caveat_ref: caveat://ioi/foundations/min-assurance/v1
+      class_order_ref: hash
+      attester_set_ref: hash
+      min_class: string
+      attester_identity_id: n6_identity_id
+      attestation_hash: hash
+    bound_at: timestamp
   claim_attempt_policy:
     failed_attempt_limit: positive_integer
     failed_attempt_count: nonnegative_integer
@@ -2867,6 +2898,7 @@ created
   -> challenge_issued
   -> agent_proof_received
   -> bootstrap_bound
+       -> completed                              system_driver
        -> composition_submitted
             -> completed                         private_worker | organization_worker
             -> participation_submitted
@@ -2886,10 +2918,40 @@ ref exists and the bound client submits the typed
 is not an `authority_grant`. For `private_worker` and `organization_worker`, a
 composition proposal is sufficient to complete pairing. Joining a room later
 requires a room-specific participation request and the applicable AIIP flow.
-`target_scope_ref` must be an `outcome-room://...`, `user://...`, or `org://...`
-ref for `room_guest`, `private_worker`, or `organization_worker` respectively;
-`room_discovery_ref` is required for `room_guest` and null for the reusable
-Worker targets. A mismatch fails closed.
+For `system_driver`, `allowed_bootstrap_actions` is empty and every
+`submission_refs` field stays null: pairing completes once the client binding
+is bound, and only the principal's signed seat binding, never pairing, admits
+the agent to the seat. Only `system_driver` may use the `seat_sheet` transport
+and the `relay_client` origin, and a `relay_client` origin is bound only through
+the seat sheet; either on another target fails closed. The seat sheet's one
+signature binds the seat and opens the principal's relay route for that
+credential alone; with no seat bound, the node dials nothing out. The relay
+never carries a user credential, approval material, or a signed
+authorization: a seated hosted agent never receives a signed authorization,
+and the principal's authority node presents any that an effect needs.
+`target_scope_ref` must be an `outcome-room://...`, `user://...`, `org://...`,
+or `system://...` ref for `room_guest`, `private_worker`,
+`organization_worker`, or `system_driver` respectively;
+`room_discovery_ref` is required for `room_guest` and null for the other
+targets. A mismatch fails closed.
+
+`seat_binding` is null until the principal signs the seat sheet, and only a
+`system_driver` pairing may carry one; pairing never writes it. A driver seat is
+persistent and outlives keys, so the seat binding binds the agent's N6 identity
+(`identity_id`, the identity's self-certifying id), never a raw key, and carries
+proof of possession of the bound key, the key the pairing's `client_binding`
+bound. Each use of the credential checks the presented key through the
+identity's `KeyStateView` (`valid_for`), so the identity's rotation, freeze, and
+key-state rulings apply to the seat without re-pairing. A seat binding without
+that proof, or on another target, fails closed.
+
+`agent_ref`'s vendor, product, and vendor-reported model are declared metadata:
+never an assurance class and never an authorization input, so no assurance or
+authorization field reads them, and vendor and product names are data there,
+never labels. A seat that needs a minimum assurance gets a grant carrying
+`caveat://ioi/foundations/min-assurance/v1`, evidenced by a named attester from
+the registered set (`min_assurance`); a class that the agent or its vendor only
+declares is never a bound.
 
 A challenge is short-lived and single-use. Its successful proof is consumed
 atomically with binding to the declared client key and origin. A retry may be
@@ -2916,3 +2978,12 @@ No new pairing receipt type is introduced. The session object, its bound
 submission refs, and the existing Worker, participation, evidence,
 verification, acceptance, and runtime event/receipt owners carry the relevant
 state and assurance claims.
+
+Registered wire contracts:
+`schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1`
+carries the first three targets and the loopback, device-code, and
+copy-command transports. The `system_driver` target, the `seat_sheet`
+transport, the `relay_client` origin, and the `seat_binding` are registered
+only in its successor
+`schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2`
+(owner ruling, 2026-09-30); v1 remains valid for the targets it carries.

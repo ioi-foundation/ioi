@@ -9452,6 +9452,95 @@ export type LocalAgentPairingSessionEnvelopeV1 = {
   status: "created" | "challenge_issued" | "agent_proof_received" | "bootstrap_bound" | "composition_submitted" | "participation_submitted" | "completed" | "expired" | "rejected" | "cancelled" | "revoked" | "failed_closed";
 };
 
+export type LocalAgentPairingSessionEnvelopeV2 = {
+  schema_version: "ioi.foundations.local-agent-pairing-session-envelope.v2";
+  pairing_session_id: string;
+  initiated_by_ref: string;
+  initiating_surface_ref: string;
+  target_kind: "room_guest" | "private_worker" | "organization_worker" | "system_driver";
+  target_scope_ref: string;
+  room_discovery_ref?: string | null;
+  claimed_local_agent: {
+      display_name: string;
+      resolver_kind: "harness_profile" | "agent_harness_adapter" | "none";
+      resolver_revision_ref: string | null;
+      resolver_content_hash: string | null;
+      semantic_harness_profile_revision_ref: string | null;
+      semantic_harness_profile_content_hash: string | null;
+      execution_posture: "instrumented_adapter" | "prompt_only";
+    };
+  pairing_transport: "loopback" | "device_code" | "copy_command" | "seat_sheet";
+  challenge: {
+      challenge_hash: string;
+      authentication_factor_kind: "one_time_challenge" | "device_code" | "signed_nonce";
+      issued_at: string;
+      expires_at: string;
+      single_use: true;
+    } | null;
+  client_binding: {
+      agent_public_key_ref: string;
+      proof_of_possession_hash: string;
+      origin_kind: "loopback_endpoint" | "device_client" | "bootstrap_client" | "relay_client";
+      origin_binding_hash: string;
+      bound_at: string | null;
+    } | null;
+  seat_binding?: {
+      seat_ref: string;
+      seat_persistence: "persistent";
+      identity_id: string;
+      presented_key_check: "key_state_view_valid_for";
+      bound_key_ref: string;
+      proof_of_possession_hash: string;
+      agent_ref: {
+            vendor: string;
+            product: string;
+            vendor_reported_model: string | null;
+            assurance_input: false;
+            authorization_input: false;
+          };
+      min_assurance: {
+            grant_ref: string;
+            caveat_ref: "caveat://ioi/foundations/min-assurance/v1";
+            class_order_ref: string;
+            attester_set_ref: string;
+            min_class: string;
+            attester_identity_id: string;
+            attestation_hash: string;
+          } | null;
+      bound_at: string;
+    } | null;
+  claim_attempt_policy: {
+      failed_attempt_limit: number;
+      failed_attempt_count: number;
+      rate_limit_policy_ref: string;
+    };
+  allowed_bootstrap_actions: Array<"read_discovery" | "submit_worker_composition" | "submit_room_participation_request">;
+  bootstrap_non_grants: {
+      authority: "none";
+      room_membership: "none";
+      room_database_access: "none";
+      private_context_access: "none";
+      connector_or_secret_access: "none";
+      budget_or_spend: "none";
+      effect_execution: "none";
+    };
+  submission_refs: {
+      worker_composition_ref: string | null;
+      room_participation_request_ref: string | null;
+      first_aiip_packet_ref: string | null;
+    };
+  contribution_lane: "instrumented_candidate" | "proposal_only";
+  assurance_posture: {
+      pairing_proves: "client_key_and_origin_binding_only";
+      prompt_only_ceiling: "attested";
+    };
+  failure_reason_code: "challenge_expired" | "challenge_replayed" | "invalid_proof" | "key_mismatch" | "origin_mismatch" | "attempt_exhausted" | "rate_limited" | "scope_escalation" | "malformed_submission" | "policy_denied" | "target_unavailable" | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  status: "created" | "challenge_issued" | "agent_proof_received" | "bootstrap_bound" | "composition_submitted" | "participation_submitted" | "completed" | "expired" | "rejected" | "cancelled" | "revoked" | "failed_closed";
+};
+
 export type AttemptEnvelopeV1 = {
   schema_version: "ioi.foundations.attempt-envelope.v1";
   attempt_id: string;
@@ -23180,6 +23269,110 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json",
     "expected": "accept",
@@ -36164,6 +36357,19 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-hosted-system-driver-through-seat-sheet.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/positive-persistent-seat-bound-to-an-identity-with-pop.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-bootstrap-grants-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-declared-agent-ref-as-assurance-input.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-relay-origin-without-the-seat-sheet.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-scoped-to-a-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-through-seat-sheet.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-room-guest-with-a-seat-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-seat-binding-without-proof-of-possession.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-outside-a-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-system-driver-with-a-bootstrap-action.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/attempt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/attempt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json","contract_id":"schema://ioi/foundations/objects/attempt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json","mutation_id":null,"value_json":null}),
@@ -37691,6 +37897,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:origin-binding|origin)://[^\\s]{1,500}$",
   "^(?:outcome-room)://[^\\s]{1,500}$",
   "^(?:outcome-room|user|org)://[^\\s]{1,500}$",
+  "^(?:outcome-room|user|org|system)://[^\\s]{1,500}$",
   "^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$",
   "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$",
@@ -38560,6 +38767,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$",
   "^scope:autonomous_system[.]membership[.][a-z_]{1,64}$",
   "^sd_[0-9a-f]{17}$",
+  "^seat://[^\\s]{1,500}$",
   "^sensor://[^\\s]+$",
   "^service://[^\\s]{1,248}$",
   "^session-route:[^\\s]{1,240}$",
@@ -38934,6 +39142,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/work-claim-lease-envelope/v1": "sha256:ebe0f6bca0871c8be2c763bc4c9b29cd558bb58ef6ca4262c010f7e1fda05ed5",
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v1": "sha256:7f20bf2e1c5cf6e056051a647676c045f41d0af0ccd418805eb8e9f2a280d627",
   "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": "sha256:0512d443c8bbfe28b3f4ff9906ee081b0a471506882a9f6fb891d7697c4aebb7",
+  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2": "sha256:3d5b4f764328d84b64dc55fae2d40fbec1efa41057055d815818357ba67838e8",
   "schema://ioi/foundations/objects/attempt-envelope/v1": "sha256:8f96ce5059c6b5c0deac5ee781f29f709b17ad5b314a7ecb6655773de687d21b",
   "schema://ioi/foundations/objects/finding-envelope/v1": "sha256:3f6670b624ce8921e3aacaa62a3caa25bf7754e325f2848050cb54d0b78887d5",
   "schema://ioi/foundations/objects/work-result-envelope/v1": "sha256:71268aebf0e18716c1d964bb99c403542ff87b7dc39365e24fc4d21071963c04",
@@ -109860,6 +110069,749 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2",
+    "title": "LocalAgentPairingSessionEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.local-agent-pairing-session-envelope.v2",
+    "description": "The short-lived, pre-AIIP bootstrap contract binding one product-initiated pairing challenge to one local client key and origin, so an already-running user-owned local agent can submit typed proposals without receiving ambient product, room, runtime, or authority access. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The `challenge` and `client_binding` subobjects are phase-qualified and null before their phase; the phase rules themselves stay with the owner. `bootstrap_non_grants` is projected as its canon literal `none` values because the contract's whole point is that pairing grants nothing. v2, the successor of v1 (owner ruling, 2026-09-30), adds the `system_driver` target, whose scope is one `system://` ref and which carries no bootstrap action and no submission, since only the principal's separate signed seat binding admits the agent; and the `seat_sheet` transport and `relay_client` origin, by which a vendor's hosted agent's signed claim is carried into the principal's local seat sheet (never through the relay), which only `system_driver` may use. v1 remains valid for the targets it carries. A `system_driver` pairing also records `seat_binding` once the principal signs the seat sheet: a persistent seat bound to the agent's N6 identity (`identity_id`), never to a raw key, whose presented key is checked through KeyStateView `valid_for` on each use, with proof of possession of the bound key; its `agent_ref` (vendor, product, and the model the vendor reports) is declared metadata, never an assurance class or an authorization input; and a minimum assurance, when the seat needs one, is only a grant carrying `caveat://ioi/foundations/min-assurance/v1`, evidenced by a named attester from the registered set.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "pairing_session_id",
+      "initiated_by_ref",
+      "initiating_surface_ref",
+      "target_kind",
+      "target_scope_ref",
+      "claimed_local_agent",
+      "pairing_transport",
+      "challenge",
+      "client_binding",
+      "claim_attempt_policy",
+      "allowed_bootstrap_actions",
+      "bootstrap_non_grants",
+      "submission_refs",
+      "contribution_lane",
+      "assurance_posture",
+      "failure_reason_code",
+      "created_at",
+      "updated_at",
+      "completed_at",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.local-agent-pairing-session-envelope.v2"
+      },
+      "pairing_session_id": {
+        "type": "string",
+        "pattern": "^local-agent-pairing://[^\\s]{1,500}$"
+      },
+      "initiated_by_ref": {
+        "type": "string",
+        "pattern": "^(?:user|org)://[^\\s]{1,500}$"
+      },
+      "initiating_surface_ref": {
+        "type": "string",
+        "pattern": "^surface://[^\\s]{1,500}$"
+      },
+      "target_kind": {
+        "enum": [
+          "room_guest",
+          "private_worker",
+          "organization_worker",
+          "system_driver"
+        ]
+      },
+      "target_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:outcome-room|user|org|system)://[^\\s]{1,500}$"
+      },
+      "room_discovery_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^room-discovery://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "claimed_local_agent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "display_name",
+          "resolver_kind",
+          "resolver_revision_ref",
+          "resolver_content_hash",
+          "semantic_harness_profile_revision_ref",
+          "semantic_harness_profile_content_hash",
+          "execution_posture"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "resolver_kind": {
+            "enum": [
+              "harness_profile",
+              "agent_harness_adapter",
+              "none"
+            ]
+          },
+          "resolver_revision_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolver_content_hash": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "semantic_harness_profile_revision_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^harness-profile://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "semantic_harness_profile_content_hash": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "execution_posture": {
+            "enum": [
+              "instrumented_adapter",
+              "prompt_only"
+            ]
+          }
+        }
+      },
+      "pairing_transport": {
+        "enum": [
+          "loopback",
+          "device_code",
+          "copy_command",
+          "seat_sheet"
+        ]
+      },
+      "challenge": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "challenge_hash",
+              "authentication_factor_kind",
+              "issued_at",
+              "expires_at",
+              "single_use"
+            ],
+            "properties": {
+              "challenge_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "authentication_factor_kind": {
+                "enum": [
+                  "one_time_challenge",
+                  "device_code",
+                  "signed_nonce"
+                ]
+              },
+              "issued_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              "single_use": {
+                "const": true
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "client_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "agent_public_key_ref",
+              "proof_of_possession_hash",
+              "origin_kind",
+              "origin_binding_hash",
+              "bound_at"
+            ],
+            "properties": {
+              "agent_public_key_ref": {
+                "type": "string",
+                "pattern": "^key://[^\\s]{1,500}$"
+              },
+              "proof_of_possession_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "origin_kind": {
+                "enum": [
+                  "loopback_endpoint",
+                  "device_client",
+                  "bootstrap_client",
+                  "relay_client"
+                ]
+              },
+              "origin_binding_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "bound_at": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "seat_binding": {
+        "description": "system_driver only (rule 4), and null until the principal signs the seat sheet; pairing never writes it. The record, on the completed system_driver pairing it names, of the principal's one signed seat binding: a PERSISTENT seat binds the agent's N6 identity (identity_id), never a raw key, so the identity's rotation and freeze apply to the seat without re-pairing; each use of the credential checks the presented key through KeyStateView valid_for; and the binding carries proof of possession of the bound key (the key the pairing's client_binding bound).",
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "seat_ref",
+              "seat_persistence",
+              "identity_id",
+              "presented_key_check",
+              "bound_key_ref",
+              "proof_of_possession_hash",
+              "agent_ref",
+              "min_assurance",
+              "bound_at"
+            ],
+            "properties": {
+              "seat_ref": {
+                "type": "string",
+                "pattern": "^seat://[^\\s]{1,500}$"
+              },
+              "seat_persistence": {
+                "const": "persistent"
+              },
+              "identity_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "presented_key_check": {
+                "const": "key_state_view_valid_for"
+              },
+              "bound_key_ref": {
+                "type": "string",
+                "pattern": "^key://[^\\s]{1,500}$"
+              },
+              "proof_of_possession_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "agent_ref": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "DECLARED metadata naming the agent the credential agent(agent_ref, seat_ref) is issued to: its vendor, its product, and the model as the vendor reports it. Each value is data the agent declares, never a schema label. agent_ref is never an assurance class and never an authorization input: no assurance or authorization field of this contract reads it, and a minimum assurance is carried only by min_assurance.",
+                "required": [
+                  "vendor",
+                  "product",
+                  "vendor_reported_model",
+                  "assurance_input",
+                  "authorization_input"
+                ],
+                "properties": {
+                  "vendor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "product": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "vendor_reported_model": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "assurance_input": {
+                    "const": false
+                  },
+                  "authorization_input": {
+                    "const": false
+                  }
+                }
+              },
+              "min_assurance": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "A seat that needs a minimum assurance gets a grant carrying caveat://ioi/foundations/min-assurance/v1, evidenced by a NAMED attester from the registered set: the pinned class order and attester set (by digest), the class, the attester's N6 identity, and the attestation's digest. A class that the agent or its vendor only declares is never a bound.",
+                    "required": [
+                      "grant_ref",
+                      "caveat_ref",
+                      "class_order_ref",
+                      "attester_set_ref",
+                      "min_class",
+                      "attester_identity_id",
+                      "attestation_hash"
+                    ],
+                    "properties": {
+                      "grant_ref": {
+                        "type": "string",
+                        "pattern": "^grant://[^\\s]{1,500}$"
+                      },
+                      "caveat_ref": {
+                        "const": "caveat://ioi/foundations/min-assurance/v1"
+                      },
+                      "class_order_ref": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                      },
+                      "attester_set_ref": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                      },
+                      "min_class": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "attester_identity_id": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "attestation_hash": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "bound_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "claim_attempt_policy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "failed_attempt_limit",
+          "failed_attempt_count",
+          "rate_limit_policy_ref"
+        ],
+        "properties": {
+          "failed_attempt_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "failed_attempt_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "rate_limit_policy_ref": {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,500}$"
+          }
+        }
+      },
+      "allowed_bootstrap_actions": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "read_discovery",
+            "submit_worker_composition",
+            "submit_room_participation_request"
+          ]
+        }
+      },
+      "bootstrap_non_grants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority",
+          "room_membership",
+          "room_database_access",
+          "private_context_access",
+          "connector_or_secret_access",
+          "budget_or_spend",
+          "effect_execution"
+        ],
+        "properties": {
+          "authority": {
+            "const": "none"
+          },
+          "room_membership": {
+            "const": "none"
+          },
+          "room_database_access": {
+            "const": "none"
+          },
+          "private_context_access": {
+            "const": "none"
+          },
+          "connector_or_secret_access": {
+            "const": "none"
+          },
+          "budget_or_spend": {
+            "const": "none"
+          },
+          "effect_execution": {
+            "const": "none"
+          }
+        }
+      },
+      "submission_refs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "worker_composition_ref",
+          "room_participation_request_ref",
+          "first_aiip_packet_ref"
+        ],
+        "properties": {
+          "worker_composition_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^composition://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "room_participation_request_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^participation-request://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "first_aiip_packet_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^packet://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "contribution_lane": {
+        "enum": [
+          "instrumented_candidate",
+          "proposal_only"
+        ]
+      },
+      "assurance_posture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pairing_proves",
+          "prompt_only_ceiling"
+        ],
+        "properties": {
+          "pairing_proves": {
+            "const": "client_key_and_origin_binding_only"
+          },
+          "prompt_only_ceiling": {
+            "const": "attested"
+          }
+        }
+      },
+      "failure_reason_code": {
+        "oneOf": [
+          {
+            "enum": [
+              "challenge_expired",
+              "challenge_replayed",
+              "invalid_proof",
+              "key_mismatch",
+              "origin_mismatch",
+              "attempt_exhausted",
+              "rate_limited",
+              "scope_escalation",
+              "malformed_submission",
+              "policy_denied",
+              "target_unavailable"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "completed_at": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "created",
+          "challenge_issued",
+          "agent_proof_received",
+          "bootstrap_bound",
+          "composition_submitted",
+          "participation_submitted",
+          "completed",
+          "expired",
+          "rejected",
+          "cancelled",
+          "revoked",
+          "failed_closed"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "target_kind": {
+              "const": "system_driver"
+            }
+          },
+          "required": [
+            "target_kind"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "description": "A system_driver pairing binds a candidate for one System's driver seat and nothing else: its scope is a system:// ref, it reads no discovery and submits no composition or participation request, and only the principal's separate signed seat binding admits it.",
+          "properties": {
+            "target_scope_ref": {
+              "type": "string",
+              "pattern": "^system://[^\\s]{1,500}$"
+            },
+            "room_discovery_ref": {
+              "type": "null"
+            },
+            "allowed_bootstrap_actions": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "submission_refs": {
+              "type": "object",
+              "properties": {
+                "worker_composition_ref": {
+                  "type": "null"
+                },
+                "room_participation_request_ref": {
+                  "type": "null"
+                },
+                "first_aiip_packet_ref": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "target_kind": {
+              "enum": [
+                "room_guest",
+                "private_worker",
+                "organization_worker"
+              ]
+            }
+          },
+          "required": [
+            "target_kind"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "description": "A system:// scope belongs to system_driver alone; the v1 targets keep their v1 scopes.",
+          "properties": {
+            "target_scope_ref": {
+              "type": "string",
+              "pattern": "^(?:outcome-room|user|org)://[^\\s]{1,500}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "pairing_transport": {
+              "const": "seat_sheet"
+            }
+          },
+          "required": [
+            "pairing_transport"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "description": "Only a system_driver claim is made through the principal's local seat sheet; a room guest or reusable worker pairs as in v1.",
+          "properties": {
+            "target_kind": {
+              "const": "system_driver"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "client_binding": {
+              "type": "object",
+              "properties": {
+                "origin_kind": {
+                  "const": "relay_client"
+                }
+              },
+              "required": [
+                "origin_kind"
+              ]
+            }
+          },
+          "required": [
+            "client_binding"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "description": "A relay_client origin, the origin a seated hosted agent calls from through the principal's relay, is bound only by a claim made through the local seat sheet.",
+          "properties": {
+            "pairing_transport": {
+              "const": "seat_sheet"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "seat_binding": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "seat_binding"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "description": "A seat binding belongs to a system_driver pairing alone: a room guest or reusable worker is never bound to a System's driver seat.",
+          "properties": {
+            "target_kind": {
+              "const": "system_driver"
+            }
+          }
+        }
+      }
+    ]
+  },
   "schema://ioi/foundations/objects/attempt-envelope/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/objects/attempt-envelope/v1",
@@ -172462,6 +173414,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/foundations/objects/work-claim-lease-envelope/v1": [],
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v1": [],
   "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": [],
+  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2": [],
   "schema://ioi/foundations/objects/attempt-envelope/v1": [],
   "schema://ioi/foundations/objects/finding-envelope/v1": [],
   "schema://ioi/foundations/objects/work-result-envelope/v1": [],
@@ -186260,6 +187213,12 @@ export function validateLocalAgentPairingSessionEnvelopeV1(
   value: unknown,
 ): value is LocalAgentPairingSessionEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", value).ok;
+}
+
+export function validateLocalAgentPairingSessionEnvelopeV2(
+  value: unknown,
+): value is LocalAgentPairingSessionEnvelopeV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v2", value).ok;
 }
 
 export function validateAttemptEnvelopeV1(

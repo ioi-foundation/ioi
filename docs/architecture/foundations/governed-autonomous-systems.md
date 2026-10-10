@@ -914,7 +914,8 @@ ioi.ai Goal Space: Connect local agent
 The pairing session is short-lived, attempt-limited, revocable, and stored by
 challenge commitment/hash rather than recoverable plaintext. It exposes only
 the discovery and bootstrap actions required for the selected target:
-`room_guest`, `private_worker`, or `organization_worker`. It does not expose a
+`room_guest`, `private_worker`, `organization_worker`, or `system_driver`, which
+exposes none (a signed seat binding admits it). It does not expose a
 room database, private context, a broad organization bearer token, tools,
 budget, authority, reputation, or payout rights. Pairing authenticates
 possession of the claimed client key at the observed origin; it does not

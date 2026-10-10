@@ -526,7 +526,9 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `LocalAgentPairingSession`: ephemeral first-mile authentication session for
   connecting an already-running, user-owned agent or harness. Its shared wire
   object is `LocalAgentPairingSessionEnvelope`; its target is
-  `room_guest`, `private_worker`, or `organization_worker`. A one-time,
+  `room_guest`, `private_worker`, `organization_worker`, or `system_driver`
+  (a vendor's agent, local or hosted, as a candidate for a System's driver
+  seat, admitted only by the principal's signed seat binding). A one-time,
   short-lived challenge stored only as a commitment/hash binds the candidate
   key and permitted origin, then exposes only discovery plus worker-composition
   or participation-request bootstrap actions. Pairing never grants authority,

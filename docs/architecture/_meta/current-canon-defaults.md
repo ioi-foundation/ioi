@@ -135,7 +135,9 @@ synchronized.
 - an already-running user-owned agent may reach that path through a
   `LocalAgentPairingSessionEnvelope`: a one-time, short-lived, key/origin-bound
   bootstrap whose target is `room_guest`, `private_worker`, or
-  `organization_worker`. Pairing may expose discovery and accept a
+  `organization_worker` (a fourth target, `system_driver`, pairs a vendor's
+  agent as a candidate for a System's driver seat, which only the principal's
+  signed seat binding admits). Pairing may expose discovery and accept a
   `WorkerComposition` draft or `RoomParticipationRequest`; it never grants room
   membership, context, authority, tools, budget, direct room-database access,
   reputation, payout, or marketplace exposure. Admission and leases remain
