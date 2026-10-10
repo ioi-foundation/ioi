@@ -248,7 +248,14 @@ POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke
 
 `POST /v1/hypervisor/local-agent-pairings` is an authenticated operator action that creates a
 short-lived `LocalAgentPairingSessionEnvelope` with target `room_guest`,
-`private_worker`, or `organization_worker`. It returns the one-time plaintext
+`private_worker`, or `organization_worker`. A fourth target, `system_driver`,
+is not this application's: it is created from a System's driver seat, never
+from a Goal Space, binds a `system://` scope with no bootstrap action or
+submission, and only the principal's signed seat binding admits it
+([`identity-access-and-metering.md`](../../components/hypervisor/identity-access-and-metering.md#local-agent-pairing-sessions),
+[`bounded-system-genesis.md`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope));
+the room, registry, and AIIP wording below covers the first three. It returns
+the one-time plaintext
 challenge/device code and generated bootstrap instruction exactly once; the
 server persists only its commitment/hash and must not log or re-display the
 secret. The envelope binds expiry, claim-attempt limit and count, pairing
