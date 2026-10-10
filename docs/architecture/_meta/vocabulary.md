@@ -38,7 +38,7 @@ Default presentation map:
 | Owner Term | Default Product Term |
 | --- | --- |
 | wallet.network | SSO, permissions, connected access, authority, recovery |
-| Agentgres | Provenance, evidence, run history, receipts |
+| Agentgres | Provenance, evidence, run history ("receipts" only inside Evidence and offline verification) |
 | Hypervisor Daemon | secure runtime, execution environment, worker runtime |
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |

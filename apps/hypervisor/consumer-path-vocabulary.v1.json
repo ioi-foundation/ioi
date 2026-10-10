@@ -20,7 +20,7 @@
     {
       "term": "receipt",
       "source": "M13 §5 boundary list",
-      "why": "the evidence object's kernel name. NOTE: the consumer path may still SHOW evidence — it must not call it this."
+      "why": "the evidence object's kernel name. NOTE: the consumer path may still SHOW evidence — it calls it evidence, never this. The word belongs only inside Evidence (the proof drilldown) and offline verification (`ioi verify`), neither of which is consumer path (core-clients-surfaces.md § Product Language Layers)."
     },
     {
       "term": "environment",

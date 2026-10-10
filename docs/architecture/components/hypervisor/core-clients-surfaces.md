@@ -534,9 +534,14 @@ Use three vocabulary layers:
 
 | Layer | Audience | Preferred terms |
 | --- | --- | --- |
-| Product | users and buyers | agents, jobs, projects, sessions, permissions, connected apps, delivery channels, evidence, receipts, run history, payments, revoke |
+| Product | users and buyers | agents, jobs, projects, sessions, permissions, connected apps, delivery channels, evidence, run history, payments, revoke |
 | Admin / builder | operators, org admins, builders | policies, scopes, work ledger, evals, worker packages, runtime profiles, data recipes, ontology kits, surface descriptors, integration surfaces, authority clients |
 | Protocol / architecture | implementers, auditors, protocol integrators | wallet.network, Agentgres, Hypervisor Daemon, authority grants, Agentgres operations, ContributionReceipts, IOI L1 commitments |
+
+Ordinary product surfaces say "evidence", never "receipt". The receipt is the
+evidence object's own name: it appears only inside Evidence (the proof
+drilldown) and in offline verification (`ioi verify`), where that object is
+what is being checked.
 
 Default product wording should be outcome-shaped:
 
@@ -560,7 +565,7 @@ Term map for product surfaces:
 | Protocol / owner term | Product-facing default |
 | --- | --- |
 | wallet.network | SSO, permissions, connected access, authority, recovery, powered-by label in advanced contexts |
-| Agentgres | Provenance (work ledger), evidence, run history, receipts, state/history |
+| Agentgres | Provenance (work ledger), evidence, run history, state/history ("receipts" only inside Evidence and offline verification) |
 | Hypervisor Daemon | secure runtime, execution environment, worker runtime |
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
