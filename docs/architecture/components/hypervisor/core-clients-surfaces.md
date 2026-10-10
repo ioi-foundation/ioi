@@ -3501,15 +3501,35 @@ Connections-estate connectors (the objects the Connections cockpit owns, per
 ```text
 HypervisorSession.authority_profile:
   schema_version: ioi.hypervisor.session_authority_profile.v1
-  connection_refs: [ "connector:<connector_id>", ... ]   # closed set; default []
+  connection_refs: [ "connector:<connector_id>", ... ]   # closed set; omitted or null = [the operator's default connection]; [] = none
   declared_at: <iso8601>
 ```
 
 Rules:
 
-- **Default is empty, not the workspace.** A session created without a
-  profile names no connection; the workspace's connector estate confers
-  nothing on it.
+- **Default is the operator's default connection, never the workspace**
+  ([ADR 0059](../../../decisions/0059-an-omitted-session-authority-profile-names-the-signed-default-connection.md),
+  amending ADR 0052 Decision 3; target contract, not built: today an omitted
+  profile is the empty one). A session created without a profile, or with
+  `connection_refs: null`, names the connection the creating principal's own
+  **`default_connection` record** names (never another principal's; the
+  resolved connector passes the same closed-at-create check as an explicit
+  one): a signed per-operator record, separate from any envelope, written only
+  by an explicit signed act (install's "This computer", the Set limits default mark, or the successor
+  pick a confirmed Disconnect of the default signs before the removal). A
+  renewal or re-set never touches it, and no connection is ever promoted to it
+  automatically. Remove limits keeps it and records "keep it stopped" in the
+  same act (runs refuse typed until limits are set again; no item follows); a
+  Disconnect without the confirming factor blocks the connection pending
+  confirmation and keeps the record; "This computer" has no Disconnect. With no
+  default record (no door reaches this for the installing operator; a second
+  principal has none until they set one), a create that omits the profile
+  refuses typed (`no_default_connection`), never as an approval. **Only an
+  explicit empty list names no connection**: that session's executions take the
+  per-run exact-effect approval lane, the operator's explicit choice. An intent
+  reserved before this rule keeps the empty profile it was reserved with; after
+  it, the create resolves the default before reserving, so no replay resolves
+  one. The workspace's connector estate confers nothing on a session.
 - **Closed at create.** Each `connection_refs` entry must resolve to an
   existing connector the caller may use at create time; an unknown or
   already-revoked connector refuses the create with a typed reason. The set

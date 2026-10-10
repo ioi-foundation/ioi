@@ -96,6 +96,10 @@ authority primitive. Canonical owner:
 [`core-clients-surfaces.md`](../architecture/components/hypervisor/core-clients-surfaces.md)
 § *Hypervisor Sessions*, with the connectors doctrine cross-reference.
 
+> Amended by [ADR 0059](./0059-an-omitted-session-authority-profile-names-the-signed-default-connection.md)
+> (2026-09-30): an omitted profile names the operator's signed default connection instead of the
+> empty set; only an explicit empty list names no connection. The rest of this decision stands.
+
 ### 4. Application-specific contracts leave shared core prose by move, not rename
 
 Room projections, goal-specific queue discriminators and work-form fields, the
