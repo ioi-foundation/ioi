@@ -630,7 +630,7 @@ do a task conversationally
      draft whose composition is bound from the session's own lineage
 ```
 
-Create-first composition remains the builder persona's path through Studio
+Create-first composition remains the author persona's path through Studio
 and the existing authoring surfaces; it is no longer the assumed entry
 funnel. The promotion mints nothing: private registration, Worker Builder
 binding, and session lineage all exist today, and the draft stays private
