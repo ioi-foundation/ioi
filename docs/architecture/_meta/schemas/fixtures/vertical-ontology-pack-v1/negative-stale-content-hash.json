@@ -130,7 +130,7 @@
     { "risk_class": "external_message", "review_mode": "exact_payload_review", "review_owner_module": "M03.15" }
   ],
   "forbidden_action_refs": [
-    "autonomous_submission_without_exact_payload_review",
+    "autonomous_submission_outside_a_governor_review_rule",
     "prescription_like_output",
     "bulk_export_of_subject_records"
   ],
@@ -164,5 +164,5 @@
     "live_medical_suitability",
     "credential_custody"
   ],
-  "content_hash": "sha256:08cc5f192b9efec4a3733038d7f24825a7b1b09201760f936b2eea19d87e8794"
+  "content_hash": "sha256:800e62482242a902210cae2e663d18f9503597a08cbf445cdf27dec214535bfc"
 }

@@ -7,7 +7,7 @@
   "principal_resolution": "server_resolved",
   "resolved_principal_ref": "user://owner",
   "vertical_ontology_pack_revision_ref": "vertical-pack://acme-records/synthetic-sensitive/revision/1",
-  "vertical_ontology_pack_content_hash": "sha256:08cc5f192b9efec4a3733038d7f24825a7b1b09201760f936b2eea19d87e8793",
+  "vertical_ontology_pack_content_hash": "sha256:800e62482242a902210cae2e663d18f9503597a08cbf445cdf27dec214535bfb",
   "base_ontology_revision_ref": "ontology://acme-records/intake/revision/1",
   "base_ontology_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "worker_composition_ref": "composition://acme/records-worker/1.0.0/local",
@@ -256,5 +256,5 @@
     "measured_field_confidence",
     "worker_composition_resolution"
   ],
-  "content_hash": "sha256:9e5d5394c59814e27cf886d975f8caf241ed85c46b8998c9a047067614ec35fb"
+  "content_hash": "sha256:0e087dfb51559bc313f574add436d42d2abca95cb87958eadc3dfeab638c5ddd"
 }

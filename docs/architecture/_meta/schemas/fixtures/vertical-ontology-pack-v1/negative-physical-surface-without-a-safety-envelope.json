@@ -130,7 +130,7 @@
     { "risk_class": "physical_action", "review_mode": "supervisory_review", "review_owner_module": "M03.15" }
   ],
   "forbidden_action_refs": [
-    "autonomous_submission_without_exact_payload_review",
+    "autonomous_submission_outside_a_governor_review_rule",
     "prescription_like_output",
     "bulk_export_of_subject_records"
   ],
@@ -164,5 +164,5 @@
     "live_medical_suitability",
     "credential_custody"
   ],
-  "content_hash": "sha256:e7955025165e9849c526b87d6622894a890e47813f45afdaf2a88bc108a8c21d"
+  "content_hash": "sha256:aab663bea197f3bca86f9cdc883a785a456a17112ce90ead4856bb1b416eecf4"
 }
