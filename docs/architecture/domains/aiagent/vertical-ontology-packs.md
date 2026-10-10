@@ -144,10 +144,27 @@ remains local/domain Agentgres truth with receipts.
 ## Conformance Checks
 
 - Pack actions map to declared risk classes and authority scopes.
+- A pack declares its review mode per action type, and among the pack's own
+  declarations that one governs: a risk class is not a review key. The review
+  that actually runs follows the principal's governing policy.
 - Pack connectors do not imply credential custody.
 - Physical packs reference `PhysicalActionPolicy` and `SafetyEnvelope`.
 - Pack UI projections are display hints, not truth.
 - Unknown or stale policy/evidence coverage is explicit.
+
+Review is keyed by action type because one risk class can hold actions that need
+different review. A clean claim submission, a void of that claim and a
+correction to it are all `external_message`, yet the first may go out under
+sampled review while the void and the correction require exact payload
+review. A mode keyed by risk class could express that only by giving all three
+the strictest mode, or by weakening the void. The registered
+`vertical-ontology-pack/v1` contract carries both a `review_mode` on each action
+binding and a per-risk-class `declared_review_modes` list, and says neither
+which one governs nor that they must agree. Its successor contract makes the
+per-action mode the only review key, as a successor rather than an edit of v1.
+The per-action mode stays a declaration: the review that runs follows the
+principal's governing policy, and a policy that samples one action never
+relaxes the review another action requires.
 
 ## Anti-Patterns
 
