@@ -353,6 +353,26 @@ claims it. The posture stays `production_candidate`.
 - No claim of an end-to-end standalone product pass; that remains the
   flagship class's `sovereign-local` claim under `execution-horizons.md`.
 
+## Alpha-only objects and their retirement (2026-09-30)
+
+The set-once lane of this profile is carried by objects that exist only
+because typed standing grants are not yet qualified (§ *Declared widenings*).
+None of them is permanent. When typed standing grants meet their bar, each
+object below retires together with every surface that shows it (its sheet,
+state, picker, flag, reason code and item), and the profile's tables change in
+the same act. Until then each is canon for the bounded alpha only; a surface
+that shows one outside the bounded alpha is a defect.
+
+| Alpha-only object | Retires into, when typed standing grants qualify |
+| --- | --- |
+| the per-connection standing envelope (usages, budget, expiry, operations, exact tools) and its Set limits and Remove limits acts | the principal's standing grants: the install-time default grant and each Connection's grant |
+| the local "This computer" placeholder connection created at install | the install-time default grant (no placeholder connector) |
+| the signed per-operator `default_connection` record, and a session profile that omits its connections | the grant's default scope |
+| the connection picker in the composer and a client's connection flag | nothing: a run is admitted by the grants that cover it |
+| an envelope's expiry, its renewal and the rotation gap (a run refused while an envelope is re-minted) | grants that carry a term, renew only at the principal's presence, and change in one signed act |
+| review marks signed with an envelope | per-action-type review rules on the grant |
+| the refusal reasons that name an envelope (expired, rotating, revoked, outside its limits) | the grant's typed refusals |
+
 ## Program evidence (2026-09-07)
 
 Recorded by the boundary and bounded-alpha program as it lands. Each row names
