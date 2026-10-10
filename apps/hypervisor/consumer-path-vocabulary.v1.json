@@ -3,7 +3,8 @@
   "doctrine": "The machine record of M13's §5 boundary: kernel vocabulary stays OFF the consumer path, and renaming happens in projection, never in daemon objects. Two halves, and the second is what makes the first non-trivial. (a) POSITIVE: no forbidden noun appears in the rendered text a consumer reads. (b) NEGATIVE CONTROL: the daemon still calls its objects what it has always called them. A green scan obtained by renaming daemon fields fails (b), which is the cheat this record exists to forbid.",
   "owner_citations": [
     "docs/architecture/components/hypervisor/core-clients-surfaces.md — § Surface Noun Budget: ordinary surfaces render at most three nouns.",
-    "internal-docs/implementation/modules/M13-consumer-session-loop.md § 5 — 'lease, admission, receipt, environment and their kin stay out of the consumer path — renaming happens in projection, never in daemon objects'."
+    "internal-docs/implementation/modules/M13-consumer-session-loop.md § 5 — 'lease, admission, receipt, environment and their kin stay out of the consumer path — renaming happens in projection, never in daemon objects'.",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md — § Product Language Layers: subsystem names belong in advanced details, audit exports, developer views, proof drilldowns and protocol docs. The extended list, the code pattern and the exempt contexts below apply that rule to every ordinary surface."
   ],
   "allowed_nouns": ["Agent", "Skill", "Schedule"],
   "forbidden": [
@@ -43,14 +44,117 @@
       "why": "a consumer is a person with an account, not a principal"
     }
   ],
+  "forbidden_extended": [
+    {
+      "term": "effect",
+      "source": "owner-authorized change set (2026-09-30) — the permission words",
+      "why": "the governed action's kernel name; a person reads what the agent did or wants to do, in the pack's plain sentence"
+    },
+    {
+      "term": "grant",
+      "source": "owner-authorized change set (2026-09-30) — the permission words",
+      "why": "the authority object's kernel name; a person reads permissions"
+    },
+    {
+      "term": "policy",
+      "source": "owner-authorized change set (2026-09-30) — the permission words",
+      "why": "the rule object's kernel name; a person reads permissions and limits, in words"
+    },
+    {
+      "term": "profile",
+      "source": "owner-authorized change set (2026-09-30) — the permission words",
+      "why": "the authority and harness profiles are kernel objects; a person reads an agent, what it may do and where it runs"
+    },
+    {
+      "term": "ask",
+      "source": "owner-authorized change set (2026-09-30) — the permission words",
+      "why": "the decision verdict's kernel name (allow, ask, deny); a person reads a question and its choices"
+    },
+    {
+      "term": "custody",
+      "source": "owner-authorized change set (2026-09-30) — rendered strings",
+      "why": "key custody is the authority provider's and the deployment's; a person reads a passkey step, or 'your password on this computer'"
+    },
+    {
+      "term": "passphrase",
+      "source": "owner-authorized change set (2026-09-30) — rendered strings",
+      "why": "the operator credential's kernel name; a person reads 'your password on this computer'"
+    },
+    {
+      "term": "session_execute",
+      "source": "owner-authorized change set (2026-09-30) — rendered strings",
+      "why": "an envelope operation's id; a person reads 'Runs Sessions on this computer'"
+    },
+    {
+      "term": "token",
+      "only_on": ["seat-sheet", "system-header-driver-line", "settings-agent-route"],
+      "source": "owner-authorized change set (2026-09-30) — an agent's route to this computer",
+      "why": "an agent's route is shown as one choice ('IOI (default) · Your own server'); no token, key id, relay or scope reaches the person"
+    },
+    {
+      "term": "key id",
+      "only_on": ["seat-sheet", "system-header-driver-line", "settings-agent-route"],
+      "source": "owner-authorized change set (2026-09-30) — an agent's route to this computer",
+      "why": "as token"
+    },
+    {
+      "term": "relay",
+      "only_on": ["seat-sheet", "system-header-driver-line", "settings-agent-route"],
+      "source": "owner-authorized change set (2026-09-30) — an agent's route to this computer",
+      "why": "as token"
+    },
+    {
+      "term": "scope",
+      "only_on": ["seat-sheet", "system-header-driver-line", "settings-agent-route"],
+      "source": "owner-authorized change set (2026-09-30) — an agent's route to this computer",
+      "why": "as token"
+    }
+  ],
   "surfaces": [
     { "path": "/__ioi/login", "render": "native", "why": "the front door a fresh principal meets first" },
     { "path": "/ai", "render": "spa", "why": "the product home the bootstrap lands on" },
     { "path": "/__ioi/connections", "render": "native", "why": "where a connection is bounded — the surface most at risk of leaking the authority vocabulary" }
   ],
+  "target_surfaces": [
+    { "id": "home", "surface": "Home: the composer over the board, with the Your agents and Your systems strips", "path": "/ai", "scanner": "spa", "needs": "a fixture that seeds one open item per owning queue, so Needs you renders rows" },
+    { "id": "home-readout", "surface": "Home's full readout", "path": "/__ioi/home", "scanner": "native", "needs": "nothing new" },
+    { "id": "session-header", "surface": "the Session header and conversation", "path": "/details/{environment_id}", "scanner": "spa", "needs": "the path filled from the launched session's environment_ref, and the Evidence region excluded from the scan" },
+    { "id": "agent-page", "surface": "the Agent page of a kept Agent", "path": null, "scanner": "spa", "needs": "the page's route, and a kept Agent in the fixture" },
+    { "id": "card-first-sentences", "surface": "every exception card's first sentence, per variant", "path": null, "scanner": "renderer", "needs": "a scanner that calls the deterministic first-sentence renderer over one typed effect per variant" },
+    { "id": "set-once-sheets", "surface": "the set-once sheets (install, connect with its limits, keep, schedule, hire, data sharing)", "path": null, "scanner": "spa-steps", "needs": "a scanner that opens each sheet by driving its controls" },
+    { "id": "cli", "surface": "the CLI's non-verbose output of every verb", "path": null, "scanner": "cli", "needs": "a scanner that runs each verb without --json or --verbose and scans stdout and stderr" },
+    { "id": "seat-sheet", "surface": "the seat sheet", "path": null, "scanner": "spa-steps", "needs": "the surface (not built at this revision)" },
+    { "id": "system-header-driver-line", "surface": "the System header's driver line", "path": null, "scanner": "spa", "needs": "the surface (not built at this revision)" },
+    { "id": "settings-agent-route", "surface": "the Settings row naming an agent's route to this computer", "path": null, "scanner": "spa", "needs": "the surface (not built at this revision)" }
+  ],
+  "scanners": {
+    "native": "exists: GET the served path, strip scripts, styles, tags and entities",
+    "spa": "exists: chromium body innerText after load; a path template and an excluded Evidence region are extensions of it",
+    "spa-steps": "new: chromium driven through the controls that open a sheet or dialog, scanning each opened state",
+    "renderer": "new: the first-sentence renderer called directly, one typed effect per card variant",
+    "cli": "new: the CLI's verbs run without --json or --verbose, scanning what they print"
+  },
+  "matching": {
+    "tokens": "Rendered text is split on whitespace, punctuation, '_', '-' and camelCase boundaries and lower-cased before matching, so envelope_revoked, envelope-revoked and envelopeRevoked all expose envelope. A term matches a token equal to it or to its plural; a multi-part term (session_execute, key id) matches its parts in sequence however they are joined.",
+    "codes": "Beside the word list, a token of two or more lowercase parts joined by '_' (a reason, cause or kernel name), or the word 'exit' followed by a number, fails in any rendered string outside the exempt contexts.",
+    "control": "\"Didn't start · limits_removed (removed), exit 8\" in the Session header carries no forbidden word: the code pattern must catch it, and the word list alone must miss it.",
+    "plants": [
+      "Refused before it started · envelope_revoked (revoke_pending), exit 9",
+      "Its one operation: session_execute",
+      "Sign with passphrase … custody on this computer, not a passkey",
+      "Reached through the IOI relay · token scope: read"
+    ]
+  },
+  "exempt": [
+    { "context": "Evidence", "why": "the proof drilldown, where the kernel's objects are what is shown" },
+    { "context": "ioi evidence, ioi verify, ioi kernel", "why": "the CLI's evidence, offline verification and kernel views" },
+    { "context": "--json and --verbose CLI output", "why": "machine and diagnostic output; codes, causes and exits belong here" },
+    { "context": "quoted third-party content the executor marks domain_text", "why": "a repository's or a mailbox's own words are not the product's; a domain_text marker set by a guest or a model is ignored" }
+  ],
   "nonclaims": [
     "This scans RENDERED TEXT only (innerText for SPA surfaces, tag-stripped HTML for native ones). It deliberately does not scan HTML attributes, script bodies, or data-* hooks: those are machine surfaces, and a data-ioi-standing-lease attribute is a test seam, not something a consumer reads.",
     "Operations and Work surfaces are NOT consumer path. M13.4 demotes that readout to Operations, where the kernel nouns are correct and expected.",
-    "The allowed_nouns list is recorded for provenance; this gate enforces the forbidden list, not a positive budget over every noun a surface renders."
+    "The allowed_nouns list is recorded for provenance; this gate enforces the forbidden list, not a positive budget over every noun a surface renders.",
+    "The extension (forbidden_extended, target_surfaces, scanners, matching, exempt) is declared ahead of its enforcement. The verifier self-drills the extended matcher on the four plants and the control, but scans the three live surfaces with the seven terms only, and no target surface, until that surface is built and its scanner exists."
   ]
 }

@@ -71,6 +71,41 @@ function forbiddenHits(text) {
   return hits;
 }
 
+/// The extended matcher (consumer-path-vocabulary.v1.json § matching). The whole-word matcher above
+/// misses `envelope_revoked` (an underscore is a word character, so there is no boundary) and every
+/// plural ("receipts"). This one splits rendered text on whitespace, punctuation, "_", "-" and
+/// camelCase first; a term matches a token equal to it or to its plural, and a multi-part term
+/// (session_execute, key id) matches its parts in sequence however they are joined.
+function tokensOf(text) {
+  return String(text)
+    .replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2")
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .map((token) => token.toLowerCase());
+}
+const pluralForms = (part) => [part, `${part}s`, `${part}es`, ...(part.endsWith("y") ? [`${part.slice(0, -1)}ies`] : [])];
+function extendedHits(text, entries) {
+  const tokens = tokensOf(text);
+  const hits = [];
+  for (const entry of entries) {
+    const parts = tokensOf(entry.term);
+    const last = parts.length - 1;
+    let count = 0;
+    for (let i = 0; i + parts.length <= tokens.length; i += 1) {
+      if (parts.every((part, j) => (j === last ? pluralForms(part).includes(tokens[i + j]) : tokens[i + j] === part))) count += 1;
+    }
+    if (count) hits.push({ term: entry.term, count });
+  }
+  return hits;
+}
+/// Beside the word list: a product-named code (two or more lowercase parts joined by "_") or the word
+/// "exit" followed by a number renders only in the exempt contexts (Evidence, --json, --verbose).
+function codeHits(text) {
+  const snake = [...String(text).matchAll(/\b[a-z0-9]+(?:_[a-z0-9]+)+\b/gu)].map((m) => m[0]);
+  const exits = [...String(text).matchAll(/\bexit\s+\d+\b/giu)].map((m) => m[0]);
+  return [...snake, ...exits];
+}
+
 async function run() {
   // ---- the matcher's own self-drill, BEFORE any plane is booted ------------------------------
   // A scanner that matches nothing passes every surface. Prove it can see what it is looking for,
@@ -83,6 +118,35 @@ async function run() {
   ok("the forbidden set is a TRACKED RECORD with an owner citation for every term, not an inline list",
     VOCAB.forbidden.length > 0 && VOCAB.forbidden.every((f) => f.term && f.source && f.why) && VOCAB.owner_citations.length >= 2,
     `${VOCAB.forbidden.length} terms · ${VOCAB.owner_citations.length} citations`);
+
+  // ---- the extended matcher's controls (§ matching) — before any plane, like the drill above ----
+  // Declared ahead of enforcement: the live surfaces below are still scanned with the seven terms and
+  // the whole-word matcher; these drills prove the extended matcher can see what it will look for.
+  const extended = VOCAB.forbidden_extended ?? [];
+  const everywhere = [...VOCAB.forbidden, ...extended.filter((f) => !f.only_on)];
+  const withRouteWords = [...everywhere, ...extended.filter((f) => f.only_on)];
+  const [a9, a10, a12, seat] = VOCAB.matching?.plants ?? [];
+  const control = "Didn't start · limits_removed (removed), exit 8";
+  ok("the extension is a TRACKED RECORD: every added term has a source and a reason, every target surface names a declared scanner, and the exempt contexts are listed",
+    extended.length > 0 && extended.every((f) => f.term && f.source && f.why)
+      && (VOCAB.target_surfaces ?? []).length > 0 && VOCAB.target_surfaces.every((s) => s.id && s.surface && Object.hasOwn(VOCAB.scanners ?? {}, s.scanner))
+      && (VOCAB.exempt ?? []).length > 0,
+    `${extended.length} added terms · ${(VOCAB.target_surfaces ?? []).length} target surfaces · ${(VOCAB.exempt ?? []).length} exempt contexts`);
+  ok("SELF-DRILL (extended): each plant is caught — the refusal code in the header, the operation id on a limits line, the custody words on a sheet, and the route words only with the seat-sheet list",
+    extendedHits(a9 ?? "", everywhere).some((h) => h.term === "envelope") && codeHits(a9 ?? "").length >= 2
+      && extendedHits(a10 ?? "", everywhere).some((h) => h.term === "session_execute")
+      && ["passphrase", "custody"].every((term) => extendedHits(a12 ?? "", everywhere).some((h) => h.term === term))
+      && extendedHits(seat ?? "", everywhere).length === 0 && extendedHits(seat ?? "", withRouteWords).length >= 3,
+    `${[a9, a10, a12, seat].filter(Boolean).length} plants`);
+  ok("CONTROL: the code pattern catches a code that carries no forbidden word, and the word list alone misses it",
+    codeHits(control).length === 2 && extendedHits(control, withRouteWords).length === 0,
+    `codes ${codeHits(control).join(", ")}`);
+  ok("MUTANT: the whole-word matcher misses the header plant, so the split is load-bearing",
+    !/\benvelopes?\b/iu.test(a9 ?? "envelope_revoked") && forbiddenHits(a9 ?? "envelope_revoked").length === 0,
+    "\\benvelopes?\\b on the header plant");
+  ok("SELF-DRILL (extended): benign consumer sentences stay clean under the extended matcher and the code pattern",
+    ["Your session is running with one connection attached. Nothing else is needed.", "It may write files in its own workspace on this computer; nothing leaves it", "Runs Sessions on this computer"]
+      .every((sentence) => extendedHits(sentence, withRouteWords).length === 0 && codeHits(sentence).length === 0));
 
   let fixture = null;
   let plane = null;
