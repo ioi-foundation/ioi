@@ -1,0 +1,5995 @@
+[
+  {
+    "part": "Cyborg_Female_body_abdominals_left_middle.036",
+    "bone": "spine",
+    "center": [
+      0.02562909573316574,
+      -0.08591777086257935,
+      1.2090394496917725
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_abdominals_left_lower.038",
+    "bone": "hips",
+    "center": [
+      0.02630467526614666,
+      -0.08310059458017349,
+      1.1010780334472656
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_abdominals_upper_left.045",
+    "bone": "spine",
+    "center": [
+      0.02764732390642166,
+      -0.0837443470954895,
+      1.28466796875
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_abdominals_middle_right.061",
+    "bone": "spine",
+    "center": [
+      -0.025622079148888588,
+      -0.08591769635677338,
+      1.2090389728546143
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_abdominals_lower_right.063",
+    "bone": "hips",
+    "center": [
+      -0.02629632130265236,
+      -0.08310059458017349,
+      1.1010780334472656
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_abdominals_upper_right.069",
+    "bone": "spine",
+    "center": [
+      -0.027641676366329193,
+      -0.0837443470954895,
+      1.28466796875
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_pelvis_left.003",
+    "bone": "hips",
+    "center": [
+      0.07709664851427078,
+      -0.03852805122733116,
+      1.054234504699707
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_pelvis_right.004",
+    "bone": "hips",
+    "center": [
+      -0.07709436118602753,
+      -0.03852805122733116,
+      1.054234504699707
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_pelvis_buttox_left.032",
+    "bone": "hips",
+    "center": [
+      0.08313552290201187,
+      0.07517506927251816,
+      1.041419506072998
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_pelvis_buttox_right.057",
+    "bone": "hips",
+    "center": [
+      -0.08312846720218658,
+      0.07517506927251816,
+      1.041419506072998
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_pelvis_buttox_pubic_left.033",
+    "bone": "hips",
+    "center": [
+      0.01585736870765686,
+      0.06851252913475037,
+      1.0164614915847778
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_pelvis_buttox_pubic_right.058",
+    "bone": "hips",
+    "center": [
+      -0.015846628695726395,
+      0.06851252913475037,
+      1.0164614915847778
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_rib_front.002",
+    "bone": "spine",
+    "center": [
+      -0.08857763558626175,
+      -0.03329484537243843,
+      1.2437593936920166
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_rib_back_left.043",
+    "bone": "spine",
+    "center": [
+      0.08371352404356003,
+      0.0597095862030983,
+      1.254662036895752
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_rib_front_left.044",
+    "bone": "spine",
+    "center": [
+      0.08857634663581848,
+      -0.03329484537243843,
+      1.2437593936920166
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_rib_back_right.068",
+    "bone": "spine",
+    "center": [
+      -0.08370745927095413,
+      0.0597095862030983,
+      1.254662036895752
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_chest_left.046",
+    "bone": "chest",
+    "center": [
+      0.07354119420051575,
+      -0.005066742189228535,
+      1.419318437576294
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_chest_right.070",
+    "bone": "chest",
+    "center": [
+      -0.07353480160236359,
+      -0.005066742189228535,
+      1.419318437576294
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_chest_sternum_left.037",
+    "bone": "chest",
+    "center": [
+      0.02009626105427742,
+      -0.006198558956384659,
+      1.4910939931869507
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_chest_sternum_right.062",
+    "bone": "chest",
+    "center": [
+      -0.02008773759007454,
+      -0.006198558956384659,
+      1.4910939931869507
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_scapula_left.042",
+    "bone": "chest",
+    "center": [
+      0.08777181804180145,
+      0.0818709135055542,
+      1.4306838512420654
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_scapula_righ.067",
+    "bone": "chest",
+    "center": [
+      -0.08777117729187012,
+      0.0818709135055542,
+      1.4306838512420654
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_back_left.047",
+    "bone": "chest",
+    "center": [
+      0.03355109319090843,
+      0.09879104793071747,
+      1.3430733680725098
+    ]
+  },
+  {
+    "part": "Cyborg_Female_body_back_right.071",
+    "bone": "chest",
+    "center": [
+      -0.03354191035032272,
+      0.09879104793071747,
+      1.3430733680725098
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_left_knee.027",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10504408180713654,
+      -0.02271026186645031,
+      0.5800290107727051
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_left_shin.028",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10921607911586761,
+      0.026261407881975174,
+      0.3722425103187561
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_left_calf.029",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10837095975875854,
+      0.06756827235221863,
+      0.3791309893131256
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_left_foot",
+    "bone": "leftFoot",
+    "center": [
+      0.11447522044181824,
+      0.053860925137996674,
+      0.08353549242019653
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_leg_left_thigh_back.026",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.09757588058710098,
+      0.0536140538752079,
+      0.7890775203704834
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_left_thigh_front.025",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.09805318713188171,
+      -0.024487227201461792,
+      0.7877570390701294
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_left_elbow.039",
+    "bone": "leftLowerArm",
+    "center": [
+      0.33965396881103516,
+      0.13031812012195587,
+      1.2759764194488525
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_left_tricept.035",
+    "bone": "leftUpperArm",
+    "center": [
+      0.23736250400543213,
+      0.11725392192602158,
+      1.360490322113037
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_left_bicept.034",
+    "bone": "leftUpperArm",
+    "center": [
+      0.24180912971496582,
+      0.0742034837603569,
+      1.361243486404419
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.005",
+    "bone": "leftHand",
+    "center": [
+      0.5701867938041687,
+      -0.001340276561677456,
+      0.9988324642181396
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.007",
+    "bone": "leftHand",
+    "center": [
+      0.5258364677429199,
+      -0.0006584115326404572,
+      1.0942606925964355
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.014",
+    "bone": "leftHand",
+    "center": [
+      0.5705059766769409,
+      0.012488743290305138,
+      1.0522514581680298
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.015",
+    "bone": "leftHand",
+    "center": [
+      0.5638883709907532,
+      -0.0030197417363524437,
+      1.0478284358978271
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.016",
+    "bone": "leftHand",
+    "center": [
+      0.5591683983802795,
+      -0.021708616986870766,
+      1.0468004941940308
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.017",
+    "bone": "leftHand",
+    "center": [
+      0.5673282146453857,
+      -0.024741556495428085,
+      1.0193524360656738
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.019",
+    "bone": "leftHand",
+    "center": [
+      0.5577872395515442,
+      -0.045030657202005386,
+      1.0007745027542114
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.020",
+    "bone": "leftHand",
+    "center": [
+      0.5553730130195618,
+      -0.04354962706565857,
+      1.0246590375900269
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.083",
+    "bone": "leftHand",
+    "center": [
+      0.5230059623718262,
+      0.0033222362399101257,
+      1.0830974578857422
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.084",
+    "bone": "leftHand",
+    "center": [
+      0.5754385590553284,
+      0.013301416300237179,
+      1.0346373319625854
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.085",
+    "bone": "leftHand",
+    "center": [
+      0.5065366625785828,
+      -0.028754178434610367,
+      1.0276730060577393
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.087",
+    "bone": "leftHand",
+    "center": [
+      0.49779587984085083,
+      -0.02258516661822796,
+      1.0506939888000488
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.091",
+    "bone": "leftHand",
+    "center": [
+      0.5749146938323975,
+      0.016795000061392784,
+      1.017261028289795
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.092",
+    "bone": "leftHand",
+    "center": [
+      0.5664732456207275,
+      -0.022639671340584755,
+      0.9948614835739136
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.093",
+    "bone": "leftHand",
+    "center": [
+      0.5711007118225098,
+      -0.004872994497418404,
+      1.0228240489959717
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_hand.094",
+    "bone": "leftHand",
+    "center": [
+      0.54681795835495,
+      -0.03688991814851761,
+      1.0480529069900513
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_left_forearm.030",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4133627712726593,
+      0.047182828187942505,
+      1.2002813816070557
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_left_forearm.031",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4234980344772339,
+      0.06974107027053833,
+      1.1987075805664062
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_left_shoulder_back.040",
+    "bone": "leftUpperArm",
+    "center": [
+      0.1449950784444809,
+      0.11631084978580475,
+      1.4779605865478516
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_left_shoulder_front.041",
+    "bone": "leftUpperArm",
+    "center": [
+      0.1518004685640335,
+      0.05408749729394913,
+      1.4859800338745117
+    ]
+  },
+  {
+    "part": "Cyborg_Female_neck.048",
+    "bone": "neck",
+    "center": [
+      0.025148220360279083,
+      0.0377810001373291,
+      1.5731931924819946
+    ]
+  },
+  {
+    "part": "Cyborg_Female_neck.049",
+    "bone": "neck",
+    "center": [
+      0.025155967101454735,
+      0.0894094705581665,
+      1.5714144706726074
+    ]
+  },
+  {
+    "part": "Cyborg_Female_neck.072",
+    "bone": "neck",
+    "center": [
+      -0.02514077164232731,
+      0.0377810001373291,
+      1.5731931924819946
+    ]
+  },
+  {
+    "part": "Cyborg_Female_neck.073",
+    "bone": "neck",
+    "center": [
+      -0.02514902874827385,
+      0.0894094705581665,
+      1.5714144706726074
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_right_knee.052",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10503891110420227,
+      -0.02271026186645031,
+      0.5800290107727051
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_right_shin.053",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10921692103147507,
+      0.026261407881975174,
+      0.3722425103187561
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_right_calf.054",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10836628824472427,
+      0.06756827235221863,
+      0.3791309893131256
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_right_foot.096",
+    "bone": "rightFoot",
+    "center": [
+      -0.11447522044181824,
+      0.053860925137996674,
+      0.08353549242019653
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_leg_right_thigh_back.051",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.09757210314273834,
+      0.0536140538752079,
+      0.7890775203704834
+    ]
+  },
+  {
+    "part": "Cyborg_Female_leg_right_thigh_front.050",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.09805580973625183,
+      -0.024487227201461792,
+      0.7877570390701294
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_right_bicept.059",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2418029010295868,
+      0.0742034837603569,
+      1.361243486404419
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_right_tricept.060",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2373565137386322,
+      0.11725392937660217,
+      1.360490322113037
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_right_elbow.064",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.3396480083465576,
+      0.13031812012195587,
+      1.2759764194488525
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.006",
+    "bone": "rightHand",
+    "center": [
+      -0.49779045581817627,
+      -0.02258516661822796,
+      1.0506939888000488
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.008",
+    "bone": "rightHand",
+    "center": [
+      -0.5673242807388306,
+      -0.024741556495428085,
+      1.0193524360656738
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.009",
+    "bone": "rightHand",
+    "center": [
+      -0.525831937789917,
+      -0.0006570331752300262,
+      1.09425950050354
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.010",
+    "bone": "rightHand",
+    "center": [
+      -0.5468132495880127,
+      -0.03688991814851761,
+      1.0480529069900513
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.011",
+    "bone": "rightHand",
+    "center": [
+      -0.5065340399742126,
+      -0.028754178434610367,
+      1.0276730060577393
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.012",
+    "bone": "rightHand",
+    "center": [
+      -0.5591615438461304,
+      -0.021708616986870766,
+      1.0468004941940308
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.013",
+    "bone": "rightHand",
+    "center": [
+      -0.5230000019073486,
+      0.003322247415781021,
+      1.0830974578857422
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.018",
+    "bone": "rightHand",
+    "center": [
+      -0.5577855110168457,
+      -0.045030657202005386,
+      1.0007745027542114
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.021",
+    "bone": "rightHand",
+    "center": [
+      -0.5701838731765747,
+      -0.001340276561677456,
+      0.9988324642181396
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.022",
+    "bone": "rightHand",
+    "center": [
+      -0.5710977911949158,
+      -0.004872994497418404,
+      1.0228240489959717
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.023",
+    "bone": "rightHand",
+    "center": [
+      -0.5754364728927612,
+      0.013301494531333447,
+      1.0346375703811646
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.024",
+    "bone": "rightHand",
+    "center": [
+      -0.5664708018302917,
+      -0.022639671340584755,
+      0.9948614835739136
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.086",
+    "bone": "rightHand",
+    "center": [
+      -0.555368959903717,
+      -0.04354962706565857,
+      1.0246590375900269
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.088",
+    "bone": "rightHand",
+    "center": [
+      -0.57049959897995,
+      0.012488743290305138,
+      1.0522514581680298
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.089",
+    "bone": "rightHand",
+    "center": [
+      -0.5749126076698303,
+      0.016795000061392784,
+      1.017261028289795
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_hand.090",
+    "bone": "rightHand",
+    "center": [
+      -0.5638825297355652,
+      -0.0030197417363524437,
+      1.0478284358978271
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_arm_right_forearm.055",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.413358211517334,
+      0.047182828187942505,
+      1.2002813816070557
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_right_forearm056",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.4234914779663086,
+      0.06974141299724579,
+      1.198707103729248
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_right_shoulder_back.065",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.14498890936374664,
+      0.11631084978580475,
+      1.4779605865478516
+    ]
+  },
+  {
+    "part": "Cyborg_Female_arm_right_shoulder_front.066",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.15179555118083954,
+      0.05408749729394913,
+      1.4859800338745117
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head.074",
+    "bone": "head",
+    "center": [
+      1.2330710887908936e-06,
+      0.01330450177192688,
+      1.7099547386169434
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head075",
+    "bone": "head",
+    "center": [
+      -0.04387259483337402,
+      0.013386905193328857,
+      1.6922943592071533
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head.076",
+    "bone": "head",
+    "center": [
+      -0.03559613972902298,
+      0.09458120912313461,
+      1.6989930868148804
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head.077",
+    "bone": "head",
+    "center": [
+      -0.016689294949173927,
+      -0.0408019982278347,
+      1.5991718769073486
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head.078",
+    "bone": "head",
+    "center": [
+      -0.03265131264925003,
+      -0.012240003794431686,
+      1.6134119033813477
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head.079",
+    "bone": "head",
+    "center": [
+      0.043876394629478455,
+      0.013386905193328857,
+      1.6922943592071533
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head.080",
+    "bone": "head",
+    "center": [
+      0.035601191222667694,
+      0.09458120912313461,
+      1.6989930868148804
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head.081",
+    "bone": "head",
+    "center": [
+      0.01669611595571041,
+      -0.0408019982278347,
+      1.5991718769073486
+    ]
+  },
+  {
+    "part": "Cyborg_Female_head.082",
+    "bone": "head",
+    "center": [
+      0.0326576828956604,
+      -0.012240003794431686,
+      1.6134119033813477
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.521",
+    "bone": "rightFoot",
+    "center": [
+      -0.10704222321510315,
+      0.07175299525260925,
+      0.16903890669345856
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.510",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.11372644454240799,
+      0.05842422693967819,
+      0.8576865196228027
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.516",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10036610811948776,
+      0.09174887835979462,
+      0.3933885097503662
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.519",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.09070771932601929,
+      0.05084885656833649,
+      0.37480250000953674
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.508",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.11659707129001617,
+      0.0497230663895607,
+      0.3751469850540161
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.488",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.11509557068347931,
+      0.04659804701805115,
+      0.7053890228271484
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.491",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.09950857609510422,
+      0.021126002073287964,
+      0.5928911566734314
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.498",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.10295791923999786,
+      0.01643899828195572,
+      0.9768128395080566
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.479",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.08479556441307068,
+      0.048008035868406296,
+      0.7048669457435608
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.481",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.08342645317316055,
+      0.05983423441648483,
+      0.8571654558181763
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.487",
+    "bone": "rightFoot",
+    "center": [
+      -0.10680055618286133,
+      0.05769852548837662,
+      0.10437849909067154
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.467",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.05179983377456665,
+      -0.014424499124288559,
+      0.793084442615509
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.468",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10310575366020203,
+      0.05046738311648369,
+      0.3910690248012543
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.469",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.0996236503124237,
+      0.06150549650192261,
+      0.503442645072937
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.465",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.08515306562185287,
+      0.0032732300460338593,
+      0.8404314517974854
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.438",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.08431150764226913,
+      0.05235694721341133,
+      0.7573215365409851
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.424",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.09361730515956879,
+      0.08107899874448776,
+      0.23804938793182373
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.427",
+    "bone": "rightFoot",
+    "center": [
+      -0.10672987252473831,
+      0.07424400001764297,
+      0.14130258560180664
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.431",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.11780232191085815,
+      0.08107899874448776,
+      0.23856860399246216
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.432",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10649354010820389,
+      0.0692484974861145,
+      0.20201697945594788
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.389",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.09735751152038574,
+      0.052268240600824356,
+      0.9260568022727966
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.390",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.09922268241643906,
+      0.09268850088119507,
+      0.44983235001564026
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.396",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10436755418777466,
+      0.08932790905237198,
+      0.3209824860095978
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.350",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.09855789691209793,
+      -0.009534528478980064,
+      0.6349490284919739
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.361",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10591698437929153,
+      0.06796158850193024,
+      0.20824944972991943
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.366",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.12862949073314667,
+      0.05910700559616089,
+      0.2817416489124298
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.371",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.11461237072944641,
+      0.05094677209854126,
+      0.7578428983688354
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.375",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.09918250143527985,
+      0.014247886836528778,
+      0.6384572982788086
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.378",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.10566671192646027,
+      0.01568349450826645,
+      0.9778560996055603
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.379",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.09977500885725021,
+      0.02651054784655571,
+      0.6659893989562988
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.383",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10040599852800369,
+      0.029887497425079346,
+      0.5419303774833679
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.311",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.1273754984140396,
+      0.05215000361204147,
+      0.34784597158432007
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.314",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.10041899979114532,
+      0.030240606516599655,
+      0.5388125777244568
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.319",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.09429849684238434,
+      0.08881357312202454,
+      0.238428995013237
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.321",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.11816500127315521,
+      0.005845928564667702,
+      0.8829046487808228
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.325",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.0992121547460556,
+      0.03599759563803673,
+      0.6418190002441406
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.326",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.12200187891721725,
+      0.010236456990242004,
+      0.6379709243774414
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.329",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.12202800810337067,
+      0.00818958505988121,
+      0.7087041139602661
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.339",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.1187640056014061,
+      0.006069932598620653,
+      0.8164379596710205
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.344",
+    "bone": "rightFoot",
+    "center": [
+      -0.1210164949297905,
+      0.07724451273679733,
+      0.13924247026443481
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.345",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.11726850271224976,
+      0.08885694295167923,
+      0.23851445317268372
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.306",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.12156951427459717,
+      0.006853626109659672,
+      0.7751709818840027
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.309",
+    "bone": "rightFoot",
+    "center": [
+      -0.10877950489521027,
+      0.0630335733294487,
+      0.13775108754634857
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_left_right.256",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.11085008829832077,
+      0.008052281104028225,
+      0.7829054594039917
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.262",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.09931401163339615,
+      0.0928187295794487,
+      0.4616914987564087
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.347",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.07450298964977264,
+      0.010180586017668247,
+      0.7084246873855591
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.355",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.0772790014743805,
+      0.008060929365456104,
+      0.8161579966545105
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.324",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.07620349526405334,
+      0.00783697422593832,
+      0.882624626159668
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.302",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.07404499500989914,
+      0.008844583295285702,
+      0.7748910784721375
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.257",
+    "bone": "rightUpperLeg",
+    "center": [
+      -0.08496039360761642,
+      0.009162391535937786,
+      0.7841039896011353
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.343",
+    "bone": "rightFoot",
+    "center": [
+      -0.09239399433135986,
+      0.0730065107345581,
+      0.1389169842004776
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.298",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.08351853489875793,
+      0.061114996671676636,
+      0.28114789724349976
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_right.299",
+    "bone": "rightLowerLeg",
+    "center": [
+      -0.07986049354076385,
+      0.054158009588718414,
+      0.347177654504776
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.539",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.05272878706455231,
+      -0.005480373278260231,
+      0.7873579859733582
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.540",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.08514794707298279,
+      -0.0009076001588255167,
+      0.8404314517974854
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.205",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.0995074063539505,
+      0.021126002073287964,
+      0.5928911566734314
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.212",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.1029580682516098,
+      0.01643899828195572,
+      0.9768128395080566
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.222",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.11659692227840424,
+      0.0497230663895607,
+      0.3751469850540161
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.224",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.1137305498123169,
+      0.05842422693967819,
+      0.8576865196228027
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.230",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10036489367485046,
+      0.09174887835979462,
+      0.3933885097503662
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.233",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.09070927649736404,
+      0.05084885656833649,
+      0.37480250000953674
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.235",
+    "bone": "leftFoot",
+    "center": [
+      0.10704276710748672,
+      0.07175299525260925,
+      0.16903890669345856
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.182",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10309524834156036,
+      0.05046738311648369,
+      0.3910690248012543
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.183",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.09962435066699982,
+      0.06150549650192261,
+      0.503442645072937
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.193",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.08479441702365875,
+      0.048008035868406296,
+      0.7048669457435608
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.195",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.08342954516410828,
+      0.05983423441648483,
+      0.8571654558181763
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.201",
+    "bone": "leftFoot",
+    "center": [
+      0.10680043697357178,
+      0.05769852548837662,
+      0.10437849909067154
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.202",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.11509542167186737,
+      0.04659804701805115,
+      0.7053890228271484
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.150",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.09361669421195984,
+      0.08107899874448776,
+      0.23804938793182373
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.153",
+    "bone": "leftFoot",
+    "center": [
+      0.1067301332950592,
+      0.07424400001764297,
+      0.14130258560180664
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.157",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.11780168116092682,
+      0.08107899874448776,
+      0.23856860399246216
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.158",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10649345070123672,
+      0.0692484974861145,
+      0.20201697945594788
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.164",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.08431049436330795,
+      0.05235694721341133,
+      0.7573215365409851
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.165",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.05009149760007858,
+      0.015627004206180573,
+      0.9713048934936523
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.101",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.09918250143527985,
+      0.014247886836528778,
+      0.6384572982788086
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.104",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.10566329210996628,
+      0.01568349450826645,
+      0.9778560996055603
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.105",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.09977500885725021,
+      0.02651054784655571,
+      0.6659893989562988
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.109",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10040599852800369,
+      0.029887497425079346,
+      0.5419303774833679
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.115",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.09735749661922455,
+      0.052268240600824356,
+      0.9260568022727966
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.116",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.09922231733798981,
+      0.09268850088119507,
+      0.44983235001564026
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.122",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10437344014644623,
+      0.08932790905237198,
+      0.3209824860095978
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.065",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.12200212478637695,
+      0.010236456990242004,
+      0.6379709243774414
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.068",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.12202800810337067,
+      0.00818958505988121,
+      0.7087041139602661
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.074",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.1187639981508255,
+      0.006069932598620653,
+      0.8164379596710205
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.077",
+    "bone": "leftFoot",
+    "center": [
+      0.09239400923252106,
+      0.0730065107345581,
+      0.1389169842004776
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.078",
+    "bone": "leftFoot",
+    "center": [
+      0.1210165023803711,
+      0.07724451273679733,
+      0.13924247026443481
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.079",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.11726849526166916,
+      0.08885694295167923,
+      0.23851445317268372
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.081",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.07450300455093384,
+      0.010180586017668247,
+      0.7084246873855591
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.084",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.09855809807777405,
+      -0.009534528478980064,
+      0.6349490284919739
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.087",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.0772790014743805,
+      0.008060929365456104,
+      0.8161579966545105
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.090",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10591699182987213,
+      0.06796158850193024,
+      0.20824944972991943
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.093",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.12862949073314667,
+      0.05910700559616089,
+      0.2817416489124298
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.097",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.11461161077022552,
+      0.05094677209854126,
+      0.7578428983688354
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.031",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.1108538880944252,
+      0.008052281104028225,
+      0.7829054594039917
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.032",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.08496058732271194,
+      0.009162391535937786,
+      0.7841039896011353
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.037",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.09931399673223495,
+      0.0928187295794487,
+      0.4616914987564087
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.041",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.08351846039295197,
+      0.061114996671676636,
+      0.28114789724349976
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.042",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.07986049354076385,
+      0.054158009588718414,
+      0.347177654504776
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.044",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.07404500246047974,
+      0.008844583295285702,
+      0.7748910784721375
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.048",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.12156949937343597,
+      0.006853626109659672,
+      0.7751709818840027
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.051",
+    "bone": "leftFoot",
+    "center": [
+      0.10877950489521027,
+      0.0630335733294487,
+      0.13775108754634857
+    ],
+    "replacement": "forward-facing articulated foot with outsole"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.053",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.1273754984140396,
+      0.05215000361204147,
+      0.34784597158432007
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.056",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.10041900724172592,
+      0.030240606516599655,
+      0.5388125777244568
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.059",
+    "bone": "leftLowerLeg",
+    "center": [
+      0.09429849684238434,
+      0.08881357312202454,
+      0.238428995013237
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.060",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.11816499382257462,
+      0.005845928564667702,
+      0.8829046487808228
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.063",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.07620350271463394,
+      0.00783697422593832,
+      0.882624626159668
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_leg_left.064",
+    "bone": "leftUpperLeg",
+    "center": [
+      0.09921185672283173,
+      0.03599759563803673,
+      0.6418190002441406
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.534",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.24961049854755402,
+      0.11276553571224213,
+      1.352344036102295
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.535",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.4154279828071594,
+      0.07042089104652405,
+      1.1909255981445312
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.537",
+    "bone": "rightHand",
+    "center": [
+      -0.5026639103889465,
+      0.018400469794869423,
+      1.125614047050476
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.522",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.47866755723953247,
+      0.03716300055384636,
+      1.1457514762878418
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.523",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.26115700602531433,
+      0.11189241707324982,
+      1.3639804124832153
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.526",
+    "bone": "rightHand",
+    "center": [
+      -0.5504360198974609,
+      -0.017096854746341705,
+      1.0609698295593262
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.527",
+    "bone": "rightHand",
+    "center": [
+      -0.5405020117759705,
+      -0.031788114458322525,
+      1.0609755516052246
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.528",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.1307239979505539,
+      0.08150851726531982,
+      1.4689619541168213
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.530",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.42259591817855835,
+      0.06898633390665054,
+      1.2040655612945557
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.511",
+    "bone": "rightHand",
+    "center": [
+      -0.5530779957771301,
+      -0.04199698939919472,
+      1.0362725257873535
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.512",
+    "bone": "rightHand",
+    "center": [
+      -0.5018739700317383,
+      -0.027210302650928497,
+      1.0398495197296143
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.513",
+    "bone": "rightHand",
+    "center": [
+      -0.5682899951934814,
+      -0.02444957196712494,
+      1.0075242519378662
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.514",
+    "bone": "rightHand",
+    "center": [
+      -0.5631529688835144,
+      0.013736410066485405,
+      1.0645619630813599
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.517",
+    "bone": "rightHand",
+    "center": [
+      -0.5588169693946838,
+      -0.0019070040434598923,
+      1.06276273727417
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.518",
+    "bone": "rightHand",
+    "center": [
+      -0.5719989538192749,
+      -0.0061374567449092865,
+      1.0348342657089233
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.520",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.26790615916252136,
+      0.10921336710453033,
+      1.308485507965088
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.502",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2682521939277649,
+      0.09922531247138977,
+      1.307329535484314
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.503",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2505265474319458,
+      0.08630454540252686,
+      1.3492809534072876
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.504",
+    "bone": "rightHand",
+    "center": [
+      -0.49824050068855286,
+      -0.002929038368165493,
+      1.093072533607483
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.506",
+    "bone": "rightHand",
+    "center": [
+      -0.5722354650497437,
+      -0.004189495928585529,
+      1.0123119354248047
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.507",
+    "bone": "rightHand",
+    "center": [
+      -0.5572555065155029,
+      -0.044739171862602234,
+      1.0137298107147217
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.490",
+    "bone": "rightHand",
+    "center": [
+      -0.5668950080871582,
+      -0.025353003293275833,
+      1.0322824716567993
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.492",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.3336935043334961,
+      0.10254176706075668,
+      1.2739226818084717
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.493",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.20044800639152527,
+      0.09440380334854126,
+      1.378306269645691
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.494",
+    "bone": "rightHand",
+    "center": [
+      -0.49717146158218384,
+      -0.015558550134301186,
+      1.065140724182129
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.495",
+    "bone": "rightHand",
+    "center": [
+      -0.5069853067398071,
+      -0.011942499317228794,
+      1.1000895500183105
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.496",
+    "bone": "rightHand",
+    "center": [
+      -0.5755720138549805,
+      0.012171052396297455,
+      1.0420535802841187
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.497",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2620754837989807,
+      0.08540953695774078,
+      1.3609148263931274
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.477",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.41691839694976807,
+      0.07290197163820267,
+      1.2239940166473389
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.478",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.23141708970069885,
+      0.09817564487457275,
+      1.3465954065322876
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.480",
+    "bone": "rightHand",
+    "center": [
+      -0.5759140253067017,
+      0.014750110916793346,
+      1.0277719497680664
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.482",
+    "bone": "rightHand",
+    "center": [
+      -0.5273065567016602,
+      0.0030115004628896713,
+      1.1031750440597534
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.484",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.1844935119152069,
+      0.09055092930793762,
+      1.418898582458496
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.470",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.19867448508739471,
+      0.060615986585617065,
+      1.386945366859436
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.471",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.20705099403858185,
+      0.09176783263683319,
+      1.4157054424285889
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.472",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.19717948138713837,
+      0.12407626211643219,
+      1.3856472969055176
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.473",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.18831947445869446,
+      0.09305380284786224,
+      1.356010913848877
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.474",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.43606847524642944,
+      0.031539689749479294,
+      1.1821722984313965
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.475",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.4488859474658966,
+      0.06978092342615128,
+      1.1801015138626099
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.476",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.4155389070510864,
+      0.07130081951618195,
+      1.2259619235992432
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.444",
+    "bone": "rightHand",
+    "center": [
+      -0.567156195640564,
+      -0.02682448923587799,
+      1.0187286138534546
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.445",
+    "bone": "rightHand",
+    "center": [
+      -0.5447306036949158,
+      0.002846782561391592,
+      1.0840518474578857
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.446",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.28431782126426697,
+      0.09419920295476913,
+      1.2984204292297363
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.451",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.25543951988220215,
+      0.09526996314525604,
+      1.359946370124817
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.452",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.25268298387527466,
+      0.10209455341100693,
+      1.356711745262146
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.433",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.20347850024700165,
+      0.07943648844957352,
+      1.3855499029159546
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.434",
+    "bone": "rightHand",
+    "center": [
+      -0.5090280175209045,
+      -0.006305975373834372,
+      1.1045913696289062
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.435",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2025424838066101,
+      0.10645643621683121,
+      1.388677954673767
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.436",
+    "bone": "rightHand",
+    "center": [
+      -0.5551259517669678,
+      -0.00945149827748537,
+      1.0617635250091553
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.437",
+    "bone": "rightHand",
+    "center": [
+      -0.529233455657959,
+      -0.021777378395199776,
+      1.0831044912338257
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.440",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.1588696390390396,
+      0.084368497133255,
+      1.4436078071594238
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.441",
+    "bone": "rightHand",
+    "center": [
+      -0.5641493201255798,
+      -0.005304005462676287,
+      1.0484479665756226
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.443",
+    "bone": "rightHand",
+    "center": [
+      -0.5658356547355652,
+      -0.002106253057718277,
+      1.0487765073776245
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.423",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.21816249191761017,
+      0.09674592316150665,
+      1.3608343601226807
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.425",
+    "bone": "rightHand",
+    "center": [
+      -0.5733233690261841,
+      -0.0045552924275398254,
+      1.0228018760681152
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.430",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.44466304779052734,
+      0.05590206757187843,
+      1.1680488586425781
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.384",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.25637054443359375,
+      0.09769149124622345,
+      1.3200573921203613
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.385",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.35747456550598145,
+      0.0990079939365387,
+      1.2544851303100586
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.387",
+    "bone": "rightHand",
+    "center": [
+      -0.5696594715118408,
+      0.01402201596647501,
+      1.0549334287643433
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.388",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.4866043031215668,
+      0.030886000022292137,
+      1.1401666402816772
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.391",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.3121349513530731,
+      0.10587149858474731,
+      1.29610013961792
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.392",
+    "bone": "rightHand",
+    "center": [
+      -0.5496959686279297,
+      0.01607491262257099,
+      1.0849989652633667
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.393",
+    "bone": "rightHand",
+    "center": [
+      -0.5447178483009338,
+      -0.03762423247098923,
+      1.0504955053329468
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.395",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.25602540373802185,
+      0.1076783537864685,
+      1.3212140798568726
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.397",
+    "bone": "rightHand",
+    "center": [
+      -0.4989507794380188,
+      -0.02351199835538864,
+      1.0508434772491455
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.398",
+    "bone": "rightHand",
+    "center": [
+      -0.5556166768074036,
+      -0.0417424812912941,
+      1.0250178575515747
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.400",
+    "bone": "rightHand",
+    "center": [
+      -0.5586278438568115,
+      -0.019369952380657196,
+      1.0471885204315186
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.401",
+    "bone": "rightHand",
+    "center": [
+      -0.5760326385498047,
+      0.012033691629767418,
+      1.0342243909835815
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.405",
+    "bone": "rightHand",
+    "center": [
+      -0.5719983577728271,
+      -0.007065718062222004,
+      1.0225504636764526
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.406",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.19846448302268982,
+      0.09121599793434143,
+      1.4051592350006104
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.409",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.4695848226547241,
+      0.04234649986028671,
+      1.1513559818267822
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.411",
+    "bone": "rightHand",
+    "center": [
+      -0.5569280982017517,
+      -0.022575819864869118,
+      1.0470889806747437
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.412",
+    "bone": "rightHand",
+    "center": [
+      -0.5368003845214844,
+      -0.009593733586370945,
+      1.0831999778747559
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.415",
+    "bone": "rightHand",
+    "center": [
+      -0.4967547059059143,
+      -0.021347474306821823,
+      1.0492604970932007
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.416",
+    "bone": "rightHand",
+    "center": [
+      -0.5684376955032349,
+      0.011252726428210735,
+      1.0544456243515015
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.417",
+    "bone": "rightHand",
+    "center": [
+      -0.5457820296287537,
+      -0.024270998314023018,
+      1.0614089965820312
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.418",
+    "bone": "rightHand",
+    "center": [
+      -0.5539097785949707,
+      -0.044323209673166275,
+      1.025022029876709
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.419",
+    "bone": "rightHand",
+    "center": [
+      -0.5618043541908264,
+      0.005574500188231468,
+      1.0632789134979248
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.420",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.376613974571228,
+      0.08963736146688461,
+      1.219326138496399
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.348",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2398175597190857,
+      0.10789696127176285,
+      1.3382174968719482
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.349",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2806325852870941,
+      0.089864581823349,
+      1.2940104007720947
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.356",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.24032796919345856,
+      0.09274698793888092,
+      1.3365083932876587
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.364",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.30735844373703003,
+      0.0812578946352005,
+      1.3000634908676147
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.368",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.31377947330474854,
+      0.13274991512298584,
+      1.2973994016647339
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.372",
+    "bone": "rightHand",
+    "center": [
+      -0.5686321258544922,
+      -0.024113986641168594,
+      1.0189359188079834
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.373",
+    "bone": "rightHand",
+    "center": [
+      -0.5257595181465149,
+      0.002713337540626526,
+      1.104931354522705
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.374",
+    "bone": "rightHand",
+    "center": [
+      -0.5102626085281372,
+      -0.007723593153059483,
+      1.1054073572158813
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.376",
+    "bone": "rightHand",
+    "center": [
+      -0.5769147872924805,
+      0.013962805271148682,
+      1.034611463546753
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.377",
+    "bone": "rightHand",
+    "center": [
+      -0.49552199244499207,
+      -0.005403805524110794,
+      1.0818010568618774
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.381",
+    "bone": "rightHand",
+    "center": [
+      -0.5466672778129578,
+      -0.03476375341415405,
+      1.050326943397522
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.382",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2834879755973816,
+      0.1191146969795227,
+      1.3009998798370361
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.317",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.3300025165081024,
+      0.10852557420730591,
+      1.3153575658798218
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.323",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.19650539755821228,
+      0.07653043419122696,
+      1.3807989358901978
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.327",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2800636291503906,
+      0.10648049414157867,
+      1.2959012985229492
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.328",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.2918429970741272,
+      0.11039207875728607,
+      1.2789649963378906
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.331",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.1953618824481964,
+      0.11010240018367767,
+      1.384619951248169
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.334",
+    "bone": "rightHand",
+    "center": [
+      -0.5139859914779663,
+      -0.005209949798882008,
+      1.1136219501495361
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.336",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.35722947120666504,
+      0.07259543985128403,
+      1.2509580850601196
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.337",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.19571347534656525,
+      0.09966447949409485,
+      1.3834444284439087
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.300",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.19614851474761963,
+      0.0870998352766037,
+      1.3819904327392578
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.303",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.23999804258346558,
+      0.10246440768241882,
+      1.3376104831695557
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.304",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.2794994115829468,
+      0.12305455654859543,
+      1.297784447669983
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.307",
+    "bone": "rightLowerArm",
+    "center": [
+      -0.370542973279953,
+      0.12040650844573975,
+      1.2519760131835938
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.308",
+    "bone": "rightHand",
+    "center": [
+      -0.5261350274085999,
+      0.01671404391527176,
+      1.108541488647461
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.310",
+    "bone": "rightUpperArm",
+    "center": [
+      -0.24014651775360107,
+      0.09817945212125778,
+      1.3371155261993408
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_right.263",
+    "bone": "rightHand",
+    "center": [
+      -0.5183241963386536,
+      0.006368500180542469,
+      1.1101421117782593
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.240",
+    "bone": "leftHand",
+    "center": [
+      0.5504360198974609,
+      -0.017096854746341705,
+      1.0609698295593262
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.241",
+    "bone": "leftHand",
+    "center": [
+      0.5405020117759705,
+      -0.031788114458322525,
+      1.0609755516052246
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.244",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4225930869579315,
+      0.06898633390665054,
+      1.2040655612945557
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.248",
+    "bone": "leftUpperArm",
+    "center": [
+      0.24960950016975403,
+      0.11276553571224213,
+      1.352344036102295
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.249",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4154280424118042,
+      0.07042089104652405,
+      1.1909255981445312
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.251",
+    "bone": "leftHand",
+    "center": [
+      0.5026640892028809,
+      0.018400469794869423,
+      1.125614047050476
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.206",
+    "bone": "leftLowerArm",
+    "center": [
+      0.3336934745311737,
+      0.10254176706075668,
+      1.2739226818084717
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.208",
+    "bone": "leftHand",
+    "center": [
+      0.49717146158218384,
+      -0.015558550134301186,
+      1.065140724182129
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.209",
+    "bone": "leftHand",
+    "center": [
+      0.506985604763031,
+      -0.011942499317228794,
+      1.1000895500183105
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.210",
+    "bone": "leftHand",
+    "center": [
+      0.5755719542503357,
+      0.012171052396297455,
+      1.0420535802841187
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.211",
+    "bone": "leftUpperArm",
+    "center": [
+      0.2620745003223419,
+      0.08540953695774078,
+      1.3609148263931274
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.216",
+    "bone": "leftUpperArm",
+    "center": [
+      0.26825183629989624,
+      0.09922531247138977,
+      1.307329535484314
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.217",
+    "bone": "leftUpperArm",
+    "center": [
+      0.25052645802497864,
+      0.08630454540252686,
+      1.3492809534072876
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.218",
+    "bone": "leftHand",
+    "center": [
+      0.4982404410839081,
+      -0.002929038368165493,
+      1.093072533607483
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.220",
+    "bone": "leftHand",
+    "center": [
+      0.5722354650497437,
+      -0.004189495928585529,
+      1.0123119354248047
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.221",
+    "bone": "leftHand",
+    "center": [
+      0.5572555065155029,
+      -0.044739171862602234,
+      1.0137298107147217
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.225",
+    "bone": "leftHand",
+    "center": [
+      0.5530779957771301,
+      -0.04199698939919472,
+      1.0362725257873535
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.226",
+    "bone": "leftHand",
+    "center": [
+      0.5018739700317383,
+      -0.027210302650928497,
+      1.0398495197296143
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.227",
+    "bone": "leftHand",
+    "center": [
+      0.5682899951934814,
+      -0.02444957196712494,
+      1.0075242519378662
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.228",
+    "bone": "leftHand",
+    "center": [
+      0.5631530284881592,
+      0.013736410066485405,
+      1.0645619630813599
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.231",
+    "bone": "leftHand",
+    "center": [
+      0.5588170289993286,
+      -0.0019070040434598923,
+      1.06276273727417
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.232",
+    "bone": "leftHand",
+    "center": [
+      0.5719990134239197,
+      -0.0061374567449092865,
+      1.0348342657089233
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.234",
+    "bone": "leftUpperArm",
+    "center": [
+      0.2679068446159363,
+      0.10921336710453033,
+      1.308485507965088
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.236",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4786674380302429,
+      0.03716300055384636,
+      1.1457514762878418
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.237",
+    "bone": "leftUpperArm",
+    "center": [
+      0.26115697622299194,
+      0.11189241707324982,
+      1.3639804124832153
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.170",
+    "bone": "leftHand",
+    "center": [
+      0.5671568512916565,
+      -0.02682448923587799,
+      1.0187286138534546
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.171",
+    "bone": "leftHand",
+    "center": [
+      0.5447294116020203,
+      0.002846782561391592,
+      1.0840518474578857
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.172",
+    "bone": "leftUpperArm",
+    "center": [
+      0.28431814908981323,
+      0.09419920295476913,
+      1.2984204292297363
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.174",
+    "bone": "leftUpperArm",
+    "center": [
+      0.2554374933242798,
+      0.09526996314525604,
+      1.359946370124817
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.175",
+    "bone": "leftUpperArm",
+    "center": [
+      0.25268298387527466,
+      0.10209455341100693,
+      1.356711745262146
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.184",
+    "bone": "leftUpperArm",
+    "center": [
+      0.1986745148897171,
+      0.060615986585617065,
+      1.386945366859436
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.185",
+    "bone": "leftUpperArm",
+    "center": [
+      0.20705099403858185,
+      0.09176783263683319,
+      1.4157054424285889
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.186",
+    "bone": "leftUpperArm",
+    "center": [
+      0.19717951118946075,
+      0.12407626211643219,
+      1.3856472969055176
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.187",
+    "bone": "leftUpperArm",
+    "center": [
+      0.18831948935985565,
+      0.09305380284786224,
+      1.356010913848877
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.188",
+    "bone": "leftLowerArm",
+    "center": [
+      0.43606847524642944,
+      0.031539689749479294,
+      1.1821722984313965
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.189",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4488859474658966,
+      0.06978092342615128,
+      1.1801015138626099
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.190",
+    "bone": "leftLowerArm",
+    "center": [
+      0.41553905606269836,
+      0.07130081951618195,
+      1.2259619235992432
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.191",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4169165790081024,
+      0.07290197163820267,
+      1.2239940166473389
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.192",
+    "bone": "leftUpperArm",
+    "center": [
+      0.23141789436340332,
+      0.09817564487457275,
+      1.3465954065322876
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.194",
+    "bone": "leftHand",
+    "center": [
+      0.5759139657020569,
+      0.014750110916793346,
+      1.0277719497680664
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.196",
+    "bone": "leftHand",
+    "center": [
+      0.5273063778877258,
+      0.0030115004628896713,
+      1.1031750440597534
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.198",
+    "bone": "leftUpperArm",
+    "center": [
+      0.18449349701404572,
+      0.09055092930793762,
+      1.418898582458496
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.204",
+    "bone": "leftHand",
+    "center": [
+      0.5668950080871582,
+      -0.025353003293275833,
+      1.0322824716567993
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.135",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4695841372013092,
+      0.04234649986028671,
+      1.1513559818267822
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.137",
+    "bone": "leftHand",
+    "center": [
+      0.556928813457489,
+      -0.022575819864869118,
+      1.0470889806747437
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.138",
+    "bone": "leftHand",
+    "center": [
+      0.5368005633354187,
+      -0.009593733586370945,
+      1.0831999778747559
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.141",
+    "bone": "leftHand",
+    "center": [
+      0.4967552423477173,
+      -0.021347474306821823,
+      1.0492604970932007
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.142",
+    "bone": "leftHand",
+    "center": [
+      0.5684373378753662,
+      0.011252726428210735,
+      1.0544456243515015
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.143",
+    "bone": "leftHand",
+    "center": [
+      0.5457819700241089,
+      -0.024270998314023018,
+      1.0614089965820312
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton._arm_left144",
+    "bone": "leftHand",
+    "center": [
+      0.5539101362228394,
+      -0.044323209673166275,
+      1.025022029876709
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.145",
+    "bone": "leftHand",
+    "center": [
+      0.5618045330047607,
+      0.005574500188231468,
+      1.0632789134979248
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.146",
+    "bone": "leftLowerArm",
+    "center": [
+      0.3766140043735504,
+      0.08963736146688461,
+      1.219326138496399
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.149",
+    "bone": "leftUpperArm",
+    "center": [
+      0.21816247701644897,
+      0.09674592316150665,
+      1.3608343601226807
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.151",
+    "bone": "leftHand",
+    "center": [
+      0.5733236074447632,
+      -0.0045552924275398254,
+      1.0228018760681152
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.156",
+    "bone": "leftLowerArm",
+    "center": [
+      0.44466298818588257,
+      0.05590206757187843,
+      1.1680488586425781
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.159",
+    "bone": "leftUpperArm",
+    "center": [
+      0.20347850024700165,
+      0.07943648844957352,
+      1.3855499029159546
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.160",
+    "bone": "leftHand",
+    "center": [
+      0.5090280175209045,
+      -0.006305975373834372,
+      1.1045913696289062
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.162",
+    "bone": "leftHand",
+    "center": [
+      0.5551260113716125,
+      -0.00945149827748537,
+      1.0617635250091553
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.163",
+    "bone": "leftHand",
+    "center": [
+      0.5292345285415649,
+      -0.021777378395199776,
+      1.0831044912338257
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.167",
+    "bone": "leftHand",
+    "center": [
+      0.5641485452651978,
+      -0.005304005462676287,
+      1.0484479665756226
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.169",
+    "bone": "leftHand",
+    "center": [
+      0.5658363103866577,
+      -0.002106253057718277,
+      1.0487765073776245
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.100",
+    "bone": "leftHand",
+    "center": [
+      0.5102623701095581,
+      -0.007723593153059483,
+      1.1054073572158813
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.102",
+    "bone": "leftHand",
+    "center": [
+      0.5769142508506775,
+      0.013962805271148682,
+      1.034611463546753
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.103",
+    "bone": "leftHand",
+    "center": [
+      0.49552199244499207,
+      -0.005403805524110794,
+      1.0818010568618774
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.107",
+    "bone": "leftHand",
+    "center": [
+      0.546667754650116,
+      -0.03476375341415405,
+      1.050326943397522
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.108",
+    "bone": "leftUpperArm",
+    "center": [
+      0.28348806500434875,
+      0.1191146969795227,
+      1.3009998798370361
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.110",
+    "bone": "leftUpperArm",
+    "center": [
+      0.25637146830558777,
+      0.09769149124622345,
+      1.3200573921203613
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.111",
+    "bone": "leftLowerArm",
+    "center": [
+      0.3574753701686859,
+      0.0990079939365387,
+      1.2544851303100586
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton._arm_left113",
+    "bone": "leftHand",
+    "center": [
+      0.5696595907211304,
+      0.01402201596647501,
+      1.0549334287643433
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.114",
+    "bone": "leftLowerArm",
+    "center": [
+      0.4866047501564026,
+      0.030886000022292137,
+      1.1401666402816772
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.117",
+    "bone": "leftUpperArm",
+    "center": [
+      0.3121340274810791,
+      0.10587149858474731,
+      1.29610013961792
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.118",
+    "bone": "leftHand",
+    "center": [
+      0.5496970415115356,
+      0.01607491262257099,
+      1.0849989652633667
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.119",
+    "bone": "leftHand",
+    "center": [
+      0.5447181463241577,
+      -0.03762423247098923,
+      1.0504955053329468
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.121",
+    "bone": "leftUpperArm",
+    "center": [
+      0.2560245990753174,
+      0.1076783537864685,
+      1.3212140798568726
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.123",
+    "bone": "leftHand",
+    "center": [
+      0.49895116686820984,
+      -0.02351199835538864,
+      1.0508434772491455
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.124",
+    "bone": "leftHand",
+    "center": [
+      0.5556163191795349,
+      -0.0417424812912941,
+      1.0250178575515747
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.126",
+    "bone": "leftHand",
+    "center": [
+      0.5586280822753906,
+      -0.019369952380657196,
+      1.0471885204315186
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.127",
+    "bone": "leftHand",
+    "center": [
+      0.5760324001312256,
+      0.012033691629767418,
+      1.0342243909835815
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.131",
+    "bone": "leftHand",
+    "center": [
+      0.5719985365867615,
+      -0.007065718062222004,
+      1.0225504636764526
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.132",
+    "bone": "leftUpperArm",
+    "center": [
+      0.1984645128250122,
+      0.09121599793434143,
+      1.4051592350006104
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.066",
+    "bone": "leftUpperArm",
+    "center": [
+      0.28006333112716675,
+      0.10648049414157867,
+      1.2959012985229492
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.067",
+    "bone": "leftLowerArm",
+    "center": [
+      0.2918429970741272,
+      0.11039207875728607,
+      1.2789649963378906
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.070",
+    "bone": "leftHand",
+    "center": [
+      0.5139859914779663,
+      -0.005209949798882008,
+      1.1136219501495361
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.072",
+    "bone": "leftLowerArm",
+    "center": [
+      0.35722947120666504,
+      0.07259543985128403,
+      1.2509580850601196
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.082",
+    "bone": "leftUpperArm",
+    "center": [
+      0.23981742560863495,
+      0.10789696127176285,
+      1.3382174968719482
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.083",
+    "bone": "leftUpperArm",
+    "center": [
+      0.2806323766708374,
+      0.089864581823349,
+      1.2940104007720947
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.088",
+    "bone": "leftUpperArm",
+    "center": [
+      0.24032804369926453,
+      0.09274698793888092,
+      1.3365083932876587
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.092",
+    "bone": "leftUpperArm",
+    "center": [
+      0.3073585629463196,
+      0.0812578946352005,
+      1.3000634908676147
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.095",
+    "bone": "leftUpperArm",
+    "center": [
+      0.3137795329093933,
+      0.13274991512298584,
+      1.2973994016647339
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.098",
+    "bone": "leftHand",
+    "center": [
+      0.5686318278312683,
+      -0.024113986641168594,
+      1.0189359188079834
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.099",
+    "bone": "leftHand",
+    "center": [
+      0.5257594585418701,
+      0.002713337540626526,
+      1.104931354522705
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.038",
+    "bone": "leftHand",
+    "center": [
+      0.5183247923851013,
+      0.006368500180542469,
+      1.1101421117782593
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.045",
+    "bone": "leftUpperArm",
+    "center": [
+      0.23999793827533722,
+      0.10246440768241882,
+      1.3376104831695557
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.046",
+    "bone": "leftUpperArm",
+    "center": [
+      0.2794995903968811,
+      0.12305455654859543,
+      1.297784447669983
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.049",
+    "bone": "leftLowerArm",
+    "center": [
+      0.3705430030822754,
+      0.12040650844573975,
+      1.2519760131835938
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.050",
+    "bone": "leftHand",
+    "center": [
+      0.5261349678039551,
+      0.01671404391527176,
+      1.108541488647461
+    ],
+    "replacement": "articulated palm and finger segments"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.052",
+    "bone": "leftUpperArm",
+    "center": [
+      0.2401464730501175,
+      0.09817945212125778,
+      1.3371155261993408
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.057",
+    "bone": "leftLowerArm",
+    "center": [
+      0.3300025165081024,
+      0.10852557420730591,
+      1.3153575658798218
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.242",
+    "bone": "leftUpperArm",
+    "center": [
+      0.1307239830493927,
+      0.08150851726531982,
+      1.4689619541168213
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.207",
+    "bone": "leftUpperArm",
+    "center": [
+      0.20044800639152527,
+      0.09440380334854126,
+      1.378306269645691
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.161",
+    "bone": "leftUpperArm",
+    "center": [
+      0.2025424987077713,
+      0.10645643621683121,
+      1.388677954673767
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.166",
+    "bone": "leftUpperArm",
+    "center": [
+      0.15886835753917694,
+      0.084368497133255,
+      1.4436078071594238
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.069",
+    "bone": "leftUpperArm",
+    "center": [
+      0.19536209106445312,
+      0.11010240018367767,
+      1.384619951248169
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.073",
+    "bone": "leftUpperArm",
+    "center": [
+      0.19571349024772644,
+      0.09966447949409485,
+      1.3834444284439087
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.043",
+    "bone": "leftUpperArm",
+    "center": [
+      0.19614848494529724,
+      0.0870998352766037,
+      1.3819904327392578
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_arm_left.062",
+    "bone": "leftUpperArm",
+    "center": [
+      0.1965055912733078,
+      0.07653043419122696,
+      1.3807989358901978
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.536",
+    "bone": "chest",
+    "center": [
+      -0.0840931236743927,
+      0.07527250051498413,
+      1.4706594944000244
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.538",
+    "bone": "hips",
+    "center": [
+      -1.9399449229240417e-06,
+      0.03137854114174843,
+      1.0190329551696777
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.524",
+    "bone": "chest",
+    "center": [
+      -0.040170978754758835,
+      0.06449625641107559,
+      1.451866865158081
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.531",
+    "bone": "chest",
+    "center": [
+      -0.034473467618227005,
+      0.06373818963766098,
+      1.4518721103668213
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.532",
+    "bone": "spine",
+    "center": [
+      -0.09530617296695709,
+      0.025128234177827835,
+      1.2911839485168457
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.489",
+    "bone": "chest",
+    "center": [
+      -0.04619548097252846,
+      0.06529723852872849,
+      1.4518609046936035
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.485",
+    "bone": "chest",
+    "center": [
+      -0.07152549922466278,
+      0.07635869085788727,
+      1.3915481567382812
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.486",
+    "bone": "chest",
+    "center": [
+      -0.026003999635577202,
+      0.07702486217021942,
+      1.3915432691574097
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.466",
+    "bone": "hips",
+    "center": [
+      -0.024009807035326958,
+      0.05979568138718605,
+      1.0825164318084717
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.455",
+    "bone": "chest",
+    "center": [
+      -0.02972564287483692,
+      0.02125599794089794,
+      1.4391412734985352
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.456",
+    "bone": "neck",
+    "center": [
+      -0.025953257456421852,
+      0.05008842796087265,
+      1.541226863861084
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.457",
+    "bone": "neck",
+    "center": [
+      -0.04711572080850601,
+      0.06753325462341309,
+      1.5846805572509766
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.458",
+    "bone": "neck",
+    "center": [
+      -0.0354122668504715,
+      0.027674123644828796,
+      1.6111259460449219
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.459",
+    "bone": "neck",
+    "center": [
+      -0.03430215269327164,
+      0.03353478014469147,
+      1.6111854314804077
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.460",
+    "bone": "spine",
+    "center": [
+      -0.06007980555295944,
+      -0.02624230831861496,
+      1.2539705038070679
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.461",
+    "bone": "spine",
+    "center": [
+      -0.032038070261478424,
+      -0.029027562588453293,
+      1.323946475982666
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.462",
+    "bone": "spine",
+    "center": [
+      -0.006331540644168854,
+      -0.026252854615449905,
+      1.3165994882583618
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.463",
+    "bone": "hips",
+    "center": [
+      -0.021033497527241707,
+      -0.04382941126823425,
+      1.1321171522140503
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.464",
+    "bone": "hips",
+    "center": [
+      -0.04682522267103195,
+      0.02692660503089428,
+      1.1012248992919922
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.447",
+    "bone": "chest",
+    "center": [
+      0.0,
+      0.024633079767227173,
+      1.3874413967132568
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.448",
+    "bone": "chest",
+    "center": [
+      1.0244548320770264e-07,
+      0.06505899876356125,
+      1.4708940982818604
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.449",
+    "bone": "hips",
+    "center": [
+      -7.632188498973846e-07,
+      0.01680148020386696,
+      0.97177654504776
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.450",
+    "bone": "spine",
+    "center": [
+      -0.047169268131256104,
+      0.07487780600786209,
+      1.3322769403457642
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.453",
+    "bone": "spine",
+    "center": [
+      -0.05304880812764168,
+      0.03978120535612106,
+      1.3336459398269653
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.454",
+    "bone": "chest",
+    "center": [
+      -0.03625214472413063,
+      0.07986558228731155,
+      1.4341869354248047
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.439",
+    "bone": "hips",
+    "center": [
+      -0.05008950084447861,
+      0.015627004206180573,
+      0.9713048934936523
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.422",
+    "bone": "chest",
+    "center": [
+      -0.05405900254845619,
+      0.07651897519826889,
+      1.391555666923523
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.426",
+    "bone": "chest",
+    "center": [
+      -0.10121606290340424,
+      0.07744783163070679,
+      1.4704835414886475
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.386",
+    "bone": "spine",
+    "center": [
+      -0.08911752700805664,
+      -0.0076170009560883045,
+      1.3274290561676025
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.404",
+    "bone": "chest",
+    "center": [
+      -0.03929300233721733,
+      0.06863841414451599,
+      1.470512866973877
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.407",
+    "bone": "spine",
+    "center": [
+      -0.0937332957983017,
+      -0.009953498840332031,
+      1.2253429889678955
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.408",
+    "bone": "neck",
+    "center": [
+      -0.02749539352953434,
+      0.084528349339962,
+      1.5661455392837524
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.410",
+    "bone": "spine",
+    "center": [
+      -0.09244868159294128,
+      -0.009040001779794693,
+      1.2558212280273438
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.351",
+    "bone": "hips",
+    "center": [
+      -0.00014760764315724373,
+      -0.001130999531596899,
+      0.9961874485015869
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.352",
+    "bone": "chest",
+    "center": [
+      0.01695149950683117,
+      -0.000511408259626478,
+      1.4125715494155884
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.353",
+    "bone": "chest",
+    "center": [
+      -0.043076999485492706,
+      0.05804242938756943,
+      1.4014458656311035
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.357",
+    "bone": "chest",
+    "center": [
+      -0.043076999485492706,
+      -0.00876656174659729,
+      1.3734824657440186
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.358",
+    "bone": "chest",
+    "center": [
+      -0.04355195164680481,
+      -0.007179509848356247,
+      1.4046804904937744
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.359",
+    "bone": "chest",
+    "center": [
+      0.04355304688215256,
+      0.05645549297332764,
+      1.3702484369277954
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.360",
+    "bone": "chest",
+    "center": [
+      -0.04205049201846123,
+      0.052036039531230927,
+      1.4664080142974854
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.362",
+    "bone": "chest",
+    "center": [
+      -0.0837164968252182,
+      0.07567805051803589,
+      1.4383798837661743
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.363",
+    "bone": "chest",
+    "center": [
+      -0.01695052906870842,
+      -0.010714083909988403,
+      1.3874359130859375
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.365",
+    "bone": "chest",
+    "center": [
+      -0.01695050112903118,
+      0.03971950337290764,
+      1.4195947647094727
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.367",
+    "bone": "neck",
+    "center": [
+      -0.08390450477600098,
+      0.0746389850974083,
+      1.5030239820480347
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.369",
+    "bone": "chest",
+    "center": [
+      -0.04355195164680481,
+      0.05645549297332764,
+      1.3702484369277954
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.370",
+    "bone": "chest",
+    "center": [
+      -0.09457477927207947,
+      0.05279700458049774,
+      1.3915250301361084
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.380",
+    "bone": "spine",
+    "center": [
+      -0.08984361588954926,
+      -0.008333500474691391,
+      1.2888869047164917
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.312",
+    "bone": "hips",
+    "center": [
+      0.0015799431130290031,
+      0.01576250046491623,
+      0.9415538907051086
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.313",
+    "bone": "chest",
+    "center": [
+      -0.03719935566186905,
+      0.06995149701833725,
+      1.4879004955291748
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.315",
+    "bone": "chest",
+    "center": [
+      0.01695149950683117,
+      0.03971950337290764,
+      1.4195947647094727
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.316",
+    "bone": "chest",
+    "center": [
+      -0.016950499266386032,
+      -0.000511408259626478,
+      1.4125715494155884
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.320",
+    "bone": "chest",
+    "center": [
+      0.043077997863292694,
+      0.05804242938756943,
+      1.4014458656311035
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.322",
+    "bone": "chest",
+    "center": [
+      -0.07961750030517578,
+      0.10692058503627777,
+      1.4749878644943237
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.330",
+    "bone": "hips",
+    "center": [
+      -0.00015211710706353188,
+      0.04088537395000458,
+      0.9907490015029907
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.332",
+    "bone": "spine",
+    "center": [
+      -0.04751411825418472,
+      0.05484962463378906,
+      1.1735100746154785
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.333",
+    "bone": "chest",
+    "center": [
+      0.01695147156715393,
+      -0.010714083909988403,
+      1.3874359130859375
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.335",
+    "bone": "chest",
+    "center": [
+      -0.02855646051466465,
+      0.09283149242401123,
+      1.4777110815048218
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.338",
+    "bone": "chest",
+    "center": [
+      -0.016950499266386032,
+      -0.0004696273244917393,
+      1.3623155355453491
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.340",
+    "bone": "chest",
+    "center": [
+      -0.08800910413265228,
+      0.04345148801803589,
+      1.4746479988098145
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.341",
+    "bone": "spine",
+    "center": [
+      -0.04751411825418472,
+      0.05484962463378906,
+      1.218093991279602
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.342",
+    "bone": "chest",
+    "center": [
+      -0.02861008420586586,
+      0.09219148755073547,
+      1.4662113189697266
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.276",
+    "bone": "spine",
+    "center": [
+      -0.005271499045193195,
+      -0.05502549558877945,
+      1.2629621028900146
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.277",
+    "bone": "hips",
+    "center": [
+      -0.0515647754073143,
+      -0.03199555352330208,
+      1.1311290264129639
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.278",
+    "bone": "spine",
+    "center": [
+      -0.04749244451522827,
+      0.05609048157930374,
+      1.2962734699249268
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.279",
+    "bone": "spine",
+    "center": [
+      -0.07563655823469162,
+      0.025069497525691986,
+      1.2203967571258545
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.280",
+    "bone": "spine",
+    "center": [
+      -0.036229997873306274,
+      -0.03771113604307175,
+      1.1548229455947876
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.281",
+    "bone": "spine",
+    "center": [
+      0.007641997188329697,
+      0.004335825331509113,
+      1.2458873987197876
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.282",
+    "bone": "spine",
+    "center": [
+      -0.04657449573278427,
+      -0.042431607842445374,
+      1.2647311687469482
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.283",
+    "bone": "hips",
+    "center": [
+      -0.06153563782572746,
+      -0.031610000878572464,
+      1.134364128112793
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.284",
+    "bone": "spine",
+    "center": [
+      -0.017806194722652435,
+      0.004277597181499004,
+      1.205776333808899
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.285",
+    "bone": "spine",
+    "center": [
+      -0.020054001361131668,
+      0.004338734783232212,
+      1.2049764394760132
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.286",
+    "bone": "spine",
+    "center": [
+      0.04151349887251854,
+      0.004601727239787579,
+      1.1655302047729492
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.287",
+    "bone": "spine",
+    "center": [
+      0.04166249930858612,
+      0.0045614223927259445,
+      1.245809555053711
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.288",
+    "bone": "spine",
+    "center": [
+      -0.04745807126164436,
+      0.0278485007584095,
+      1.2997863292694092
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.289",
+    "bone": "spine",
+    "center": [
+      -0.021331435069441795,
+      -0.03628949820995331,
+      1.2650485038757324
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.290",
+    "bone": "spine",
+    "center": [
+      -0.047454141080379486,
+      0.02773449756205082,
+      1.2684115171432495
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.291",
+    "bone": "spine",
+    "center": [
+      -0.036316003650426865,
+      -0.03757713362574577,
+      1.2577948570251465
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.292",
+    "bone": "spine",
+    "center": [
+      -0.005229937378317118,
+      -0.05166662856936455,
+      1.2058910131454468
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.293",
+    "bone": "spine",
+    "center": [
+      -0.005181497428566217,
+      -0.05516650527715683,
+      1.1489661931991577
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.294",
+    "bone": "spine",
+    "center": [
+      -0.04922256991267204,
+      0.02637851983308792,
+      1.2038400173187256
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.295",
+    "bone": "spine",
+    "center": [
+      -0.04797949641942978,
+      -0.052805718034505844,
+      1.146925687789917
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.296",
+    "bone": "spine",
+    "center": [
+      -0.045366428792476654,
+      -0.017673112452030182,
+      1.188297986984253
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.297",
+    "bone": "spine",
+    "center": [
+      -0.04742170497775078,
+      0.00580403208732605,
+      1.2892038822174072
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.301",
+    "bone": "chest",
+    "center": [
+      0.01695149950683117,
+      -0.0004696273244917393,
+      1.3623155355453491
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.305",
+    "bone": "chest",
+    "center": [
+      -0.02434106543660164,
+      0.05654149502515793,
+      1.4584765434265137
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.245",
+    "bone": "chest",
+    "center": [
+      0.03447353467345238,
+      0.06373818963766098,
+      1.4518721103668213
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.246",
+    "bone": "spine",
+    "center": [
+      0.09531080722808838,
+      0.025128234177827835,
+      1.2911839485168457
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.250",
+    "bone": "chest",
+    "center": [
+      0.08409187942743301,
+      0.07527250051498413,
+      1.4706594944000244
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.255",
+    "bone": "chest",
+    "center": [
+      -0.03008386492729187,
+      0.0850825086236,
+      1.4680142402648926
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.258",
+    "bone": "chest",
+    "center": [
+      -0.06119857355952263,
+      0.07172299921512604,
+      1.4702094793319702
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.259",
+    "bone": "chest",
+    "center": [
+      -0.061115022748708725,
+      0.07263199239969254,
+      1.4702171087265015
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.260",
+    "bone": "chest",
+    "center": [
+      -0.06145051494240761,
+      0.07219810783863068,
+      1.4707324504852295
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.261",
+    "bone": "chest",
+    "center": [
+      -0.0610487274825573,
+      0.07211299985647202,
+      1.4707269668579102
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.265",
+    "bone": "spine",
+    "center": [
+      -0.04656276851892471,
+      -0.04245015233755112,
+      1.2057600021362305
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.266",
+    "bone": "hips",
+    "center": [
+      -0.04886799678206444,
+      0.006108999252319336,
+      1.1399948596954346
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.267",
+    "bone": "spine",
+    "center": [
+      -0.04741550236940384,
+      -0.00037150178104639053,
+      1.2963494062423706
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.268",
+    "bone": "spine",
+    "center": [
+      0.06497430056333542,
+      0.004909966140985489,
+      1.205609917640686
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.269",
+    "bone": "spine",
+    "center": [
+      -0.0474882572889328,
+      0.049860935658216476,
+      1.2891374826431274
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.270",
+    "bone": "spine",
+    "center": [
+      0.0649561807513237,
+      0.005042270291596651,
+      1.1676579713821411
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.271",
+    "bone": "hips",
+    "center": [
+      -0.041489169001579285,
+      -0.03247950226068497,
+      1.1343798637390137
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.272",
+    "bone": "spine",
+    "center": [
+      -0.020011499524116516,
+      -0.028510497882962227,
+      1.1423630714416504
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.273",
+    "bone": "spine",
+    "center": [
+      0.007494501769542694,
+      0.004375440999865532,
+      1.1656079292297363
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.274",
+    "bone": "spine",
+    "center": [
+      -0.06453269720077515,
+      0.028940003365278244,
+      1.299059510231018
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.275",
+    "bone": "spine",
+    "center": [
+      0.06509193778038025,
+      0.005007234867662191,
+      1.243561863899231
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.238",
+    "bone": "chest",
+    "center": [
+      0.04017101600766182,
+      0.06449625641107559,
+      1.451866865158081
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.176",
+    "bone": "chest",
+    "center": [
+      0.036253854632377625,
+      0.07986558228731155,
+      1.4341869354248047
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.177",
+    "bone": "chest",
+    "center": [
+      0.029726356267929077,
+      0.02125599794089794,
+      1.4391412734985352
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.178",
+    "bone": "neck",
+    "center": [
+      0.025949738919734955,
+      0.05008842796087265,
+      1.541226863861084
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.179",
+    "bone": "neck",
+    "center": [
+      0.04711227864027023,
+      0.06753325462341309,
+      1.5846805572509766
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.180",
+    "bone": "neck",
+    "center": [
+      0.035412732511758804,
+      0.027674123644828796,
+      1.6111259460449219
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.181",
+    "bone": "neck",
+    "center": [
+      0.03430084511637688,
+      0.03353478014469147,
+      1.6111854314804077
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.199",
+    "bone": "chest",
+    "center": [
+      0.07152549922466278,
+      0.07635869085788727,
+      1.3915481567382812
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.200",
+    "bone": "chest",
+    "center": [
+      0.026003999635577202,
+      0.07702486217021942,
+      1.3915432691574097
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.203",
+    "bone": "chest",
+    "center": [
+      0.046195510774850845,
+      0.06529723852872849,
+      1.4518609046936035
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.136",
+    "bone": "spine",
+    "center": [
+      0.09245030581951141,
+      -0.009040001779794693,
+      1.2558212280273438
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.148",
+    "bone": "chest",
+    "center": [
+      0.054058995097875595,
+      0.07651897519826889,
+      1.391555666923523
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.152",
+    "bone": "chest",
+    "center": [
+      0.1012159213423729,
+      0.07744783163070679,
+      1.4704835414886475
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.106",
+    "bone": "spine",
+    "center": [
+      0.08984238654375076,
+      -0.008333500474691391,
+      1.2888869047164917
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.112",
+    "bone": "spine",
+    "center": [
+      0.08911648392677307,
+      -0.0076170009560883045,
+      1.3274290561676025
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.130",
+    "bone": "chest",
+    "center": [
+      0.03929300233721733,
+      0.06863841414451599,
+      1.470512866973877
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.133",
+    "bone": "spine",
+    "center": [
+      0.09373369067907333,
+      -0.009953498840332031,
+      1.2253429889678955
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.134",
+    "bone": "neck",
+    "center": [
+      0.027497608214616776,
+      0.084528349339962,
+      1.5661455392837524
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.071",
+    "bone": "chest",
+    "center": [
+      0.028556540608406067,
+      0.09283149242401123,
+      1.4777110815048218
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.075",
+    "bone": "chest",
+    "center": [
+      0.08800889551639557,
+      0.04345148801803589,
+      1.4746479988098145
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.076",
+    "bone": "chest",
+    "center": [
+      0.02860991470515728,
+      0.09219148755073547,
+      1.4662113189697266
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.085",
+    "bone": "hips",
+    "center": [
+      0.00014737050514668226,
+      -0.011821135878562927,
+      0.9802029728889465
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.089",
+    "bone": "chest",
+    "center": [
+      0.04205050691962242,
+      0.052036039531230927,
+      1.4664080142974854
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.091",
+    "bone": "chest",
+    "center": [
+      0.0837165042757988,
+      0.07567805051803589,
+      1.4383798837661743
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.094",
+    "bone": "neck",
+    "center": [
+      0.08390449732542038,
+      0.0746389850974083,
+      1.5030239820480347
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.096",
+    "bone": "chest",
+    "center": [
+      0.0945742279291153,
+      0.05279700458049774,
+      1.3915250301361084
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.030",
+    "bone": "chest",
+    "center": [
+      0.030083127319812775,
+      0.0850825086236,
+      1.4680142402648926
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.033",
+    "bone": "chest",
+    "center": [
+      0.06119842827320099,
+      0.07172299921512604,
+      1.4702094793319702
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.034",
+    "bone": "chest",
+    "center": [
+      0.061114974319934845,
+      0.07263199239969254,
+      1.4702171087265015
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.035",
+    "bone": "chest",
+    "center": [
+      0.06145147979259491,
+      0.07219810783863068,
+      1.4707324504852295
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.036",
+    "bone": "chest",
+    "center": [
+      0.061049267649650574,
+      0.07211299985647202,
+      1.4707269668579102
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.047",
+    "bone": "chest",
+    "center": [
+      0.024340929463505745,
+      0.05654149502515793,
+      1.4584765434265137
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.054",
+    "bone": "hips",
+    "center": [
+      0.0001519996440038085,
+      -0.0032808776013553143,
+      0.9493724703788757
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.055",
+    "bone": "chest",
+    "center": [
+      0.03719963878393173,
+      0.06995149701833725,
+      1.4879004955291748
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.061",
+    "bone": "chest",
+    "center": [
+      0.07961750030517578,
+      0.10692058503627777,
+      1.4749878644943237
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.001",
+    "bone": "neck",
+    "center": [
+      6.658956408500671e-08,
+      0.09496099501848221,
+      1.515624761581421
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.002",
+    "bone": "chest",
+    "center": [
+      -3.236345946788788e-07,
+      0.10495300590991974,
+      1.4568114280700684
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.003",
+    "bone": "neck",
+    "center": [
+      -1.955777406692505e-07,
+      0.07467500120401382,
+      1.6132475137710571
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.004",
+    "bone": "neck",
+    "center": [
+      -2.9383227229118347e-07,
+      0.09916099905967712,
+      1.4965040683746338
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.005",
+    "bone": "neck",
+    "center": [
+      -3.14321368932724e-07,
+      0.08976050466299057,
+      1.5365664958953857
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.006",
+    "bone": "chest",
+    "center": [
+      4.260800778865814e-07,
+      0.10294350981712341,
+      1.47764253616333
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.007",
+    "bone": "hips",
+    "center": [
+      -6.430782377719879e-07,
+      0.045866500586271286,
+      1.1114979982376099
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.008",
+    "bone": "spine",
+    "center": [
+      -4.046596586704254e-07,
+      0.039130497723817825,
+      1.1569148302078247
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.009",
+    "bone": "chest",
+    "center": [
+      4.656612873077393e-10,
+      0.08396785706281662,
+      1.365910530090332
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.010",
+    "bone": "spine",
+    "center": [
+      -4.055909812450409e-07,
+      0.0395675003528595,
+      1.2042368650436401
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.011",
+    "bone": "spine",
+    "center": [
+      4.656612873077393e-10,
+      0.062081046402454376,
+      1.2973304986953735
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.012",
+    "bone": "chest",
+    "center": [
+      4.656612873077393e-10,
+      0.07794634252786636,
+      1.3423573970794678
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.013",
+    "bone": "hips",
+    "center": [
+      -6.430782377719879e-07,
+      0.04992649704217911,
+      1.0895569324493408
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.014",
+    "bone": "spine",
+    "center": [
+      4.656612873077393e-10,
+      0.0429108589887619,
+      1.2276955842971802
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.015",
+    "bone": "spine",
+    "center": [
+      4.656612873077393e-10,
+      0.0700325220823288,
+      1.3200466632843018
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.016",
+    "bone": "chest",
+    "center": [
+      -3.2782554626464844e-07,
+      0.10159900039434433,
+      1.4350923299789429
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.017",
+    "bone": "spine",
+    "center": [
+      -1.4854595065116882e-07,
+      0.036201998591423035,
+      1.1803202629089355
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.018",
+    "bone": "spine",
+    "center": [
+      4.656612873077393e-10,
+      0.04715834558010101,
+      1.2515208721160889
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.019",
+    "bone": "chest",
+    "center": [
+      -4.046596586704254e-07,
+      0.09175550192594528,
+      1.3885878324508667
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.020",
+    "bone": "hips",
+    "center": [
+      -1.4761462807655334e-07,
+      0.04298199713230133,
+      1.134756326675415
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.021",
+    "bone": "chest",
+    "center": [
+      5.401670932769775e-07,
+      0.09867549687623978,
+      1.411783218383789
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.022",
+    "bone": "spine",
+    "center": [
+      4.656612873077393e-10,
+      0.054300177842378616,
+      1.2747477293014526
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.023",
+    "bone": "neck",
+    "center": [
+      5.448237061500549e-08,
+      0.07425999641418457,
+      1.6317027807235718
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.024",
+    "bone": "neck",
+    "center": [
+      5.806796252727509e-07,
+      0.077845998108387,
+      1.5757224559783936
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.025",
+    "bone": "neck",
+    "center": [
+      -2.0489096641540527e-07,
+      0.07426400482654572,
+      1.59513258934021
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_torso_neck.026",
+    "bone": "neck",
+    "center": [
+      4.5588240027427673e-07,
+      0.08384699374437332,
+      1.5563958883285522
+    ],
+    "replacement": "joint-aligned mechanical core"
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.533",
+    "bone": "head",
+    "center": [
+      -0.048003874719142914,
+      0.04293299838900566,
+      1.6576883792877197
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.525",
+    "bone": "head",
+    "center": [
+      -0.029112201184034348,
+      -0.020130187273025513,
+      1.6128265857696533
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.529",
+    "bone": "head",
+    "center": [
+      -0.047804079949855804,
+      0.04223700240254402,
+      1.6638323068618774
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.515",
+    "bone": "head",
+    "center": [
+      -0.04790487140417099,
+      0.0425960011780262,
+      1.6607599258422852
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.499",
+    "bone": "head",
+    "center": [
+      -0.035235047340393066,
+      -0.01931554637849331,
+      1.6377201080322266
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.500",
+    "bone": "head",
+    "center": [
+      -0.025666415691375732,
+      -0.03467249870300293,
+      1.6431673765182495
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.501",
+    "bone": "head",
+    "center": [
+      -0.04819932579994202,
+      0.043584998697042465,
+      1.651542067527771
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.505",
+    "bone": "head",
+    "center": [
+      -0.048296403139829636,
+      0.043906498700380325,
+      1.6484664678573608
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.509",
+    "bone": "head",
+    "center": [
+      -0.048102494329214096,
+      0.04327000305056572,
+      1.6546149253845215
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.483",
+    "bone": "head",
+    "center": [
+      -0.05774950608611107,
+      0.04305189102888107,
+      1.6899679899215698
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.442",
+    "bone": "head",
+    "center": [
+      -0.06793271005153656,
+      0.043030496686697006,
+      1.685317039489746
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.421",
+    "bone": "head",
+    "center": [
+      -0.042533934116363525,
+      -0.032182998955249786,
+      1.6782506704330444
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.428",
+    "bone": "head",
+    "center": [
+      -0.027087468653917313,
+      -0.021149368956685066,
+      1.6066696643829346
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.429",
+    "bone": "head",
+    "center": [
+      -0.020943498238921165,
+      0.07343262434005737,
+      1.6575379371643066
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.394",
+    "bone": "head",
+    "center": [
+      -0.03852858021855354,
+      -0.013534799218177795,
+      1.6406010389328003
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.399",
+    "bone": "head",
+    "center": [
+      -0.05790852755308151,
+      0.06070306897163391,
+      1.6872719526290894
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.402",
+    "bone": "head",
+    "center": [
+      -0.028089996427297592,
+      0.049101442098617554,
+      1.6604719161987305
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.403",
+    "bone": "head",
+    "center": [
+      -0.057811494916677475,
+      0.025947988033294678,
+      1.6873798370361328
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.413",
+    "bone": "head",
+    "center": [
+      -0.032319944351911545,
+      -0.02462650090456009,
+      1.6396572589874268
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.414",
+    "bone": "head",
+    "center": [
+      -0.021047357469797134,
+      -0.037270333617925644,
+      1.6515874862670898
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.354",
+    "bone": "head",
+    "center": [
+      -0.044812072068452835,
+      0.05294349789619446,
+      1.6431293487548828
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.318",
+    "bone": "head",
+    "center": [
+      -0.04805709421634674,
+      0.01417500153183937,
+      1.6584866046905518
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.346",
+    "bone": "head",
+    "center": [
+      -0.045395929366350174,
+      0.06159299612045288,
+      1.6440820693969727
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.243",
+    "bone": "head",
+    "center": [
+      0.04780391603708267,
+      0.04223700240254402,
+      1.6638323068618774
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.247",
+    "bone": "head",
+    "center": [
+      0.04800412431359291,
+      0.04293299838900566,
+      1.6576883792877197
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.252",
+    "bone": "head",
+    "center": [
+      -0.018722839653491974,
+      -0.03845350071787834,
+      1.6955969333648682
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.253",
+    "bone": "head",
+    "center": [
+      -0.04318126663565636,
+      -0.03504650294780731,
+      1.6963467597961426
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.254",
+    "bone": "head",
+    "center": [
+      -0.018960099667310715,
+      -0.03724399954080582,
+      1.6778935194015503
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.264",
+    "bone": "head",
+    "center": [
+      -0.030184175819158554,
+      -0.03583671152591705,
+      1.687466025352478
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.213",
+    "bone": "head",
+    "center": [
+      0.035234950482845306,
+      -0.01931554637849331,
+      1.6377201080322266
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.214",
+    "bone": "head",
+    "center": [
+      0.025666583329439163,
+      -0.03467249870300293,
+      1.6431673765182495
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.215",
+    "bone": "head",
+    "center": [
+      0.048199668526649475,
+      0.043584998697042465,
+      1.651542067527771
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.219",
+    "bone": "head",
+    "center": [
+      0.04829659312963486,
+      0.043906498700380325,
+      1.6484664678573608
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.223",
+    "bone": "head",
+    "center": [
+      0.04810250550508499,
+      0.04327000305056572,
+      1.6546149253845215
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.229",
+    "bone": "head",
+    "center": [
+      0.047905124723911285,
+      0.0425960011780262,
+      1.6607599258422852
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.239",
+    "bone": "head",
+    "center": [
+      0.029111800715327263,
+      -0.020130187273025513,
+      1.6128265857696533
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.173",
+    "bone": "head",
+    "center": [
+      -9.313225746154785e-10,
+      -0.007151939440518618,
+      1.6253695487976074
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.197",
+    "bone": "head",
+    "center": [
+      0.05775049701333046,
+      0.04305189102888107,
+      1.6899679899215698
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.139",
+    "bone": "head",
+    "center": [
+      0.0323200561106205,
+      -0.02462650090456009,
+      1.6396572589874268
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.140",
+    "bone": "head",
+    "center": [
+      0.021047642454504967,
+      -0.037270333617925644,
+      1.6515874862670898
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.147",
+    "bone": "head",
+    "center": [
+      0.04253407195210457,
+      -0.032182998955249786,
+      1.6782506704330444
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.154",
+    "bone": "head",
+    "center": [
+      0.027087528258562088,
+      -0.021149368956685066,
+      1.6066696643829346
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.155",
+    "bone": "head",
+    "center": [
+      0.020943500101566315,
+      0.07343262434005737,
+      1.6575379371643066
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.168",
+    "bone": "head",
+    "center": [
+      0.06793229281902313,
+      0.043030496686697006,
+      1.685317039489746
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.120",
+    "bone": "head",
+    "center": [
+      0.03852842003107071,
+      -0.013534799218177795,
+      1.6406010389328003
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.125",
+    "bone": "head",
+    "center": [
+      0.057908475399017334,
+      0.06070306897163391,
+      1.6872719526290894
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.128",
+    "bone": "head",
+    "center": [
+      0.02809000015258789,
+      0.049101442098617554,
+      1.6604719161987305
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.129",
+    "bone": "head",
+    "center": [
+      0.05781150236725807,
+      0.025947988033294678,
+      1.6873798370361328
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.080",
+    "bone": "head",
+    "center": [
+      0.045396070927381516,
+      0.06159299612045288,
+      1.6440820693969727
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.086",
+    "bone": "head",
+    "center": [
+      0.04481193423271179,
+      0.05294349789619446,
+      1.6431293487548828
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.029",
+    "bone": "head",
+    "center": [
+      0.01895989663898945,
+      -0.03724399954080582,
+      1.6778935194015503
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.039",
+    "bone": "head",
+    "center": [
+      0.0301838181912899,
+      -0.03583671152591705,
+      1.687466025352478
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.040",
+    "bone": "head",
+    "center": [
+      8.00006091594696e-07,
+      0.027684003114700317,
+      1.7020212411880493
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.058",
+    "bone": "head",
+    "center": [
+      0.04805690795183182,
+      0.01417500153183937,
+      1.6584866046905518
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.027",
+    "bone": "head",
+    "center": [
+      0.018723158165812492,
+      -0.03845350071787834,
+      1.6955969333648682
+    ]
+  },
+  {
+    "part": "Cyborg_Female_skeleton_skull.028",
+    "bone": "head",
+    "center": [
+      0.04318072646856308,
+      -0.03504650294780731,
+      1.6963467597961426
+    ]
+  }
+]

@@ -1,0 +1,48 @@
+[
+  {
+    "body": "human",
+    "sourceJoints": 61,
+    "maximumMatrixError": 1.7285346984863281e-06,
+    "clips": [
+      {
+        "name": "cup-kick",
+        "frames": 121
+      },
+      {
+        "name": "entrance",
+        "frames": 61
+      },
+      {
+        "name": "settle",
+        "frames": 37
+      },
+      {
+        "name": "idle",
+        "frames": 121
+      }
+    ]
+  },
+  {
+    "body": "anime",
+    "sourceJoints": 199,
+    "maximumMatrixError": 2.8312206268310547e-06,
+    "clips": [
+      {
+        "name": "cup-kick",
+        "frames": 121
+      },
+      {
+        "name": "entrance",
+        "frames": 61
+      },
+      {
+        "name": "settle",
+        "frames": 37
+      },
+      {
+        "name": "idle",
+        "frames": 121
+      }
+    ]
+  }
+]

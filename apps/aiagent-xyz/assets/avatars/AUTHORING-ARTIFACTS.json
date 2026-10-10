@@ -1,0 +1,84 @@
+{
+  "schema": "aiagent.avatar-authoring-artifacts.v1",
+  "why": "Authoring sources (Blender files, source models, motion captures) are kept OUT of git history (IOI Director, 2026-10-10). The app builds and runs without them; the dev-only /__avatar-authoring route returns 404 when they are absent.",
+  "location": "~/ioi-artifacts/aiagent/avatar-sources/<path relative to apps/aiagent-xyz/> on the program host, with SHA256SUMS; a backup is in the IOI Director's snapshot plans/ioi-director/inputs/main-checkout-uncommitted-2026-10-10/avatar-untracked.tar.gz. A hosted artifact store is an owner decision.",
+  "restore": "copy each file back to its path, then sha256sum -c against this manifest",
+  "provenance": "see third-party.json (kept in git) and the binary-asset provenance and license manifest required before any merge request",
+  "files": [
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/motion/anime-controls.json",
+      "bytes": 19429724,
+      "sha256": "6c18ff49fe999a92b80aead390c42f5785d0bc9c069d976b377115bb2d3615d9"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/motion/human-controls.json",
+      "bytes": 5230886,
+      "sha256": "112004f85fa6c6f74523c1548c1239c56146d2a1e344b9864d7bc19834232140"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source/anime-mobile.blend",
+      "bytes": 9002396,
+      "sha256": "4defda8d4231c5fa727f8a70bcbac3897a8f78c85c1ce10ee08afa4182de41fe"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source/anime-motion.blend",
+      "bytes": 14889002,
+      "sha256": "914fe8a50b2db1cf93cb63bc1803dfedbb95588dd000e084c5ce73f22896cc02"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source/anime-performance.blend",
+      "bytes": 29450347,
+      "sha256": "5ed2b674ff19518f621869eaaf1d5475e6d38bcd67f19a08600a0fccf6b786ac"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source/human-authored.blend",
+      "bytes": 23829304,
+      "sha256": "64e5459a4abc8489ea40b59542ef70918ff8fdcb7990bd12b89bdd9510df27c6"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source/human-mobile.blend",
+      "bytes": 12380358,
+      "sha256": "8db9a494d24affc46a16ab156d6fea944fd8c2e947be87c99081b0b160cf93d2"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source/human-motion.blend",
+      "bytes": 16605663,
+      "sha256": "c53ec3515164e9b11942bde599fc670de6ff24c53e4259d4449f0fe58d8f9442"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source-models/anime-base-v1.vrm",
+      "bytes": 10776032,
+      "sha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source-models/anime-performance-mobile-v1.vrm",
+      "bytes": 13092488,
+      "sha256": "42b14cc54feafc293247b10187f555ad164d34c649a4f10a0ff15f32baee4506"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source-models/anime-performance-v1.vrm",
+      "bytes": 14007924,
+      "sha256": "8d1c016ba92c5a669d0731d913bdc9cfa07a9a231024b54584ef55433ffe7e33"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source-models/human-authored-mobile-v1.glb",
+      "bytes": 12666936,
+      "sha256": "4c6d27d7a008d11aac6c8e99d411c150598b0931bc9093a099548c10121d49f0"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source-models/human-authored-v1.glb",
+      "bytes": 13202304,
+      "sha256": "3c785aa3f42b8b05d427851950b5319c3cb04bdf28309ac55b3e4d795e8459e7"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source/robot-study.blend",
+      "bytes": 38198646,
+      "sha256": "7b48c19a6df29ebc98e8e5eb713c92b5aa26bd84d985468ecef9164ffd1077ab"
+    },
+    {
+      "path": "apps/aiagent-xyz/assets/avatars/source/robot-study-mobile.blend",
+      "bytes": 27488585,
+      "sha256": "8a2ad79f21cd71e64288b70d2e2d4abc8a683cfaa73fc04e62138a7a23dba1ff"
+    }
+  ]
+}

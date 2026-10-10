@@ -1,0 +1,47 @@
+{
+  "results": [
+    {
+      "family": "robot",
+      "source": "robot-study.blend",
+      "bones": 56,
+      "weightedVertices": 122997,
+      "blendedVertices": 0,
+      "maximumWeightSumError": 0,
+      "actions": [
+        "cup-kick",
+        "entrance",
+        "idle",
+        "settle"
+      ]
+    },
+    {
+      "family": "human",
+      "source": "human-motion.blend",
+      "bones": 61,
+      "weightedVertices": 37679,
+      "blendedVertices": 20138,
+      "maximumWeightSumError": 4.877801984548569e-08,
+      "actions": [
+        "cup-kick",
+        "entrance",
+        "idle",
+        "settle"
+      ]
+    },
+    {
+      "family": "anime",
+      "source": "anime-motion.blend",
+      "bones": 199,
+      "weightedVertices": 39356,
+      "blendedVertices": 18240,
+      "maximumWeightSumError": 1.1920928955078125e-07,
+      "actions": [
+        "T-Pose",
+        "cup-kick",
+        "entrance",
+        "idle",
+        "settle"
+      ]
+    }
+  ]
+}
