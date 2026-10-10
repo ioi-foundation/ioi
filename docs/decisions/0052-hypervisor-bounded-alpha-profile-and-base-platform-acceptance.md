@@ -163,6 +163,8 @@ promise. And the tier is a floor, not a ceiling: a deployment that enrols a
 passkey keeps the stronger tier, and the recognized set stays closed — a third
 tier is another binding on record, not a configuration flag.
 
+(2026-09-30, CD-37) A passkey that only unseals the host-sealed approver key leaves the grant at `deployment_local_operator`.
+
 ### 8. Connector authority speaks one language: a registration binds its principal, and every connector authority route refuses an unresolved caller identically
 
 > Refinement added 2026-09-10 (owner-reversible; private register R-20 and R-22).

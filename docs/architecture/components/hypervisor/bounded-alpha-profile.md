@@ -191,6 +191,15 @@ set -a; . /var/lib/ioi/authority/serve.env;  set +a; node apps/hypervisor/script
 node apps/hypervisor/scripts/wallet-network-authority.mjs approve --state-dir /var/lib/ioi/authority \
   --policy-hash <h> --request-hash <h> --audience <daemon capability account> \
   --target-scope scope:hypervisor.live-route.<route>
+#    TARGET (2026-09-30): the principal's passkey unseals the approver key through
+#    WebAuthn PRF, replacing the operator passphrase as the UNSEALING factor. The
+#    grant keeps recording the `deployment_local_operator` tier with its custody
+#    evidence (the key is still sealed on this host); the passkey ceremony's own
+#    receipt (/v1/hypervisor/auth/passkeys/authority/*) is kept in the daemon's
+#    standing record, not on the authority's grant, and the wallet.network
+#    contract is unchanged. The App never asks for, shows or
+#    relays a passphrase, nor custody wording. Not built: until it is, the
+#    passphrase lane below stands.
 #    Standing limits (G5 follow-on): "Set limits" on a Connections card sends only
 #    the bounds (usages, budget, expiry, operations, tools) and your passphrase to
 #    the daemon's POST /v1/hypervisor/authority/standing-envelopes. The daemon
@@ -323,8 +332,15 @@ claims it. The posture stays `production_candidate`.
   key they custody on the host; the registered `auth-factor-receipt/v2` receipt
   attests that custody — host, key-path hash, mode 0600, the moment of
   acknowledgement — and never a person, and recording is a control-plane act
-  signed by the deployment's control root. **No claim of a passkey**: this tier
-  is a floor, and a deployment that enrols a passkey keeps the stronger one.
+  signed by the deployment's control root. **No claim of a passkey tier** for a
+  grant whose key is sealed on the host: this tier is a floor, and a deployment
+  whose approver key is held by a passkey keeps the stronger one; a passkey that
+  only unseals the host-sealed key (the target below) leaves the grant at this
+  tier. The target opens the approver key with the principal's passkey
+  (WebAuthn PRF) instead of the operator passphrase, so no passphrase or custody
+  wording reaches the App; the grant still records this tier and its custody
+  evidence, and the passkey ceremony's receipt is kept in the daemon's standing
+  record as the unsealing factor. It is not built.
   **No claim on a deterministic clock**: a deployment that mints standing
   envelopes runs its authority node on the wall clock, because an envelope's
   expiry is a real-time promise the daemon checks at every bind and draw.

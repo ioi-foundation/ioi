@@ -2312,8 +2312,11 @@ journey WP-C1).
   whether this deployment can record limits at all from the daemon's own answer
   (`decidable` on `GET /v1/hypervisor/authority/standing-envelopes`), and that the
   limits do not bound the System's runs yet (no session names a System). Limits
-  are set and removed on Connections with the operator passphrase (the daemon's
-  standing decision; the deployment authority signs the standing grant).
+  are set and removed on Connections (the daemon's standing decision; the
+  deployment authority signs the standing grant), today with the operator
+  passphrase. The target opens the signing key with the principal's passkey
+  (WebAuthn PRF) instead, the grant keeping its host-custody tier and evidence,
+  and no passphrase or custody wording reaches the App (not built).
 - **Who may attach (2026-09-29, R-240 System seam authority).** The daemon
   enforces this itself; the form is an ordinary client. A seam write needs
   WRITE standing on the System: the caller must be the principal its genesis
