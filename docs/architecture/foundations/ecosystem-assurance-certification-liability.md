@@ -344,7 +344,8 @@ JurisdictionPolicyPack:
           authority_request_received_at
         initial_notice_within_ms: integer | null
         full_report_within_ms: integer | null
-        recipient_ref: authority://... | regulator://... | counterparty://...
+        recipient_ref: authority://... | regulator://... | counterparty://... |
+          data_subject://... | media://...
         evidence_projection_profile_ref: assurance_profile://...
         responsible_ref: principal://... | role://...
         accountable_ref: principal://... | role://...
@@ -370,6 +371,15 @@ Deadline arithmetic must retain the exact pack version and triggering timestamp.
 Changing a deadline, clock-start rule, recipient, responsible party, or
 accountable issuer requires a new pack version; it must not rewrite an
 already-recorded reporting decision.
+
+A deadline's recipient may be the affected data subjects (`data_subject://`) or
+the media (`media://`) where an obligation requires notice to the individuals
+an incident touched, or public notice. The pack names the recipient class and
+its scope, never individuals: who the affected subjects are is resolved when
+the incident is, from the receipts of what left and to whom. The registered
+`jurisdiction-policy-pack/v1` contract admits only the first three recipient
+kinds; the two added kinds land in its successor contract, never as an edit of
+v1.
 
 ### `RegulatedWorkloadAssuranceProfile`
 
