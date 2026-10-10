@@ -11269,6 +11269,68 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/receipt-envelope/v2",
+      "canonical_name": "ReceiptEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope-v2",
+      "schema_version": "ioi.foundations.receipt-envelope.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/receipt-envelope/v1",
+        "successor_contract_id": null,
+        "compatibility": "parallel_version_explicit_refusal",
+        "migration_policy": "no_implicit_migration",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "receipt-envelope.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/receipt-envelope/boundary-fact-required/v2",
+          "path": "invariants/receipt-envelope.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ReceiptEnvelopeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ReceiptEnvelopeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/receipt-envelope-v2/positive-minimal.json",
+        "fixtures/receipt-envelope-v2/positive-assured.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/receipt-envelope-v2/negative-bad-profile-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/receipt-envelope-v2/negative-empty-boundary-facts.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "receipt.boundary_fact.required"
+        },
+        {
+          "path": "fixtures/receipt-envelope-v2/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/receipt-envelope-v2/negative-legacy-signature.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
       "canonical_name": "ReceiptProofBundle",
       "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs",

@@ -6,7 +6,7 @@ Supersedes: the same object definitions when they were carried inside the single
 Superseded by: none.
 Last alignment pass: 2026-08-08.
 Doctrine status: canonical
-Implementation status: mixed (`ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, and `DownloadIntent` v1 have registered schemas, invariants, adversarial fixtures, and generated projections; production receipt-proof cryptographic verifiers/CLIs, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned)
+Implementation status: mixed (`ReceiptEnvelope` v1 and v2, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, and `DownloadIntent` v1 have registered schemas, invariants, adversarial fixtures, and generated projections; production receipt-proof cryptographic verifiers/CLIs, daemon/Agentgres checkpoint emission, DSSE emission and verification of v2-based receipts, network key discovery, and public transparency remain planned)
 Last implementation audit: 2026-08-08
 
 ## Purpose
@@ -99,6 +99,33 @@ of the exact closed v1
 domain-separated, indexed accumulator leaf. The signed checkpoint, inclusion
 witness, consistency witness, and export-manifest rules are owned by
 [`events-receipts-delivery-bundles.md`](../../components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs).
+
+### ReceiptEnvelope v2
+
+`ReceiptEnvelope` v2 (`schema://ioi/foundations/receipt-envelope/v2`) is
+registered beside v1 by the same registry. It is v1's closed field set without
+`signature`, with v1's boundary-fact invariant and golden fixtures carried over
+and one more negative fixture: a `signature` member, even the null one v1
+allows, is refused. v2 is the base of a receipt signed by the portable signing
+envelope that v1's legacy `signature` deferred (target: the contract is
+registered; no emitter or verifier at this revision signs or reads one):
+
+- the receipt is a DSSE envelope with payloadType
+  `application/vnd.in-toto+json`, carrying an in-toto Statement v1;
+- the statement's `predicateType` is the receipt profile, the same `schema://`
+  ref as the base's `receipt_profile_ref`, and its `subject` lists the digests
+  the receipt attests (its artifact, input and output hashes);
+- its `predicate` is `{ base, profile }`: `base` is a `ReceiptEnvelope` v2,
+  mandatory in every IOI predicate type, and `profile` holds that profile's own
+  fields.
+
+The DSSE signatures take the place of v1's opaque `signature`, so v2 has no
+signature member. v1 is not superseded: the profiles registered on it, its
+`ioi.receipt-envelope-jcs-sha256.v1` body-hash profile, and `ReceiptCheckpoint`
+v1 and `ReceiptProofBundle` v1 (whose `receipt_contract_id` is v1's) keep their
+exact meanings. A new receipt profile takes v2 as its base. Neither version
+stands in for the other: a v1 envelope is not a v2 base, and a v2 base is not a
+v1 envelope.
 
 ## ReceiptObligation
 

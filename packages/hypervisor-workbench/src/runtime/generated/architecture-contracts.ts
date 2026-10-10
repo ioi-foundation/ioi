@@ -8655,6 +8655,31 @@ export type ReceiptEnvelopeV1 = {
   public_commitment_ref: string | null;
 };
 
+export type ReceiptEnvelopeV2 = {
+  receipt_id: string;
+  receipt_type: string;
+  receipt_profile_ref: string;
+  attested_boundary_fact_refs: Array<string>;
+  claim_scope_ref: string | null;
+  run_id: string | null;
+  task_id: string | null;
+  actor_id: string;
+  input_hash?: string;
+  output_hash?: string;
+  policy_hash?: string;
+  authority_grant_id: string | null;
+  primitive_capabilities: Array<string>;
+  authority_scopes: Array<string>;
+  artifact_refs: Array<string>;
+  evidence_bundle_refs: Array<string>;
+  verification_ref: string | null;
+  acceptance_ref: string | null;
+  adjudication_ref: string | null;
+  settlement_ref: string | null;
+  timestamp: string;
+  public_commitment_ref: string | null;
+};
+
 export type ReceiptProofBundleV1 = {
   schema_version: "ioi.foundations.receipt-proof-bundle.v1";
   bundle_type: "ioi.receipt-proof-bundle";
@@ -22971,6 +22996,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/positive-assured.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-bad-profile-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-empty-boundary-facts.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "receipt.boundary_fact.required"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-legacy-signature.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json",
     "expected": "accept",
@@ -36506,6 +36579,12 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/positive-minimal.json","contract_id":"schema://ioi/foundations/receipt-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/positive-assured.json","contract_id":"schema://ioi/foundations/receipt-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/positive-assured.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-bad-profile-ref.json","contract_id":"schema://ioi/foundations/receipt-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-bad-profile-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-empty-boundary-facts.json","contract_id":"schema://ioi/foundations/receipt-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-empty-boundary-facts.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-unknown-field.json","contract_id":"schema://ioi/foundations/receipt-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-legacy-signature.json","contract_id":"schema://ioi/foundations/receipt-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v2/negative-legacy-signature.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json","mutation_id":null,"value_json":null}),
@@ -39335,6 +39414,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b",
   "schema://ioi/foundations/receipt-checkpoint/v2": "sha256:03a1b3509bef4d50f638926346929a2707d71d35079691a508ce759bc1f7bc50",
   "schema://ioi/foundations/receipt-envelope/v1": "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc",
+  "schema://ioi/foundations/receipt-envelope/v2": "sha256:9510456fa2559edb4f266dea090fa09cd0adbc2afafcaddf8ddea06f6fb51f28",
   "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034",
   "schema://ioi/foundations/receipt-proof-bundle/v2": "sha256:e342077c0ff89b18e00ae07948ac86e6eed7bac1c103152ea834bee294a902c2",
   "schema://ioi/foundations/skill-entry/v1": "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699",
@@ -105572,6 +105652,267 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "null"
           }
         ]
+      },
+      "public_commitment_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/publicCommitmentRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]+$"
+      },
+      "schemaRef": {
+        "type": "string",
+        "pattern": "^schema://[^\\s]+$"
+      },
+      "schemaOrPolicyRef": {
+        "type": "string",
+        "pattern": "^(?:schema|policy)://[^\\s]+$"
+      },
+      "runRef": {
+        "type": "string",
+        "pattern": "^run://[^\\s]+$"
+      },
+      "taskRef": {
+        "type": "string",
+        "pattern": "^task://[^\\s]+$"
+      },
+      "grantRef": {
+        "type": "string",
+        "pattern": "^grant://[^\\s]+$"
+      },
+      "protocolPrincipalOrRuntimeRef": {
+        "type": "string",
+        "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"
+      },
+      "primitiveCapability": {
+        "type": "string",
+        "pattern": "^prim:[a-z][a-z0-9._-]*$"
+      },
+      "authorityScope": {
+        "type": "string",
+        "pattern": "^scope:[a-z][a-z0-9._-]*$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]+$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"
+      },
+      "verificationRef": {
+        "type": "string",
+        "pattern": "^(?:verifier-path|verification|receipt)://[^\\s]+$"
+      },
+      "acceptanceRef": {
+        "type": "string",
+        "pattern": "^acceptance://[^\\s]+$"
+      },
+      "adjudicationRef": {
+        "type": "string",
+        "pattern": "^(?:decision|dispute)://[^\\s]+$"
+      },
+      "settlementRef": {
+        "type": "string",
+        "pattern": "^settlement://[^\\s]+$"
+      },
+      "publicCommitmentRef": {
+        "type": "string",
+        "pattern": "^(?:commitment|settlement|tx)://[^\\s]+$"
+      },
+      "hash": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "schema://ioi/foundations/receipt-envelope/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/receipt-envelope/v2",
+    "title": "ReceiptEnvelope",
+    "description": "Portable base envelope for IOI receipts signed by the portable signing envelope: ReceiptEnvelope v1's closed field set without `signature`. Such a receipt is a DSSE envelope (payloadType application/vnd.in-toto+json) carrying an in-toto Statement v1 whose predicateType is the receipt profile (this envelope's receipt_profile_ref) and whose predicate is { base, profile }: base is this envelope, mandatory in every IOI predicate type, and profile holds the profile's own fields. The DSSE signatures are the future portable signing envelope that v1's legacy `signature` anticipated, so this envelope has no signature member and refuses one. ReceiptEnvelope v1 remains valid for the profiles registered on it.",
+    "x-ioi-schema-version": "ioi.foundations.receipt-envelope.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "receipt_id",
+      "receipt_type",
+      "receipt_profile_ref",
+      "attested_boundary_fact_refs",
+      "claim_scope_ref",
+      "run_id",
+      "task_id",
+      "actor_id",
+      "authority_grant_id",
+      "primitive_capabilities",
+      "authority_scopes",
+      "artifact_refs",
+      "evidence_bundle_refs",
+      "verification_ref",
+      "acceptance_ref",
+      "adjudication_ref",
+      "settlement_ref",
+      "timestamp",
+      "public_commitment_ref"
+    ],
+    "properties": {
+      "receipt_id": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_type": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+      },
+      "receipt_profile_ref": {
+        "$ref": "#/$defs/schemaRef"
+      },
+      "attested_boundary_fact_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "uniqueItems": true
+      },
+      "claim_scope_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/schemaOrPolicyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "run_id": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/runRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "task_id": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/taskRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "actor_id": {
+        "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+      },
+      "input_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "output_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_grant_id": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/grantRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "primitive_capabilities": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/primitiveCapability"
+        },
+        "uniqueItems": true
+      },
+      "authority_scopes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/authorityScope"
+        },
+        "uniqueItems": true
+      },
+      "artifact_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "uniqueItems": true
+      },
+      "evidence_bundle_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/evidenceRef"
+        },
+        "uniqueItems": true
+      },
+      "verification_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/verificationRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "acceptance_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/acceptanceRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "adjudication_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/adjudicationRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "settlement_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/settlementRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "timestamp": {
+        "$ref": "#/$defs/canonicalDateTime"
       },
       "public_commitment_ref": {
         "anyOf": [
@@ -174353,6 +174694,16 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/receipt-envelope/v2": [
+    {
+      "rule_id": "receipt.boundary_fact.required",
+      "description": "A receipt binds at least one declared boundary fact; an empty receipt is not proof.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.attested_boundary_fact_refs"
+      }
+    }
+  ],
   "schema://ioi/foundations/receipt-proof-bundle/v1": [
     {
       "rule_id": "receipt_proof_bundle.schema_hash.matches_contract",
@@ -188295,6 +188646,12 @@ export function validateReceiptEnvelopeV1(
   value: unknown,
 ): value is ReceiptEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/receipt-envelope/v1", value).ok;
+}
+
+export function validateReceiptEnvelopeV2(
+  value: unknown,
+): value is ReceiptEnvelopeV2 {
+  return validateArchitectureContract("schema://ioi/foundations/receipt-envelope/v2", value).ok;
 }
 
 export function validateReceiptProofBundleV1(
