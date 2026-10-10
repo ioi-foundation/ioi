@@ -657,6 +657,13 @@ ordinary UI" a checkable claim instead of a hope. The budget renames nothing
 and retires nothing; canonical objects keep their canonical names everywhere
 truth is inspected.
 
+The work unit is the **Session**, and the budget does not count it: the shell
+already renders a Session on ordinary surfaces as a one-click creation action
+and a first-class Work view ([Top-Level Product IA](#top-level-product-ia)).
+Agents, Skills, and Schedules are what a person keeps and reuses; a Session is
+where that work runs. This reading is recorded by owner ruling (2026-09-29);
+the three-noun budget itself is unchanged.
+
 ### Delegation Is Conversational; The Typed Handoff Is The Record
 
 The ask is natural language. The bounded typed handoff is what the system
