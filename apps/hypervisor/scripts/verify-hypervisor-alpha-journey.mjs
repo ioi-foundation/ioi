@@ -1164,7 +1164,7 @@ async function driveRun(intent, { approve }) {
 // the serve relays the bounds and the passphrase to the daemon and keeps nothing; the daemon runs
 // the sealed authority's record-standing-approval (mint mode) and binds the grant. A composer run
 // naming A then draws silently (no card); the next run is over the 1-usage envelope and fails closed
-// typed while the daemon parks its exact effect for a per-run decision; revoking through the serve
+// typed with NOTHING parked (no per-run approval past the limits); revoking through the serve
 // with the passphrase revokes on the authority node, and the next session naming A refuses.
 async function qualifyDeploymentStandingEnvelope(A) {
   const leaseRoute = `/__ioi/connections/${encodeURIComponent(A)}/standing-lease`;
@@ -1200,7 +1200,7 @@ async function qualifyDeploymentStandingEnvelope(A) {
   const afterDraw = envelopeId ? (await jd(DAEMON, `/v1/hypervisor/authority/standing-envelopes/${encodeURIComponent(envelopeId)}`)).body?.standing_envelope || null : null;
   ok("6d-standing", "the draw is counted on the daemon's envelope record (1 used, 0 remaining) and names the run's admission", afterDraw?.drawn?.uses === 1 && afterDraw?.remaining?.usages === 0 && (afterDraw?.drawn?.draw_refs || []).includes(silentDraws[0]?.admission_intent_ref), JSON.stringify(afterDraw?.drawn || null).slice(0, 200));
 
-  // ---- 6d-t. over the envelope: fails closed typed, and the exact effect parks for a per-run decision ----
+  // ---- 6d-t. over the envelope: fails closed typed, and nothing parks — no per-run approval past the limits ----
   const over = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify(composerBody("Create a file named OVER.md — beyond the envelope")) });
   const overId = over.body?.agentExecutionId || "";
   const overT = overId ? await pollRun(overId, 120_000, ["done", "failed", "denied", "awaiting_operator_approval"]) : null;
@@ -1208,7 +1208,7 @@ async function qualifyDeploymentStandingEnvelope(A) {
   const overExec = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === overSession);
   const overRefusals = readReceipts((r) => r.kind === "hypervisor.session.standing_refusal" && r.session_ref === overSession);
   const parkedOver = ((await jd(DAEMON, "/v1/hypervisor/authority/challenges")).body?.challenges || []).filter((c) => c.subject_ref === overSession && c.state === "pending");
-  ok("6d-standing", "OVER THE ENVELOPE: the next run under the 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, and the daemon parked THAT exact effect's challenge (pending, decidable) for the operator's per-run decision", over.status === 200 && overT?.status === "failed" && overT?.authority?.posture === "refused_outside_envelope" && overT?.authority?.refusedBound === "max_usages" && overExec.length === 0 && overRefusals.length === 1 && parkedOver.length === 1 && parkedOver[0].decidable === true, `${over.status} ${overT?.status} · ${JSON.stringify(overT?.authority || null).slice(0, 140)} · exec ${overExec.length} · refusals ${overRefusals.length} · parked ${parkedOver.length}`);
+  ok("6d-standing", "OVER THE ENVELOPE: the next run under the 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, and the daemon parked NOTHING — no challenge for that effect and no per-run approval (the remedy is re-setting the connection's limits)", over.status === 200 && overT?.status === "failed" && overT?.authority?.posture === "refused_outside_envelope" && overT?.authority?.refusedBound === "max_usages" && overExec.length === 0 && overRefusals.length === 1 && parkedOver.length === 0 && !overT?.pending_approval, `${over.status} ${overT?.status} · ${JSON.stringify(overT?.authority || null).slice(0, 140)} · exec ${overExec.length} · refusals ${overRefusals.length} · parked ${parkedOver.length}`);
 
   // ---- 6d-u. revocation through the serve, with the passphrase ----
   const revoke = await jd(SERVE, `${leaseRoute}/revoke`, { method: "POST", body: JSON.stringify({ operator_passphrase: OPERATOR_PASS, reason: "alpha journey: revoke the standing envelope" }) });
@@ -1222,7 +1222,7 @@ async function qualifyDeploymentStandingEnvelope(A) {
   const scan = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) scan(full); else if (entry.isFile()) { try { if (fs.statSync(full).size < 8_000_000 && fs.readFileSync(full).includes(needle)) dataDirHits.push(full); } catch { /* unreadable */ } } } };
   try { scan(dataDir); } catch { /* scan best effort */ }
   ok("6d-standing", "the operator passphrase is nowhere at rest after the standing decision — not in the serve's or the daemon's environment, not in either log, not in the daemon's data dir (the envelope record included)", !environOf(serve?.pid).includes(needle) && !environOf(daemon?.pid).includes(needle) && !serveLog.includes(OPERATOR_PASS) && !daemonLog.includes(OPERATOR_PASS) && dataDirHits.length === 0, `data dir hits ${dataDirHits.length}`);
-  evidence.standing_lease = { ...(evidence.standing_lease || {}), silent_run: { run_id: silentId, status: silentT?.status, draw_receipts: silentDraws.length }, over_envelope_run: { run_id: overId, status: overT?.status, authority: overT?.authority || null, parked_challenge: parkedOver[0]?.challenge_id || null }, revocation: { status: revoke.status, chain_revocation: revoke.body?.revocation?.chain_revocation || null, next_launch: afterRevokeLaunch.status } };
+  evidence.standing_lease = { ...(evidence.standing_lease || {}), silent_run: { run_id: silentId, status: silentT?.status, draw_receipts: silentDraws.length }, over_envelope_run: { run_id: overId, status: overT?.status, authority: overT?.authority || null, parked_challenges: parkedOver.length }, revocation: { status: revoke.status, chain_revocation: revoke.body?.revocation?.chain_revocation || null, next_launch: afterRevokeLaunch.status } };
 }
 
 // 2c: the operator ROTATES the approver key, a second run is approved under the new key and

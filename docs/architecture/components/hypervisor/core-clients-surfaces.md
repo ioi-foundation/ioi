@@ -3574,7 +3574,12 @@ outcome**, never a presentation choice:
   revoked lease, tool outside the template): the daemon refuses naming the
   bound, records a refusal receipt on the session, and points widening at
   Connections (a new binding, never an in-run change). A direct daemon invoke
-  refuses identically to the UI path.
+  refuses identically to the UI path. No per-run approval is parked or offered
+  for an act or an execution refused this way (the owner's set-once ruling,
+  2026-09-29): the remedy is re-setting the connection's limits, one set-once
+  Connections act. The operator's view of such refusals is one digest line per
+  connection, bound and day, with a limits proposal in the operator's periodic
+  batch (target contract; the digest and the batch are not built).
 
 Sessions are bounded execution truth windows. A Session view should be able to show
 the live or historical transcript, step graph, tool/model calls,

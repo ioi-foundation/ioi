@@ -6,8 +6,8 @@
 //   relays the bounds and the passphrase to the daemon and keeps nothing → a missing or wrong passphrase, or a body that
 //   names coordinates, records nothing → the right passphrase makes the daemon run the sealed authority's
 //   `record-standing-approval` (mint mode) and bind the grant → a session naming the connection executes WITHOUT a per-run
-//   decision (a silent standing draw) → the next execute is beyond the envelope's one usage, refuses typed and parks the
-//   exact effect's challenge for a per-run decision → revoking through the serve with the passphrase revokes on the
+//   decision (a silent standing draw) → the next execute is beyond the envelope's one usage and refuses typed with
+//   NOTHING parked (no per-run approval past the limits) → revoking through the serve with the passphrase revokes on the
 //   authority node and fences the connection → the next execute refuses (standing_lease_revoked). The passphrase is in no
 //   file, log or environment.
 //
@@ -229,19 +229,16 @@ test("the operator's standing envelope goes through the daemon: set with the pas
     assert.deepEqual(record?.drawn?.draw_refs, [ran.body.capability_lease_ref]);
   });
 
-  await t.test("an execute beyond the envelope refuses typed and parks the exact effect for a per-run decision", async () => {
+  await t.test("an execute beyond the envelope refuses typed and parks nothing (no per-run approval past the limits)", async () => {
     const beyond = await execute("create a file named BEYOND.md");
     assert.equal(beyond.status, 403, beyond.text.slice(0, 500));
     assert.equal(beyond.body?.reason, "standing_envelope_exceeded");
     assert.equal(beyond.body?.refused_bound, "max_usages");
     assert.equal(beyond.body?.posture, "refused_outside_envelope");
-    const parked = beyond.body?.approval_challenge;
-    assert.match(String(parked?.challenge_id), /^wac_[0-9a-f]{32}$/u);
-    assert.equal(parked.challenge_state, "pending");
-    assert.equal(parked.decidable, true);
-    const challenge = (await jd("GET", `/v1/hypervisor/authority/challenges/${parked.challenge_id}`)).body?.challenge;
-    assert.equal(challenge?.request_hash, beyond.body?.approval?.request_hash);
-    assert.equal(challenge?.published_preimage?.request_preimage?.intent, "create a file named BEYOND.md");
+    assert.equal(beyond.body?.approval_challenge ?? null, null, "no challenge is parked past the limits");
+    assert.equal(beyond.body?.approval ?? null, null, "no per-run approval is offered past the limits");
+    const challenges = (await jd("GET", "/v1/hypervisor/authority/challenges")).body?.challenges || [];
+    assert.equal(challenges.filter((c) => c.subject_ref === sessionRef && c.state === "pending").length, 0, "nothing awaits a per-run decision");
   });
 
   await t.test("revoking through the serve needs the passphrase, revokes on the authority node, and the next execute refuses", async () => {

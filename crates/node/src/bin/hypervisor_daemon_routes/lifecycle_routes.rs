@@ -15982,18 +15982,10 @@ pub(crate) async fn execute_authority_gate(
             "target_scope": SESSION_EXECUTE_SCOPE,
         })
     };
-    // Beyond the standing envelope's bounds the execution is NOT drawn silently: the refusal stays
-    // typed and names the bound, and the daemon additionally parks this exact effect's challenge,
-    // so the operator may approve that one run (a per-run decision on the approvals inbox, retried
-    // with its approval_ref through the exact lane). Widening the envelope itself stays a new
-    // Connections binding, never an in-run change.
-    let beyond_envelope = |mut refusal: Value| {
-        let audience = super::wallet_network_capability_client::capability_account_id_hex();
-        let parked = park_exact_effect(audience.clone());
-        refusal["approval"] = exact_approval(&audience);
-        refusal["approval_challenge"] = json!(parked);
-        refusal
-    };
+    // Beyond the standing envelope's bounds the execution is NOT drawn silently, and it is not
+    // turned into a per-run approval either (the owner's set-once ruling, 2026-09-29): the refusal
+    // stays typed and names the bound, no challenge is parked and no approval is offered, and the
+    // remedy is re-setting the connection's limits on Connections, never an in-run change.
     // M13.5 — a session whose closed profile names a connection carrying an ACTIVE standing
     // envelope that covers `session_execute` draws its execution silently against that lease
     // (before any harness runs) instead of parking on an exact approval; outside the envelope it
@@ -16025,11 +16017,7 @@ pub(crate) async fn execute_authority_gate(
                     &lease,
                     None,
                 );
-                return Err(if reason == "standing_envelope_exceeded" {
-                    beyond_envelope(refusal)
-                } else {
-                    refusal
-                });
+                return Err(refusal);
             }
             // One usage per execution: a repeated identical intent is a new draw, so the effect
             // carries a daemon-minted nonce (the exact-grant lane keeps its exactly-once effect).
@@ -16109,11 +16097,7 @@ pub(crate) async fn execute_authority_gate(
                         &lease,
                         Some(&wrapped),
                     );
-                    Err(if reason == "standing_envelope_exceeded" {
-                        beyond_envelope(refusal)
-                    } else {
-                        refusal
-                    })
+                    Err(refusal)
                 }
             };
         }
