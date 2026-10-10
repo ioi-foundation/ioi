@@ -80,9 +80,13 @@ const CLAUSES = [
   },
   {
     id: "5",
-    clause: "Out of bounds refuses, typed: the daemon names the bound, the surface routes widening to Connections, and the same probe via direct daemon invoke refuses identically",
+    clause: "Out of bounds refuses, typed: the daemon names the bound, the surface routes widening to Connections — the refusal notice's 'Allow always, for next time', a signed change to that connection's standing permissions, never an approval of the refused act — and the same probe via direct daemon invoke refuses identically",
     unit: "M13.5",
     provenBy: "4",
+    // Clause 4's done-bar proves the daemon half: the refusal names the bound and points widening at
+    // Connections (widening_path). No done-bar yet drives an unattended refusal to its notice and
+    // asserts that 'Allow always, for next time' is the route, so that half is a typed absence.
+    absences: [{ what: "the refusal notice offering 'Allow always, for next time' as the widening route is not driven or asserted by any done-bar", owner: "M13.5 (the refusal notice)" }],
   },
   {
     id: "6",
