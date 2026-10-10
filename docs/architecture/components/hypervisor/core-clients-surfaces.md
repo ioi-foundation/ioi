@@ -3569,7 +3569,9 @@ in the same pass**: a registered `SessionStandingEnvelope`
 (`schema://ioi/components/hypervisor/session-standing-envelope/v1` — one
 connector, the operations it covers (`session_execute`, `connector_invoke`),
 the tools, the metered unit per operation, aggregate usages/budget, a validity
-window) bound by a wallet-signed `StandingApprovalGrant`. The connector record
+window of at most 90 days, which is also its default; an envelope under a
+standing renewal rule takes at most the rule's presence window, 60 days by
+default, as its first term) bound by a wallet-signed `StandingApprovalGrant`. The connector record
 carries the lease and the connection card renders its bounds from the daemon
 record. **A session profile naming a connection with no standing envelope
 refuses at create** (`session_authority_connection_unbounded`): configure-once

@@ -87,7 +87,26 @@ const WALL_CLOCK_TOLERANCE_MS: u64 = 5 * 60 * 1_000;
 const CEREMONY_WINDOW_MS: u64 = 5 * 60 * 1_000;
 const MAX_USAGES: u64 = 1_000_000;
 const MAX_EXPIRES_MS: u64 = 90 * 24 * 60 * 60 * 1_000;
-const DEFAULT_EXPIRES_MS: u64 = 24 * 60 * 60 * 1_000;
+/// Set once and forgotten (the owner's set-once ruling, 2026-09-29): an envelope whose expiry is
+/// not given lasts the maximum window, never a day that would ask again tomorrow.
+const DEFAULT_EXPIRES_MS: u64 = MAX_EXPIRES_MS;
+/// The first-term rule, gated on renewal (2026-09-30): an envelope recorded under a standing
+/// renewal rule takes at most the presence window as its first term, because renewal at the
+/// principal's presence extends it and an absent owner's envelope must end by then. An envelope
+/// with no renewal rule keeps its term (90 days by default) and lapses at it. This is the default
+/// window (60 days); renewal at presence, when built, passes the rule's own window instead.
+const FIRST_TERM_MS: u64 = 60 * 24 * 60 * 60 * 1_000;
+
+/// The window an envelope is minted with: the requested term, cut to the first term only when a
+/// renewal rule is recorded for the envelope.
+fn first_term_ms(requested_ms: u64, renewal_rule_recorded: bool) -> u64 {
+    if renewal_rule_recorded {
+        requested_ms.min(FIRST_TERM_MS)
+    } else {
+        requested_ms
+    }
+}
+
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 const REASON_MAX_CHARS: usize = 400;
 const DRAW_REFS_KEPT: usize = 64;
@@ -906,6 +925,9 @@ pub(crate) struct DerivationInputs<'a> {
     pub(crate) now_ms: u64,
     pub(crate) custody: &'a CustodyEvidence,
     pub(crate) marker: &'a str,
+    /// Whether this envelope is recorded with a standing renewal rule (the first-term cut applies
+    /// only then). No route records one until renewal at presence is built.
+    pub(crate) renewal_rule_recorded: bool,
 }
 
 fn host_ref_for(principal_ref: &str) -> String {
@@ -954,7 +976,10 @@ pub(crate) fn derive_standing_evidence(
         .unwrap_or_default();
     let allowed_tools = bounds.tools.clone().unwrap_or(declared_tools);
     let issued_ms = inputs.now_ms.saturating_sub(1_000);
-    let expires_at_ms = inputs.now_ms.saturating_add(bounds.expires_in_ms);
+    let expires_at_ms = inputs.now_ms.saturating_add(first_term_ms(
+        bounds.expires_in_ms,
+        inputs.renewal_rule_recorded,
+    ));
     let envelope_ref = format!(
         "standing-envelope://hypervisor/connections/{connector_id}/{}",
         inputs.marker
@@ -1643,6 +1668,7 @@ async fn create_standing_envelope(
         now_ms: chain_ms.min(wall_ms),
         custody: &custody,
         marker: &marker,
+        renewal_rule_recorded: false,
     }) {
         Ok(derived) => derived,
         Err(message) => {
@@ -3091,6 +3117,7 @@ mod tests {
             now_ms: now,
             custody: &fake.custody(),
             marker: "0011223344556677",
+            renewal_rule_recorded: false,
         })
         .unwrap();
         assert_eq!(derived.context["issued_at"], "2026-09-21T14:13:19.000Z");

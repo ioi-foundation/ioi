@@ -217,7 +217,7 @@ const SESSION_ENVELOPE_CONTRACT = "schema://ioi/components/hypervisor/session-st
 function parseBounds(raw = {}) {
   const maxUsages = Number(raw.max_usages ?? raw.maxUsages);
   const budgetUsd = Number(raw.budget_usd ?? raw.budgetUsd ?? 0);
-  const expiresHours = Number(raw.expires_hours ?? raw.expiresHours ?? 24);
+  const expiresHours = Number(raw.expires_hours ?? raw.expiresHours ?? 24 * 90);
   const perOpUsd = Number(raw.per_operation_usd ?? raw.perOperationUsd ?? 0);
   if (!Number.isInteger(maxUsages) || maxUsages < 1 || maxUsages > 1_000_000) throw new Error("standing envelope needs an integer max_usages between 1 and 1000000");
   if (!(expiresHours > 0 && expiresHours <= 24 * 90)) throw new Error("standing envelope needs expires_hours between 0 and 2160");
