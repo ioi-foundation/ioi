@@ -326,6 +326,36 @@ two spellings has two identities, and a profile stored under one and resolved
 under the other refuses as "no such profile" rather than as the authoring
 mistake it is (ADR 0055).
 
+### Profile v3 and the seat-binding basis
+
+`ioi.hypervisor-mcp-gateway-profile.v3` is the v2 contract with one more
+admission basis and nothing else changed (target; the contract is registered,
+the gateway's use of it is not built):
+
+```
+seat_binding
+  the profile of ONE agent credential seated in ONE System's driver seat by the
+  principal's own signed seat binding. The profile names the seat (`seat_ref`)
+  and the credential (`agent_credential_ref`); both are required under this
+  basis and null under every other. It is not a room admission and not a
+  worker registration, and the credential is never a principal's key.
+```
+
+A `seat_binding` profile's tools are the seat's: `preview_effect`,
+`read_outcomes` and `agent_state`, the definition tools `draft_change`,
+`preview_change` and `propose_change`, and, for this basis alone, `read_system`
+and `commission`. A profile on any other basis never exposes `read_system` or
+`commission`. Every read the profile serves is the seat's minimum-necessary
+projection and is label-checked at the gateway before it leaves: anything above
+the seat's cleared labels is refused unless a declassification rule or a
+cleared-sink registration covers it. These two rules are negatives over the
+exposed tools and over flows, which the portable schema keyword set cannot
+state, so `check:hypervisor-mcp-gateway-profile` and the gateway enforce them,
+as v2's source-neutral rule is enforced. Versions do not fall back: a v2
+profile presented to a v3 reader, and a v3 profile presented to a v2 reader,
+both refuse with the version named, and moving a profile to v3 is a successor
+revision that repeats admission.
+
 ### MCP normalization boundary
 
 MCP is one replaceable transport and extension protocol. Canonical IOI owners
@@ -433,6 +463,12 @@ private_worker | organization_worker
   the concrete direct call, Session, Automation, WorkRun, or later room request
   passed its own invocation/admission path and contributes the applicable
   context, tool, resource, budget, and authority leases
+
+system_driver (profile v3; target, not built)
+  the principal's signed seat binding names the completed pairing's agent
+  credential and one System's driver seat
+  admission_basis is seat_binding, naming that seat_ref and agent_credential_ref
+  unbinding the seat or revoking the credential ends the profile's admission
 ```
 
 A reusable worker does not need a fictitious room or participant lease for a

@@ -20893,7 +20893,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
         "compatibility": "additive",
         "migration_policy": "successor_revision",
         "predecessor_remains_valid": true,
@@ -20940,6 +20940,75 @@
         },
         {
           "path": "fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+      "canonical_name": "HypervisorMcpGatewayProfile",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#profile-v3-and-the-seat-binding-basis",
+      "schema_version": "ioi.hypervisor-mcp-gateway-profile.v3",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "successor_revision",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-mcp-gateway-profile.v3.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/binds-one-subject-and-use/v3",
+          "path": "invariants/hypervisor-mcp-gateway-profile.v3.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMcpGatewayProfileV3"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMcpGatewayProfileV3"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-mcp-gateway-profile-v3/positive-seat-binding-driver.json",
+        "fixtures/hypervisor-mcp-gateway-profile-v3/positive-v2-kind-source-neutral-builder.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v3/negative-a-non-seat-basis-naming-a-seat.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-credential.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-seat.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-basis.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v3/negative-v2-version-in-a-v3-document.json",
           "expected_failure": "schema"
         }
       ]

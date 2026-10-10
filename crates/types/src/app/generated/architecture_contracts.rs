@@ -402,6 +402,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", "sha256:d0cfdf520f16cd5c159eee6ba539135f1a9487a86e7316a7a2bc67418ef3185a"),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", "sha256:b391979446fb6da9a75f40018188ccf70f33d4cd2acd5008e1c7ded69b8ef086"),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", "sha256:36c770c98e4e799359e479b3a6c0a8253a9889c5b0ee25f3865c802cb18d888b"),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3", "sha256:0ff5208094e85ca5278c259ce8a5c1cf26a7bb477f0f7833cb4a408d14a80d47"),
     ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", "sha256:ee74e3f3f4d626cdafdf44a50f443631c42db3596e1b6bb8c7364be0cc4c294d"),
     ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", "sha256:814d3ae058d3bbcebeeeb44342dee6ab4f347433b5b080dd55cc5bc83f6d807a"),
     ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", "sha256:94871ec7577b87e08a0122b70ba651f3ea87d056024f650d7ebac5215c90f5ed"),
@@ -171655,6 +171656,790 @@ pub enum HypervisorMcpGatewayProfileV2Status {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV3 {
+    pub schema_version: HypervisorMcpGatewayProfileV3SchemaVersion,
+    pub gateway_profile_id: String,
+    pub profile_revision_ref: String,
+    pub predecessor_profile_revision_ref: Option<String>,
+    pub profile_content_hash: String,
+    pub resolved_requirement_revision_refs: Vec<String>,
+    pub resolved_requirement_set_hash: String,
+    pub exposure_manifest_hash: String,
+    pub display_name: String,
+    pub audience: HypervisorMcpGatewayProfileV3Audience,
+    pub profile_kind: HypervisorMcpGatewayProfileV3ProfileKind,
+    pub subject_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_agent_pairing_session_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub candidate_public_key_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome_room_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_participant_lease_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_admission_decision_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worker_registration_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seat_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_credential_ref: Option<String>,
+    pub admission_basis: HypervisorMcpGatewayProfileV3AdmissionBasis,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invocation_scope_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_execution_posture: Option<HypervisorMcpGatewayProfileV3PairingExecutionPosture>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_contribution_lane: Option<HypervisorMcpGatewayProfileV3PairingContributionLane>,
+    pub surface_refs: Vec<String>,
+    pub exposed_tools: Vec<HypervisorMcpGatewayProfileV3ExposedToolsItem>,
+    pub exposed_resources: Vec<HypervisorMcpGatewayProfileV3ExposedResourcesItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exposed_prompt_import_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elicitation_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_task_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extension_application_refs: Option<Vec<String>>,
+    pub authority_client_ref: String,
+    pub origin_binding_ref: String,
+    pub authority_scope_refs: Vec<String>,
+    pub privacy_posture_ref: String,
+    pub budget_policy_ref: String,
+    pub rate_limit_ref: String,
+    pub quarantine_policy_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dependent_refs: Option<Vec<String>>,
+    pub issued_after_required_admission: HypervisorMcpGatewayProfileV3IssuedAfterRequiredAdmission,
+    pub prompt_only_proposal: bool,
+    pub expires_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revocation_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quarantine_advisory_refs: Option<Vec<String>>,
+    pub status: HypervisorMcpGatewayProfileV3Status,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_use_ref: Option<String>,
+    pub manifest_ref: String,
+    pub admission_decision_ref: String,
+    pub admission_receipt_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt_refs: Option<Vec<String>>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV3 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3","title":"HypervisorMcpGatewayProfileV3","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v3","description":"THE v2 PROFILE WITH ONE MORE ADMISSION BASIS, AND NOTHING ELSE CHANGED. Every member, constraint and conditional of ioi.hypervisor-mcp-gateway-profile.v2 holds here unchanged; the difference is that `admission_basis` also admits `seat_binding`, the profile of ONE agent credential seated in ONE System's driver seat by the principal's own signed seat binding, and that this basis names what it binds: `seat_ref` and `agent_credential_ref`, both required under it. A seat binding is not a room admission and not a worker registration, and it never carries a principal's key. Which tools a seat_binding profile may expose (the seat's read_system and commission belong to it alone), and that every read it serves is the seat's minimum-necessary projection, label-checked at the gateway, are negatives over array members and flows that the portable schema keyword set this estate generates from cannot state; they are enforced and drilled in check:hypervisor-mcp-gateway-profile and at the gateway, never asserted here in a form no validator would run. VERSIONS DO NOT FALL BACK: a v2 profile presented to a v3 reader and a v3 profile presented to a v2 reader both refuse, with the version named. A profile grants no authority by itself: it binds an exposure manifest to IOI Authority Protocol clients, daemon admission, policy and receipt obligations, and it implies no dependency on any authority provider's accounts, hosted services or UX; the legacy provider-branded wire bindings that registered contracts still carry are accepted for the named hypervisor Alpha profile only, and neither this profile nor that acceptance claims provider-neutral interoperability (ADR 0040 § 3; this corrects v1's description, whose registered bytes, like v2's, are unchanged). Owner: components/connectors-tools/contracts.md § Profile v3 and the seat-binding basis.","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v3"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v2 closed set of eight: the seven v1 kinds, unchanged in meaning, plus the source-neutral builder surface. A v1 reader refuses this document rather than ignoring the member it does not know.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof","capability_construction_eval"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"seat_ref":{"$ref":"#/$defs/nullableRef","description":"The System driver seat this profile's credential occupies (seat_binding only)."},"agent_credential_ref":{"$ref":"#/$defs/nullableRef","description":"The seat-bound agent credential this profile admits (seat_binding only); never a principal's key."},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation","seat_binding"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"capability_construction_eval"}},"required":["profile_kind"]},"then":{"type":"object","description":"SOURCE-NEUTRAL means the builder surface reads no first-party training corpus and mints no training artifact, and it is bound to ONE invocation rather than to every invocation its subject can reach — that binding is what makes the native-versus-MCP comparison a comparison of the same thing, and it is required here. The other half of source-neutrality, that no exposed tool requires a foundry, training or dataset-factory scope, is NOT expressible in this contract: it is a negative over an array member's string, and the portable schema keyword set this estate generates from admits no negation. It is therefore enforced and drilled in check:hypervisor-mcp-gateway-profile rather than asserted here in a form no validator would run. Saying which layer holds a rule is the point of writing it down.","properties":{"invocation_scope_refs":{"type":"array","minItems":1}},"required":["invocation_scope_refs"]}},{"if":{"type":"object","properties":{"admission_basis":{"type":"string","const":"seat_binding"}},"required":["admission_basis"]},"then":{"type":"object","description":"A seat binding binds one seat and one credential, and names both. A seat_binding profile that names neither is a profile nobody can revoke by seat.","properties":{"seat_ref":{"$ref":"#/$defs/ref"},"agent_credential_ref":{"$ref":"#/$defs/ref"}},"required":["seat_ref","agent_credential_ref"]}},{"if":{"type":"object","properties":{"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]}},"required":["admission_basis"]},"then":{"type":"object","description":"Only a seat binding names a seat or a credential. A room guest, a registered worker or an unbound profile that named one would carry a seat it was never bound to.","properties":{"seat_ref":{"type":"null"},"agent_credential_ref":{"type":"null"}}}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorMcpGatewayProfileV3SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gateway_profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"gateway_profile_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"gateway_profile_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_profile_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_profile_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_profile_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_requirement_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolved_requirement_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_requirement_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_requirement_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_requirement_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_requirement_set_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposure_manifest_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"exposure_manifest_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposure_manifest_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            audience: serde_json::from_value::<HypervisorMcpGatewayProfileV3Audience>(
+                object
+                    .remove(r#"audience"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"audience"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_kind: serde_json::from_value::<HypervisorMcpGatewayProfileV3ProfileKind>(
+                object
+                    .remove(r#"profile_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            local_agent_pairing_session_ref: match object
+                .remove(r#"local_agent_pairing_session_ref"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            candidate_public_key_ref: match object.remove(r#"candidate_public_key_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            project_refs: match object.remove(r#"project_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            session_refs: match object.remove(r#"session_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            outcome_room_ref: match object.remove(r#"outcome_room_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            room_participant_lease_ref: match object.remove(r#"room_participant_lease_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            room_admission_decision_ref: match object.remove(r#"room_admission_decision_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            worker_registration_ref: match object.remove(r#"worker_registration_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            seat_ref: match object.remove(r#"seat_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            agent_credential_ref: match object.remove(r#"agent_credential_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            admission_basis: serde_json::from_value::<HypervisorMcpGatewayProfileV3AdmissionBasis>(
+                object
+                    .remove(r#"admission_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invocation_scope_refs: match object.remove(r#"invocation_scope_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            pairing_execution_posture: match object.remove(r#"pairing_execution_posture"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<HypervisorMcpGatewayProfileV3PairingExecutionPosture>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            pairing_contribution_lane: match object.remove(r#"pairing_contribution_lane"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<HypervisorMcpGatewayProfileV3PairingContributionLane>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            surface_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"surface_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_tools: serde_json::from_value::<
+                Vec<HypervisorMcpGatewayProfileV3ExposedToolsItem>,
+            >(
+                object
+                    .remove(r#"exposed_tools"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposed_tools"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_resources: serde_json::from_value::<
+                Vec<HypervisorMcpGatewayProfileV3ExposedResourcesItem>,
+            >(
+                object
+                    .remove(r#"exposed_resources"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposed_resources"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_prompt_import_contract_refs: match object
+                .remove(r#"exposed_prompt_import_contract_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            elicitation_contract_refs: match object.remove(r#"elicitation_contract_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            external_task_contract_refs: match object.remove(r#"external_task_contract_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            extension_application_refs: match object.remove(r#"extension_application_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            authority_client_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_client_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_client_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"origin_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_posture_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"privacy_posture_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"privacy_posture_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"budget_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_limit_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_limit_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_limit_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quarantine_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quarantine_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quarantine_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependent_refs: match object.remove(r#"dependent_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            issued_after_required_admission: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV3IssuedAfterRequiredAdmission,
+            >(
+                object
+                    .remove(r#"issued_after_required_admission"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"issued_after_required_admission"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prompt_only_proposal: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"prompt_only_proposal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prompt_only_proposal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_ref: match object.remove(r#"revocation_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            quarantine_advisory_refs: match object.remove(r#"quarantine_advisory_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            status: serde_json::from_value::<HypervisorMcpGatewayProfileV3Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_use_ref: match object.remove(r#"last_use_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: match object.remove(r#"receipt_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor-mcp-gateway-profile.v3"#)]
+    IoiHypervisorMcpGatewayProfileV3,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3Audience {
+    #[serde(rename = r#"external_agent"#)]
+    ExternalAgent,
+    #[serde(rename = r#"ci_agent"#)]
+    CiAgent,
+    #[serde(rename = r#"marketplace_worker"#)]
+    MarketplaceWorker,
+    #[serde(rename = r#"enterprise_agent"#)]
+    EnterpriseAgent,
+    #[serde(rename = r#"local_harness"#)]
+    LocalHarness,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3ProfileKind {
+    #[serde(rename = r#"discovery_readonly"#)]
+    DiscoveryReadonly,
+    #[serde(rename = r#"project_session"#)]
+    ProjectSession,
+    #[serde(rename = r#"connector_preview"#)]
+    ConnectorPreview,
+    #[serde(rename = r#"operator_proposal"#)]
+    OperatorProposal,
+    #[serde(rename = r#"effectful_approved"#)]
+    EffectfulApproved,
+    #[serde(rename = r#"foundry_eval_training"#)]
+    FoundryEvalTraining,
+    #[serde(rename = r#"receipts_replay_proof"#)]
+    ReceiptsReplayProof,
+    #[serde(rename = r#"capability_construction_eval"#)]
+    CapabilityConstructionEval,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3AdmissionBasis {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"room_guest"#)]
+    RoomGuest,
+    #[serde(rename = r#"registered_worker_invocation"#)]
+    RegisteredWorkerInvocation,
+    #[serde(rename = r#"seat_binding"#)]
+    SeatBinding,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3PairingExecutionPosture {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"instrumented_adapter"#)]
+    InstrumentedAdapter,
+    #[serde(rename = r#"prompt_only"#)]
+    PromptOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3PairingContributionLane {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"instrumented_candidate"#)]
+    InstrumentedCandidate,
+    #[serde(rename = r#"proposal_only"#)]
+    ProposalOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV3ExposedToolsItem {
+    pub mcp_tool_name: String,
+    pub backing_contract_revision_ref: String,
+    pub backing_contract_content_hash: String,
+    pub contract_kind: HypervisorMcpGatewayProfileV3ExposedToolsItemContractKind,
+    pub risk_class: HypervisorMcpGatewayProfileV3ExposedToolsItemRiskClass,
+    pub effect_class: HypervisorMcpGatewayProfileV3ExposedToolsItemEffectClass,
+    pub readiness: HypervisorMcpGatewayProfileV3ExposedToolsItemReadiness,
+    pub dry_run_required: bool,
+    pub approval_required: bool,
+    pub authority_scopes_required: Vec<String>,
+    pub receipt_obligations: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV3ExposedToolsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mcp_tool_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mcp_tool_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_tool_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_contract_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backing_contract_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_contract_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_contract_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backing_contract_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contract_kind: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV3ExposedToolsItemContractKind,
+            >(
+                object
+                    .remove(r#"contract_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contract_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_class: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV3ExposedToolsItemRiskClass,
+            >(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_class: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV3ExposedToolsItemEffectClass,
+            >(
+                object
+                    .remove(r#"effect_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            readiness: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV3ExposedToolsItemReadiness,
+            >(
+                object
+                    .remove(r#"readiness"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"readiness"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dry_run_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"dry_run_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dry_run_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"approval_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scopes_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3ExposedToolsItemContractKind {
+    #[serde(rename = r#"runtime_tool_contract"#)]
+    RuntimeToolContract,
+    #[serde(rename = r#"surface_mcp_contract"#)]
+    SurfaceMcpContract,
+    #[serde(rename = r#"operator_plane_contract"#)]
+    OperatorPlaneContract,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3ExposedToolsItemRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3ExposedToolsItemEffectClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3ExposedToolsItemReadiness {
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"not_connected"#)]
+    NotConnected,
+    #[serde(rename = r#"scope_insufficient"#)]
+    ScopeInsufficient,
+    #[serde(rename = r#"dry_run_required"#)]
+    DryRunRequired,
+    #[serde(rename = r#"approval_required"#)]
+    ApprovalRequired,
+    #[serde(rename = r#"policy_blocked"#)]
+    PolicyBlocked,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV3ExposedResourcesItem {
+    pub mcp_resource_uri: String,
+    pub backing_projection_ref: String,
+    pub required_context_lease_ref: String,
+    pub redaction_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV3ExposedResourcesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mcp_resource_uri: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mcp_resource_uri"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_resource_uri"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_projection_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_projection_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backing_projection_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_context_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"required_context_lease_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_context_lease_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redaction_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"redaction_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redaction_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorMcpGatewayProfileV3IssuedAfterRequiredAdmission {
+    True,
+}
+
+impl serde::Serialize for HypervisorMcpGatewayProfileV3IssuedAfterRequiredAdmission {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV3IssuedAfterRequiredAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV3Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct CollectiveQualificationEstimandV1 {
     pub schema_version: CollectiveQualificationEstimandV1SchemaVersion,
     pub estimand_id: String,
@@ -195839,6 +196624,70 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-seat-binding-driver.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-v2-kind-source-neutral-builder.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-a-non-seat-basis-naming-a-seat.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-credential.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-seat.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-basis.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-v2-version-in-a-v3-document.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
         path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-bound-to-a-frozen-epoch.json",
         expected_accept: true,
@@ -219872,6 +220721,94 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-seat-binding-driver.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-seat-binding-driver.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-v2-kind-source-neutral-builder.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-v2-kind-source-neutral-builder.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-a-non-seat-basis-naming-a-seat.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-a-non-seat-basis-naming-a-seat.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-credential.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-credential.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-seat.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-seat.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-basis.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-basis.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-member.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-v2-version-in-a-v3-document.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-v2-version-in-a-v3-document.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-bound-to-a-frozen-epoch.json"#,
         contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1"#,
         source_fixture_path: Some(
@@ -224085,6 +225022,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1","title":"McpGatewayRequirementEnvelope","x-ioi-schema-version":"ioi.mcp-gateway-requirement.v1","description":"WHAT AN MCP CONSUMER WOULD NEED, DECLARED IMMUTABLY AND GRANTING NOTHING. A Package, an application-surface release, an adapter manifest or a System manifest references this envelope when MCP compatibility is itself a requirement of the thing being shipped. It is a CEILING and a shopping list, never an issuance: packaging the requirement creates no gateway profile and grants none of the scopes it names, and admission is what resolves it — to native capabilities, to service modules, to connectors, or to exactly one concrete gateway profile. That separation is enforced structurally as well as here: the System MANIFEST carries requirements under `mcp-gateway-requirement://` and the System GENESIS carries live profiles under `mcp-gateway://`, and the manifest schema does not admit the profile member at all. The released body and its content hash are immutable; registry lifecycle and status are excluded projections, and any change to the declared body is a successor revision. Owner: components/connectors-tools/contracts.md § MCP Gateway Requirement (M01.11, ADR 0055).","type":"object","additionalProperties":false,"required":["schema_version","requirement_id","revision_ref","predecessor_revision_ref","content_hash","owner_ref","consumer_class_refs","required_runtime_tool_contract_refs","required_resource_projection_contract_refs","permitted_prompt_import_contract_refs","required_elicitation_contract_refs","external_task_compatibility_refs","extension_application_requirement_refs","maximum_risk_class","authority_scope_requirement_refs","privacy_budget_rate_and_retention_policy_refs","transport_and_protocol_compatibility_refs","allowed_override_schema_ref","provenance_and_evaluation_refs","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"type":"string","const":"ioi.mcp-gateway-requirement.v1"},"requirement_id":{"$ref":"#/$defs/requirementId"},"revision_ref":{"$ref":"#/$defs/requirementRevisionRef","description":"The exact immutable revision. A consumer pins this plus `content_hash`, never the family id alone."},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/requirementRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. Any change to the declared body is a successor, so this is the whole lineage."},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ref"},"consumer_class_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"Which classes of consumer this requirement is written for. An empty list is the claim that it is written for none, which admission will refuse — it is not a wildcard."},"required_runtime_tool_contract_refs":{"$ref":"#/$defs/refList"},"required_resource_projection_contract_refs":{"$ref":"#/$defs/refList"},"permitted_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"required_elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_compatibility_refs":{"$ref":"#/$defs/refList"},"extension_application_requirement_refs":{"$ref":"#/$defs/refList"},"maximum_risk_class":{"$ref":"#/$defs/riskClass","description":"The CEILING a resolved profile may not exceed. It draws from the canonical risk-class ladder and defines no enum of its own."},"authority_scope_requirement_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeOrPolicyRef"},"description":"Scopes the consumer WOULD need. Naming a scope here grants nothing: the profile that resolves this requirement is admitted separately and may resolve fewer."},"privacy_budget_rate_and_retention_policy_refs":{"$ref":"#/$defs/refList"},"transport_and_protocol_compatibility_refs":{"$ref":"#/$defs/refList"},"allowed_override_schema_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The closed shape of the only overrides a consumer may propose at resolution. Null means no override is admissible, which is the safe default and not an absence of policy."},"provenance_and_evaluation_refs":{"$ref":"#/$defs/refList"},"registry_lifecycle_ref":{"$ref":"#/$defs/ref"},"registry_status":{"type":"string","enum":["draft","released","deprecated","revoked"],"description":"An EXCLUDED projection: it is not part of `content_hash`, because a status change must not mint a new identity for an unchanged body."}},"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeOrPolicyRef":{"type":"string","pattern":"^(?:scope:[A-Za-z0-9_.:-]{1,160}|(?:policy|grant)://[^ ]{1,480})$"},"requirementId":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"The canonical ladder from foundations/canonical-enums.md § Risk Classes, lowest to highest required assurance, plus the peer top-tier class `physical_action` that sits outside the monotonic ladder and carries the Physical Action Safety envelope. This enum is a COPY of that ladder and defines nothing of its own; a member added there is added here.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]}}}"##),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1","title":"HypervisorMcpGatewayProfileV1","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v1","description":"WHAT ONE MCP CONSUMER MAY DISCOVER, PREVIEW, PROPOSE OR EXECUTE — the contract that limits an outward gateway to one subject and one use. A profile grants no authority by itself: it BINDS an exposure manifest to wallet.network authority clients, daemon admission, policy and receipt obligations, and every effectful call still crosses at its owner's gateway. The admitted revision FREEZES its resolved requirement set, exposure manifest, subject, scope, policies and expiry. Status, revocation, quarantine advisories and last-use are EXCLUDED projections that bind the already-computed `profile_content_hash` rather than entering it, and they — like upstream policy, lease and connector state — may only REDUCE effective access. Any change to the declared body is a successor revision, and widening tools, resources, scopes, subjects, projects, sessions, risk ceiling, budget, retention or expiry additionally repeats admission. The seven profile kinds here are the v1 closed set and do not change; the v2 successor adds `capability_construction_eval` and nothing else, and the two versions refuse each other in both directions (ADR 0055). Owner: components/connectors-tools/contracts.md § Hypervisor MCP Gateway Profile (M01.11).","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v1"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v1 closed set of seven. `capability_construction_eval` is v2's and is refused here by name rather than ignored.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2","title":"HypervisorMcpGatewayProfileV2","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v2","description":"THE v1 PROFILE WITH EXACTLY ONE MORE KIND, AND NOTHING ELSE CHANGED. Every member, constraint and conditional of ioi.hypervisor-mcp-gateway-profile.v1 holds here unchanged; the single difference is that `profile_kind` also admits `capability_construction_eval`, the SOURCE-NEUTRAL builder surface. That kind claims one thing and it is the strongest claim this gateway makes: an external builder invocation admitted under it reaches the same RuntimeToolContract resolution, the same final invoker and the same receipt obligations as the native call, bound to one exact subject, candidate key, origin, admission basis, project, session and invocation ref — it can neither widen what the native path would allow nor execute what the native path would refuse. It trains nothing, promotes nothing and reads no first-party corpus; `foundry_eval_training` remains the separately admitted first-party training specialization and the two are never substitutable. VERSIONS DO NOT FALL BACK. A v1 profile presented to a v2 reader and a v2 profile presented to a v1 reader both refuse, with the version named: reading a v2 profile as a v1 by discarding the kind it does not recognise would admit the builder surface as whatever the v1 reader defaulted to, and a version boundary that degrades gracefully is one that grants silently. The schema version is part of the admitted body and therefore of `profile_content_hash`, so a version change is a successor revision that repeats admission exactly as a widening does. Owner: components/connectors-tools/contracts.md § Profile versions and the source-neutral builder kind (M01.11, ADR 0055).","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v2"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v2 closed set of eight: the seven v1 kinds, unchanged in meaning, plus the source-neutral builder surface. A v1 reader refuses this document rather than ignoring the member it does not know.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof","capability_construction_eval"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"capability_construction_eval"}},"required":["profile_kind"]},"then":{"type":"object","description":"SOURCE-NEUTRAL means the builder surface reads no first-party training corpus and mints no training artifact, and it is bound to ONE invocation rather than to every invocation its subject can reach — that binding is what makes the native-versus-MCP comparison a comparison of the same thing, and it is required here. The other half of source-neutrality, that no exposed tool requires a foundry, training or dataset-factory scope, is NOT expressible in this contract: it is a negative over an array member's string, and the portable schema keyword set this estate generates from admits no negation. It is therefore enforced and drilled in check:hypervisor-mcp-gateway-profile rather than asserted here in a form no validator would run. Saying which layer holds a rule is the point of writing it down.","properties":{"invocation_scope_refs":{"type":"array","minItems":1}},"required":["invocation_scope_refs"]}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3","title":"HypervisorMcpGatewayProfileV3","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v3","description":"THE v2 PROFILE WITH ONE MORE ADMISSION BASIS, AND NOTHING ELSE CHANGED. Every member, constraint and conditional of ioi.hypervisor-mcp-gateway-profile.v2 holds here unchanged; the difference is that `admission_basis` also admits `seat_binding`, the profile of ONE agent credential seated in ONE System's driver seat by the principal's own signed seat binding, and that this basis names what it binds: `seat_ref` and `agent_credential_ref`, both required under it. A seat binding is not a room admission and not a worker registration, and it never carries a principal's key. Which tools a seat_binding profile may expose (the seat's read_system and commission belong to it alone), and that every read it serves is the seat's minimum-necessary projection, label-checked at the gateway, are negatives over array members and flows that the portable schema keyword set this estate generates from cannot state; they are enforced and drilled in check:hypervisor-mcp-gateway-profile and at the gateway, never asserted here in a form no validator would run. VERSIONS DO NOT FALL BACK: a v2 profile presented to a v3 reader and a v3 profile presented to a v2 reader both refuse, with the version named. A profile grants no authority by itself: it binds an exposure manifest to IOI Authority Protocol clients, daemon admission, policy and receipt obligations, and it implies no dependency on any authority provider's accounts, hosted services or UX; the legacy provider-branded wire bindings that registered contracts still carry are accepted for the named hypervisor Alpha profile only, and neither this profile nor that acceptance claims provider-neutral interoperability (ADR 0040 § 3; this corrects v1's description, whose registered bytes, like v2's, are unchanged). Owner: components/connectors-tools/contracts.md § Profile v3 and the seat-binding basis.","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v3"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v2 closed set of eight: the seven v1 kinds, unchanged in meaning, plus the source-neutral builder surface. A v1 reader refuses this document rather than ignoring the member it does not know.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof","capability_construction_eval"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"seat_ref":{"$ref":"#/$defs/nullableRef","description":"The System driver seat this profile's credential occupies (seat_binding only)."},"agent_credential_ref":{"$ref":"#/$defs/nullableRef","description":"The seat-bound agent credential this profile admits (seat_binding only); never a principal's key."},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation","seat_binding"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"capability_construction_eval"}},"required":["profile_kind"]},"then":{"type":"object","description":"SOURCE-NEUTRAL means the builder surface reads no first-party training corpus and mints no training artifact, and it is bound to ONE invocation rather than to every invocation its subject can reach — that binding is what makes the native-versus-MCP comparison a comparison of the same thing, and it is required here. The other half of source-neutrality, that no exposed tool requires a foundry, training or dataset-factory scope, is NOT expressible in this contract: it is a negative over an array member's string, and the portable schema keyword set this estate generates from admits no negation. It is therefore enforced and drilled in check:hypervisor-mcp-gateway-profile rather than asserted here in a form no validator would run. Saying which layer holds a rule is the point of writing it down.","properties":{"invocation_scope_refs":{"type":"array","minItems":1}},"required":["invocation_scope_refs"]}},{"if":{"type":"object","properties":{"admission_basis":{"type":"string","const":"seat_binding"}},"required":["admission_basis"]},"then":{"type":"object","description":"A seat binding binds one seat and one credential, and names both. A seat_binding profile that names neither is a profile nobody can revoke by seat.","properties":{"seat_ref":{"$ref":"#/$defs/ref"},"agent_credential_ref":{"$ref":"#/$defs/ref"}},"required":["seat_ref","agent_credential_ref"]}},{"if":{"type":"object","properties":{"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]}},"required":["admission_basis"]},"then":{"type":"object","description":"Only a seat binding names a seat or a credential. A room guest, a registered worker or an unbound profile that named one would carry a seat it was never bound to.","properties":{"seat_ref":{"type":"null"},"agent_credential_ref":{"type":"null"}}}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##),
     ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","title":"CollectiveQualificationEstimand","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-estimand.v1","description":"WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences — a `policy://` string satisfies it — frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","estimand_id","estimand_ref","estimand_kind","quantity","direction","minimum_effect","cost_normalization","decision_rule","declared_at","declared_before_epoch_freeze","qualifies_nothing_on_its_own","knockout_axis_refs","epoch_ref","estimand_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-estimand.v1"},"estimand_id":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `estimand_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"estimand_ref":{"$ref":"#/$defs/estimandRef"},"estimand_kind":{"type":"string","description":"COOPERATION SURPLUS is the claim that the collective beats a matched cheaper baseline on the declared quantity. RESILIENCE is the claim that it degrades less than the baseline under a named knockout. INDEPENDENCE is the claim that its result does not depend on a named participant, edge or artifact. They are different claims with different failure modes and a run proves at most the one declared here.","enum":["cooperation_surplus","resilience","independence"]},"quantity":{"type":"object","additionalProperties":false,"required":["metric_ref","unit","aggregation"],"description":"The exact thing measured. An aggregate with no named metric and no aggregation is a score, and canon refuses a score as proof.","properties":{"metric_ref":{"$ref":"#/$defs/ref"},"unit":{"type":"string","minLength":1,"maxLength":60},"aggregation":{"type":"string","enum":["mean","median","trimmed_mean","rate","count","max","min"]}}},"direction":{"type":"string","enum":["higher_is_better","lower_is_better"],"description":"Declared in advance, because a direction chosen after the numbers are in turns any result into a confirmation."},"minimum_effect":{"type":"object","additionalProperties":false,"required":["value","basis"],"description":"The smallest difference that counts. Without it, any non-zero difference reads as success and the comparison proves nothing it did not assume.","properties":{"value":{"type":"number"},"basis":{"type":"string","enum":["absolute","relative_to_baseline","standard_deviations"]}}},"cost_normalization":{"type":"string","description":"A collective that wins by spending more has not earned its complexity; canon's sentence is that the machinery must earn it. `none` is admissible and says plainly that cost is not being controlled for.","enum":["none","per_cost_unit","per_wall_second","per_verification_unit"]},"decision_rule":{"type":"string","minLength":24,"maxLength":600,"description":"In words, what reading of the two arms confirms the estimand and what reading fails it — written before the run, so the rule cannot be fitted to the outcome."},"knockout_axis_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"For a resilience or independence estimand, the exact axes the claim is about. An estimand of those kinds with no axis is a claim about nothing."},"declared_at":{"$ref":"#/$defs/timestamp"},"declared_before_epoch_freeze":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one — and a second estimand chosen once results exist is the defect this whole contract exists to refuse."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft — the estimand comes first."},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED. The record seam refuses a caller-supplied binding outright rather than correcting it, then stamps its own from the System, the parent scope and the resolved principal, and only then validates — so this member is absent on the wire the caller sends and an object on the record the seam admits. This is an application record on that generic seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."},"qualifies_nothing_on_its_own":{"type":"boolean","const":true,"description":"A declaration is not a result. Declaring an estimand promotes nothing, activates nothing and qualifies no collective; it only fixes what a later comparison will be read against."},"estimand_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding. The declaration is the whole point of the object, so it is sealed: the epoch freezes the ref, and this root is what makes the ref's CONTENT unmovable rather than merely named."}},"allOf":[{"if":{"type":"object","properties":{"estimand_kind":{"type":"string","enum":["resilience","independence"]}},"required":["estimand_kind"]},"then":{"type":"object","description":"Resilience and independence are claims ABOUT something being removed. Without the axes named, there is no claim to confirm.","properties":{"knockout_axis_refs":{"type":"array","minItems":1}},"required":["knockout_axis_refs"]}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"estimandRef":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1","title":"CollectiveBaselinePairing","x-ioi-schema-version":"ioi.ioi-ai.collective-baseline-pairing.v1","description":"THE TWO ARMS A COLLECTIVE CLAIM IS READ ACROSS, MATCHED AXIS BY AXIS AND DECLARED BEFORE EITHER RAN. Canon: the frozen epoch compares the exact collective composition against the cheapest adequate simpler baseline — normally a direct path or one GoalRun — under MATCHED task distribution, authority, context, tools, environment, budget, time and verifier posture. NO RECORD COULD NAME AN ARM BEFORE THIS ONE: `EvaluationRun.incumbent_ref` is a free label the plane never resolves, so \"the collective beat the incumbent\" named nothing in particular. This contract makes each arm a resolvable composition and each match axis a PROOF — one root per arm per axis, equal or the pairing is refused by the axis's own name, so a reader can tell \"the baseline had a different toolset\" from \"the baseline ran on a different day\". AND IT CARRIES A POSITIVE CONTROL, because a baseline that fails everything would make any collective look good: the cheapest way to manufacture a surplus is to break the comparator, and a pairing whose baseline passed none of the matched cases measures the breakage. A PAIRING IS NOT A RESULT: it grants nothing, runs nothing and qualifies nothing; it fixes what a later comparison is read across. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","pairing_id","pairing_ref","estimand_ref","collective_arm","baseline_arm","declared_match_axes","axis_proofs","baseline_positive_control","cheaper_baseline_rationale","declared_before_either_arm_ran","declared_at","epoch_ref","pairing_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-baseline-pairing.v1"},"pairing_id":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `pairing_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"pairing_ref":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$"},"estimand_ref":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$","description":"The declared estimand this pairing is the comparison for. A pairing with no estimand is two arms and no claim."},"collective_arm":{"$ref":"#/$defs/arm","description":"The EXACT collective composition — its orchestration scope and the lineages it runs — not a description of one."},"baseline_arm":{"$ref":"#/$defs/arm","description":"The cheapest adequate simpler arm. Canon names the two shapes it normally takes: a direct path, or one GoalRun."},"declared_match_axes":{"type":"array","minItems":8,"maxItems":8,"uniqueItems":true,"items":{"type":"string","enum":["task","authority","context","tool","environment","budget","time","verifier_posture"]},"description":"All eight, always. An axis a pairing may omit is an axis on which the two arms may silently differ, and a comparison that does not state its match axes is a comparison of two different things."},"axis_proofs":{"type":"object","additionalProperties":false,"required":["task","authority","context","tool","environment","budget","time","verifier_posture"],"description":"One proof per axis, each carrying a root for EACH arm. Equality is asserted per axis by the registered invariants, so an unmatched pairing is refused at the seam by the failing axis's own rule name.","properties":{"task":{"$ref":"#/$defs/axisProof"},"authority":{"$ref":"#/$defs/axisProof"},"context":{"$ref":"#/$defs/axisProof"},"tool":{"$ref":"#/$defs/axisProof"},"environment":{"$ref":"#/$defs/axisProof"},"budget":{"$ref":"#/$defs/axisProof"},"time":{"$ref":"#/$defs/axisProof"},"verifier_posture":{"$ref":"#/$defs/axisProof"}}},"baseline_positive_control":{"type":"object","additionalProperties":false,"required":["matched_cases_total","matched_cases_passed","control_result_refs"],"description":"THE COMPARATOR WORKS. A degenerate baseline that fails everything makes any collective look good, so the baseline must have PASSED matched cases on its own before its losses mean anything. `matched_cases_passed` is at least one by schema and never exceeds the total by invariant.","properties":{"matched_cases_total":{"type":"integer","minimum":1,"maximum":1000000},"matched_cases_passed":{"type":"integer","minimum":1,"maximum":1000000},"control_result_refs":{"type":"array","minItems":1,"maxItems":256,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the control is read from — the baseline's own passes, admitted through the evaluation plane like any other."}}},"cheaper_baseline_rationale":{"type":"string","minLength":24,"maxLength":600,"description":"In words, why this baseline is the CHEAPEST ADEQUATE one. Written before the run, because a baseline justified after the numbers are in is chosen for the numbers."},"declared_before_either_arm_ran":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. A pairing assembled once results exist is a pairing chosen for its results."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this pairing was declared for, once one exists. Null while the epoch is still a draft — the pairing comes first, exactly as the estimand does."},"declared_at":{"$ref":"#/$defs/timestamp"},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED — absent on the wire the caller sends, an object on the record the seam admits. An ioi.ai application record on the generic System-record seam, never a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records."},"pairing_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"arm":{"type":"object","additionalProperties":false,"required":["arm_kind","composition_ref","lineage_refs","participant_count"],"properties":{"arm_kind":{"type":"string","enum":["collective","direct_path","single_goal_run"],"description":"`collective` is the arm under claim; `direct_path` and `single_goal_run` are the two simpler shapes canon names."},"composition_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$","description":"The orchestration scope the arm runs under — resolvable, unlike the free label this replaces."},"lineage_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"description":"The persistent executable lineages the arm runs. Empty for a direct path that persists nothing."},"participant_count":{"type":"integer","minimum":0,"maximum":4096,"description":"Recorded because the comparison needs to say how many there were — and NEVER read as evidence. A count is an input; canon refuses it as proof, and the qualification verdict's own contract refuses a verdict resting on it."}}},"axisProof":{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1","title":"CollectiveQualificationVerdict","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-verdict.v1","description":"WHAT THE TWO ARMS CAME TO, READ AGAINST A CLAIM MADE BEFORE THEY RAN — AND NOTHING ELSE. Canon: evaluation emits judgment only and cannot change topology, install an artifact, activate a controller, issue authority or promote the composition. So this record carries its four never-clauses ON THE WIRE as `const true`, and each knockout it reports carries the same: judgment evidence that reverted, changed nothing and promoted nothing. RESULT ROBUSTNESS AND CONTROLLER CONTINUITY ARE SEPARATE MEMBERS WITH SEPARATE ROOTS, and the registered invariant refuses a verdict whose two roots are equal. This is the conflation the unit exists to refuse and the one it could most easily have authored itself: the lineage's `posture.derived.status` is a single scalar bundling authority staleness, caretaker absence, dependency loss and runtime absence, and reading it as result evidence would make a healthy runtime into proof of a good answer. Canon states both halves — an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority. THE KNOCKOUT MATRIX IS COMPLETE OR IT IS NAMED: every axis this estate can perform is performed, and every axis canon names that it cannot is carried here with its reason and its owner, because an unperformable axis left out silently narrows the claim while an unperformable axis listed as done makes the bar unfalsifiable. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","verdict_id","verdict_ref","estimand_ref","pairing_ref","epoch_ref","outcome","qualified_on","result_evidence","controller_continuity","knockouts","named_absent_knockout_axes","grants_no_authority","promotes_nothing","activates_nothing","rewrites_no_topology","judged_at","verdict_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-verdict.v1"},"verdict_id":{"type":"string","pattern":"^qualification://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `verdict_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"verdict_ref":{"type":"string","pattern":"^qualification://[^\\s?#\\\\]{1,200}$"},"estimand_ref":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"pairing_ref":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$"},"epoch_ref":{"$ref":"#/$defs/ref","description":"The FROZEN evaluation epoch. A verdict is read out of a frozen epoch or it is read out of nothing: the estimand and the pairing were declared before the freeze precisely so this record could not choose them afterwards."},"outcome":{"type":"string","enum":["qualified","not_qualified","inconclusive"],"description":"`qualified` says the declared estimand was confirmed under its own decision rule. It is a judgment about a claim, not a grant: the four never-clauses below hold at every outcome."},"qualified_on":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"type":"string","enum":["matched_baseline_effect","knockout_degradation","independence_of_named_axis"]},"description":"THE ADMISSIBLE BASES, AND THEY ARE THE ONLY THREE. The four canon refuses — a participant count, an unmatched aggregate score, an ArtifactRef marked active and a surviving process — are not members of this enum, so a verdict cannot even name them as its basis. That is the refusal put where it cannot be argued with rather than in a checker that must remember to look."},"result_evidence":{"type":"object","additionalProperties":false,"required":["observed_effect","meets_minimum_effect","cost_normalized","result_refs","result_root"],"description":"The RESULT half. Its inputs are evaluation results and its root is its own; nothing here reads the controller's liveness.","properties":{"observed_effect":{"type":"number"},"meets_minimum_effect":{"type":"boolean"},"cost_normalized":{"type":"boolean","description":"Whether the observed effect was normalized as the estimand's `cost_normalization` declared. A collective that wins by spending more has not earned its complexity."},"result_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the effect was read from, both arms."},"result_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"controller_continuity":{"type":"object","additionalProperties":false,"required":["lineage_ref","recorded_status","derived_status","orphan_reason","installation_read_from","continuity_root"],"description":"The CONTINUITY half. Its inputs are the lineage's own posture and its owners, its root is its own, and no reading of it changes the result above — canon: an accepted result may survive after a runtime must stop.","properties":{"lineage_ref":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"recorded_status":{"$ref":"#/$defs/lineageStatus"},"derived_status":{"$ref":"#/$defs/lineageStatus"},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]},"installation_read_from":{"type":"string","const":"owner","description":"THE POSTURE CANNOT ANSWER THIS ONE. The lineage read model re-derives from the accountable subject, the caretaker, context leases, dependency lineages and `runtime_ref` — and not from `installation_ref`. An installation removed after binding therefore leaves a GREEN posture, so an installation knockout read through the posture would report success while measuring nothing. It is read from the owner, and the record says so."},"continuity_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"knockouts":{"type":"array","minItems":1,"maxItems":64,"description":"Every axis this estate can perform, each run on an admissible ablation lane and each reverted.","items":{"type":"object","additionalProperties":false,"required":["axis","lane","observation_ref","collective_degradation","baseline_degradation","reverted","changed_nothing"],"properties":{"axis":{"type":"string","enum":["participant_exit","caretaker_exit","dependency_retired","creator_session_removed","context_lease_revoked","artifact_ancestry_removed","controller_runtime_unserved","installation_unbound","verifier_invalidated","budget_exhausted","lifecycle_stop","lifecycle_quarantine","lifecycle_repair","lifecycle_replacement","lifecycle_retirement","crash_restart"]},"lane":{"type":"string","const":"cross_play_ablation","description":"The admissible ablation lane the evaluation plane already carries. A knockout does not need a lane of its own and does not get one."},"observation_ref":{"$ref":"#/$defs/ref"},"collective_degradation":{"type":"number"},"baseline_degradation":{"type":"number"},"reverted":{"type":"boolean","const":true,"description":"A knockout that did not revert left the tested topology in place, and the live composition is then the ablated one rather than the one under claim."},"changed_nothing":{"type":"boolean","const":true,"description":"Judgment evidence only: the knockout rewrote no topology, revoked no participant, activated no controller, installed no artifact and promoted no profile."}}}},"named_absent_knockout_axes":{"type":"array","maxItems":32,"description":"The axes canon names that this estate cannot perform, each with its reason and the owner who would make it performable. Naming them is what keeps the matrix honest in both directions.","items":{"type":"object","additionalProperties":false,"required":["axis","reason","owner_ref"],"properties":{"axis":{"type":"string","enum":["communication_edge","role_removed","lease_expired","disclosure_overhead","verification_overhead"]},"reason":{"type":"string","minLength":24,"maxLength":600},"owner_ref":{"$ref":"#/$defs/ref"}}}},"grants_no_authority":{"type":"boolean","const":true},"promotes_nothing":{"type":"boolean","const":true},"activates_nothing":{"type":"boolean","const":true},"rewrites_no_topology":{"type":"boolean","const":true},"judged_at":{"$ref":"#/$defs/timestamp"},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED — absent on the wire the caller sends, an object on the record the seam admits."},"verdict_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding. It seals the whole judgment; the result and continuity roots inside it seal their two halves SEPARATELY, so a reader can take either without the other."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"lineageStatus":{"type":"string","enum":["observed","reused","forked","installed","active","stopped","quarantined","repairing","replaced","retired"]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
@@ -224467,6 +225405,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", r#"[{"rule_id":"mcp_gateway_requirement_envelope.revision_belongs_to_its_own_family","description":"The revision ref is this requirement's own id plus a revision. A revision filed under another family's id is how a consumer pins requirement A and resolves requirement B's ceiling — and both documents look correct in isolation, which is why the schema cannot catch it and this rule must.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","prefix":"mcp-gateway-requirement://","expected_path":"$.requirement_id","strip_prefix":"mcp-gateway-requirement://","suffix":"/revision/"}},{"rule_id":"mcp_gateway_requirement_envelope.a_released_requirement_names_the_consumers_it_is_written_for","description":"A released requirement with no consumer class is a ceiling for nobody, and the natural reading of 'nobody' at an admission boundary is 'anybody'. A draft may still be incomplete; a released one may not.","expression":{"operator":"non_empty_when_in","path":"$.consumer_class_refs","when_path":"$.registry_status","values":["released","deprecated"]}},{"rule_id":"mcp_gateway_requirement_envelope.a_released_requirement_names_its_registry_lifecycle","description":"Status is an EXCLUDED projection — it does not enter the content hash — so the lifecycle ref is what ties a status to a record somewhere that can be read back. Without it, `released` is a word the document applied to itself.","expression":{"operator":"non_empty_when_in","path":"$.registry_lifecycle_ref","when_path":"$.registry_status","values":["released","deprecated","revoked"]}}]"#),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", r#"[{"rule_id":"hypervisor_mcp_gateway_profile.revision_belongs_to_its_own_family","description":"The revision ref is the profile's own identity plus a revision, not a ref that merely looks like one. A revision under a DIFFERENT family id is how a narrowed successor of profile A gets stored as a revision of profile B and then resolves for B's subject — a substitution no hash catches, because both documents are internally consistent. JSON Schema can enforce the shape of each member separately and cannot enforce that the two agree; this is the rule that makes them agree.","expression":{"operator":"field_starts_with_path","path":"$.profile_revision_ref","prefix":"mcp-gateway://","expected_path":"$.gateway_profile_id","strip_prefix":"mcp-gateway://","suffix":"/revision/"}},{"rule_id":"hypervisor_mcp_gateway_profile.an_admitted_profile_names_its_admission","description":"Canon's rule is that a profile is issued AFTER its required admission, and the boolean member that says so is only as good as the decision and receipt it points at. An admitted profile with no decision ref or no receipt ref is a profile that asserts its own admission — the exact shape of claim this estate refuses everywhere else.","expression":{"operator":"non_empty_when_in","path":"$.admission_decision_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.an_admitted_profile_names_its_admission_receipt","description":"The receipt half of the same rule. A decision without a receipt is a record of intent; the receipt is what a relying party replays.","expression":{"operator":"non_empty_when_in","path":"$.admission_receipt_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_revoked_profile_names_its_revocation","description":"Revocation is an excluded lifecycle projection, which is exactly why it must carry its own ref: the content hash does not move when a profile is revoked, so the revocation ref is the only thing on the document that distinguishes a revoked profile from the active one it used to be.","expression":{"operator":"non_empty_when_in","path":"$.revocation_ref","when_path":"$.status","values":["revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_room_guest_names_the_room_that_admitted_it","description":"`admission_basis: room_guest` is a claim about WHERE the subject was admitted. Without the admission decision that admitted it, the basis is a word the profile chose for itself, and a subject with no room could carry it.","expression":{"operator":"non_empty_when_in","path":"$.room_admission_decision_ref","when_path":"$.admission_basis","values":["room_guest"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_registered_worker_invocation_names_its_registration","description":"The other half of the same split: `registered_worker_invocation` without a worker registration ref is an unregistered worker calling itself registered.","expression":{"operator":"non_empty_when_in","path":"$.worker_registration_ref","when_path":"$.admission_basis","values":["registered_worker_invocation"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_paired_local_harness_names_its_candidate_key","description":"A local-harness audience is admitted by a pairing proof, and the candidate public key is what binds the proof to the process that will call. An audience of `local_harness` with no candidate key is a pairing nobody can check.","expression":{"operator":"non_empty_when_in","path":"$.candidate_public_key_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_paired_local_harness_names_its_pairing_session","description":"And the session the key was presented in. Canon requires the pairing session envelope; without its ref the key is a key with no occasion.","expression":{"operator":"non_empty_when_in","path":"$.local_agent_pairing_session_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile.exposed_tools_are_unique_by_wire_name","description":"The MCP tool name is the ONLY handle a consumer has on an exposed tool. Two entries under one name make the exposure manifest ambiguous at the exact point where it decides what a call resolves to, and the two may carry different risk classes, different backing revisions and different approval postures.","expression":{"operator":"array_unique_by_fields","fields":["mcp_tool_name"],"array_path":"$.exposed_tools"}},{"rule_id":"hypervisor_mcp_gateway_profile.exposed_resources_are_unique_by_uri","description":"The same rule one primitive over: two resource entries under one URI would let a redaction policy and a lease requirement depend on which entry a reader happened to find first.","expression":{"operator":"array_unique_by_fields","fields":["mcp_resource_uri"],"array_path":"$.exposed_resources"}}]"#),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", r#"[{"rule_id":"hypervisor_mcp_gateway_profile_v2.revision_belongs_to_its_own_family","description":"The revision ref is the profile's own identity plus a revision, not a ref that merely looks like one. A revision under a DIFFERENT family id is how a narrowed successor of profile A gets stored as a revision of profile B and then resolves for B's subject — a substitution no hash catches, because both documents are internally consistent. JSON Schema can enforce the shape of each member separately and cannot enforce that the two agree; this is the rule that makes them agree.","expression":{"operator":"field_starts_with_path","path":"$.profile_revision_ref","prefix":"mcp-gateway://","expected_path":"$.gateway_profile_id","strip_prefix":"mcp-gateway://","suffix":"/revision/"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.an_admitted_profile_names_its_admission","description":"Canon's rule is that a profile is issued AFTER its required admission, and the boolean member that says so is only as good as the decision and receipt it points at. An admitted profile with no decision ref or no receipt ref is a profile that asserts its own admission — the exact shape of claim this estate refuses everywhere else.","expression":{"operator":"non_empty_when_in","path":"$.admission_decision_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.an_admitted_profile_names_its_admission_receipt","description":"The receipt half of the same rule. A decision without a receipt is a record of intent; the receipt is what a relying party replays.","expression":{"operator":"non_empty_when_in","path":"$.admission_receipt_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_revoked_profile_names_its_revocation","description":"Revocation is an excluded lifecycle projection, which is exactly why it must carry its own ref: the content hash does not move when a profile is revoked, so the revocation ref is the only thing on the document that distinguishes a revoked profile from the active one it used to be.","expression":{"operator":"non_empty_when_in","path":"$.revocation_ref","when_path":"$.status","values":["revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_room_guest_names_the_room_that_admitted_it","description":"`admission_basis: room_guest` is a claim about WHERE the subject was admitted. Without the admission decision that admitted it, the basis is a word the profile chose for itself, and a subject with no room could carry it.","expression":{"operator":"non_empty_when_in","path":"$.room_admission_decision_ref","when_path":"$.admission_basis","values":["room_guest"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_registered_worker_invocation_names_its_registration","description":"The other half of the same split: `registered_worker_invocation` without a worker registration ref is an unregistered worker calling itself registered.","expression":{"operator":"non_empty_when_in","path":"$.worker_registration_ref","when_path":"$.admission_basis","values":["registered_worker_invocation"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_paired_local_harness_names_its_candidate_key","description":"A local-harness audience is admitted by a pairing proof, and the candidate public key is what binds the proof to the process that will call. An audience of `local_harness` with no candidate key is a pairing nobody can check.","expression":{"operator":"non_empty_when_in","path":"$.candidate_public_key_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_paired_local_harness_names_its_pairing_session","description":"And the session the key was presented in. Canon requires the pairing session envelope; without its ref the key is a key with no occasion.","expression":{"operator":"non_empty_when_in","path":"$.local_agent_pairing_session_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.exposed_tools_are_unique_by_wire_name","description":"The MCP tool name is the ONLY handle a consumer has on an exposed tool. Two entries under one name make the exposure manifest ambiguous at the exact point where it decides what a call resolves to, and the two may carry different risk classes, different backing revisions and different approval postures.","expression":{"operator":"array_unique_by_fields","fields":["mcp_tool_name"],"array_path":"$.exposed_tools"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.exposed_resources_are_unique_by_uri","description":"The same rule one primitive over: two resource entries under one URI would let a redaction policy and a lease requirement depend on which entry a reader happened to find first.","expression":{"operator":"array_unique_by_fields","fields":["mcp_resource_uri"],"array_path":"$.exposed_resources"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.the_builder_surface_names_the_invocation_it_runs_in","description":"`capability_construction_eval` is the one kind whose whole claim is equivalence with the native path FOR ONE INVOCATION. A builder profile with no invocation scope is scoped to every invocation the subject can reach, which is the widening the kind exists to prevent — and it is the member that makes the native-versus-MCP comparison a comparison of the same thing rather than of two runs.","expression":{"operator":"non_empty_when_in","path":"$.invocation_scope_refs","when_path":"$.profile_kind","values":["capability_construction_eval"]}}]"#),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3", r#"[{"rule_id":"hypervisor_mcp_gateway_profile_v3.revision_belongs_to_its_own_family","description":"The revision ref is the profile's own identity plus a revision, not a ref that merely looks like one. A revision under a DIFFERENT family id is how a narrowed successor of profile A gets stored as a revision of profile B and then resolves for B's subject — a substitution no hash catches, because both documents are internally consistent. JSON Schema can enforce the shape of each member separately and cannot enforce that the two agree; this is the rule that makes them agree.","expression":{"operator":"field_starts_with_path","path":"$.profile_revision_ref","prefix":"mcp-gateway://","expected_path":"$.gateway_profile_id","strip_prefix":"mcp-gateway://","suffix":"/revision/"}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.an_admitted_profile_names_its_admission","description":"Canon's rule is that a profile is issued AFTER its required admission, and the boolean member that says so is only as good as the decision and receipt it points at. An admitted profile with no decision ref or no receipt ref is a profile that asserts its own admission — the exact shape of claim this estate refuses everywhere else.","expression":{"operator":"non_empty_when_in","path":"$.admission_decision_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.an_admitted_profile_names_its_admission_receipt","description":"The receipt half of the same rule. A decision without a receipt is a record of intent; the receipt is what a relying party replays.","expression":{"operator":"non_empty_when_in","path":"$.admission_receipt_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.a_revoked_profile_names_its_revocation","description":"Revocation is an excluded lifecycle projection, which is exactly why it must carry its own ref: the content hash does not move when a profile is revoked, so the revocation ref is the only thing on the document that distinguishes a revoked profile from the active one it used to be.","expression":{"operator":"non_empty_when_in","path":"$.revocation_ref","when_path":"$.status","values":["revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.a_room_guest_names_the_room_that_admitted_it","description":"`admission_basis: room_guest` is a claim about WHERE the subject was admitted. Without the admission decision that admitted it, the basis is a word the profile chose for itself, and a subject with no room could carry it.","expression":{"operator":"non_empty_when_in","path":"$.room_admission_decision_ref","when_path":"$.admission_basis","values":["room_guest"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.a_registered_worker_invocation_names_its_registration","description":"The other half of the same split: `registered_worker_invocation` without a worker registration ref is an unregistered worker calling itself registered.","expression":{"operator":"non_empty_when_in","path":"$.worker_registration_ref","when_path":"$.admission_basis","values":["registered_worker_invocation"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.a_paired_local_harness_names_its_candidate_key","description":"A local-harness audience is admitted by a pairing proof, and the candidate public key is what binds the proof to the process that will call. An audience of `local_harness` with no candidate key is a pairing nobody can check.","expression":{"operator":"non_empty_when_in","path":"$.candidate_public_key_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.a_paired_local_harness_names_its_pairing_session","description":"And the session the key was presented in. Canon requires the pairing session envelope; without its ref the key is a key with no occasion.","expression":{"operator":"non_empty_when_in","path":"$.local_agent_pairing_session_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.exposed_tools_are_unique_by_wire_name","description":"The MCP tool name is the ONLY handle a consumer has on an exposed tool. Two entries under one name make the exposure manifest ambiguous at the exact point where it decides what a call resolves to, and the two may carry different risk classes, different backing revisions and different approval postures.","expression":{"operator":"array_unique_by_fields","fields":["mcp_tool_name"],"array_path":"$.exposed_tools"}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.exposed_resources_are_unique_by_uri","description":"The same rule one primitive over: two resource entries under one URI would let a redaction policy and a lease requirement depend on which entry a reader happened to find first.","expression":{"operator":"array_unique_by_fields","fields":["mcp_resource_uri"],"array_path":"$.exposed_resources"}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.the_builder_surface_names_the_invocation_it_runs_in","description":"`capability_construction_eval` is the one kind whose whole claim is equivalence with the native path FOR ONE INVOCATION. A builder profile with no invocation scope is scoped to every invocation the subject can reach, which is the widening the kind exists to prevent — and it is the member that makes the native-versus-MCP comparison a comparison of the same thing rather than of two runs.","expression":{"operator":"non_empty_when_in","path":"$.invocation_scope_refs","when_path":"$.profile_kind","values":["capability_construction_eval"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.a_seat_binding_names_its_seat","description":"A seat_binding profile admits one credential in one System's driver seat, and names the seat it binds; without it, unbinding the seat or revoking the credential has nothing to reach, and the profile outlives the act that ended it.","expression":{"operator":"non_empty_when_in","path":"$.seat_ref","when_path":"$.admission_basis","values":["seat_binding"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v3.a_seat_binding_names_its_credential","description":"A seat_binding profile admits one credential in one System's driver seat, and names the credential it binds; without it, unbinding the seat or revoking the credential has nothing to reach, and the profile outlives the act that ended it.","expression":{"operator":"non_empty_when_in","path":"$.agent_credential_ref","when_path":"$.admission_basis","values":["seat_binding"]}}]"#),
     ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", r#"[{"rule_id":"collective_qualification_estimand.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `estimand_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.estimand_id","$.estimand_ref"]}},{"rule_id":"collective_qualification_estimand.a_resilience_or_independence_claim_names_its_axes","description":"Resilience and independence are claims ABOUT something being removed: that the collective degrades less than the baseline under a named knockout, or that its result does not depend on a named participant, edge or artifact. With no axis named there is no claim to confirm, and a run against such an estimand would confirm whatever it happened to measure. The JSON Schema enforces this too through its conditional branch; the portable rule is the same law in the language a consumer that does not run JSON Schema reads.","expression":{"operator":"non_empty_when_in","path":"$.knockout_axis_refs","when_path":"$.estimand_kind","values":["resilience","independence"]}},{"rule_id":"collective_qualification_estimand.the_decision_rule_is_written_out","description":"The decision rule is the whole point of declaring in advance: it says which reading of the two arms confirms the estimand and which fails it. A record that names a metric and a minimum effect but no rule leaves the reading to whoever holds the results, which is the fitting this contract exists to prevent.","expression":{"operator":"non_empty","path":"$.decision_rule"}},{"rule_id":"collective_qualification_estimand.the_quantity_names_the_metric_it_measures","description":"An aggregation and a unit with no metric behind them describe the shape of a number and not the thing counted — 'the mean of something, per second'. The metric ref is what makes the estimand point at a measurement a later run can actually take, and a consumer that does not run JSON Schema must refuse its absence too.","expression":{"operator":"non_empty","path":"$.quantity.metric_ref"}},{"rule_id":"collective_qualification_estimand.root.recomputes","description":"DECLARING IN ADVANCE ONLY MEANS SOMETHING IF THE DECLARATION CANNOT MOVE. The epoch freezes the estimand's REF, which pins the name and not the content; this root pins the content, so an estimand whose minimum effect or decision rule was edited once results existed no longer recomputes and is refused by this rule's own name.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.estimand_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"estimand_id":{"path":"$.estimand_id"},"estimand_ref":{"path":"$.estimand_ref"},"estimand_kind":{"path":"$.estimand_kind"},"quantity":{"path":"$.quantity"},"direction":{"path":"$.direction"},"minimum_effect":{"path":"$.minimum_effect"},"cost_normalization":{"path":"$.cost_normalization"},"decision_rule":{"path":"$.decision_rule"},"knockout_axis_refs":{"path":"$.knockout_axis_refs"},"declared_at":{"path":"$.declared_at"},"declared_before_epoch_freeze":{"path":"$.declared_before_epoch_freeze"},"epoch_ref":{"path":"$.epoch_ref"},"qualifies_nothing_on_its_own":{"path":"$.qualifies_nothing_on_its_own"}}}}]"#),
     ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", r#"[{"rule_id":"collective_baseline_pairing.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `pairing_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.pairing_id","$.pairing_ref"]}},{"rule_id":"collective_baseline_pairing.axis_task.matches","description":"The two arms ran the same task distribution. Each match axis gets a rule of its OWN rather than one rule over all eight, because the name of the rule that fires is the finding: a reader learns that the baseline had a different task set, not merely that the pairing was 'unmatched'. JSON Schema cannot compare two of a record's own members, so this law exists only here — the schema can require the proofs, and only the invariant can require that they agree.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.task.collective_root","$.axis_proofs.task.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_authority.matches","description":"The two arms held the same authority. An arm with more authority than its comparator wins by permission rather than by cooperation, and the surplus measures the grant.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.authority.collective_root","$.axis_proofs.authority.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_context.matches","description":"The two arms were given the same context. Context is the cheapest axis to differ on by accident and among the most decisive, since a richer context makes a weaker method look stronger.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.context.collective_root","$.axis_proofs.context.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_tool.matches","description":"The two arms had the same tools. A collective holding a tool the baseline lacks is a comparison between toolsets wearing the name of a comparison between compositions.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.tool.collective_root","$.axis_proofs.tool.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_environment.matches","description":"The two arms ran in the same environment.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.environment.collective_root","$.axis_proofs.environment.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_budget.matches","description":"The two arms were given the same budget. This is the axis canon's 'earns its complexity' sentence turns on: a collective that simply spent more has demonstrated spending.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.budget.collective_root","$.axis_proofs.budget.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_time.matches","description":"The two arms were given the same time.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.time.collective_root","$.axis_proofs.time.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_verifier_posture.matches","description":"The two arms were judged under the same verifier posture. An arm graded by a laxer verifier scores better at nothing, and this is the axis where the difference is invisible in the arms themselves.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.verifier_posture.collective_root","$.axis_proofs.verifier_posture.baseline_root"]}},{"rule_id":"collective_baseline_pairing.positive_control.passes_no_more_than_it_ran","description":"THE POSITIVE CONTROL IS A REAL MEASUREMENT, not a number chosen to clear the bar. The schema already requires at least one pass — a baseline that failed everything would make any collective look good, which is the cheapest way to manufacture a surplus — and this rule adds the other bound: it cannot have passed more cases than it ran.","expression":{"operator":"numbers_lte","paths":["$.baseline_positive_control.matched_cases_passed","$.baseline_positive_control.matched_cases_total"]}},{"rule_id":"collective_baseline_pairing.arms.are_not_one_composition","description":"A pairing whose two arms name the same orchestration scope compares a composition with itself, and every axis matches trivially. This is the degenerate pairing the eight axis rules cannot catch, because it satisfies all of them.","expression":{"operator":"fields_not_equal","paths":["$.collective_arm.composition_ref","$.baseline_arm.composition_ref"]}},{"rule_id":"collective_baseline_pairing.root.recomputes","description":"The pairing root commits the arms, every axis proof, the positive control and the rationale, so a relying party can recompute the declaration from the pairing alone and see that it did not move after the arms ran.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.pairing_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"pairing_id":{"path":"$.pairing_id"},"pairing_ref":{"path":"$.pairing_ref"},"estimand_ref":{"path":"$.estimand_ref"},"collective_arm":{"path":"$.collective_arm"},"baseline_arm":{"path":"$.baseline_arm"},"declared_match_axes":{"path":"$.declared_match_axes"},"axis_proofs":{"path":"$.axis_proofs"},"baseline_positive_control":{"path":"$.baseline_positive_control"},"cheaper_baseline_rationale":{"path":"$.cheaper_baseline_rationale"},"declared_before_either_arm_ran":{"path":"$.declared_before_either_arm_ran"},"epoch_ref":{"path":"$.epoch_ref"},"declared_at":{"path":"$.declared_at"}}}}]"#),
     ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", r#"[{"rule_id":"collective_qualification_verdict.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `verdict_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.verdict_id","$.verdict_ref"]}},{"rule_id":"collective_qualification_verdict.result_and_continuity.are_separately_rooted","description":"THE CONFLATION THIS UNIT EXISTS TO REFUSE, refused on the wire. Result robustness and controller continuity are two claims with two sources: the result is read from evaluation results, continuity from the lineage's posture and its owners. One root over both would mean neither could be taken without the other, and a healthy runtime would travel with a good answer. Canon says both halves out loud — an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority — so the two roots are never equal.","expression":{"operator":"fields_not_equal","paths":["$.result_evidence.result_root","$.controller_continuity.continuity_root"]}},{"rule_id":"collective_qualification_verdict.qualified.names_its_basis","description":"A verdict of `qualified` with no basis is a claim with no reason. The enum already forbids the four canon refuses — a participant count, an unmatched aggregate score, an active ArtifactRef and a surviving process — so this rule only has to require that SOMETHING admissible was named. The two refusals together are what make `qualified` mean anything.","expression":{"operator":"non_empty_when_in","path":"$.qualified_on","when_path":"$.outcome","values":["qualified"]}},{"rule_id":"collective_qualification_verdict.qualified.rests_on_results_it_names","description":"A qualified verdict names the evaluation results its effect was read from. Without them the observed effect is a number this record asserts about itself, which is the unmatched aggregate score under a different name.","expression":{"operator":"non_empty_when_in","path":"$.result_evidence.result_refs","when_path":"$.outcome","values":["qualified"]}},{"rule_id":"collective_qualification_verdict.knockouts.are_one_per_axis","description":"Each axis is knocked out once. Two entries for one axis let a failing run be reported beside a passing one and the matrix still read as complete.","expression":{"operator":"array_unique_by_fields","array_path":"$.knockouts","fields":["axis"]}},{"rule_id":"collective_qualification_verdict.absent_axes.are_named_once","description":"Each unperformable axis is named once, with its reason and its owner. A matrix that is honest about what it cannot do is what keeps the executable half from being read as the whole.","expression":{"operator":"array_unique_by_fields","array_path":"$.named_absent_knockout_axes","fields":["axis"]}},{"rule_id":"collective_qualification_verdict.root.recomputes","description":"The verdict root commits the estimand and pairing it was read against, the epoch it came out of, the outcome and its basis, both halves with their own roots, the whole knockout matrix in both directions and the four never-clauses — so a relying party can recompute the judgment from the verdict alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.verdict_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"verdict_id":{"path":"$.verdict_id"},"verdict_ref":{"path":"$.verdict_ref"},"estimand_ref":{"path":"$.estimand_ref"},"pairing_ref":{"path":"$.pairing_ref"},"epoch_ref":{"path":"$.epoch_ref"},"outcome":{"path":"$.outcome"},"qualified_on":{"path":"$.qualified_on"},"result_evidence":{"path":"$.result_evidence"},"controller_continuity":{"path":"$.controller_continuity"},"knockouts":{"path":"$.knockouts"},"named_absent_knockout_axes":{"path":"$.named_absent_knockout_axes"},"grants_no_authority":{"path":"$.grants_no_authority"},"promotes_nothing":{"path":"$.promotes_nothing"},"activates_nothing":{"path":"$.activates_nothing"},"rewrites_no_topology":{"path":"$.rewrites_no_topology"},"judged_at":{"path":"$.judged_at"}}}}]"#),
@@ -232126,6 +233065,14 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-seat-binding-driver.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-seat-binding-driver.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-v2-kind-source-neutral-builder.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/positive-v2-kind-source-neutral-builder.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-a-non-seat-basis-naming-a-seat.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-a-non-seat-basis-naming-a-seat.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-credential.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-credential.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-seat.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-seat-binding-without-a-seat.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-basis.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-basis.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-unknown-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-v2-version-in-a-v3-document.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v3/negative-v2-version-in-a-v3-document.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-bound-to-a-frozen-epoch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-bound-to-a-frozen-epoch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-cooperation-surplus.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-cooperation-surplus.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-resilience-names-its-axes.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-resilience-names-its-axes.json"))),
@@ -234149,6 +235096,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3" => {
+            serde_json::from_value::<HypervisorMcpGatewayProfileV3>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1" => {
             serde_json::from_value::<CollectiveQualificationEstimandV1>(value.clone())
                 .map(|_| ())
@@ -236050,6 +237002,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v3" => {
+            let projection = serde_json::from_value::<HypervisorMcpGatewayProfileV3>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1" => {
             let projection = serde_json::from_value::<CollectiveQualificationEstimandV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -236286,8 +237243,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            2098,
-            "the registered golden corpus must remain the explicit 2098-fixture bar",
+            2106,
+            "the registered golden corpus must remain the explicit 2106-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

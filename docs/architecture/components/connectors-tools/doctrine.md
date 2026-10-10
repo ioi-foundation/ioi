@@ -263,7 +263,11 @@ gateway profile only after that concrete invocation passes its own context,
 tool, resource, budget, privacy, policy, and authority admission. It binds the
 active worker registration and invocation scope rather than inventing an
 OutcomeRoom or participant lease. If the reusable worker later joins a room,
-the ordinary room-participation request and lease become mandatory.
+the ordinary room-participation request and lease become mandatory. For
+`system_driver` (target; not built), the gateway profile's admission basis is
+the principal's signed seat binding: the profile names the seat and the agent
+credential (`seat_binding`, gateway profile v3), binds no room and no worker
+registration, and ends with the seat's unbinding or the credential's revocation.
 
 The bootstrap payload may contain public discovery refs, endpoint location,
 pairing expiry, adapter instructions, and the one-time challenge. It must not
