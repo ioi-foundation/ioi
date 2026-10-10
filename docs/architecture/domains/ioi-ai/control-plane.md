@@ -98,16 +98,23 @@ not collapse those owner records.
 **Goal Space** is its persistent outcome container. Most simple requests remain
 direct and do not need a room-shaped experience. When collective pursuit is
 useful, Goal Space projects an `OutcomeRoom`/`CollaborativeWorkGraph` whose
-bounded claims execute as Hypervisor GoalRuns.
+bounded claims execute as this application's GoalRuns, composed over the
+Hypervisor's thread orchestration primitives (R-192).
 
 Conversation-first entry does not make text entry an admission primitive. The
-current first-party seed reuses the product shell's ported composer at
-`/ai#new-session` without changing the canonical Hypervisor Home placement at
-`/ai`: ordinary submit/Enter remains a bounded Session act, while a distinct
-**Activate Goal** review act drafts and submits `GoalRunActivationEnvelope`
-with `source_kind: ioi_goal_draft`. The product must show the requested source,
+Hypervisor's composer carries no goal affordance: its submit/Enter is a bounded
+Session act, and the Activate Goal button that stood beside it retired with the
+Hypervisor's GoalRun activation plane (R-192, 2026-09-18). ioi.ai's own client
+carries the distinct **Activate Goal** review act, which drafts and submits
+`GoalRunActivationEnvelope` with `source_kind: ioi_goal_draft`.
+The product must show the requested source,
 principal, profile revision/hash, authority posture, and review state before
-that submission. Only the daemon may admit the activation and GoalRun; denied,
+that submission. Only admission under this application's GoalRun admission
+contract ([`goal-run-execution.md`](./goal-run-execution.md#the-admission-contract))
+may admit the activation and GoalRun. The daemon no longer executes that
+contract (R-192, slice S5-1), and until slice S5-3 re-homes it onto the
+System-record seam no activation is admitted
+([`orchestration-api.md`](./orchestration-api.md)); denied,
 parked, stale, or changed-body activation stays visibly non-admitted, and a
 transcript or attached Session never substitutes for Goal Space truth.
 
