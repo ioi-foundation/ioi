@@ -15,7 +15,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-09-20 (R-215 machine delivery forms bound to their gate; document-wide R-192 pass still owed).
+Last alignment pass: 2026-09-30 (document-wide R-192 pass: Goal leaves `+ New`, the Mode control, the composer, New Session and the conformance rules; a persistent objective is a System's purpose, goal activation stays in the ioi.ai application's own client, Plan stays only as commissioning, and Home takes New Session prompts, not goal prompts; the GoalRun and OutcomeRoom mentions that remain are the ioi.ai application's subjects, contracts and contributed views). Previous pass: 2026-09-20 (R-215 machine delivery forms bound to their gate).
 Doctrine status: canonical
 Implementation status: mixed (the existing Home, New Session, Projects,
 Automations, Applications, Sessions, owner-application, environment, and
@@ -1124,7 +1124,6 @@ where work lives:
 + New
   System
   Session
-  Goal
   Project
   Automation
 
@@ -1141,7 +1140,7 @@ Open Application
 
 `New Session` remains a one-click and keyboard-first action even when `+ New`
 is the visible creation affordance. Product navigation must not make an
-ordinary direct Session pay the ceremony cost of a System or GoalRun.
+ordinary direct Session pay the ceremony cost of a System.
 
 This is a product-navigation doctrine, not a new ownership graph. The durable
 owners remain the daemon, wallet.network, Agentgres, storage backends, AIIP, and
@@ -1896,7 +1895,7 @@ User-facing configuration should prefer simple labels:
 
 ```text
 Agent      configurable worker-backed agent or adapter
-Mode       Agent | Plan | Goal
+Mode       Agent | Plan (Plan: the approved plan fixes the run's acceptance; never goal pursuit)
 Model      product-facing model choice
 Reasoning  Low | Medium | High | Extra high
 Speed      Standard | Fast
@@ -1969,12 +1968,12 @@ harness selection, tools/connectors, memory policy, authority, budget, eval,
 execution policy, contributor scope, Network/Open goal budget when applicable,
 typed GoalRun/AutomationRun/WorkItem/room-work refs, and receipt posture. That
 bundle is a daemon-admitted launch recipe, not a client-local chat setting.
-Creating durable intent or standing behavior remains an explicit New Goal or
+Creating durable intent or standing behavior remains an explicit New System or
 New Automation action even when a Session is attached immediately afterward.
 
 Implementation status: partial (the composer lane is live; the canonical
 `/work/new-session` route is an honest shell page). Last implementation audit:
-2026-08-20. New Session IS the product shell's polished composer page (goal
+2026-08-20. New Session IS the product shell's polished composer page (the
 prompt, agent picker, project/URL/scratch intake), at `/ai#new-session`; the
 rail's `+ New Session` action and Ctrl+O land there. An Advanced-launch
 affordance on the composer opens the owned governed launcher modal
@@ -1993,20 +1992,20 @@ preview) — one daemon-backed launch lane, no forked truth.
 > by the GRE-1 chrome ruling. Record:
 > `apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement`.
 
-The composer is one visual seed with two explicit semantic acts; sharing its
-layout does not merge their contracts. Ordinary prompt submission and Enter
+The composer carries one semantic act: ordinary prompt submission and Enter
 remain **New Session** and may create only the bounded Session described above.
-A second, separately labelled affordance may draft, review, and submit an
-application's own activation object; for the ioi.ai **Activate Goal**
-affordance that object is the `GoalRunActivationEnvelope`, whose contract,
-required pre-submission disclosures, and admission rules are owned by
-[`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#goalrunactivationenvelope).
+It offers no goal-activation affordance (R-192). A persistent objective is
+stated as a System's purpose when the System is created (`+ New → System`), and
+goal pursuit, with its activation object (the `GoalRunActivationEnvelope`, its
+pre-submission disclosures and admission rules), stays with the ioi.ai
+application's own client under
+[`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#goalrunactivationenvelope),
+never as a Hypervisor composer affordance.
 The surface rule is generic and stays here: typing text, submitting a Session
 prompt, correlation, navigation, or Session attachment is never an activation
 act; daemon admission alone may admit one; and a Session may be attached after
 that admission without the composer or its transcript becoming application
-truth. Reusing the ported composer this way is an in-place contract rebind
-under ADR 0028, not a replacement Home, route migration, or new client.
+truth.
 
 ## Hypervisor Home
 
@@ -2043,7 +2042,7 @@ deliberately NOT the home page — it is New Session.
 > exist to remove. Record:
 > `apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement`.
 
-Home may accept goal prompts, show recent typed Work subjects, surface waiting
+Home may accept New Session prompts, show recent typed Work subjects, surface waiting
 approvals, and route the user into a System, Project, Automation, Application,
 GoalRun, OutcomeRoom, Session, receipt, or replay. Home is allowed to draft
 work, but it must not become the durable owner of systems, goals, automations,
@@ -5404,8 +5403,8 @@ not mutate host state directly.
   core workspaces, not applications. Automations remains an owner application with a
   first-class shell placement; Sessions remains a typed execution object and
   Work view, not a peer application registration.
-- `New Session` must create only a bounded Session. New System, Goal, Project,
-  and Automation flows must remain explicit typed commands even when the shell
+- `New Session` must create only a bounded Session. New System, Project, and
+  Automation flows must remain explicit typed commands even when the shell
   presents them in one New menu.
 - A Project must not silently become live System identity. A System may link
   Projects, packages, work, interfaces, and nodes, while direct Projects,

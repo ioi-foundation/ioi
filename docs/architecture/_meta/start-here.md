@@ -4,8 +4,10 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-08-30 (Machine Authority and IOI Authority Protocol
-made the first-read security/category substrate).
+Last alignment pass: 2026-09-30 (the Core Product Shape reads goal pursuit as
+the ioi.ai orchestration application's composition, and the Hypervisor offers
+no Goal creation or Goal mode; previous pass 2026-08-30, Machine Authority and
+IOI Authority Protocol made the first-read security/category substrate).
 Doctrine status: canonical
 Implementation status: mixed (reader entry point over built, partial, planned, and speculative subjects)
 Last implementation audit: 2026-07-19
@@ -188,6 +190,13 @@ ordinary seat allowance.
 
 ### OutcomeRoom And GoalRun
 
+Goal pursuit is the ioi.ai orchestration application's composition over the
+Hypervisor's thread-orchestration primitives, not a Hypervisor plane (since
+2026-09-18; [`goal-pursuit.md`](../domains/ioi-ai/goal-pursuit.md) owns it). The
+Hypervisor owns no goal object: its `+ New` menu and its composer's modes offer
+no Goal, and the composer's Plan only fixes a run's acceptance before the run
+starts, which commissions work and pursues nothing.
+
 An `OutcomeRoom` is the durable shared-pursuit bounded-DAS instance created from
 the reusable room package through genesis. Its
 `CollaborativeWorkGraph` records admitted participants, offers, frontier items,
@@ -195,8 +204,8 @@ leased claims, attempts, findings, verifier challenges, contribution lineage,
 discussion projections, and replay. Goal Space workstreams and Hypervisor Work /
 Rooms are projections over this same graph.
 
-A `GoalRun` is a bounded execution unit below an optional OutcomeRoom. Its
-generic loop is:
+A `GoalRun` is that application's bounded execution unit below an optional
+OutcomeRoom. Its generic loop is:
 
 ```text
 orient -> plan -> implement/act -> observe -> verify -> course-correct
