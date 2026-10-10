@@ -108,9 +108,12 @@ test; none is claimed built by this ruling, and
 - **`M13.11` — the flagship developer journey.** From an issue to a reviewed
   pull request through a governed SCM connector named in the session's
   authority profile: reads and writes within a standing envelope draw
-  silently, the push or publish is an exact-effect review the operator
-  approves, every crossing is receipted, and revoking the connection ends the
-  authority. Qualification: a composed verifier over the estate's own fixture
+  silently, and so does a push that stays inside the signed Connection grant
+  (a branch the session created, no force-push, no CI or hook paths); merge
+  and deploy stay an exact-effect review the operator approves (amended
+  2026-09-30 under the owner's set-once ruling of 2026-09-29; it was "the push
+  or publish is an exact-effect review"), every crossing is receipted, and
+  revoking the connection ends the authority. Qualification: a composed verifier over the estate's own fixture
   SCM target proves the governed path end to end; a live GitHub run is
   optional and separately authorized. The unit claims the governed path,
   never the quality of the work.
