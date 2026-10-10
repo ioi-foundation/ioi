@@ -30,6 +30,16 @@
 //! by name until each owner lands. A regulated workload SHOULD be refused while the estate cannot
 //! log access to it; the alternative is a green profile that admits one that cannot be audited.
 //!
+//! THE THREE OWNERS, NAMED (2026-09-30); none of them is built yet. `data_processor_terms_ref` is
+//! resolved by the CLEARED-SINK REGISTRY: each processor or model route registered with its
+//! agreement (a BAA or DPA), that agreement's expiry, and the labels, purposes and subjects it is
+//! cleared for. `key_control_ref` is resolved by the KEY-CONTROL OWNER of the tenant-keyed store
+//! that holds the workload's regulated content, while receipts carry only digests of it.
+//! `access_log_binding_ref` is resolved by the PER-SUBJECT ACCESS LOG: an index of every read of,
+//! and effect on, one data subject's records. When an owner lands, its refusal here becomes a
+//! resolution through that owner's read-only resolver; until then the refusal names the owner it
+//! waits on.
+//!
 //! Hard boundaries (enforced, not decorative):
 //!   * A profile is admitted ONCE under its exact id; supersession is a chain and an edit is not
 //!     a version.
@@ -94,19 +104,19 @@ const CASE_MATERIAL: [&str; 11] = [
     "performs_no_action",
 ];
 
-/// The three bindings canon requires and nothing in this estate resolves.
+/// The three bindings canon requires and nothing in this estate resolves, each with its named owner.
 const UNOWNED: [(&str, &str); 3] = [
     (
         "data_processor_terms_ref",
-        "no plane in this estate resolves a data_processor_terms ref, so the processor terms this workload runs under cannot be verified",
+        "no plane in this estate resolves a data_processor_terms ref, so the processor terms this workload runs under cannot be verified; its owner is the cleared-sink registry (each sink's BAA or DPA), which has not landed",
     ),
     (
         "key_control_ref",
-        "no plane in this estate resolves a key_control ref, so who controls the keys over this workload's data cannot be verified",
+        "no plane in this estate resolves a key_control ref, so who controls the keys over this workload's data cannot be verified; its owner is the key-control owner of the tenant-keyed regulated-content store, which has not landed",
     ),
     (
         "access_log_binding_ref",
-        "no plane in this estate resolves an access_log_binding ref, so reads against this workload's bound view cannot be logged",
+        "no plane in this estate resolves an access_log_binding ref, so reads against this workload's bound view cannot be logged; its owner is the per-subject access log, which has not landed",
     ),
 ];
 
