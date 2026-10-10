@@ -3571,6 +3571,18 @@ operator's runs draw silently within those limits (target contract; the
 install step is not built). The per-run approval lane remains, only as the
 operator's explicit choice: a session that names no connection.
 
+**Changing a connection's limits, or renewing them, is one act.** An active
+envelope is never edited in place (`409 standing_lease_already_bound`); the
+daemon records its successor, which supersedes it, in one call, as one decision
+of the principal (an unchanged envelope's renewal at sign-in is the next
+paragraph's). Target contract; not built: until it lands, the App performs the
+revocation and the successor's mint as one signed act. A run that arrives while
+the connection is rotating refuses typed, as rotating, and is retried within
+the ceremony's five-minute window; it is never parked. A run still refused when
+that window closes ends refused (`envelope_revoked`); the connection keeps
+whichever grant the authority holds live: the predecessor if nothing was
+recorded, else its successor.
+
 Within a session, each governed act's posture is the **daemon's admission
 outcome**, never a presentation choice:
 

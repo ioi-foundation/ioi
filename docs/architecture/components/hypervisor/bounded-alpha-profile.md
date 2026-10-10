@@ -199,6 +199,10 @@ node apps/hypervisor/scripts/wallet-network-authority.mjs approve --state-dir /v
 #    mint mode with the passphrase in that child's environment only; a wrong
 #    passphrase records nothing. "Remove limits" revokes on the node the same way
 #    (…/standing-envelopes/:id/revoke). Minting one needs the node on the wall clock.
+#    Changing or renewing limits is ONE act: the daemon records the successor,
+#    which supersedes the envelope, in one act, and a run arriving in between
+#    refuses typed and is retried, never parked (target; until it lands, the App
+#    performs the revoke and the mint as one signed act of the operator).
 #    Both acts outlive the request the same way, and a grant recorded just before a
 #    daemon restart is found on the node (by its ceremony) and bound at the next start.
 
