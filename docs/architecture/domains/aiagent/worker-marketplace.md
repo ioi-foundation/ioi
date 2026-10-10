@@ -71,6 +71,14 @@ runtime nodes through daemon-mediated management channels. It still does not
 become execution truth, secret custody, private memory owner, or a second
 Hypervisor runtime.
 
+aiagent.xyz is also the consumer's service (owner ruling, 2026-09-29): a person
+who is not operating a Hypervisor console reaches their agents here. Those
+agents are the Hypervisor's own, read through the public API, never a second
+agent store; ioi.ai keeps the outcome rooms. Consumer use runs through the same
+daemon admission, authority, and receipt owners as any Hypervisor work, and it
+does not make aiagent.xyz a persona store or a chatbot catalog
+([`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md)).
+
 The marketplace ranks and licenses capability, not standalone model mystique.
 Listings should make benchmark posture, eval results, policy posture,
 authority requirements, runtime profiles, contribution attribution, and managed
