@@ -1016,9 +1016,26 @@ preserves consequential authority.
 - High-assurance recovery uses a predeclared independent authenticator,
   GuardianSurface, organization quorum, hardware-backed factor, or delayed
   reviewed recovery path appropriate to the active policy.
-- Losing or compromising a factor or device revokes or quarantines the factor,
-  dependent GuardianSurface, affected account sessions, and dependent grants;
-  applicable revocation epochs rotate before future authority is issued.
+- Losing or compromising a factor or device revokes or quarantines that
+  factor's or device's own credentials, the GuardianSurface enrolled on it,
+  the account sessions it holds, and every consumer registration and grant
+  whose holder or audience is a key on it; applicable revocation epochs rotate
+  before future authority is issued. Authority already released to that
+  device stays booked until its enforcer's terminal evidence: an offline
+  envelope reserved to it can still be drawn until its TTL unless a signed stop
+  reaches it, and the loss itself releases nothing. Grants the principal
+  approved on that device depend on the principal's authority binding, not on
+  the device (continuity is a successor, above), so losing an approving device
+  alone revokes none of them. At recovery those grants are re-affirmed in one
+  signature, under the principal's current key generation, on a factor that
+  was not lost, against the last known-good epoch. The compromise window starts
+  at that epoch by default, and the recovering principal may move its start
+  earlier, never later; every change signed inside it is shown again as a
+  widening, and a declared compromise quarantines those changes until they are
+  re-affirmed. Re-affirmation never lifts a stop: a revocation signed inside
+  the window stays final, and a pause ends only by its own resume. Losing the
+  authority node's own state is not a device loss: its restore closes the old
+  lineage, and the principal re-establishes each grant.
 - Linking or unlinking a factor, changing a recovery route, replacing a trusted
   device, and merging account identities are consequential transitions with
   exact review and receipts. Equal email strings never merge identities;
@@ -1029,7 +1046,7 @@ preserves consequential authority.
   a synchronization provider or prove device-bound custody; either claim
   requires additional admitted evidence, and policy must not guess it.
 - Recovery may deliberately restore a lower security level. Standing high-risk
-  grants remain revoked or quarantined until the user or organization
+  grants are then quarantined until the user or organization
   re-establishes the required factors and explicitly reauthorizes them.
 
 A passkey is an `AuthFactor`, not a presentation surface. A policy may require an
