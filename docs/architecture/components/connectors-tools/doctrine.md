@@ -544,7 +544,8 @@ High-risk commerce tools should be split:
 
 ```text
 cart/search/draft     = medium risk
-submit/purchase/order = high risk, human approval required
+submit/purchase/order = high risk, rule-gated: a signed standing rule that meets
+                        the commerce floor, else an exact human approval
 ```
 
 Generic example:
@@ -556,8 +557,22 @@ commerce.create_cart_draft:
 
 commerce.submit_order:
   risk_class: commerce   # order placement stage
-  approval_required: true
+  approval_required: unless_covered_by_standing_rule   # else exact approval
 ```
+
+An order needs no per-order approval only when a signed standing rule covers
+it, and a standing rule for orders is admitted only if it meets the commerce
+floor: keyed counters (per supplier, per account and per period); commitment
+budgets that reserve an order's full obligation when it is issued; and a
+supplier drawn from a governed supplier set, whose membership is written only
+by named transitions with evidence and never by the agent that places the
+order. The rule's destination and budget bind as a standing envelope's do
+([`wallet.network` doctrine](../wallet-network/doctrine.md) § *Exact-Action
+Evidence Separation*), and the order's receipt says the rule, not the
+individual order, was reviewed. An order outside every such rule needs an
+exact human approval of its payload, counterparty and amount, and a tenant may
+keep exact approval for every order. A change of payee or payment destination
+is never covered by a standing rule.
 
 ## Local Creative Connectors
 
