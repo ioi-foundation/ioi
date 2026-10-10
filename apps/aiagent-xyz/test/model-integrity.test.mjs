@@ -90,6 +90,38 @@ test('(d) the build gate refuses a missing, unreadable or mismatching catalog an
   await assert.rejects(() => checkModelIntegrity(copy), /not self-contained/);
 });
 
+test('(b) development without WebCrypto: a tampered published model is still rejected', async (t) => {
+  const base = await server(t, new Set([robot]));
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true, writable: true });
+  t.after(() => Object.defineProperty(globalThis, 'crypto', descriptor));
+  assert.equal(globalThis.crypto, undefined);
+  await assert.rejects(() => fetchModel(robot, { base, table, development: true }));
+});
+
+test('(d) the build gate refuses a model with an empty external URI', async (t) => {
+  const copy = await mkdtemp(path.join(os.tmpdir(), 'avatar-integrity-uri-'));
+  t.after(() => rm(copy, { recursive: true, force: true }));
+  await cp(path.join(appRoot, 'public/models/avatars'), path.join(copy, 'public/models/avatars'), { recursive: true, filter: (source) => !source.includes('/portraits') });
+  const catalogPath = path.join(copy, 'public/models/avatars/catalog-v1.json');
+  const edited = JSON.parse(await readFile(catalogPath, 'utf8'));
+  const level = edited.bodies[0].levels[0]; const file = path.join(copy, 'public', level.asset);
+  const bytes = await readFile(file); const length = bytes.readUInt32LE(12);
+  const document = JSON.parse(bytes.subarray(20, 20 + length).toString()); document.images = [...(document.images || []), { uri: '' }];
+  let json = Buffer.from(JSON.stringify(document)); json = Buffer.concat([json, Buffer.alloc((4 - (json.length % 4)) % 4, 0x20)]);
+  const rebuilt = Buffer.concat([bytes.subarray(0, 12), Buffer.from(new Uint32Array([json.length, 0x4e4f534a]).buffer), json, bytes.subarray(20 + length)]);
+  rebuilt.writeUInt32LE(rebuilt.length, 8);
+  await writeFile(file, rebuilt);
+  level.bytes = rebuilt.length; level.sha256 = createHash('sha256').update(rebuilt).digest('hex');
+  await writeFile(catalogPath, JSON.stringify(edited));
+  await assert.rejects(() => checkModelIntegrity(copy), /not self-contained/);
+});
+
+test('vite build runs the model integrity gate', async () => {
+  const config = await readFile(path.join(appRoot, 'vite.config.js'), 'utf8');
+  assert.match(config, /name: 'avatar-model-integrity',\s*apply: 'build',\s*async buildStart\(\) \{ await checkModelIntegrity\(appRoot\); \}/);
+});
+
 test('both loaders fetch models only through fetchModel', async () => {
   for (const file of ['asset-cache.js', 'vrm-adapter.js']) {
     const source = await readFile(path.join(appRoot, 'src/product/avatar', file), 'utf8');

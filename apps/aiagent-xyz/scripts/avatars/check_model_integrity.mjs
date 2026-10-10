@@ -17,7 +17,7 @@ export async function checkModelIntegrity(appRoot) {
     if (bytes.length !== level.bytes) throw new Error(`${level.asset} does not match the catalog's byte count.`);
     if (createHash('sha256').update(bytes).digest('hex') !== level.sha256) throw new Error(`${level.asset} does not match the catalog's SHA-256.`);
     const document = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString());
-    if ([...(document.buffers || []), ...(document.images || [])].some((item) => item.uri)) throw new Error(`${level.asset} is not self-contained.`);
+    if ([...(document.buffers || []), ...(document.images || [])].some((item) => Object.hasOwn(item, 'uri'))) throw new Error(`${level.asset} is not self-contained.`);
   }
   return levels.length;
 }
