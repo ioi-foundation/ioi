@@ -328,15 +328,23 @@ async function run() {
       B1.state === "denied" && B1.decision?.decision === "deny" && B1.decision?.decided_by === me.principal_ref && B1.decision?.reason === "not this effect" && B1.grant_ref === null
         && /Rejected and closed/u.test(rejected) && reread.includes(`Decided: deny by ${MY_NAME}`) && reread.includes("— not this effect"),
       `daemon ${B1.state} ${JSON.stringify(B1.decision)?.slice(0, 160)} · page ${/Rejected and closed/u.test(rejected) ? "Rejected and closed" : "NOT rejected"} · ${after(reread, "Decided:", 80)}`);
-    // Approve on a governance request: the plane's own transition, the reviewer named by the daemon
+    // Approve on a governance request. The operator created g1 and a second principal (Mo) exists, so the operator's own
+    // Approve is refused by the daemon (segregation of duties: a reviewer is not a requester) and changes nothing; Mo's
+    // approve is the plane's own transition, the reviewer named by the daemon from Mo's session
     await inboxAll();
     const g1Page = await openRequest(TITLE.g1);
     await pg.getByRole("button", { name: "Approve", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    const approved = await settle(/Completed/u, 25);
+    await pg.waitForTimeout(3000);
+    const G1self = (await d("GET", `/v1/hypervisor/governance/approval-requests/${g1.id}`)).j.approval_request || {};
+    const selfDirect = await d("PATCH", `/v1/hypervisor/governance/approval-requests/${g1.id}`, { transition: "approve" });
+    ok("the operator's Approve on its OWN governance request is refused while a second principal exists (governance_self_approval_refused): the request stays pending with no receipt",
+      !!g1Page.href && G1self.status === "pending" && (G1self.receipt_refs || []).length === 0 && selfDirect.status === 403 && selfDirect.j?.error?.code === "governance_self_approval_refused",
+      `daemon ${G1self.status} · ${(G1self.receipt_refs || []).length} receipt · direct ${selfDirect.status}/${selfDirect.j?.error?.code}`);
+    const byMo = await d("PATCH", `/v1/hypervisor/governance/approval-requests/${g1.id}`, { transition: "approve" }, `ioi_session=${member.session_token}`);
     const G1 = (await d("GET", `/v1/hypervisor/governance/approval-requests/${g1.id}`)).j.approval_request || {};
-    ok("Approve on a governance request is the governance plane's own transition: approved, the operator named reviewer by the daemon from the session, one receipt — and the page reads Completed",
-      !!g1Page.href && G1.status === "approved" && G1.reviewer_ref === me.principal_ref && (G1.receipt_refs || []).length === 1 && /Completed/u.test(approved) && /Request has been completed/u.test(approved),
-      `daemon ${G1.status} by ${G1.reviewer_ref} · ${(G1.receipt_refs || []).length} receipt · page ${/Completed/u.test(approved) ? "Completed" : "NOT completed"}`);
+    ok("Approve by the second principal is the governance plane's own transition: approved, Mo named reviewer by the daemon from Mo's session, one receipt, not self-approved",
+      byMo.status === 200 && G1.status === "approved" && G1.reviewer_ref === g4.created_by_principal_ref && (G1.receipt_refs || []).length === 1 && G1.self_approved !== true,
+      `daemon ${G1.status} by ${G1.reviewer_ref} · ${(G1.receipt_refs || []).length} receipt`);
 
     // ---- a tool call's decisions: refused by name (they take a wallet grant for the exact lease) --------------------------
     refusals.length = 0;

@@ -685,8 +685,8 @@ pub(crate) async fn handle_approval_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
-    // The creator is who may later delete it (a reviewer is not a requester, so transitions stay
-    // open to any signed-in principal); stamped by the daemon, never read from the body.
+    // The creator is who may later delete it, and who may NOT approve it (a reviewer is not a
+    // requester: `self_approval_refusal`); stamped by the daemon, never read from the body.
     record["created_by_principal_ref"] = json!(identity.principal_ref);
     if persist_record(&st.data_dir, KIND_APPROVAL, &id, &record).is_err() {
         return governance_persist_failed("approval");
@@ -838,6 +838,108 @@ fn prepare_approval_patch_identity(
     resolve_governance_reviewer(data_dir, headers).map(Some)
 }
 
+/// SEGREGATION OF DUTIES, ITS CERTAIN HALF: the principal that created an approval request may
+/// not approve it, because a reviewer is not a requester. Refused as a real 403 with a stable
+/// code. It runs after the record is read (the creator is a fact of the record), and only for a
+/// caller the identity gate has already authenticated, so it opens no anonymous oracle.
+///
+/// Three cases stay open, each for a stated reason:
+///   - reject and revoke: withdrawing one's own ask, or pulling back an approval, only narrows;
+///   - a SOLO deployment (no other principal present, per `other_principals`): the two duties
+///     cannot be separated there, and refusing would strand every request it files. The solo test
+///     is evaluated only when the creator is the approver, so an ordinary approve reads nothing
+///     more;
+///   - a record from before the creator stamp: there is no creator to compare.
+///
+/// Segregation over the request's wider authority lineage (its grantors, delegations and
+/// commissioning chain) and over declared duty pairs is NOT decided here.
+fn self_approval_refusal(
+    record: &Value,
+    transition: &str,
+    reviewer_ref: &str,
+    another_principal_present: impl FnOnce() -> bool,
+) -> Result<(), GovernanceRefusal> {
+    if transition != "approve" {
+        return Ok(());
+    }
+    let Some(creator) = record
+        .get("created_by_principal_ref")
+        .and_then(Value::as_str)
+    else {
+        return Ok(());
+    };
+    if creator != reviewer_ref || !another_principal_present() {
+        return Ok(());
+    }
+    Err((
+        StatusCode::FORBIDDEN,
+        "governance_self_approval_refused".to_string(),
+        "the principal that created this approval request may not approve it; another \
+         principal decides it (its creator may still reject or revoke it)"
+            .to_string(),
+    ))
+}
+
+/// The principals other than the approver, as the solo test counts them.
+struct OtherPrincipals {
+    /// Could decide the request: active, or inactive but changed since the request was filed.
+    present: usize,
+    /// Inactive since before the request was filed. A self-approval records this count.
+    inactive: usize,
+}
+
+/// The solo test, read from the same principal records the identity plane writes. An ACTIVE
+/// principal other than the approver is present. So is an inactive one whose record changed at
+/// or after the request was filed: every path that deactivates a principal stamps `updated_at`,
+/// and the record keeps no separate deactivation time, so this is how a principal deactivated
+/// after the request still counts. Without it, a creator could deactivate the only other
+/// principal, approve their own request and reactivate them. The proxy errs toward refusing (a
+/// later edit of an already-inactive principal also counts), and a missing or unreadable time
+/// on either side counts as present. A principal deactivated BEFORE the request was filed is
+/// not present; the self-approval records how many of those there were
+/// (`record_inactive_others`), so that ordering stays visible on the record and its receipt.
+fn other_principals(
+    data_dir: &str,
+    principal_ref: &str,
+    request_created_at: Option<&str>,
+) -> OtherPrincipals {
+    use time::format_description::well_known::Rfc3339;
+    let parse =
+        |value: Option<&str>| value.and_then(|v| time::OffsetDateTime::parse(v, &Rfc3339).ok());
+    let filed = parse(request_created_at);
+    let caller_id = principal_ref.strip_prefix("user://");
+    let mut others = OtherPrincipals {
+        present: 0,
+        inactive: 0,
+    };
+    for principal in read_record_dir(data_dir, "principals") {
+        let id = principal.get("principal_id").and_then(Value::as_str);
+        if id.is_none() || id == caller_id {
+            continue;
+        }
+        let active = principal.get("status").and_then(Value::as_str) == Some("active");
+        let changed = parse(principal.get("updated_at").and_then(Value::as_str));
+        let changed_since_filed = match (filed, changed) {
+            (Some(filed), Some(changed)) => changed >= filed,
+            _ => true,
+        };
+        if active || changed_since_filed {
+            others.present += 1;
+        } else {
+            others.inactive += 1;
+        }
+    }
+    others
+}
+
+/// A self-approval passed the solo test: record, on the approved record and on its receipt, how
+/// many other principals existed but had been inactive since before the request was filed. Zero
+/// is recorded too, since an absent count would claim nothing.
+fn record_inactive_others(record: &mut Value, receipt: &mut Value, inactive: usize) {
+    record["other_principals_inactive"] = json!(inactive);
+    receipt["other_principals_inactive"] = json!(inactive);
+}
+
 /// Apply an approval transition to `prev`, producing (updated record, transition receipt).
 /// PURE (no I/O): validation happens BEFORE any mutation and a rejected transition returns Err
 /// touching nothing. Legacy records without revision/history/receipt_refs migrate lazily here
@@ -864,7 +966,11 @@ fn apply_approval_transition(
     let prev_revision = prev.get("revision").and_then(Value::as_u64).unwrap_or(1);
     let revision = prev_revision + 1;
     let receipt_ref = format!("agentgres://governance-approval-transition-receipt/{receipt_id}");
-    let receipt = json!({
+    // Segregation's one open case (`self_approval_refusal`): a solo deployment's creator approves
+    // their own request. It is recorded as self-approved on the record and its receipt, never hidden.
+    let self_approved = transition == "approve"
+        && prev.get("created_by_principal_ref").and_then(Value::as_str) == Some(reviewer_ref);
+    let mut receipt = json!({
         "schema_version": "ioi.hypervisor.governance.approval-transition-receipt.v1",
         "object": "ioi.hypervisor.governance.approval_transition_receipt",
         "receipt_id": receipt_id,
@@ -880,6 +986,9 @@ fn apply_approval_transition(
         "outcome": "ok",
         "at": now,
     });
+    if self_approved {
+        receipt["self_approved"] = json!(true);
+    }
     let mut a = prev.clone();
     a["status"] = json!(next);
     a["decided_at"] = json!(now);
@@ -887,6 +996,9 @@ fn apply_approval_transition(
     // `if let Some(..)` left `reviewer_ref` null whenever the caller omitted it, so the record
     // and its receipt disagreed about whether anyone was accountable for the decision.
     a["reviewer_ref"] = json!(reviewer_ref);
+    if self_approved {
+        a["self_approved"] = json!(true);
+    }
     a["revision"] = json!(revision);
     let mut hist = a
         .get("history")
@@ -974,9 +1086,32 @@ pub(crate) async fn handle_approval_patch(
     // silently degrading a transition into an unreceipted metadata patch.
     if let Some(reviewer_ref) = authorized_reviewer {
         let t = requested_transition(&body).unwrap_or_default();
+        // The solo test runs only when the creator is the approver; what it found is kept for the
+        // record of a self-approval.
+        let mut others = None;
+        if let Err(r) = self_approval_refusal(&a, t, &reviewer_ref, || {
+            let found = other_principals(
+                &st.data_dir,
+                &reviewer_ref,
+                a.get("created_at").and_then(Value::as_str),
+            );
+            let present = found.present > 0;
+            others = Some(found);
+            present
+        }) {
+            return refused(r);
+        }
         let now = iso_now();
         let receipt_id = format!("atr_{:x}", nanos());
-        return match apply_approval_transition(&a, t, &reviewer_ref, &now, &receipt_id) {
+        let transition = apply_approval_transition(&a, t, &reviewer_ref, &now, &receipt_id).map(
+            |(mut updated, mut receipt)| {
+                if let Some(found) = &others {
+                    record_inactive_others(&mut updated, &mut receipt, found.inactive);
+                }
+                (updated, receipt)
+            },
+        );
+        return match transition {
             Ok((updated, receipt)) => match finalize_approval_transition(
                 &st.data_dir,
                 &id,
@@ -2608,6 +2743,142 @@ mod governance_tests {
             (status, reply["ok"].as_bool()),
             (StatusCode::OK, Some(true))
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_creator_may_not_approve_their_own_request_unless_they_are_alone() {
+        let mut stamped = legacy_pending();
+        stamped["created_by_principal_ref"] = json!(SERVER_PRINCIPAL);
+        // Another principal exists: the creator's approve is refused, typed, as a 403.
+        let (status, code, message) =
+            self_approval_refusal(&stamped, "approve", SERVER_PRINCIPAL, || true).unwrap_err();
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(code, "governance_self_approval_refused");
+        assert!(
+            message.contains("may not approve"),
+            "the refusal says why: {message}"
+        );
+        // Anyone else approves it.
+        assert!(
+            self_approval_refusal(&stamped, "approve", "user://principal-other", || true).is_ok()
+        );
+        // Rejecting or revoking one's own request only narrows, so its creator may.
+        for narrowing in ["reject", "revoke"] {
+            assert!(
+                self_approval_refusal(&stamped, narrowing, SERVER_PRINCIPAL, || true).is_ok(),
+                "{narrowing} stays open to the creator"
+            );
+        }
+        // A solo deployment cannot separate the two duties: its only principal approves.
+        assert!(self_approval_refusal(&stamped, "approve", SERVER_PRINCIPAL, || false).is_ok());
+        // A record from before the creator stamp has no creator to compare.
+        assert!(
+            self_approval_refusal(&legacy_pending(), "approve", SERVER_PRINCIPAL, || true).is_ok()
+        );
+        // The solo test is not even read when the approver is not the creator.
+        assert!(
+            self_approval_refusal(&stamped, "approve", "user://principal-other", || {
+                panic!("the solo test ran for an approver who is not the creator")
+            })
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn the_solo_test_counts_only_other_active_principals() {
+        let dir = std::env::temp_dir().join(format!("ioi-gov-solo-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_str().unwrap();
+        // The request was filed at noon; every principal below last changed before that.
+        let filed = Some("2026-09-30T12:00:00Z");
+        let before = "2026-09-01T00:00:00Z";
+        let principal = |id: &str, status: &str| json!({ "principal_id": id, "status": status, "updated_at": before });
+        let solo = |who: &str| other_principals(data_dir, who, filed).present == 0;
+        assert!(solo("user://alice"), "no principals: solo");
+        persist_record(
+            data_dir,
+            "principals",
+            "alice",
+            &principal("alice", "active"),
+        )
+        .unwrap();
+        assert!(solo("user://alice"), "only the caller: solo");
+        persist_record(
+            data_dir,
+            "principals",
+            "bob",
+            &principal("bob", "deactivated"),
+        )
+        .unwrap();
+        let found = other_principals(data_dir, "user://alice", filed);
+        assert_eq!(
+            (found.present, found.inactive),
+            (0, 1),
+            "inactive since before the request: not present, but counted"
+        );
+        persist_record(
+            data_dir,
+            "principals",
+            "carol",
+            &principal("carol", "active"),
+        )
+        .unwrap();
+        assert!(!solo("user://alice"));
+        assert!(!solo("user://carol"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_principal_deactivated_after_the_request_was_filed_still_counts() {
+        // The escalation this closes: the creator deactivates the only other principal, approves
+        // their own request as if alone, and reactivates them.
+        let dir = std::env::temp_dir().join(format!("ioi-gov-solo-gap-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_str().unwrap();
+        let filed = Some("2026-09-30T12:00:00Z");
+        let bob = |updated_at: Value| json!({ "principal_id": "bob", "status": "deactivated", "updated_at": updated_at });
+        let present =
+            |filed: Option<&str>| other_principals(data_dir, "user://alice", filed).present;
+        // Deactivated half a second after filing. Compared as times, not strings: as strings,
+        // "…12:00:00.5Z" sorts before "…12:00:00Z" and the deactivation would look older.
+        persist_record(
+            data_dir,
+            "principals",
+            "bob",
+            &bob(json!("2026-09-30T12:00:00.5Z")),
+        )
+        .unwrap();
+        assert_eq!(
+            present(filed),
+            1,
+            "deactivated after the request was filed: present"
+        );
+        // A missing time on either side counts as present.
+        persist_record(data_dir, "principals", "bob", &bob(Value::Null)).unwrap();
+        assert_eq!(present(filed), 1, "no change time: present");
+        persist_record(
+            data_dir,
+            "principals",
+            "bob",
+            &bob(json!("2026-09-01T00:00:00Z")),
+        )
+        .unwrap();
+        assert_eq!(present(None), 1, "no filing time: present");
+        // Deactivated before the request was filed: solo, and the self-approval records the count
+        // on the record and on its receipt.
+        let found = other_principals(data_dir, "user://alice", filed);
+        assert_eq!((found.present, found.inactive), (0, 1));
+        let mut stamped = legacy_pending();
+        stamped["created_by_principal_ref"] = json!(SERVER_PRINCIPAL);
+        let (mut record, mut receipt) =
+            apply_approval_transition(&stamped, "approve", SERVER_PRINCIPAL, "t", "atr_solo")
+                .unwrap();
+        assert_eq!(record["self_approved"], json!(true));
+        assert_eq!(receipt["self_approved"], json!(true));
+        record_inactive_others(&mut record, &mut receipt, found.inactive);
+        assert_eq!(record["other_principals_inactive"], json!(1));
+        assert_eq!(receipt["other_principals_inactive"], json!(1));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

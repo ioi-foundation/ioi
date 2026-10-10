@@ -911,10 +911,13 @@ async function runLadder(ctx) {
   });
   const approvalRef = approvalCreate.j?.approval_request?.ref ?? "";
   const approvalId = approvalRef.replace("approval-request://", "");
-  await req("PATCH", `/v1/hypervisor/governance/approval-requests/${approvalId}`, {
-    transition: "approve",
-    reason: "verifier fixture",
-  });
+  // Segregation of duties: A created the request and B exists, so B decides it (A's own approve is refused).
+  await req(
+    "PATCH",
+    `/v1/hypervisor/governance/approval-requests/${approvalId}`,
+    { transition: "approve", reason: "verifier fixture" },
+    { as: "B" },
+  );
   const releaseCreate = await req("POST", "/v1/hypervisor/governance/release-controls", {
     release_target_ref: appRef,
     rollout_mode: "full",

@@ -2696,9 +2696,22 @@ field is validated or any record is read. Create stamps `created_by_principal_re
 Delete answers only to that creator (403 `governance_creator_mismatch`); a record
 from before the stamp answers any signed-in principal. Transitions (approve,
 reject, revoke, open, close, trip, re-arm) are open to any signed-in principal,
-because a reviewer is not a requester. The approval transition attributes its
-reviewer from the session, never from the body. Kill-switch enforcement is an
-owner-scoped write: it requires `owner_ref` and `idempotency_key`.
+with one exception, because a reviewer is not a requester: the principal that
+created an approval request may not approve it (403
+`governance_self_approval_refused`). Rejecting or revoking it stays open to its
+creator, since both only narrow. A deployment with no other principal present
+cannot separate the two duties and keeps a solo exemption. Another principal is
+present while active, and also while inactive if its record changed after the
+request was filed, so deactivating the only other principal doesn't open the
+exemption. A solo self-approval is recorded on the request and on its transition
+receipt: `self_approved: true`, and `other_principals_inactive`, the number of
+other principals inactive since before the request was filed. A record from
+before the stamp has no creator to compare. Segregation over a request's
+wider authority lineage (its grantors, delegations and commissioning chain) and
+over declared duty pairs is not enforced on this route yet. The approval
+transition attributes its reviewer from the session, never from the body.
+Kill-switch enforcement is an owner-scoped write: it requires `owner_ref` and
+`idempotency_key`.
 
 Approval request shape:
 
