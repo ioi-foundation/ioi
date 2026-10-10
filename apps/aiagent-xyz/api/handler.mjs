@@ -75,6 +75,12 @@ export function createApiHandler(service, { developmentAuthority = false, sessio
       if (request.method === 'GET' && pathname === '/v1/worker-templates') return json(response, 200, { items: await service.templates() }), true;
       if (request.method === 'GET' && pathname === '/v1/worker-package-drafts') return json(response, 200, { items: await service.listDrafts(context) }), true;
       if (request.method === 'GET' && pathname === '/v1/creator/supply') return json(response, 200, await service.creatorState(context)), true;
+      if (pathname === '/v1/profile-appearance') {
+        if (request.method === 'GET') return json(response, 200, await service.getProfileAppearance(
+          { kind: url.searchParams.get('target_kind'), ref: url.searchParams.get('target_ref') }, context)), true;
+        if (request.method === 'PUT') return json(response, 200, await service.saveProfileAppearance(body, context)), true;
+      }
+      if (request.method === 'POST' && pathname === '/v1/profile-appearance/publish') return json(response, 200, await service.publishProfileAppearance(body, context)), true;
       if (request.method === 'POST' && pathname === '/v1/worker-package-drafts') return json(response, 201, await service.createDraft(body, context)), true;
       if ((params = match(pathname, '/v1/worker-package-drafts/:draftRef'))) {
         if (request.method === 'PATCH') return json(response, 200, await service.updateDraft(params.draftRef, body, context)), true;

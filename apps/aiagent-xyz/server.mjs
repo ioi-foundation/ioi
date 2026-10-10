@@ -62,7 +62,11 @@ const serveProduction = async (request, response) => {
     // This directive permits WORKERS from this origin and from blob URLs; it does not permit a
     // script from anywhere new, so an injected remote script still cannot execute and therefore
     // still cannot mint the blob a worker would be started from.
-    'content-security-policy': "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    // GLTFLoader exposes embedded GLB/VRM image buffers as local Blob URLs.
+    // ImageBitmapLoader fetches those blobs; its image-element fallback uses
+    // img-src. Both paths need blob:, while script and network origins stay
+    // restricted to this origin.
+    'content-security-policy': "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
     'referrer-policy': 'no-referrer',
     'x-content-type-options': 'nosniff',
   });

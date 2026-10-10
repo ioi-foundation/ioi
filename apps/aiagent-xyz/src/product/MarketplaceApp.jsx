@@ -1,6 +1,8 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, productSession } from './api';
+import AvatarPortrait from './avatar/AvatarPortrait';
+import { avatarEditorPath } from '../../shared/avatar-catalog.mjs';
 import {
   Button, Card, Chip, DefList, Drawer, Empty, ErrorNotice, Field, Gap, Handle, ModeCard, Pill, RailSection,
   DisclosureNote, Eyebrow, LoadFailure, Panel, InertPanel, ReadState, Unreadable, Requirement, SearchInput, SectionHead, Skeleton, Spine, State, StatRow, Stepper, SubHeading,
@@ -14,6 +16,8 @@ import {
 // three.js and the 2.4MB figure are the lander's cost alone — no other route
 // pays for them, and the lander itself pays after its own facts render.
 const CyborgHero = lazy(() => import('./CyborgHero.jsx'));
+const AvatarStudio = lazy(() => import('./avatar/AvatarStudio.jsx'));
+const AvatarProfileHeader = lazy(() => import('./avatar/AvatarProfileHeader.jsx'));
 
 function useLoad(loader, deps = []) {
   const [state, setState] = useState({ loading: true, value: null, error: null });
@@ -608,6 +612,7 @@ function WorkerCard({ worker, selected }) {
       className={cx('group h-full', selected && 'ring-2 ring-blue-600 ring-offset-2')}
     >
       <div className="relative h-28 shrink-0" style={identityStyle(worker.composition_root)}>
+        <AvatarPortrait avatar={worker.avatar} name={worker.name} className="absolute bottom-0 left-1/2 h-28 w-28 -translate-x-1/2 object-cover" />
         <span className="absolute left-3 top-3 rounded bg-black/35 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
           {worker.license}
         </span>
@@ -1028,6 +1033,7 @@ const RUN_MODES = [
 function WorkerDetail() {
   const { workerId } = useParams();
   const worker = useLoad(() => api(`/v1/marketplace/workers/${workerId}`), [workerId]);
+  const session = useLoad(productSession, []);
 
   if (worker.loading) return <main className="mx-auto max-w-[1536px] px-4 py-16 text-sm text-slate-500">Loading listing…</main>;
   if (worker.error || !worker.value) {
@@ -1059,7 +1065,7 @@ function WorkerDetail() {
   const reachable = modes.filter((mode) => mode.action);
 
   return (
-    <main className="mx-auto max-w-[1536px] px-4 py-10">
+    <main className="mx-auto max-w-[1536px] px-4 py-4 md:py-10">
       <Link className="inline-flex min-h-11 items-center py-2 text-sm font-medium text-blue-700 hover:underline" to="/agents">← Explore</Link>
 
       {/* Three grid children, not two, so source order and column layout can
@@ -1074,38 +1080,12 @@ function WorkerDetail() {
           is the only evidence a buyer has, and it was arriving after the
           decision. The explicit rows and columns reproduce the wide layout
           exactly — a pixel diff of the body at 1600px is empty. */}
-      <div className="mt-5 grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-3 grid gap-x-10 gap-y-8 md:mt-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-          {/* The identity band was 128px of empty gradient at the top of the
-              page where a worker is actually chosen. On a card the same band
-              carries the licence, the handle and the benchmark badge; here it
-              carried nothing, while the handle and the licence were repeated
-              below it as chips and again in the aside. It becomes the hero it
-              was standing in for. The colour is still derived from the
-              composition root and still encodes nothing else. */}
-          <div className="relative overflow-hidden rounded-xl px-6 py-7 sm:px-8 sm:py-9"
-               style={identityStyle(item?.composition_root)}>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded bg-black/40 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
-                {item?.license}
-              </span>
-              <span
-                title={`Derived shorthand. Composition root ${item?.composition_root}`}
-                className="rounded bg-black/40 px-2 py-1 font-mono text-[11px] font-bold text-white backdrop-blur-sm"
-              >
-                {workerHandle(item?.name, item?.composition_root)}
-              </span>
-            </div>
-            {/* A display measure, not the container's width and not 20ch.
-                20ch broke a 26-character name onto two lines inside an 1104px
-                bed and made the hero's height a function of name length; no
-                clamp at all leaves a 55-character name running ~900px of 36px
-                type, about twice a readable measure, and it wraps anyway at the
-                full width with a worse rag. 32ch keeps every name in this
-                catalogue on one line and still protects a long one. */}
-            <h1 className="mt-4 max-w-[32ch] text-4xl font-black tracking-tight text-white">{item?.name}</h1>
-          </div>
-
+          <Suspense fallback={<div className="flex min-h-80 items-center gap-8 rounded-xl bg-amber-50 p-8"><AvatarPortrait avatar={item.avatar} name={item.name} className="h-36 w-36 rounded-xl" /><h1 className="text-3xl font-bold">{item.name}</h1></div>}>
+            <AvatarProfileHeader worker={item} handle={workerHandle(item.name, item.composition_root)} />
+          </Suspense>
+          {session.value?.principal_ref === item.seller_ref && session.value?.tenant_ref === item.tenant_ref && <Link className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-blue-700 hover:underline" to={avatarEditorPath('worker_id', item.worker_id)}>Edit profile appearance →</Link>}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {/* Two separate postures with two separate vocabularies; showing the
                 word the owner returned, never a remapped one. */}
@@ -3158,6 +3138,7 @@ function Builder() {
                       <State value={state} />
                     </div>
                     <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-600">{draft.description}</p>
+                    <Link className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-blue-700 hover:underline" to={avatarEditorPath('draft_ref', draft.draft_ref)}>Edit appearance →</Link>
                   </div>
                   {action && (
                     <Button disabled={!!busy} onClick={() => act(draft.draft_ref, action[1])}>
@@ -3348,6 +3329,7 @@ function MyWorkers() {
             const promotion = promotions.find((entry) => entry.registration_ref === item.registration_ref);
             return (
               <Card key={item.registration_ref} className="h-full p-5 hover:shadow-none">
+                <div className="mb-4 flex items-center gap-4"><AvatarPortrait avatar={item.avatar} name={item.name} className="h-16 w-16 rounded-lg object-cover" /><Link className="inline-flex min-h-11 items-center text-sm font-medium text-blue-700 hover:underline" to={avatarEditorPath('registration_ref', item.registration_ref)}>Edit appearance →</Link></div>
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="min-w-0 truncate font-bold text-slate-900" title={item.name}>{item.name}</h2>
                   <div className="flex shrink-0 gap-1.5">
@@ -3417,6 +3399,7 @@ function MyWorkers() {
                         <Link to={`/agents/${listing.worker_id}`} className="inline-flex min-h-11 items-center py-2 text-sm font-medium text-blue-700 hover:underline">
                           View public listing →
                         </Link>
+                        <Link to={avatarEditorPath('worker_id', listing.worker_id)} className="inline-flex min-h-11 items-center py-2 text-sm font-medium text-blue-700 hover:underline">Edit public appearance →</Link>
                       </>
                     ) : (
                       <>
@@ -4578,6 +4561,7 @@ export default function MarketplaceApp() {
       <Routes>
         <Route path="/" element={<CategoryHome />} />
         <Route path="/agents" element={<Workers />} />
+        <Route path="/avatar-studio" element={<Suspense fallback={<p className="p-8 text-sm text-slate-600">Loading avatar studio…</p>}><AvatarStudio /></Suspense>} />
         {CATEGORIES.map(([route]) => (
           <Route key={route} path={route} element={<CategoryPage slug={route} />} />
         ))}

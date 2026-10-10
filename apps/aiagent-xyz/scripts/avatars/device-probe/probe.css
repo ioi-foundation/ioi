@@ -1,0 +1,16 @@
+* { box-sizing: border-box; }
+html { overflow-y: scroll; }
+body { margin: 0; color: #173b3a; background: #f4f6f2; font: 15px system-ui, sans-serif; }
+main { max-width: 920px; margin: auto; }
+header { padding: 18px 20px 12px; }
+header p { margin: 5px 0; font-size: 13px; }
+header p:first-child { text-transform: uppercase; letter-spacing: .1em; font-size: 10px; }
+h1 { margin: 5px 0; font-size: 28px; letter-spacing: -.04em; }
+label { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 12px; }
+input { min-width: 0; flex: 1; max-width: 290px; padding: 9px; border: 1px solid #c6d1cb; border-radius: 4px; font: inherit; background: white; }
+.avatar-stage { height: min(57svh, 580px); min-height: 300px; }
+nav { display: flex; gap: 10px; padding: 18px 20px; }
+button { font: inherit; border: 1px solid #71948b; border-radius: 5px; padding: 11px 16px; background: #163f3c; color: white; }
+button:disabled { opacity: .6; }
+table { border-collapse: collapse; width: calc(100% - 40px); margin: 0 20px 24px; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 6px; text-align: left; border-bottom: 1px solid #d1dcd6; }

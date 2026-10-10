@@ -1,0 +1,764 @@
+{
+  "schema": "aiagent.avatar-assets.v1",
+  "bodies": [
+    {
+      "id": "robot",
+      "revision": "study-v1",
+      "rig": "humanoid-v1",
+      "format": "gltf2",
+      "fitFamily": "robot-study-v1",
+      "coordinates": {
+        "units": "metres",
+        "up": "+Y",
+        "forward": "+Z",
+        "normalizedHeadPivotHeight": 1.58
+      },
+      "attachments": {
+        "rightGrip": {
+          "semanticParent": "rightHand",
+          "physicalCupSizeIndependentOfProportion": true,
+          "calibration": "baked robot grip bone"
+        }
+      },
+      "capabilities": [
+        "humanoid",
+        "finger-grip",
+        "blink",
+        "expression",
+        "baked-secondary-motion",
+        "entrance",
+        "cup-kick",
+        "settle",
+        "idle"
+      ],
+      "proportions": [
+        {
+          "id": "compact",
+          "label": "Compact",
+          "scale": 0.94
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "scale": 1
+        },
+        {
+          "id": "tall",
+          "label": "Tall",
+          "scale": 1.06
+        }
+      ],
+      "parts": {
+        "face": [
+          {
+            "id": "standard-v1",
+            "label": "Composed"
+          },
+          {
+            "id": "warm-v1",
+            "label": "Bright"
+          }
+        ],
+        "hair": [
+          {
+            "id": "standard-v1",
+            "label": "Bare head"
+          },
+          {
+            "id": "headset-v1",
+            "label": "Headset"
+          }
+        ],
+        "outerwear": [
+          {
+            "id": "standard-v1",
+            "label": "Articulated shell"
+          }
+        ],
+        "hands": [
+          {
+            "id": "standard-v1",
+            "label": "Mechanical grip"
+          }
+        ],
+        "lower_body": [
+          {
+            "id": "standard-v1",
+            "label": "Leg armor"
+          }
+        ],
+        "footwear": [
+          {
+            "id": "standard-v1",
+            "label": "Articulated feet"
+          }
+        ],
+        "prop": [
+          {
+            "id": "standard-v1",
+            "label": "Ivory"
+          },
+          {
+            "id": "charcoal-v1",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      "defaultParts": {
+        "face": "standard-v1",
+        "hair": "standard-v1",
+        "outerwear": "standard-v1",
+        "hands": "standard-v1",
+        "lower_body": "standard-v1",
+        "footwear": "standard-v1",
+        "prop": "standard-v1"
+      },
+      "fitRules": [
+        "Body-specific slot revisions only",
+        "Long coat retains its dress and stocking underlayer",
+        "Cup physical dimensions are independent of height",
+        "Pinstripe suit uses its original fabric"
+      ],
+      "source": "assets/avatars/source/robot-study.blend",
+      "levels": [
+        {
+          "quality": "desktop",
+          "asset": "/models/avatars/robot-study-v1.glb",
+          "bytes": 1010060,
+          "sha256": "6630c439ab73a3654f7a33690157b0dd9d8a6ce8d6f34d4177306498b61d6de7",
+          "baseTriangles": 189536,
+          "materials": [
+            "shell",
+            "mechanism",
+            "eyes",
+            "headset",
+            "sole",
+            "tread",
+            "porcelain"
+          ],
+          "meshes": [
+            "AvatarSurface"
+          ],
+          "animations": [
+            {
+              "name": "cup-kick",
+              "duration": 4
+            },
+            {
+              "name": "entrance",
+              "duration": 2
+            },
+            {
+              "name": "settle",
+              "duration": 1.2
+            },
+            {
+              "name": "idle",
+              "duration": 4
+            }
+          ],
+          "joints": 56
+        },
+        {
+          "quality": "mobile",
+          "asset": "/models/avatars/robot-study-mobile-v1.glb",
+          "bytes": 790424,
+          "sha256": "8653ec787ccab9386d66e8ac9598ff371bec5919ac14e6b9279ccfe637e8f752",
+          "baseTriangles": 101039,
+          "materials": [
+            "shell",
+            "mechanism",
+            "eyes",
+            "headset",
+            "sole",
+            "tread",
+            "porcelain"
+          ],
+          "meshes": [
+            "AvatarSurface"
+          ],
+          "animations": [
+            {
+              "name": "cup-kick",
+              "duration": 4
+            },
+            {
+              "name": "entrance",
+              "duration": 2
+            },
+            {
+              "name": "settle",
+              "duration": 1.2
+            },
+            {
+              "name": "idle",
+              "duration": 4
+            }
+          ],
+          "joints": 56
+        }
+      ]
+    },
+    {
+      "id": "human",
+      "revision": "performance-v1",
+      "rig": "humanoid-v1",
+      "format": "humanoid-glb",
+      "fitFamily": "human-performance-v1",
+      "coordinates": {
+        "units": "metres",
+        "up": "+Y",
+        "forward": "+Z",
+        "normalizedHeadPivotHeight": 1.58
+      },
+      "attachments": {
+        "rightGrip": {
+          "semanticParent": "rightHand",
+          "physicalCupSizeIndependentOfProportion": true,
+          "calibration": {
+            "mouth": [
+              0,
+              -0.04,
+              0.112
+            ],
+            "wrist": [
+              -0.16,
+              -0.007,
+              0.03
+            ],
+            "wristRoll": -1.5707963267948966,
+            "coatAmplitude": 0.45,
+            "coatPanels": 8,
+            "entranceCoatSpread": 0.7,
+            "groundOffset": 0.029,
+            "kickScale": 1.15
+          }
+        }
+      },
+      "capabilities": [
+        "humanoid",
+        "finger-grip",
+        "blink",
+        "expression",
+        "baked-secondary-motion",
+        "entrance",
+        "cup-kick",
+        "settle",
+        "idle"
+      ],
+      "proportions": [
+        {
+          "id": "compact",
+          "label": "Compact",
+          "scale": 0.94
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "scale": 1
+        },
+        {
+          "id": "tall",
+          "label": "Tall",
+          "scale": 1.06
+        }
+      ],
+      "parts": {
+        "face": [
+          {
+            "id": "standard-v1",
+            "label": "Composed"
+          },
+          {
+            "id": "warm-v1",
+            "label": "Warm"
+          }
+        ],
+        "hair": [
+          {
+            "id": "standard-v1",
+            "label": "Short waves"
+          },
+          {
+            "id": "shaved-v1",
+            "label": "Shaved"
+          }
+        ],
+        "outerwear": [
+          {
+            "id": "standard-v1",
+            "label": "Tailored suit"
+          },
+          {
+            "id": "pinstripe-v1",
+            "label": "Pinstripe suit",
+            "palettes": [
+              "original"
+            ]
+          }
+        ],
+        "hands": [
+          {
+            "id": "standard-v1",
+            "label": "Fitted grip"
+          }
+        ],
+        "lower_body": [
+          {
+            "id": "standard-v1",
+            "label": "Tailored trousers"
+          }
+        ],
+        "footwear": [
+          {
+            "id": "standard-v1",
+            "label": "Oxford shoes"
+          }
+        ],
+        "prop": [
+          {
+            "id": "standard-v1",
+            "label": "Ivory"
+          },
+          {
+            "id": "charcoal-v1",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      "defaultParts": {
+        "face": "standard-v1",
+        "hair": "standard-v1",
+        "outerwear": "standard-v1",
+        "hands": "standard-v1",
+        "lower_body": "standard-v1",
+        "footwear": "standard-v1",
+        "prop": "standard-v1"
+      },
+      "fitRules": [
+        "Body-specific slot revisions only",
+        "Long coat retains its dress and stocking underlayer",
+        "Cup physical dimensions are independent of height",
+        "Pinstripe suit uses its original fabric"
+      ],
+      "source": "assets/avatars/source/human-motion.blend",
+      "levels": [
+        {
+          "quality": "desktop",
+          "asset": "/models/avatars/human-performance-v1.glb",
+          "bytes": 13501332,
+          "sha256": "6eb678d0dd8e48aa25c7d1baf5bc175cb25087e776d13ddb25f143c4444784b7",
+          "baseTriangles": 50214,
+          "materials": [
+            "Human.eyebrow001",
+            "Human.eyelashes01",
+            "Human.low-poly",
+            "Human.shoes03",
+            "Human.short02",
+            "Human.teeth_base",
+            "Human.toigo_male_suit_tie_and_jacket",
+            "tie",
+            "jacket",
+            "trousers",
+            "Human.tongue01",
+            "Human.body"
+          ],
+          "meshes": [
+            "Human.eyebrow001_delivery",
+            "Human.eyelashes01_delivery",
+            "Human.low-poly_delivery",
+            "Human.shoes03_delivery",
+            "Human.short02_delivery",
+            "Human.teeth_base_delivery",
+            "Human.toigo_male_suit_tie_and_jacket_delivery",
+            "Human.tongue01_delivery",
+            "Human_delivery"
+          ],
+          "animations": [
+            {
+              "name": "cup-kick",
+              "duration": 4
+            },
+            {
+              "name": "entrance",
+              "duration": 2
+            },
+            {
+              "name": "settle",
+              "duration": 1.2
+            },
+            {
+              "name": "idle",
+              "duration": 4
+            }
+          ],
+          "joints": 61
+        },
+        {
+          "quality": "mobile",
+          "asset": "/models/avatars/human-performance-mobile-v1.glb",
+          "bytes": 12965968,
+          "sha256": "63d295f43f59a3255df773e39e639d24ca31a5214c4f185d5937f2866d94b417",
+          "baseTriangles": 34613,
+          "materials": [
+            "Human.eyebrow001",
+            "Human.eyelashes01",
+            "Human.low-poly",
+            "Human.shoes03",
+            "Human.short02",
+            "Human.teeth_base",
+            "Human.toigo_male_suit_tie_and_jacket",
+            "tie",
+            "jacket",
+            "trousers",
+            "Human.tongue01",
+            "Human.body"
+          ],
+          "meshes": [
+            "Human.eyebrow001_delivery",
+            "Human.eyelashes01_delivery",
+            "Human.low-poly_delivery",
+            "Human.shoes03_delivery",
+            "Human.short02_delivery",
+            "Human.teeth_base_delivery",
+            "Human.toigo_male_suit_tie_and_jacket_delivery",
+            "Human.tongue01_delivery",
+            "Human_delivery"
+          ],
+          "animations": [
+            {
+              "name": "cup-kick",
+              "duration": 4
+            },
+            {
+              "name": "entrance",
+              "duration": 2
+            },
+            {
+              "name": "settle",
+              "duration": 1.2
+            },
+            {
+              "name": "idle",
+              "duration": 4
+            }
+          ],
+          "joints": 61
+        }
+      ]
+    },
+    {
+      "id": "anime",
+      "revision": "performance-v1",
+      "rig": "humanoid-v1",
+      "format": "vrm1",
+      "fitFamily": "anime-performance-v1",
+      "coordinates": {
+        "units": "metres",
+        "up": "+Y",
+        "forward": "+Z",
+        "normalizedHeadPivotHeight": 1.58
+      },
+      "attachments": {
+        "rightGrip": {
+          "semanticParent": "rightHand",
+          "physicalCupSizeIndependentOfProportion": true,
+          "calibration": {
+            "mouth": [
+              0,
+              0.02,
+              0.125
+            ],
+            "wrist": [
+              -0.122,
+              -0.01,
+              0.025
+            ],
+            "coatAmplitude": 1,
+            "coatPanels": 16,
+            "entranceCoatSpread": 1.4,
+            "groundOffset": 0,
+            "kickScale": 1.05
+          }
+        }
+      },
+      "capabilities": [
+        "humanoid",
+        "finger-grip",
+        "blink",
+        "expression",
+        "baked-secondary-motion",
+        "entrance",
+        "cup-kick",
+        "settle",
+        "idle"
+      ],
+      "proportions": [
+        {
+          "id": "compact",
+          "label": "Compact",
+          "scale": 0.94
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "scale": 1
+        },
+        {
+          "id": "tall",
+          "label": "Tall",
+          "scale": 1.06
+        }
+      ],
+      "parts": {
+        "face": [
+          {
+            "id": "standard-v1",
+            "label": "Composed"
+          },
+          {
+            "id": "warm-v1",
+            "label": "Warm"
+          }
+        ],
+        "hair": [
+          {
+            "id": "standard-v1",
+            "label": "Hairband"
+          },
+          {
+            "id": "unadorned-v1",
+            "label": "Loose hair"
+          }
+        ],
+        "outerwear": [
+          {
+            "id": "standard-v1",
+            "label": "Piped coat"
+          },
+          {
+            "id": "clean-v1",
+            "label": "Plain coat"
+          }
+        ],
+        "hands": [
+          {
+            "id": "standard-v1",
+            "label": "Fitted grip"
+          }
+        ],
+        "lower_body": [
+          {
+            "id": "standard-v1",
+            "label": "Dress & stockings"
+          }
+        ],
+        "footwear": [
+          {
+            "id": "standard-v1",
+            "label": "Tall boots"
+          }
+        ],
+        "prop": [
+          {
+            "id": "standard-v1",
+            "label": "Ivory"
+          },
+          {
+            "id": "charcoal-v1",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      "defaultParts": {
+        "face": "standard-v1",
+        "hair": "standard-v1",
+        "outerwear": "standard-v1",
+        "hands": "standard-v1",
+        "lower_body": "standard-v1",
+        "footwear": "standard-v1",
+        "prop": "standard-v1"
+      },
+      "fitRules": [
+        "Body-specific slot revisions only",
+        "Long coat retains its dress and stocking underlayer",
+        "Cup physical dimensions are independent of height",
+        "Pinstripe suit uses its original fabric"
+      ],
+      "source": "assets/avatars/source/anime-motion.blend",
+      "levels": [
+        {
+          "quality": "desktop",
+          "asset": "/models/avatars/anime-performance-baked-v1.vrm",
+          "bytes": 14859948,
+          "sha256": "50e3f5b3c2008f3e94eba83271c4b8c207ab24704957c74db51f49a2386bf724",
+          "baseTriangles": 66465,
+          "materials": [
+            "Body_00_SKIN",
+            "HairBack_00_HAIR",
+            "FaceMouth_00_FACE",
+            "EyeIris_00_EYE",
+            "Face_00_SKIN",
+            "EyeWhite_00_EYE",
+            "FaceEyeline_00_FACE",
+            "FaceBrow_00_FACE",
+            "EyeHighlight_00_EYE",
+            "Hair_00_HAIR",
+            "boots",
+            "sole",
+            "coat",
+            "coat-lining",
+            "coat-piping",
+            "trousers",
+            "dress"
+          ],
+          "meshes": [
+            "Body",
+            "Face",
+            "Hair",
+            "Hairband",
+            "Performance footwear",
+            "Performance outerwear",
+            "Performance stockings",
+            "Pleated underdress"
+          ],
+          "animations": [
+            {
+              "name": "cup-kick",
+              "duration": 4
+            },
+            {
+              "name": "entrance",
+              "duration": 2
+            },
+            {
+              "name": "settle",
+              "duration": 1.2
+            },
+            {
+              "name": "idle",
+              "duration": 4
+            }
+          ],
+          "joints": 199
+        },
+        {
+          "quality": "mobile",
+          "asset": "/models/avatars/anime-performance-baked-mobile-v1.vrm",
+          "bytes": 13944516,
+          "sha256": "ea76d47edd502b7f1c32183e177119e13602e233cba534b4ce23586461b22881",
+          "baseTriangles": 38387,
+          "materials": [
+            "Body_00_SKIN",
+            "HairBack_00_HAIR",
+            "FaceMouth_00_FACE",
+            "EyeIris_00_EYE",
+            "Face_00_SKIN",
+            "EyeWhite_00_EYE",
+            "FaceEyeline_00_FACE",
+            "FaceBrow_00_FACE",
+            "EyeHighlight_00_EYE",
+            "Hair_00_HAIR",
+            "boots",
+            "sole",
+            "coat",
+            "coat-lining",
+            "coat-piping",
+            "trousers",
+            "dress"
+          ],
+          "meshes": [
+            "Body",
+            "Face",
+            "Hair",
+            "Hairband",
+            "Performance footwear",
+            "Performance outerwear",
+            "Performance stockings",
+            "Pleated underdress"
+          ],
+          "animations": [
+            {
+              "name": "cup-kick",
+              "duration": 4
+            },
+            {
+              "name": "entrance",
+              "duration": 2
+            },
+            {
+              "name": "settle",
+              "duration": 1.2
+            },
+            {
+              "name": "idle",
+              "duration": 4
+            }
+          ],
+          "joints": 199
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "assets": [
+      {
+        "file": "assets/avatars/source-models/anime-base-v1.vrm",
+        "title": "VRM1_Constraint_Twist_Sample v1.0.1",
+        "authors": [
+          "pixiv Inc."
+        ],
+        "source": "https://github.com/pixiv/three-vrm/blob/5a3242b66124386c32b085c6693d9059040e72e5/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm",
+        "sha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+        "license": "VRM Public License 1.0 with embedded metadata",
+        "license_url": "https://vrm.dev/licenses/1.0/",
+        "changes": "Base retained for reproducible authoring. Derived performance model adds coat, boots, headband, fitted underlayers, and baked clips; source license metadata is preserved."
+      },
+      {
+        "file": "public/models/avatars/human-performance-v1.glb",
+        "title": "MakeHuman system assets",
+        "source": "https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html",
+        "source_sha256": "b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107",
+        "license": "CC0-1.0",
+        "changes": "Fitted to an authored MakeHuman body; compatible outfit, materials, blend shapes, garment controls, and baked motion."
+      },
+      {
+        "file": "public/models/avatars/human-performance-v1.glb",
+        "title": "Margaret Toigo / MRT suits",
+        "source": "https://static.makehumancommunity.org/assets/assetpacks/suits01.html",
+        "source_sha256": "2b1d8676f3863b188e9eea98c1d8f234543d54c440e791d92b819f8ee1861f19",
+        "license": "CC0-1.0",
+        "changes": "Fitted to an authored MakeHuman body; compatible outfit, materials, blend shapes, garment controls, and baked motion."
+      },
+      {
+        "file": "public/models/avatars/human-performance-v1.glb",
+        "title": "Mika Suominen ARKit face units",
+        "source": "https://static.makehumancommunity.org/assets/assetpacks/faceunits01.html",
+        "source_sha256": "d113107bd7eb59f3af4df6fc0ec29bfcc593f496d0b336aec14f086a80ce7146",
+        "license": "CC0-1.0",
+        "changes": "Fitted to an authored MakeHuman body; compatible outfit, materials, blend shapes, garment controls, and baked motion."
+      }
+    ],
+    "authoring_tools": [
+      {
+        "name": "MPFB 2.0.18",
+        "source": "https://github.com/makehumancommunity/mpfb2",
+        "commit": "d0a32e57a7f915cb2f2b95410e2117648c7bbb7e",
+        "license": "GPL-3.0, assets CC0; add-on code is not bundled in the browser"
+      },
+      {
+        "name": "VRM Add-on for Blender 4.7.2",
+        "source": "https://github.com/saturday06/VRM-Addon-for-Blender/releases/tag/v4.7.2",
+        "license": "MIT OR GPL-3.0-or-later; authoring tool only"
+      }
+    ],
+    "project_sources": [
+      {
+        "file": "public/models/cyborg/cyborg_female_separated.glb",
+        "title": "Existing project cyborg",
+        "sha256": "077d1249a2f2c51abb3869537910091a6c886b4bebfdb99df7803013397d9206",
+        "changes": "Retained shell design; reconstructed articulation, hands, feet and joint cores. Original file remains unchanged."
+      }
+    ]
+  }
+}

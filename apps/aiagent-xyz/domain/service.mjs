@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { appendReceipt, sha256, verifyReceiptChain } from './receipts.mjs';
+import { DomainError } from './errors.mjs';
+import { readAppearance, saveAppearance, publishAppearance, transferAppearance, publicAppearance } from './profile-appearance.mjs';
+export { DomainError } from './errors.mjs';
 
 export const seedState = {
   schema: 'aiagent-marketplace-state/v1',
@@ -24,6 +27,7 @@ export const seedState = {
   promotions: [],
   submissions: [],
   listings: [],
+  profile_appearances: [],
   quotes: [],
   entitlements: [],
   installs: [],
@@ -216,15 +220,6 @@ const instance_composition = (state, instance) => {
   return registration?.composition_root ?? null;
 };
 
-export class DomainError extends Error {
-  constructor(status, code, message, details = undefined) {
-    super(message);
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-}
-
 const required = (value, field) => {
   if (value === undefined || value === null || value === '') throw new DomainError(422, 'invalid_request', `${field} is required`);
   return value;
@@ -281,14 +276,40 @@ export class AiagentService {
     return owned((await this.store.read()).drafts, context);
   }
 
+  async getProfileAppearance(target, context) {
+    return readAppearance(await this.store.read(), target, context);
+  }
+
+  async saveProfileAppearance(body, context) {
+    return this.store.transact((state) => idempotent(state, context, { operation: 'appearance.save', body }, () => {
+      const result = saveAppearance(state, body, context);
+      const receipt = appendReceipt(state, context, 'worker.appearance.saved', result.target.ref,
+        { target_kind: result.target.kind, revision: result.revision, appearance_revision: result.appearance_revision });
+      return { ...result, receipt_ref: receipt.receipt_ref };
+    }));
+  }
+
+  async publishProfileAppearance(body, context) {
+    return this.store.transact((state) => idempotent(state, context, { operation: 'appearance.publish', body }, () => {
+      const result = publishAppearance(state, body, context);
+      const receipt = appendReceipt(state, context, 'worker.appearance.published', result.target.ref,
+        { revision: result.revision, public_revision: result.public_revision });
+      return { ...result, receipt_ref: receipt.receipt_ref };
+    }));
+  }
+
   async creatorState(context) {
     const state = await this.store.read();
+    const withAppearance = (item, kind) => {
+      const { appearance_revision, appearance, portrait_ref } = readAppearance(state, { kind, ref: item[kind] }, context);
+      return { ...item, avatar: { appearance_revision, appearance, portrait_ref } };
+    };
     return {
-      drafts: owned(state.drafts, context),
-      registrations: owned(state.registrations, context),
+      drafts: owned(state.drafts, context).map((item) => withAppearance(item, 'draft_ref')),
+      registrations: owned(state.registrations, context).map((item) => withAppearance(item, 'registration_ref')),
       promotions: owned(state.promotions, context),
       submissions: owned(state.submissions, context),
-      listings: owned(state.listings, context, 'seller_ref'),
+      listings: owned(state.listings, context, 'seller_ref').map((item) => ({ ...item, avatar: publicAppearance(state, item) })),
     };
   }
 
@@ -419,6 +440,8 @@ export class AiagentService {
         goal_space_refs: body.goal_space_refs || [], created_at: now(),
       };
       state.registrations.push(registration);
+      transferAppearance(state, { kind: 'draft_ref', ref: draft.draft_ref },
+        { kind: 'registration_ref', ref: registration.registration_ref }, context);
       const receipt = appendReceipt(state, context, 'worker.registration.created', registration.registration_ref, { release_ref: registration.release_ref, visibility: registration.visibility });
       return { ...registration, receipt_ref: receipt.receipt_ref };
     }));
@@ -500,8 +523,10 @@ export class AiagentService {
       };
       submission.state = 'published';
       state.listings.push(listing);
+      transferAppearance(state, { kind: 'registration_ref', ref: registration.registration_ref },
+        { kind: 'worker_id', ref: listing.worker_id }, context, body.appearance_revision);
       const receipt = appendReceipt(state, context, 'worker.listing.published', `worker://${listing.worker_id}`, { release_ref: listing.release_ref, composition_root: listing.composition_root });
-      return { ...listing, receipt_ref: receipt.receipt_ref };
+      return { ...listing, avatar: publicAppearance(state, listing), receipt_ref: receipt.receipt_ref };
     }));
   }
 
@@ -512,14 +537,14 @@ export class AiagentService {
   async listWorkers() {
     const state = await this.store.read();
     return state.listings.filter((item) => item.state === 'published')
-      .map((listing) => ({ ...listing, disclosure: projectDisclosure(state, listing) }));
+      .map((listing) => ({ ...listing, disclosure: projectDisclosure(state, listing), avatar: publicAppearance(state, listing) }));
   }
 
   async getWorker(workerId) {
     const state = await this.store.read();
     const listing = state.listings.find((item) => item.worker_id === workerId && item.state === 'published');
     if (!listing) throw new DomainError(404, 'not_found', 'Worker listing was not found');
-    return { ...listing, disclosure: projectDisclosure(state, listing) };
+    return { ...listing, disclosure: projectDisclosure(state, listing), avatar: publicAppearance(state, listing) };
   }
 
   async quoteWorker(workerId, body, context) {

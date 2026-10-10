@@ -9,6 +9,7 @@ import { createSessionAuthority } from '../auth/session.mjs';
 import { createOwnerAdapters } from '../domain/adapters.mjs';
 import { AiagentService, seedState } from '../domain/service.mjs';
 import { JsonStore } from '../domain/store.mjs';
+import { DEFAULT_APPEARANCE } from '../shared/avatar-catalog.mjs';
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'aiagent-http-'));
@@ -23,6 +24,33 @@ async function fixture(t) {
 }
 
 const json = async (response) => ({ status: response.status, body: await response.json() });
+
+test('profile appearance mutations use the signed session, same-origin CSRF, and revision checks', async (t) => {
+  const { origin } = await fixture(t);
+  const response = await fetch(`${origin}/v1/session`);
+  const session = await response.json();
+  const cookie = response.headers.get('set-cookie').split(';')[0];
+  const headers = { cookie, origin, 'x-ioi-csrf': session.csrf_token, 'content-type': 'application/json', 'idempotency-key': 'appearance-draft' };
+  const created = await json(await fetch(`${origin}/v1/worker-package-drafts`, { method: 'POST', headers,
+    body: JSON.stringify({ template_ref: 'worker-template://blank/v1', name: 'Avatar worker', description: 'Profile', model_route_ref: 'model-route://one', harness_ref: 'harness://one', runtime_profile_ref: 'runtime-profile://one' }) }));
+  assert.equal(created.status, 201);
+  const target = { kind: 'draft_ref', ref: created.body.draft_ref };
+  const body = JSON.stringify({ target, expected_revision: 0, appearance: DEFAULT_APPEARANCE });
+  const missing = { ...headers, 'idempotency-key': 'no-csrf' }; delete missing['x-ioi-csrf'];
+  assert.equal((await fetch(`${origin}/v1/profile-appearance`, { method: 'PUT', headers: missing, body })).status, 403);
+  assert.equal((await fetch(`${origin}/v1/profile-appearance`, { method: 'PUT', headers: { ...headers, origin: 'https://attacker.invalid' }, body })).status, 403);
+  const saved = await json(await fetch(`${origin}/v1/profile-appearance`, { method: 'PUT', headers: { ...headers, 'idempotency-key': 'appearance-save' }, body }));
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.revision, 1);
+  const query = new URLSearchParams({ target_kind: target.kind, target_ref: target.ref });
+  assert.equal((await fetch(`${origin}/v1/profile-appearance?${query}`)).status, 401);
+  const read = await json(await fetch(`${origin}/v1/profile-appearance?${query}`, { headers: { cookie } }));
+  assert.deepEqual(read.body.appearance, DEFAULT_APPEARANCE);
+  const stale = await json(await fetch(`${origin}/v1/profile-appearance`, { method: 'PUT', headers: { ...headers, 'idempotency-key': 'stale' }, body }));
+  assert.equal(stale.status, 409);
+  assert.equal(stale.body.error.code, 'appearance_revision_conflict');
+  assert.equal((await fetch(`${origin}/v1/profile-appearance/publish`, { method: 'POST', headers: missing, body })).status, 403);
+});
 
 test('HttpOnly product session is required and browser authority headers are rejected', async (t) => {
   const { origin } = await fixture(t);
@@ -86,9 +114,11 @@ test('the static response declares exactly the security directives it means to',
     // starts it from a Blob. Without this it falls back to script-src and the decoder is blocked.
     'worker-src': "'self' blob:",
     'style-src': "'self'",
-    // data: is for the inlined icons the build emits; it is not a script source.
-    'img-src': "'self' data:",
-    'connect-src': "'self'",
+    // data: serves inlined build icons. blob: serves embedded GLB/VRM textures
+    // through either image elements or ImageBitmapLoader's local Blob fetch.
+    // No external network origin or additional script source is permitted.
+    'img-src': "'self' data: blob:",
+    'connect-src': "'self' blob:",
     'object-src': "'none'",
     'base-uri': "'none'",
     'frame-ancestors': "'none'",
