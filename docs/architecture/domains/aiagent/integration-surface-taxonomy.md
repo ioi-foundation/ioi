@@ -64,7 +64,7 @@ This taxonomy owns the default mapping from integration classes to:
 | `local_computer_use` | desktop apps, file systems | local authority and workspace trust |
 | `enterprise_vpc` | customer cloud, private APIs | org policy, audit export, data boundaries |
 | `webhook_api` | typed HTTP/RPC integrations | schema validation and signed receipts |
-| `voice_sms_access` | SMS, voice, phone links | notification/intent only unless step-up |
+| `voice_sms_access` | SMS, voice, phone links | notification/intent only unless step-up, or the conversational voice profile (below) |
 | `robotics_physical` | robot arms, mobile robots | physical-action safety required |
 | `embodied_humanoid` | humanoids, facility assistants | supervision and e-stop required |
 | `vehicles_mobility` | vehicle-adjacent or mobility systems | high-risk physical policy |
@@ -128,6 +128,60 @@ Notification-only channels may receive redacted summaries, delivery artifacts,
 status, and approval deep links. They must not carry secrets, durable authority
 grants, protected plaintext, or high-risk approvals themselves.
 
+## Conversational Voice Profile
+
+A `voice_sms_access` work integration may run a conversational voice agent (one
+that answers or places calls, books, answers billing questions and verifies
+callers) under this profile instead of the notification/intent posture. The
+profile confines what the agent can say and read. It does not make free speech
+safe, and it says so.
+
+- **One call, one cell.** A call is one session in one cell scoped to one
+  counterparty of record. The cell reads no protected data about that subject
+  until the caller is verified against the records, by a deterministic check
+  the executor runs. Verification decides what the cell may read; it confers no
+  authority.
+- **Disclosure first.** The executor plays the disclosure that the caller is
+  talking to an automated agent, and the recording notice, before anything the
+  agent says. Regulated wording (the disclosure, the recording notice, the
+  emergency script) is rendered from pinned templates, never generated. Text
+  channels on the same surface are template-only: the agent supplies slot
+  values.
+- **A closed dialogue.** The call follows a closed intent machine that runs in
+  the executor, not in the model. Its states and transitions are pack content,
+  pinned by the governing policy, and an agent update cannot widen them.
+- **Effects leave the stream.** Utterances are a receipted, hash-linked stream,
+  not decided one by one. Booking, disclosure, payment and transfer are typed
+  effects, decided like any other, and a commitment exists only as a typed
+  effect.
+- **Transfer, and emergencies.** A request outside the intent set is transferred
+  to a staffed role or becomes a callback. An emergency intent runs the pinned
+  emergency script and transfers at once: a deterministic keyword matcher in the
+  executor or the model's advisory flag triggers it, and nothing the agent side
+  controls (the model, an agent update or the advisory monitor) can suppress it.
+  The script is finite and pinned (a template), and its only effect is the
+  transfer, which the governing policy authorizes in advance for the deployment
+  rather than for the agent, so it can never become an open channel.
+- **A monitor that only narrows.** An advisory monitor may transfer a call or
+  cut the agent out of it. It never widens what the call may do, never cuts a
+  running emergency script, and each intervention records the evaluator that
+  made it.
+- **Stops are scoped.** A principal's valid stop takes effect at once, locally,
+  within its scope. A stop scoped to the agent removes the agent, and a running
+  emergency script, which is not the agent's, completes its transfer. A stop
+  that covers the deployment ends the script too: the principal can always stop
+  everything.
+- **Never the principal's own identity.** The agent never proves the
+  principal's identity or speaks the principal's secrets. Verifying a caller
+  against records is a different act, and it is allowed.
+
+**The residual is stated, not removed.** Free speech can still carry advice or
+a commitment the intent machine did not type. The profile bounds it (typed
+commitments only, closed intents, pinned regulated wording, a narrowing-only
+monitor, after-the-fact audit) and measures it (the flag rate, sampled review,
+complaints) against a registered bar. A deployment of the profile states that
+residual in its governing policy and never claims it is zero.
+
 ## Admission / Settlement Boundary
 
 Integration surfaces submit proposed actions into the daemon and the relevant
@@ -150,6 +204,11 @@ Physical surfaces additionally require sensor and actuator receipts from
 
 - Every surface maps to risk classes and authority scopes.
 - SMS/voice surfaces cannot hold durable authority or secrets.
+- A conversational voice profile reads no protected data before the caller is
+  verified, runs its intent machine in the executor, keeps its emergency script
+  finite, pinned and transfer-only, lets nothing on the agent side suppress it,
+  honours a principal's stop at once within its scope, and states its residual
+  rather than claiming none.
 - Notification-only contact channels cannot be treated as work integrations.
 - Game/platform surfaces include platform-policy posture.
 - Finance/trading surfaces bind to wallet authority, not marketplace authority.
