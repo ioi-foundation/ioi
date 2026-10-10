@@ -626,15 +626,18 @@ The declared primary onboarding journey is reification, not creation:
 ```text
 do a task conversationally
   -> it succeeds
-  -> "Keep as Agent" promotes the run into a private Worker registration
-     draft whose composition is bound from the session's own lineage
+  -> "Keep as Agent" creates the principal's own private Agent, a daemon
+     AgentRecord whose composition is bound from the session's own lineage
 ```
 
 Create-first composition remains the author persona's path through Studio
 and the existing authoring surfaces; it is no longer the assumed entry
-funnel. The promotion mints nothing: private registration, Worker Builder
-binding, and session lineage all exist today, and the draft stays private
-under the aiagent.xyz **My workers** registration owner
+funnel. Keep mints no new object family: the daemon's `AgentRecord` (the
+`/v1/agents` API), Worker Builder binding, and session lineage all exist
+today. The kept Agent is private to its principal, and its truth stays with
+the daemon and Agentgres (owner ruling, 2026-09-29). aiagent.xyz's
+**My workers** lists it as a view read through the public API, never as a
+second agent store; publishing it stays the separate explicit promotion path
 ([`worker-marketplace.md`](../../domains/aiagent/worker-marketplace.md)).
 
 ### Placement Defaults At Run One
@@ -775,7 +778,8 @@ surface to host them.
   acceptance journeys measure it against owner-backed implementations.
 - Every behavior above is a declared target over EXISTING owners; no new
   primitive, object family, or acceptance spine is created, and no owner
-  boundary in this file or its related canon moves.
+  boundary in this file or its related canon moves except where a subsection
+  above records the owner ruling (2026-09-29) that moves it.
 - Implementation pulls through the reserved thin measured-usability profile
   only after the `DEF-SEQ-1` substrate prerequisites close; declaration is
   not scheduling.
