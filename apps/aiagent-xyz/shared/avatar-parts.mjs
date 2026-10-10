@@ -37,7 +37,7 @@ export function validateParts(body, input = DEFAULT_PARTS, palette = 'original')
     || Object.keys(input).some((slot) => !Object.hasOwn(DEFAULT_PARTS, slot))) throw new Error('Unsupported part slot.');
   const result = {};
   for (const { id: slot } of AVATAR_PART_SLOTS) {
-    const id = input[slot] ?? DEFAULT_PARTS[slot];
+    const id = input[slot] === undefined ? DEFAULT_PARTS[slot] : input[slot];
     const part = AVATAR_PARTS[body]?.[slot].find((item) => item.id === id);
     if (!part) throw new Error(`This ${slot.replace('_', ' ')} does not fit the selected body.`);
     if (part.palettes && !part.palettes.includes(palette)) throw new Error('The pinstripe suit uses its original fabric palette.');

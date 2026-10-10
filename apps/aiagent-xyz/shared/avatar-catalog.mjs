@@ -59,7 +59,7 @@ export function validateAppearance(input) {
   if (!AVATAR_PALETTES.some((item) => item.id === input.palette)) throw new Error('Unsupported palette.');
   if (!AVATAR_MOTIONS.some((item) => item.id === input.motion)) throw new Error('Unsupported movement.');
   if (!AVATAR_SCENES.some((item) => item.id === input.scene)) throw new Error('Unsupported scene.');
-  const proportion = input.proportion ?? 'balanced';
+  const proportion = input.proportion === undefined ? 'balanced' : input.proportion;
   if (!AVATAR_PROPORTIONS.some((item) => item.id === proportion)) throw new Error('Unsupported proportion preset.');
   const parts = validateParts(body.id, input.parts, input.palette);
   return Object.fromEntries(Object.keys(DEFAULT_APPEARANCE).map((key) => [key, key === 'proportion' ? proportion : key === 'parts' ? parts : input[key]]));

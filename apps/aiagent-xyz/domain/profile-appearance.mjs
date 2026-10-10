@@ -11,7 +11,7 @@ const sameTarget = (a, b) => a.kind === b.kind && a.ref === b.ref;
 
 function resolveTarget(state, target, context) {
   if (!target || typeof target !== 'object' || Array.isArray(target)
-    || Object.keys(target).length !== 2 || !Object.hasOwn(targets, target.kind)
+    || Object.keys(target).length !== 2 || typeof target.kind !== 'string' || !Object.hasOwn(targets, target.kind)
     || typeof target.ref !== 'string' || !target.ref || target.ref.length > 512) invalid('Select an existing worker profile.');
   const [collection, ownerField] = targets[target.kind];
   const profile = state[collection].find((item) => item[target.kind] === target.ref

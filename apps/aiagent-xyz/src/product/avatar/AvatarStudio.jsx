@@ -18,6 +18,12 @@ export default function AvatarStudio() {
   const [profileError, setProfileError] = useState(null);
   const [attempt, setAttempt] = useState(0);
   const key = JSON.stringify(target);
+  // Leaving a profile drops its cached record, so returning to it mounts the editor from a fresh read, not a pre-save copy.
+  const [seenKey, setSeenKey] = useState(key);
+  if (seenKey !== key) {
+    setSeenKey(key);
+    if (load.key !== key) setLoad({ key: '', record: null, error: null });
+  }
   useEffect(() => {
     let current = true;
     api('/v1/creator/supply').then((value) => {

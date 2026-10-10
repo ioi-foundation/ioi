@@ -5,6 +5,7 @@ import { FrontSide } from 'three';
 import { AVATAR_BODIES, AVATAR_RIG } from '../../../shared/avatar-catalog.mjs';
 import { acquireVrmAvatar, vrmCacheState } from './vrm-adapter';
 import { createHologramMaterial } from './hologram-material';
+import { verifiedModel } from './model-integrity.js';
 
 const entries = new Map();
 
@@ -45,6 +46,7 @@ export function acquireAvatar(bodyId, { quality = 'desktop' } = {}) {
         if (!response.ok) throw new Error('The avatar model could not be loaded.');
         return response.arrayBuffer();
       })
+      .then((buffer) => verifiedModel(body.asset, buffer))
       .then((buffer) => loader.parseAsync(buffer, '/models/avatars/'))
       .then((gltf) => {
         const rigs = [];

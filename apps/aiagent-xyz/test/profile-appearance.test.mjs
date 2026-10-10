@@ -129,3 +129,32 @@ test('publication selects an exact registration revision and concurrent saves re
   await assert.rejects(service.saveProfileAppearance({ target, expected_revision: 2, appearance: appearance('anime') }, context('later-private')), { code: 'idempotency_conflict' });
   await assert.rejects(service.publishProfileAppearance({ target, expected_revision: 2, appearance_revision: 1 }, context('later-private')), { code: 'idempotency_conflict' });
 });
+
+test('a target kind must be a string: coerced kinds are refused and cannot bypass the revision check', async (t) => {
+  const { service, store, draft } = await fixture(t);
+  const item = await draft();
+  const coerced = [['draft_ref'], { toString: () => 'draft_ref' }];
+  for (const [index, kind] of coerced.entries()) {
+    await assert.rejects(() => service.saveProfileAppearance({ target: { kind, ref: item.draft_ref }, expected_revision: 0, appearance: appearance('human') }, context(`coerced-${index}`)),
+      (error) => error.status === 422 && error.code === 'invalid_appearance');
+  }
+  assert.equal((await store.read()).profile_appearances?.length || 0, 0);
+  const target = { kind: 'draft_ref', ref: item.draft_ref };
+  await service.saveProfileAppearance({ target, expected_revision: 0, appearance: appearance('human') }, context('first-write'));
+  await assert.rejects(() => service.saveProfileAppearance({ target, expected_revision: 0, appearance: appearance('anime') }, context('stale-write')),
+    (error) => error.status === 409 && error.code === 'appearance_revision_conflict');
+});
+
+test('explicit nulls in an appearance are refused, while omitted optional fields still default', async (t) => {
+  const { service, draft } = await fixture(t);
+  const item = await draft();
+  const target = { kind: 'draft_ref', ref: item.draft_ref };
+  await assert.rejects(() => service.saveProfileAppearance({ target, expected_revision: 0, appearance: { ...appearance('human'), proportion: null } }, context('null-proportion')),
+    (error) => error.status === 422 && error.code === 'invalid_appearance');
+  await assert.rejects(() => service.saveProfileAppearance({ target, expected_revision: 0, appearance: { ...appearance('human'), parts: { hair: null } } }, context('null-part')),
+    (error) => error.status === 422 && error.code === 'invalid_appearance');
+  const { proportion: _proportion, parts: _parts, ...omitted } = appearance('human');
+  const saved = await service.saveProfileAppearance({ target, expected_revision: 0, appearance: omitted }, context('omitted'));
+  assert.equal(saved.appearance.proportion, 'balanced');
+  assert.equal(saved.appearance.parts.hair, DEFAULT_APPEARANCE.parts.hair);
+});

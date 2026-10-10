@@ -3,6 +3,7 @@ import { VRMHumanoid, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { AnimationMixer, Group, LatheGeometry, Mesh, MeshToonMaterial, Quaternion, TorusGeometry, Vector2, Vector3 } from 'three';
 import { bakeVrmMotion } from './vrm-motion';
 import { MOTION_PROFILES } from './motion-profiles';
+import { verifiedModel } from './model-integrity.js';
 
 const buffers = new Map();
 
@@ -37,7 +38,7 @@ export function acquireVrmAvatar(body) {
     entry = { references: 0, controller, promise: fetch(body.asset, { signal: controller.signal }).then((response) => {
       if (!response.ok) throw new Error('The avatar model could not be loaded.');
       return response.arrayBuffer();
-    }) };
+    }).then((buffer) => verifiedModel(body.asset, buffer)) };
     buffers.set(body.asset, entry);
   }
   entry.references++;
