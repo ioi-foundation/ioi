@@ -15818,6 +15818,54 @@ fn session_execute_revoked_standing_lease(
     None
 }
 
+/// The connection in a session's closed profile that carries a standing lease the execute gate
+/// cannot draw on right now: expired, not yet valid, revoked, unreadable, or covering no
+/// `session_execute`. A session whose profile names an envelope-bound connection never falls
+/// through to the per-run approval park (the owner's set-once ruling, 2026-09-29): its execution
+/// refuses typed, naming why. Read from the durable session and connector records only.
+fn session_execute_undrawable_standing_lease(
+    data_dir: &str,
+    session_ref: &str,
+) -> Option<(String, Value, &'static str, &'static str)> {
+    let session = read_record_dir(data_dir, "sessions")
+        .into_iter()
+        .find(|record| record.get("session_ref").and_then(Value::as_str) == Some(session_ref))?;
+    let refs = session
+        .pointer("/authority_profile/connection_refs")?
+        .as_array()?
+        .clone();
+    let connectors = read_record_dir(data_dir, "connectors");
+    let now_ms = wall_now_ms();
+    for reference in refs {
+        let id = reference
+            .as_str()?
+            .trim_start_matches("connector:")
+            .to_string();
+        let Some(connector) = connectors
+            .iter()
+            .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+        else {
+            continue;
+        };
+        let Some(lease) = connector
+            .get("standing_lease")
+            .filter(|lease| lease.is_object())
+        else {
+            continue;
+        };
+        let (reason, bound) = match connector_active_standing_lease(connector, now_ms) {
+            Ok(active) if lease_covers_operation(active, SESSION_EXECUTE_OPERATION) => continue,
+            Ok(_) => ("standing_lease_operation_uncovered", "operations"),
+            Err("standing_lease_expired") => ("standing_lease_expired", "expired"),
+            Err("standing_lease_not_yet_valid") => ("standing_lease_not_yet_valid", "not_before"),
+            Err("standing_lease_revoked") => ("standing_lease_revoked", "status"),
+            Err(_) => ("standing_lease_invalid", "status"),
+        };
+        return Some((id, lease.clone(), reason, bound));
+    }
+    None
+}
+
 fn standing_execute_refusal(
     data_dir: &str,
     session_ref: &str,
@@ -16110,6 +16158,23 @@ pub(crate) async fn execute_authority_gate(
                 &connector_id,
                 "standing_lease_revoked",
                 "status",
+                &lease,
+                None,
+            ));
+        }
+        // The owner's set-once ruling (2026-09-29): a session whose closed profile names an
+        // envelope-bound connection never reaches the per-run approval park below. An envelope that
+        // has expired, is not yet valid, or covers no `session_execute` refuses typed, and the
+        // remedy is Set limits on that connection, never an approval of this one run.
+        if let Some((connector_id, lease, reason, bound)) =
+            session_execute_undrawable_standing_lease(data_dir, session_id)
+        {
+            return Err(standing_execute_refusal(
+                data_dir,
+                session_id,
+                &connector_id,
+                reason,
+                bound,
                 &lease,
                 None,
             ));

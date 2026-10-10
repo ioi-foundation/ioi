@@ -3557,6 +3557,20 @@ is the admission rule, not a later chore. Attaching without an envelope remains
 possible for the operator's own direct acts; such a connection is simply not
 nameable by a session.
 
+**A session that names an envelope-bound connection never falls through to the
+per-run approval lane** (the owner's set-once ruling, 2026-09-29). When that
+connection's envelope has expired, is not yet valid, has been revoked, or
+covers no `session_execute`, the session's execution refuses typed, naming
+why, with a refusal receipt and nothing parked; the remedy is Set limits on
+that connection. Set limits for a connection that sessions run under always
+includes the `session_execute` operation. Install creates one local connection,
+"This computer" (a placeholder connector with no network target, the pattern
+the essential journey already uses to carry an envelope), with limits set at
+install custody, as the operator's default connection, so a local-only
+operator's runs draw silently within those limits (target contract; the
+install step is not built). The per-run approval lane remains, only as the
+operator's explicit choice: a session that names no connection.
+
 Within a session, each governed act's posture is the **daemon's admission
 outcome**, never a presentation choice:
 
