@@ -614,8 +614,16 @@ itself, `content_hash` and `admitted_at`, under
 A change set is canon's patch branch for a Hypervisor object family: an
 isolated draft space over one family's head, merged only by that family's own
 admission (ADR 0056 Amendment 1, plane 4; agentgres/api-object-model.md
-§Patch lifecycle). Nobody mutates a family's head directly — a person drafts,
-validates, proposes and merges.
+§Patch lifecycle). Nobody mutates a family's head directly — a person or an
+agent drafts and proposes; a person merges, or a release rule the owner signed
+merges a change the kernel's analyzer classes neutral, within that rule's
+bounds (a rule merges a brought agent's change, `agent(agent_ref, seat_ref)`,
+only when it names that author), after replay; the kernel merges a draft it
+proves a narrowing when its author is a principal, or an agent within its own
+lineage; an agent's change set is never merged by its own lineage.
+Through v2 only a person authors and merges (`author_principal_ref` and
+`merged_by_principal_ref` below); agent authors and release-rule merges arrive
+with the v3 successor (Definition Changes, below; target, not built).
 
 ```yaml
 ChangeSetEnvelope:
@@ -691,7 +699,8 @@ ChangeSetEnvelope:
   supplies, its tip, its draft validation (the subject admission's own checks)
   and its merge (the subject admission itself). A kind outside the table is
   refused `change_set_subject_unsupported`. `automation` joins the table only
-  with ADR 0058.
+  with ADR 0058. The definition subjects that join it next, and how a change
+  that spans subjects is admitted, are under Definition Changes below.
 - **`blueprint`.** The subject is one Studio blueprint
   (`schema://ioi/components/hypervisor/studio-blueprint/v1`). Its tip is its
   admitted head; its revision is named by its content hash, since a blueprint
@@ -720,3 +729,75 @@ ChangeSetEnvelope:
   any subject its caller may change: the basis is evidence, never authority,
   and the subject's own admission still decides the merge (R-240 journey WP-D,
   2026-09-29).
+
+### Definition Changes
+
+A definition change moves the head of one of the System's own definitions: an
+ontology version, an action declaration, a pipeline (`data_recipe`), a graph
+(`blueprint`), an automation or a surface. Each is drafted in a change set and
+merged by its subject's own admission; none is written in place (ruled
+2026-09-30). Implementation status: partial. The daemon's table holds
+`data_recipe` and `blueprint`, and no draft spans two subjects. The daemon's
+connector mappings and ontology projections still read the ODK draft directly.
+
+**Four more subject kinds, one adapter each.** Each is one row of the daemon's
+single table (above): its ref scheme, its tip, its draft (the admission's own
+request), its validation (the admission's own checks, without admitting) and
+its merge (the admission itself, with the pinned head as its expected head).
+
+| Kind | Subject | Tip | Merge |
+|---|---|---|---|
+| `ontology_version` | one OntologyVersion family, `ontology://<namespace>/<name>` (semantic-plane.md §DomainOntologyEnvelope) | the family's admitted head | `POST /v1/hypervisor/ontology-versions` |
+| `action_decl` | one ontology action family, `ontology-action://<namespace>/<name>/<action>` (semantic-plane.md §OntologyActionContractEnvelope) | the family's admitted head | `POST /v1/hypervisor/ontology-action-contracts` |
+| `automation` | one automation's published definition (ADR 0058) | its published head | its spec and template admission at the expected head (ADR 0058) |
+| `surface` | one OntologySurfaceDescriptor (semantic-plane.md §OntologySurfaceDescriptorEnvelope), and a Domain App over it | the descriptor's admitted head | the descriptor's admission; for a Domain App, the governed mount ladder (domain-ontologies-and-data-recipes.md) |
+
+A kind joins the table only when its admission compares an expected head. The
+ontology-version and action-contract chains already do: each successor names
+the exact current head, and a change set may found a family with its first
+revision. `automation` waits for ADR 0058. `surface` waits for a descriptor
+successor chain; today a changed binding is a new descriptor. Until a kind
+joins, it is refused `change_set_subject_unsupported`. The v2 wire contract's
+kind set is closed (`wire_mutation_policy: forbidden`), so the new kinds land
+in its successor contract. Charter sections and release rules join as subjects
+under the charter's own change set (the System charter,
+governed-autonomous-systems.md), and Schedules as `automation` (ADR 0058).
+
+**Who authors and who merges (the v3 successor; target, not built).** The
+successor contract (`ioi.change-set.v3`) also changes `author_principal_ref` to
+`author: principal(user://…) | agent(agent_ref, seat_ref | run_ref)`, resolved
+from the credential and never client-set, and `merge.merged_by_principal_ref`
+to `merged_by: principal(user://…) | rule(definition-release-rule://…, its
+signer, the release receipt)`. A person or an agent drafts and proposes; a
+person merges, or a release rule the owner signed merges a change the kernel's
+analyzer classes neutral, within that rule's bounds (a rule merges a brought
+agent's change, `agent(agent_ref, seat_ref)`, only when it names that author),
+after replay; the kernel merges a draft it proves a narrowing when its author
+is a principal, or an agent within its own lineage; an agent's change set is
+never merged by its own lineage.
+
+**ODK ontology proposals reach consumers through the subject.** A proposal
+(`/v1/hypervisor/odk/ontology-proposals`) keeps the checks it already has
+(ledger CCXXVIII: applied by a caller who may change its ontology, withdrawn by
+its proposer or by that caller). The ODK's
+ontology is a mutable draft (ledger CLXXXI), and what its consumers bind is an
+admitted ontology revision (a connector mapping commits the exact ontology
+version, semantic-plane.md §ConnectorMappingEnvelope). So a proposal's change
+reaches them only when the `ontology_version` subject merges it, and a change
+that spans subjects only under the rule below.
+
+**A change that spans subjects is admitted whole.** A definition draft holds
+one change set per subject it touches, so a field, the pipeline that fills it
+and the action that reads it travel together. It names a frontier: the
+expected head of every subject it touches and of every dependent whose meaning
+it changes. Admission is one operation in the owning System's single-writer
+section: every frontier head is compared and swapped, and all move or none
+does. The single writer records one admission intent (the draft's hash, its
+frontier and its target heads) durably before the first head moves, and on
+restart completes or reverts every member to that record before admitting
+anything else; members on separate chains move only through it (target; not
+built). A frontier head that moved refuses the whole draft
+(`definition_base_moved`), never a silent rebase. The successor draft is pinned
+to the new heads, and nothing decided over the old draft (its classification,
+its impact set, its replay, a signature) carries to it. A session already
+running keeps the heads it started on.

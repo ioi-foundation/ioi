@@ -340,6 +340,9 @@ changed scenarios, or an introduced blocker makes the current assessment high
 impact. Non-object suggestions classify as `unknown` and block. The dimension
 classifier is a deterministic conservative field/value-fragment detector, not
 proof of external-world effect; future classifiers require a version change.
+The same detector classes a definition draft's change (bounded-improvement.md
+§ Definition Changes): a draft it doesn't class neutral is never merged by a
+release rule (target; not built).
 The report's `governance.satisfiable_target_refs` names exactly which refs an
 ApprovalRequest or ReleaseControl may target.
 
