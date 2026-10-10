@@ -56,6 +56,11 @@ grant, and approval receipt. Changing effect bytes, request content, destination
 reviewed representation, label, tool revision, purpose, status, or expiry makes
 the approval unusable. Declassification changes neither provenance nor
 instruction authority; it cannot make an untrusted instruction authoritative.
+A flow to a sink registered as cleared for the label is not a protected egress
+and needs no `DeclassificationApproval`; the label is unchanged and the
+registration's bindings, fields and caps apply instead
+([`security-privacy-policy-invariants.md`](../security-privacy-policy-invariants.md)
+§ Information-Flow Invariants, invariant 6).
 
 The canonical JSON Schema 2020-12 wire contracts, invariant profiles, and
 cross-language fixtures are registered in

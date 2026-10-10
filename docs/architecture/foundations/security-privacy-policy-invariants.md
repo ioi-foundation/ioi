@@ -475,6 +475,14 @@ security-domain application.
    representation hash, destination, purpose, target class, grant, receipt,
    status, and expiry. Any mutation invalidates it. Declassification never
    changes origin, derivation lineage, integrity, or instruction authority.
+   A flow to a cleared sink is not protected egress and not a declassification:
+   a sink registered with an agreement (a BAA or DPA) whose clearance covers the
+   label's confidentiality, data classes, purpose and subject binding receives
+   the content as a permitted flow, the content keeps its label, and the
+   registration's bindings, fields, caps and expiry are enforced at the effect
+   (owner decision, 2026-09-29). Invariant 4's refusal still applies. Until the
+   cleared-sink registry exists no sink is cleared, so every protected egress
+   still needs its approval; invariant 8's parameter egress is unchanged.
 7. A blocked-before-egress claim reaches verified assurance only when the
    pre-effect decision and enforcement seam prove that the external invoker was
    not called. An error returned after network contact is not equivalent.
