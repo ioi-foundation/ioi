@@ -234,6 +234,16 @@ PolicyBoundDataViewEnvelope:
   expires_at: optional
 ```
 
+The registered wire contract (`policy-bound-data-view/v2`) binds each view to one
+purpose from a closed vocabulary, and minimum-necessary projection keys on that
+purpose. Regulated care needs treatment, payment and health-care operations told
+apart, so that a field set justified for one is not read for another. Those
+three purposes (`treatment`, `payment`, `health_care_operations`, each
+permitting `read` only) are added by a successor contract,
+`policy-bound-data-view/v3` (target; not registered): v2 is wire-immutable
+(its registry entry forbids mutation), its views stay valid, and the daemon
+reads both versions (ruled 2026-09-30).
+
 ## TransformationRunEnvelope
 
 ```yaml
