@@ -6,7 +6,7 @@ its data, authority, and runtime assumptions with IOI-owned contracts.
 
 ## Non-negotiable migration invariant
 
-- **The ported app UX is the executable product seed.** The owned bundle under
+- **The ported app UX is the executable product seed** in the seed phase. The owned bundle under
   `product-ui/owned/public`, `scripts/serve-product-ui.mjs`, the IOI API adapter, and the
   ported surface modules under `surfaces/` are the current starting product. Do not delete
   them in order to substitute a newly observed or re-authored shell.
@@ -15,11 +15,19 @@ its data, authority, and runtime assumptions with IOI-owned contracts.
   retiring the corresponding ported app surface.
 - Source ownership means adopting and editing the exact ported implementation, then rebinding
   it in place to IOI daemon contracts. It does not mean recreating the visible result in a
-  parallel React tree from observation.
+  parallel React tree from observation; the one replacement path is the source-neutral refactor
+  below.
 - A new first-party client is allowed when a canonical product journey has no suitable ported
   seed. In particular, `ioi.ai` may use a dedicated React client for GoalRun and OutcomeRoom.
   That client remains a protocol client over daemon-owned truth and is not a replacement for
   the Hypervisor ported-app estate.
+- **These rules are scoped to the seed phase** (the owner's direction, 2026-09-29). At the
+  source-neutral refactor, the owned native client, built over the daemon's public API,
+  replaces the ported bundle and its IOI API adapter surface by surface. Each native surface
+  absorbs the UX of its harvested patterns, each recorded with the seed it came from, and
+  passes parity against its ported seed, which is its oracle; only then does that ported
+  surface retire, under the cutover rule below. Until then the ported surface stays the
+  running product. The native client never wraps the ported bundle or its adapter.
 
 ## App-by-app cutover rule
 
@@ -32,7 +40,9 @@ For each app or workspace, in this order:
 3. Admit the owner contracts and daemon projection required by that app; never infer authority
    or launchability in the client.
 4. Rebind the ported implementation in place, or extract/adopt its exact owned source when a
-   build-system conversion is necessary. Do not substitute a lookalike implementation.
+   build-system conversion is necessary. Do not substitute a lookalike implementation; at the
+   source-neutral refactor, the replacement is the native surface that passed parity against
+   this seed.
 5. Prove populated and empty behavior plus denial, fault, stale/conflict, recovery,
    migration, receipt, and non-overclaim paths.
 6. Cut over only that app's canonical route. Retire only its superseded reference route,
