@@ -2,13 +2,18 @@
 // wallet-network-authority — operator entry point for the Hypervisor bounded alpha's
 // deployment-local wallet.network authority node (ADR 0052; bounded-alpha-profile.md step 2b).
 //
-//   node scripts/wallet-network-authority.mjs up --state-dir <dir> --principal-ref domain://<host> [--wall-clock]
+//   node scripts/wallet-network-authority.mjs up --state-dir <dir> --principal-ref domain://<host> [--deterministic-clock]
 //   node scripts/wallet-network-authority.mjs approve --state-dir <dir> --policy-hash <h> --request-hash <h> \
 //        --audience <capability-account> --target-scope <scope> [--expires-in-secs <n>] [--reason "..."]
 //   node scripts/wallet-network-authority.mjs rotate --state-dir <dir>
 //   node scripts/wallet-network-authority.mjs revoke --state-dir <dir> [--reason "..."]
 //   node scripts/wallet-network-authority.mjs seal-keys --state-dir <dir>
 //   node scripts/wallet-network-authority.mjs status --state-dir <dir>
+//
+// `up` runs the node on the WALL CLOCK: a standing envelope's expiry is a real-time promise the
+// daemon checks at every bind and draw, and the daemon refuses to mint one against an authority
+// whose chain clock is off the host clock (ADR 0052 § 7). `--deterministic-clock` opts out, for
+// lanes that make no real-time promise (tests); `--wall-clock` is still accepted and changes nothing.
 //
 // `up` stays in the foreground (run it under your supervisor or a terminal). On first run it
 // generates the deployment's control root and the operator's approver key SEALED under the
@@ -49,7 +54,8 @@ function parseArgs(argv) {
     const arg = rest[i];
     if (!arg.startsWith("--")) throw new Error(`unexpected argument ${arg}`);
     const key = arg.slice(2);
-    if (key === "wall-clock") { options.wallClock = true; continue; }
+    if (key === "wall-clock") { continue; }
+    if (key === "deterministic-clock") { options.deterministicClock = true; continue; }
     // The passphrase is never an argument: argv is readable by every process on the host.
     if (/pass|seed|secret/iu.test(key)) throw new Error(`--${key} is refused: the operator passphrase comes only from ${OPERATOR_PASS_ENV} or a terminal prompt, and no key ever rides argv`);
     const value = rest[i + 1];
@@ -64,7 +70,7 @@ let parsed;
 try { parsed = parseArgs(process.argv.slice(2)); } catch (error) { console.error(error.message); process.exit(2); }
 const { command, options } = parsed;
 if (!command || !options["state-dir"]) {
-  console.error("usage: wallet-network-authority.mjs <up|approve|rotate|revoke|seal-keys|status> --state-dir <dir> [--principal-ref <ref>] [--policy-hash <h> --request-hash <h> --audience <a> --target-scope <s> [--expires-in-secs <n>]] [--reason <text>] [--binary <path>] [--wall-clock]");
+  console.error("usage: wallet-network-authority.mjs <up|approve|rotate|revoke|seal-keys|status> --state-dir <dir> [--principal-ref <ref>] [--policy-hash <h> --request-hash <h> --audience <a> --target-scope <s> [--expires-in-secs <n>]] [--reason <text>] [--binary <path>] [--deterministic-clock]");
   process.exit(2);
 }
 const stateDir = path.resolve(options["state-dir"]);
@@ -77,7 +83,7 @@ if (command === "up") {
   if (!options["principal-ref"]) { console.error("up requires --principal-ref (e.g. domain://alpha-host)"); process.exit(2); }
   let node;
   try {
-    node = await startLocalAuthority({ stateDir, principalRef: options["principal-ref"], binary: options.binary, wallClock: !!options.wallClock, operatorPass });
+    node = await startLocalAuthority({ stateDir, principalRef: options["principal-ref"], binary: options.binary, wallClock: !options.deterministicClock, operatorPass });
   } catch (error) {
     console.error(error.message);
     process.exit(1);

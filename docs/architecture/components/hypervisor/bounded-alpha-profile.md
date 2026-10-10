@@ -109,7 +109,7 @@ basis says.
 | --- | --- | --- | --- | --- | --- |
 | 1 | Install a supported release | `core-clients-surfaces.md` § *Zero-To-Operable Local Deployment* | `scripts/package-hypervisor-alpha-release.mjs` (signed manifest: checkout, toolchains, cargo profile, per-file digests, SBOM) → `install.mjs verify/install/activate` against an operator-pinned signer; the package ships BOTH grant signers (`bin/mint-approval-grant`, and since `8281d915e` `bin/mint-standing-approval-grant` — R-23) | `test:hypervisor-alpha-release` (4/4); `check:alpha-journey` package + no-checkout mode step 1 — re-derived 2026-09-10 on `8281d915e`, 46/46 (the daemon, App, signer, shim, installer and authority node under test are the installed release-profile bytes; no cargo reachable) | built (2026-09-08, release cargo profile; the package is self-sufficient on a host without a checkout) |
 | 2a | Bootstrap identity | `identity-access-and-metering.md` | `startup_auth_notice` prints a one-boot token; `POST /v1/hypervisor/auth/bootstrap` (accepts the operator's name and email); the sign-in page is the first-run setup form (`/__ioi/bootstrap`) while no operator exists | `check:session-authority` (bootstrap → operator session); `check:alpha-journey` step 2a | built (2026-09-07) |
-| 2b | Bootstrap authority | `wallet-network/doctrine.md`; `daemon-runtime/doctrine.md` | `wallet-network-authority.mjs up` (§ *Supported deployment bring-up*): generated control root, sealed capability client key and operator approver key, durable Solo chain, binding v1; `daemon.env`/`serve.env`; the approval act mints one one-use grant for the daemon's capability audience and RECORDS it on the node (`record-approval`) before the daemon consumes it; `rotate` / `revoke` | `check:alpha-journey` deployment + no-checkout mode steps 2b (incl. the closure assertion: launcher, node binaries and installer outside the repository, no cargo on any child PATH), 6, 2c-rotation, 2c-revocation; standalone drills (checkout: up → rotate → revoke → resume → rotate; package: `up` from `/tmp` with cargo absent; empty pinned dir → typed `node_binaries_absent`) | built (2026-09-08); bounded: deterministic chain clock unless `--wall-clock` |
+| 2b | Bootstrap authority | `wallet-network/doctrine.md`; `daemon-runtime/doctrine.md` | `wallet-network-authority.mjs up` (§ *Supported deployment bring-up*): generated control root, sealed capability client key and operator approver key, durable Solo chain, binding v1; `daemon.env`/`serve.env`; the approval act mints one one-use grant for the daemon's capability audience and RECORDS it on the node (`record-approval`) before the daemon consumes it; `rotate` / `revoke` | `check:alpha-journey` deployment + no-checkout mode steps 2b (incl. the closure assertion: launcher, node binaries and installer outside the repository, no cargo on any child PATH), 6, 2c-rotation, 2c-revocation; standalone drills (checkout: up → rotate → revoke → resume → rotate; package: `up` from `/tmp` with cargo absent; empty pinned dir → typed `node_binaries_absent`) | built (2026-09-08); the operator launcher's `up` runs the node on the wall clock (2026-09-30), which minting a standing envelope needs; the deterministic chain clock is an explicit `--deterministic-clock`, for lanes that make no real-time promise |
 | 3 | Establish readiness | `daemon-runtime/platform-operability.md` § *Readiness and Degraded States* | `/healthz`, `/readyz` (static), `/v1/doctor`, `/v1/hypervisor/substrate/status`, `ExecutionSubstrate::probe` at execute | inspection; `check:launch-chain` (no-model refusal is typed) | partial (readiness is component-specific only at execute time) |
 | 4 | Open a project or workspace | `core-clients-surfaces.md` § *Hypervisor Projects* | `/projects` (vendored SPA over `ioi-api-adapter.mjs`), `POST /v1/hypervisor/projects`, environments | `check:projects-saga`, `check:launch-chain` | built |
 | 5a | Select harness and model route | `core-clients-surfaces.md` § *Agent Harness Adapters*; `model-routes` owner | `agent-runner-profiles`, `model-routes`, new-session composer (`augmentation/50-new-session.js`) | `check:model-route-authority`, `check:launch-chain` | built |
@@ -153,7 +153,8 @@ cargo test fixture or its public seeds.
 #    approval key), both SEALED under your operator passphrase (0600; public
 #    halves in keys/root.pub and keys/approver.pub), keys/capability.key (the
 #    daemon's wallet client key, sealed under the guardian pass), starts the
-#    Solo single-validator node with durable chain state, issues the control
+#    Solo single-validator node on the wall clock with durable chain state
+#    (`--deterministic-clock` opts out, for test lanes only), issues the control
 #    root, registers the client and the approver, binds the approver to the
 #    principal (binding v1), and writes daemon.env + serve.env. The FIRST run
 #    needs the passphrase once (type it at the prompt, or set
@@ -237,8 +238,14 @@ TLS front, env files), `crates/cli/src/testing/build.rs` (`IOI_NODE_BINARY_DIR`)
 daemon's parked challenges and the in-app decision relay).
 The daemon's authority resolution, grant verification, consumption and receipt
 paths are unchanged; the approver's scope allowlist is exactly
-`scope:hypervisor.live-route.*`. Bounded property stated, not hidden: the chain
-clock is the deterministic single-node clock unless `--wall-clock` is given.
+`scope:hypervisor.live-route.*`. Bounded property stated, not hidden: since
+2026-09-30 `up` runs the chain on the wall clock, which a standing envelope's
+real-time expiry needs (ADR 0052 § 7); the deterministic single-node clock is
+an explicit `--deterministic-clock`, for lanes that make no real-time promise.
+The clock is fixed at the chain's genesis (the wall-clock block timing and the
+height-zero tip), so a node first brought up on the deterministic clock stays on
+it when resumed: moving such a deployment to the wall clock is a fresh
+authority chain, brought up again, not a restart.
 
 ## Release qualification
 
