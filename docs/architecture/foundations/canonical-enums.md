@@ -56,6 +56,23 @@ Higher classes require stronger approval or a higher wallet security tier
 (INV-1; ladder application in
 [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)).
 
+The class grades required assurance; it is not by itself the key a policy
+decides on. Policy templates, floors and review requirements key on the action
+type and its typed parameters as well as its class. Two action types can carry
+one class and need entirely different treatment: releasing a payment to a payee
+already on record, and changing where that payee is paid. A key that saw only
+the class could tell them apart only by treating both as the stricter one.
+
+A change of payee or payment destination is therefore a named action type,
+never a ladder member. It covers a counterparty's bank or payout details, a
+payout destination, and the counterparty contact channels used to confirm such
+a change. It never converges to standing authority: each such change is decided
+on its own, by an exact approval from a principal or from a role the governing
+policy designates, and no standing grant, envelope or rule admits one, whatever
+class its contract carries (owner decision, 2026-09-29). A pack that needs a
+payee class is answered by this action type, and the ladder gains no
+thirteenth class for it.
+
 Deprecated aliases (do not introduce in new docs; map on sight):
 
 | Deprecated | Canonical |
