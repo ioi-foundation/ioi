@@ -50,9 +50,11 @@
       "globs": [
         "apps/ioi-ai/**",
         "third_party/**",
-        "examples/**"
+        "examples/**",
+        "apps/aiagent-xyz/public/models/avatars/anime-performance-baked-v1.vrm",
+        "apps/aiagent-xyz/public/models/avatars/anime-performance-baked-mobile-v1.vrm"
       ],
-      "note": "apps/ioi-ai carries its own MIT LICENSE and IOI-ADOPTION-PROVENANCE.md. third_party/ and examples/ hold upstream material under upstream terms."
+      "note": "apps/ioi-ai carries its own MIT LICENSE and IOI-ADOPTION-PROVENANCE.md. third_party/ and examples/ hold upstream material under upstream terms. The two aiagent-xyz anime VRMs derive from pixiv Inc.'s VRM1_Constraint_Twist_Sample and stay under the VRM Public License 1.0 terms embedded in each file (apps/aiagent-xyz/assets/avatars/third-party.json)."
     },
     {
       "class": "reserved",
@@ -62,9 +64,17 @@
         "docs/assets/**",
         "ioi-data/**",
         "node_modules/**",
-        "target/**"
+        "target/**",
+        "apps/aiagent-xyz/public/ai-mark.svg",
+        "apps/aiagent-xyz/public/animated-logo.svg",
+        "apps/aiagent-xyz/public/animated-logo-dark.svg",
+        "apps/aiagent-xyz/public/favicon.svg",
+        "apps/aiagent-xyz/public/models/cyborg/**",
+        "apps/aiagent-xyz/public/models/avatars/robot-study-v1.glb",
+        "apps/aiagent-xyz/public/models/avatars/robot-study-mobile-v1.glb",
+        "apps/aiagent-xyz/public/models/avatars/portraits/study-v1/**"
       ],
-      "note": "Marks and brand assets are reserved under every option; see LICENSE-BBSL section 5 and ADR 0033 on trademark separation."
+      "note": "Marks and brand assets are reserved under every option; see LICENSE-BBSL section 5 and ADR 0033 on trademark separation. The aiagent-xyz cyborg mesh, the robot-study models derived from it and their portraits have no recorded author or license (apps/aiagent-xyz/assets/avatars/third-party.json); no license is granted for them until their provenance is cleared."
     },
     {
       "class": "apache_2_0",
