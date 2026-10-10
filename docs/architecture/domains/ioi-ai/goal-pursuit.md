@@ -4,7 +4,13 @@ Status: canonical low-level reference.
 Canonical owner: this file for the object shapes of GoalRun profiles, goal-run activations, orchestration constraints, orchestration policies, orchestration plans, and network goal budgets.
 Supersedes: untyped `activation_evidence` payloads as a claimed activation contract.
 Superseded by: none.
-Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
+Last alignment pass: 2026-10-09 (R-192 pass on this file's own text: admitting a
+GoalRun, its activation, and its profile resolution is this application's, no
+longer the daemon's, while every effect a GoalRun dispatches is still admitted
+per effect at the daemon's policy-enforcement point, against node-issued
+authority; the Hypervisor's own clients carry no goal affordance, and the
+direct lane records `origin_surface: api`).
+Previous pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
 ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: see [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)
@@ -13,7 +19,24 @@ Implementation status: see [`../../_meta/canon-to-code-delta.md`](../../_meta/ca
 
 This module owns the object shapes above. They are domain objects of the **ioi.ai
 orchestration application**, an openly packaged domain application on Hypervisor.
-The daemon admits, executes, and receipts them as it does any application domain.
+The Hypervisor owns no goal object (R-192, 2026-09-18), and since slice S5-1 the
+daemon admits no GoalRun, activation, or profile resolution. Admission divides
+in two. Admitting the composition is this application's, under its GoalRun
+admission contract
+([`goal-run-execution.md`](./goal-run-execution.md#the-admission-contract)); the
+records it admits enter a bounded System through the Hypervisor's generic
+System-record seam, which knows no application vocabulary. Admitting effects is
+not: every effect a GoalRun dispatches is still admitted per effect at the
+daemon's policy-enforcement point, against node-issued authority — a current
+grant from the node's locally permitted authority provider (INV-1). There is one
+stack, IOI's first-party one, in which the Hypervisor Daemon is the
+policy-enforcement point and final-invoker mediator
+([`machine-authority.md`](../../foundations/machine-authority.md#abstract-roles)).
+The composition never runs a second stack beside it, and the daemon kept those
+effect rules when its goal-run admission kernel was deleted
+([`daemon-runtime/doctrine.md`](../../components/daemon-runtime/doctrine.md#admission-evidence-discipline)).
+The daemon executes and receipts the admitted work as it does any application
+domain's.
 
 The layering is three-part:
 
@@ -44,12 +67,16 @@ class of adaptive goals should converge by composing existing owner-qualified
 contracts. It is not a workflow graph, executable, authority holder, campaign
 database, evaluator, or live state machine.
 
-Each released revision is immutable and content-addressed. Hypervisor Core and
-the daemon admit one selected revision plus run-specific constraints and only
-those overrides permitted by its declared schema. The Goal Kernel interprets
-that frozen resolution to form and revise `OrchestrationPlan` objects and to
-operate the bounded pursue--verify--course-correct loop. Authoritative GoalRun
-creation, mutation, and effect admission remain daemon-owned.
+Each released revision is immutable and content-addressed. GoalRun admission,
+under this application's contract, admits one selected revision plus
+run-specific constraints and only those overrides permitted by its declared
+schema. The Goal Kernel interprets that frozen resolution to form and revise
+`OrchestrationPlan` objects and to operate the bounded
+pursue--verify--course-correct loop. Authoritative GoalRun creation and
+mutation are that admission's, not the daemon's (R-192, slice S5-1). Effect
+admission remains daemon-owned: every effect a GoalRun dispatches is still
+admitted per effect at the daemon's policy-enforcement point, against
+node-issued authority (§ *Purpose*).
 
 ```yaml
 GoalRunProfileEnvelope:
@@ -138,7 +165,7 @@ longer eligible for new admission.
 > points here.
 
 A `GoalRunProfileResolutionReceipt` proves which immutable pursuit definition,
-overrides, and transitive component set daemon admission froze before a
+overrides, and transitive component set GoalRun admission froze before a
 GoalRun became active. It proves resolution and admission, not that the profile
 is good, that later work is correct, or that any effect was authorized.
 
@@ -226,7 +253,7 @@ The rule the object exists to make testable:
 > work item, WorkRun, Mission presentation profile, projection row, or AIIP
 > `correlation_ref` — and the `origin_surface` tag on a GoalRun — is
 > navigation and provenance only. Goal identity is created or joined only by
-> daemon admission of exactly one `GoalRunActivationEnvelope` (or by the
+> GoalRun admission of exactly one `GoalRunActivationEnvelope` (or by the
 > retained direct creation lane below). Cites INV-16, INV-17, and INV-37 in
 > [`../invariants.md`](../../foundations/invariants.md).
 
@@ -277,14 +304,21 @@ Rules, each testable:
   profile fields. A join targets a GoalRun whose current lifecycle admits
   joining under its declared policy; joining never rewrites the target's
   admission tuple.
-- **The daemon admits; products draft.** ioi.ai facilitation, Goal Space
-  surfaces, and Hypervisor clients may draft, render, review, and submit an
-  activation. Only daemon admission — under the GoalRun admission contract in
-  [`daemon-runtime/doctrine.md`](../../components/daemon-runtime/doctrine.md)
-  — transitions it to `admitted`, and the admission must resolve the authority
+- **The application's admission contract admits; product surfaces draft.**
+  ioi.ai facilitation and the Goal Space surfaces of ioi.ai's own client
+  (`apps/ioi-ai/plugins/web-ui/src/goal-space.ts`) may draft, render, review,
+  and submit an activation. The Hypervisor's own clients carry no goal
+  affordance (R-192, S5-1). Only admission under this
+  application's GoalRun admission contract
+  ([`goal-run-execution.md`](./goal-run-execution.md#the-admission-contract))
+  transitions it to `admitted`, and the admission must resolve the authority
   decision, source-context existence, and profile resolution itself (INV-37);
   a route or product surface cannot satisfy those preconditions by supplying
-  the values.
+  the values. The daemon no longer executes that contract (R-192, slice S5-1),
+  and until slice S5-3 re-homes it onto the System-record seam no activation is
+  admitted. Admitting the activation and its run is this application's; every
+  effect the run then dispatches is still admitted per effect at the daemon's
+  policy-enforcement point, against node-issued authority (§ *Purpose*).
 - **Receipt-backed and idempotent.** Admission mints an activation receipt
   binding the exact source context, authority decision, and admitted or joined
   `goal://` identity. Resubmission with the same `idempotency_key` and body
@@ -294,10 +328,13 @@ Rules, each testable:
   crossing widens nothing: no authority, visibility, custody, retention, or
   budget changes by activation alone (INV-16); carried participant input stays
   tainted until admitted (INV-17).
-- **The automation lane keeps its owner.** `HypervisorGoalRunActivationContract`
-  in [`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md)
-  remains the AutomationSpec workflow-step declaration and stays owned there;
-  its resolution admits through this family as
+- **The automation lane keeps its owner.** `HypervisorAutomationSpec` stays
+  owned by
+  [`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md#hypervisor-automations).
+  The `HypervisorGoalRunActivationContract` its goal-shaped workflow step
+  references is this application's (§ *HypervisorGoalRunActivationContract*
+  below, moved here on 2026-09-12 under ADR 0052 Decision 4), and its
+  resolution admits through this family as
   `source_kind: automation_workflow_step`. One crossing contract; the step
   binding is not a second admission path.
 - **The attach lane graduates through the same crossing.** Work mediated by an
@@ -309,9 +346,14 @@ Rules, each testable:
   requests its own scopes (INV-1). The attach-lane doctrine itself is owned by
   [`daemon-runtime/doctrine.md`](../../components/daemon-runtime/doctrine.md).
 - **The direct lane is retained and narrow.** Creating a stand-alone GoalRun
-  directly through the daemon API or the substrate New Goal surface needs no
-  activation object — there is no source context to carry. Such a run records
-  `origin_surface: api | hypervisor_new_session` and a null activation ref.
+  directly through this application's composer
+  (`apps/ioi-ai/orchestration/src/goalrun.ts`) needs no activation object —
+  there is no source context to carry. Such a run records
+  `origin_surface: api` and a null activation ref. The daemon API and the
+  substrate New Goal surface that also used this lane retired with the
+  Hypervisor's GoalRun plane (R-192, slice S5-1). The New Goal surface's tag,
+  `hypervisor_new_session`, stays in the registered GoalRun v1 and v2 enums,
+  which change only by a successor contract; no first-party surface records it.
   Any creation that claims an originating Session, WorkRun, work item, room
   claim, automation step, or ioi.ai draft must cross this contract; an
   untyped `activation_evidence` payload is not a substitute.
@@ -319,7 +361,7 @@ Rules, each testable:
 `GoalRunEnvelope` binds the admitted crossing through its
 `activation_ref` field (see
 [`goal-run-execution.md`](./goal-run-execution.md)). Product-lane doctrine —
-what ioi.ai may draft and must never admit — is owned by
+what ioi.ai's product surfaces may draft and must never admit — is owned by
 [`control-plane.md`](../../domains/ioi-ai/control-plane.md).
 
 ## GoalRun Activation Receipts
@@ -331,7 +373,7 @@ what ioi.ai may draft and must never admit — is owned by
 > apart from link paths. The core registry keeps the receipt name as an index
 > row and points here.
 
-A `GoalRunActivationReceipt` is emitted only after the daemon admits one
+A `GoalRunActivationReceipt` is emitted only after GoalRun admission admits one
 `GoalRunActivationEnvelope`. It proves the narrow crossing fact: the exact
 activation draft and typed source context were evaluated under the named
 authority, review, and admission decisions and admitted or joined the named
@@ -389,7 +431,7 @@ GoalRunActivationReceipt:
 `receipt_id` and `receipt_ref` are the same portable identity.
 `receipt_root` is SHA-256 over JCS of every field above except
 `receipt_root`. `source_context_hash` commits the complete source object the
-daemon resolved, while the typed `source_context` makes its kind, ref, and
+admission resolved, while the typed `source_context` makes its kind, ref, and
 owner independently inspectable. The resolved-component tuple and profile-
 resolution receipt bind the admission-time dependency closure;
 `receipt_obligations_hash` commits the exact typed obligation set, and every
@@ -622,8 +664,9 @@ explain the profile for a GoalRun; Improvement proposes successor revisions;
 Provenance exposes the resolution snapshot and receipt. None of those surfaces
 creates a second runtime owner.
 
-New Goal UX may present a friendly Recipe or mode name, but the backing
-`goal-run-profile://.../revision/...` ref must be inspectable. Direct ad hoc
+Goal-drafting UX in ioi.ai's own client may present a friendly Recipe or mode
+name, but the backing `goal-run-profile://.../revision/...` ref must be
+inspectable. Direct ad hoc
 work resolves through the versioned generic-adaptive profile. Advanced editors
 may expose optional WorkflowTemplate refs, role/topology requirements,
 SkillManifest and tool requirements, verifier and acceptance contracts,

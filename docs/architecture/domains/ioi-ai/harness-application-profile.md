@@ -10,8 +10,10 @@ Supersedes: the same admission-path decision when it lived inside
 as if selecting a harness selected a goal product (moved 2026-09-07 under
 ADR 0052 Decision 4; the text is unchanged apart from link paths).
 Superseded by: none.
-Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
-ioi.ai owners under ADR 0052 Decision 4).
+Last alignment pass: 2026-10-09 (R-192: the admission-path decision belongs to
+this application's GoalRun admission, no longer the daemon's). Previous pass:
+2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their ioi.ai owners
+under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: partial (the GoalRun admission-path decision is
 registered as an application contract; see
@@ -35,12 +37,16 @@ nothing the daemon's own admission does not grant.
 
 ## GoalRun Admission Path Decision
 
-The Hypervisor Daemon is the sole admitting owner for selecting whether an
-admitted GoalRun uses the direct non-System path or requires a System-bound
-path. A client, surface, profile, harness, model, workflow, or correlation
-reference may request a path but cannot select or upgrade it. The daemon emits
-one `GoalRunAdmissionPathDecision` and binds its exact decision receipt before
-GoalRun execution begins.
+This application's GoalRun admission is the sole admitting owner for selecting
+whether an admitted GoalRun uses the direct non-System path or requires a
+System-bound path; until 2026-09-18 (R-192, slice S5-1) the Hypervisor Daemon
+was. A client, surface, profile, harness, model, workflow, or correlation
+reference may request a path but cannot select or upgrade it. The admission
+emits one `GoalRunAdmissionPathDecision` and binds its exact decision receipt
+before GoalRun execution begins. Selecting the path is part of admitting the
+composition; every effect the GoalRun then dispatches is still admitted per
+effect at the daemon's policy-enforcement point, against node-issued authority
+([`goal-pursuit.md`](./goal-pursuit.md#purpose)).
 
 The direct non-System path is eligible only when every predicate below is
 resolved true from admitted policy and live runtime facts:
@@ -53,7 +59,7 @@ resolved true from admitted policy and live runtime facts:
 - no unresolved dependency requires System-owned state or coordination; and
 - no applicable policy requires the System-bound path.
 
-Any false or unknown predicate makes direct admission ineligible. The daemon
+Any false or unknown predicate makes direct admission ineligible. The admission
 returns `system_bound_required` with typed reason codes when the System-bound
 path is available, or a typed `refused` decision when its prerequisites are not
 available. It never silently downgrades System-bound work to the direct path,
@@ -66,7 +72,10 @@ lane's precondition — a GoalRun admitted under a hosted OutcomeRoom package
 System — retired with the room plane (R-179) and no consumer ever sent it. A
 GoalRun's membership in a bounded System is composed by the ioi.ai application
 over its orchestration (`collaborative-pursuit.md` § *OrchestrationEnvelope*),
-never minted by this route; the kernel's decision vocabulary above is unchanged. Direct work still freezes the built-in generic-adaptive
+never minted by this route; the kernel's decision vocabulary above is unchanged.
+The same day R-192 (slice S5-1) deleted the daemon's GoalRun modules, which
+made this decision; no producer emits a `GoalRunAdmissionPathDecision` until
+slice S5-3 re-homes it in this application's composition. Direct work still freezes the built-in generic-adaptive
 `GoalRunProfile` revision and content hash, effective constraint hash, policy,
 authority, resolved component set, result profile, and decision receipt. It is
 not a profileless, authority-free, or receipt-free exception.

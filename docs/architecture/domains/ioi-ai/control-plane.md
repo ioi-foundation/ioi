@@ -6,13 +6,31 @@ entitlement projections, device, restore, publishing, console Environments
 views, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-10-09 (R-192 pass on this file's own text: GoalRuns
+are this application's composition over the Hypervisor's thread orchestration
+primitives, and the Hypervisor owns no goal object; admitting a GoalRun's
+composition is this application's, while every effect a run dispatches is still
+admitted per effect at the daemon's policy-enforcement point, against
+node-issued authority). Previous pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: mixed (bounded GoalRun and the hosted Hypervisor
-OutcomeRoom object graph are partial; the ioi.ai Goal Space product,
-federated collaboration, and thin account/device/restore control plane remain
-planned)
-Last implementation audit: 2026-07-30
+Implementation status: mixed (bounded GoalRun is partial, composed by this
+application as a record on the System-record seam; the hosted OutcomeRoom
+routes and the Hypervisor's GoalRun plane are deleted (R-187, slice S4c-2;
+R-192, slice S5-1), and the orchestration composition that replaced them is
+partial; no activation is admitted until slice S5-3 re-homes the activation
+lane, and the client's draft, review and submit act still relays to
+`/v1/goal-orchestration/*`, which the daemon no longer serves; the ioi.ai Goal
+Space product, federated collaboration, and thin account/device/restore control
+plane remain planned)
+Implementation refs:
+  - `apps/ioi-ai/orchestration/src/goalrun.ts` (the GoalRun composition)
+  - `apps/ioi-ai/orchestration/src/orchestrations.ts` (the orchestration composition)
+  - `apps/ioi-ai/plugins/web-ui/src/goal-space.ts` (the client's draft, review and submit act)
+Last implementation audit: 2026-10-09 for the GoalRun, orchestration and
+activation rows (re-read at `ca8592416` from the code above, its server
+`apps/ioi-ai/plugins/web-ui/server/index.ts`, and
+[`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)); 2026-07-30 for
+the rest
 
 ## Canonical Definition
 
@@ -137,6 +155,17 @@ receipts; it does not mint its own event stream, fork graph, Session lifecycle,
 or harness launch/binding truth. This preserves zero-Session GoalRuns while
 making harness-to-harness coordination an explicit bounded daemon request
 rather than ambient application authority (ADR 0031).
+Admission divides the same way. Admitting a GoalRun's composition is this
+application's, under its GoalRun admission contract
+([`goal-run-execution.md`](./goal-run-execution.md#the-admission-contract));
+every effect a GoalRun dispatches is still admitted per effect at the daemon's
+policy-enforcement point, against node-issued authority — a current grant from
+the node's locally permitted authority provider (INV-1). The composition runs
+on IOI's one first-party stack, in which the Hypervisor Daemon is the
+policy-enforcement point and final-invoker mediator
+([`machine-authority.md`](../../foundations/machine-authority.md#abstract-roles)),
+never on a second one beside it
+([`goal-pursuit.md`](./goal-pursuit.md#purpose)).
 
 It may:
 
@@ -222,7 +251,11 @@ step, or gateway adapter context — should become or join an admitted GoalRun
 ("promote this session into a goal," "attach this work to my goal"), ioi.ai
 may draft, render, review, and submit a `GoalRunActivationEnvelope`
 ([`goal-pursuit.md`](goal-pursuit.md)), and only
-daemon admission activates it. A subscription, account linkage, chat link,
+admission under this application's GoalRun admission contract activates it,
+never the product surface that drafted it; every effect the admitted run
+dispatches is still admitted per effect at the daemon's policy-enforcement
+point, against node-issued authority (above).
+A subscription, account linkage, chat link,
 correlation id, projection row, facilitator selection, or MCP call is never
 that crossing. This closes the previously recorded gap in which this canon
 defined rich handoffs out of ioi.ai but no object for moving work into an

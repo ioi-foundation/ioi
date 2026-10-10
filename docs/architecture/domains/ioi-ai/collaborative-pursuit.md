@@ -4,7 +4,9 @@ Status: canonical low-level reference.
 Canonical owner: this file for the object shapes of orchestrations and their discovery and participation requests, OutcomeRoom discovery and participation requests, OutcomeRooms, room participant leases, participant state bundles, resource and capability offers, work frontier items, work claim leases, attempts, findings, and verifier challenges.
 Supersedes: none.
 Superseded by: none.
-Last alignment pass: 2026-09-17 (`OrchestrationEnvelope` registered as the successor of
+Last alignment pass: 2026-10-09 (R-192: the Hypervisor's GoalRun plane and its
+membership-stamp route are named as deleted; earlier: 2026-09-17,
+`OrchestrationEnvelope` registered as the successor of
 `OutcomeRoomEnvelope` under R-172 slice S4c-1 / R-185; earlier: 2026-09-12, GoalRun/OutcomeRoom
 remnants moved to or from their ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
@@ -308,7 +310,7 @@ opening is the seam's chain plus the handle re-opened on the record's
 coordinates; the graph is projected from the kernel's thread and subagents and
 the seam's records whose `parent_scope_ref` is this orchestration's scope;
 replay is the chain. Attaching or detaching a GoalRun is a successor revision of
-`member_goal_run_refs` (and, since R-190, the composer then stamps the reciprocal `orchestration_ref` on each GoalRun through the GoalRun plane's membership route — the set here stays authoritative, the stamp is reported never hidden), and a status change is a successor revision of `status`,
+`member_goal_run_refs` (and, since R-190, the composer then stamps the reciprocal `orchestration_ref` on each GoalRun; the GoalRun plane's membership route that took the stamp was deleted with the Hypervisor's GoalRun plane (R-192, slice S5-1), so the stamp is now refused by name, `goal_run_membership_route_retired` — the set here stays authoritative, the stamp is reported never hidden), and a status change is a successor revision of `status`,
 each naming the exact head it was computed against — the seam refuses any other
 by name. No reciprocal write lands in a GoalRun: the GoalRun's own composition
 over the orchestration follows in slice S4d, and until then a GoalRun's
@@ -1289,8 +1291,9 @@ room-participation-requests, room-participant-leases, collaboration-terms and
 local-agent-pairing-sessions families — and no daemon route serves a work object,
 a participation request or a lease. The v4 records are admitted, read and revised
 only through the record seam by the composing application. The hosted-v2
-OutcomeRoom object, the room half of the room-system spine and the GoalRun plane
-follow in slices S4c and S4d.
+OutcomeRoom object and the room half of the room-system spine follow in slices
+S4c and S4d; the Hypervisor's GoalRun plane followed in slice S5-1, which
+deleted it on 2026-09-18 (R-192).
 
 ## Collaborative-Pursuit Mode Semantics
 

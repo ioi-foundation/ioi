@@ -9,8 +9,10 @@ Supersedes: product prose that treats multi-model goal pursuit as a separate
 Hypervisor product, room UI, fixed swarm, public leaderboard, or benchmark-only
 workflow.
 Superseded by: none.
-Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
-ioi.ai owners under ADR 0052 Decision 4).
+Last alignment pass: 2026-10-09 (R-192: an admitted `IoiAiGoalDraft` becomes a
+GoalRun under this application's admission, not the daemon's). Previous pass:
+2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their ioi.ai owners
+under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
 Implementation refs:
@@ -1418,13 +1420,16 @@ IoiAiConnectorAuthEscalation:
 
 `IoiAiGoalDraft` is pre-admission product state identified only by
 `intent://`; it cannot mint `goal://` identity or claim run lifecycle. On
-admission, the daemon creates a canonical GoalRun and ioi.ai renders
-`IoiAiGoalProjection` from that owner. When the draft promotes work that
-already lives in a Hypervisor context, the crossing is the admitted
-`GoalRunActivationEnvelope`
+admission under this application's GoalRun admission contract — no longer the
+daemon's (R-192, slice S5-1) — a canonical GoalRun is admitted and ioi.ai
+renders `IoiAiGoalProjection` from that owner; every effect the run dispatches
+is still admitted per effect at the daemon's policy-enforcement point, against
+node-issued authority ([`goal-pursuit.md`](goal-pursuit.md#purpose)). When the
+draft promotes work that already lives in a Hypervisor context, the crossing is
+the admitted `GoalRunActivationEnvelope`
 ([`goal-pursuit.md`](goal-pursuit.md)) with
-`source_kind: ioi_goal_draft`; ioi.ai drafts and projects that activation and
-never admits it. Likewise,
+`source_kind: ioi_goal_draft`; ioi.ai's product surfaces draft and project that
+activation and never admit it. Likewise,
 `IoiAiOutcomePlanProjection` binds one exact immutable OrchestrationPlan
 revision/hash and its decision receipt. Its execution/evidence lists are
 derived navigation projections, not independently selected routes, workers,

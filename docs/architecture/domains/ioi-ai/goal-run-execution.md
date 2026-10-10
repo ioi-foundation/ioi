@@ -4,8 +4,12 @@ Status: canonical low-level reference.
 Canonical owner: this file for the object shapes of GoalRuns, GoalRun execution ceilings, goal grounding loops, role topologies, context cells, context leases, context handoffs, and orchestration decision receipt registration.
 Supersedes: none.
 Superseded by: none.
-Last alignment pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or from their
-ioi.ai owners under ADR 0052 Decision 4).
+Last alignment pass: 2026-10-09 (R-192 pass on this file's own text: GoalRun
+admission is this application's, while every effect a run dispatches is still
+admitted per effect at the daemon's policy-enforcement point, against
+node-issued authority; the retired `hypervisor_new_session` tag and GoalRun
+membership route are named as retired). Previous pass: 2026-09-12 (GoalRun/OutcomeRoom remnants moved to or
+from their ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: see [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)
 
@@ -13,7 +17,11 @@ Implementation status: see [`../../_meta/canon-to-code-delta.md`](../../_meta/ca
 
 This module owns the object shapes above. They are domain objects of the **ioi.ai
 orchestration application**, an openly packaged domain application on Hypervisor.
-The daemon admits, executes, and receipts them as it does any application domain.
+Admitting their composition is this application's, no longer the daemon's
+(R-192, slice S5-1); every effect a GoalRun dispatches is still admitted per
+effect at the daemon's policy-enforcement point, against node-issued authority
+([`goal-pursuit.md`](./goal-pursuit.md#purpose)). The daemon executes and
+receipts the admitted work as it does any application domain's.
 
 Whenever a GoalRun executes work, its execution composes the daemon-owned thread,
 fork, managed-session, launch-recipe, and harness-binding primitives owned by
@@ -31,10 +39,12 @@ Doctrine and lifecycle semantics are owned by
 
 ## GoalRunEnvelope
 
-Durable state for goal-shaped work. `ioi.ai` and Hypervisor Sessions may expose
-different product surfaces, but they should converge on the same GoalRun
-application object when intent must survive compaction, delegation, verification, or
-long-session continuation.
+Durable state for goal-shaped work. Goal-shaped work starts in ioi.ai's own
+client, or in another context — a Hypervisor Session, WorkRun, work item, claim,
+automation step, or gateway adapter context — whose work crosses into a GoalRun
+through an activation ([`goal-pursuit.md`](./goal-pursuit.md)). Every path
+converges on the same GoalRun application object when intent must survive
+compaction, delegation, verification, or long-session continuation.
 
 The GoalRun is not a chat transcript and not a harness-specific memory file. It
 is the bounded coordination record for one participant or subteam's Goal Kernel
@@ -68,7 +78,7 @@ GoalRunEnvelope:
   effective_learning_policy_hash: hash | null
   origin_surface:
     ioi_goal_chat | hypervisor_new_session | hypervisor_session |
-    automation | marketplace_instance | api
+    automation | marketplace_instance | api   # hypervisor_new_session: the tag of the substrate New Goal surface, retired with the Hypervisor's GoalRun plane (R-192, S5-1); registered in v1 and v2, recorded by no first-party surface
   activation_ref: goal-run-activation://... | null
   source_context_binding:
     target_session_ref: session://... | null
@@ -138,10 +148,14 @@ GoalRunEnvelope:
 
 When `orchestration_ref` is non-null the GoalRun is a member of that ioi.ai
 orchestration (`collaborative-pursuit.md` § *OrchestrationEnvelope*). The
-orchestration's `member_goal_run_refs` set is authoritative; the composing
-application stamps the reciprocal member through the GoalRun plane's one
-membership route after the seam revision (R-190, slice S4d-2), and the daemon
-stores the ref it is given without reading the orchestration record. A GoalRun
+orchestration's `member_goal_run_refs` set is authoritative. A GoalRun this
+application composes under an orchestration carries that orchestration's ref
+from its first record (`apps/ioi-ai/orchestration/src/goalrun.ts`). Stamping
+the reciprocal member onto an existing GoalRun went through the Hypervisor's
+GoalRun plane's one membership route after the seam revision (R-190, slice
+S4d-2); that plane was deleted (R-192, slice S5-1), so the stamp is now refused
+by name (`goal_run_membership_route_retired`) and reported, never hidden, while
+the seam revision stays authoritative. A GoalRun
 cannot attach itself to an orchestration by setting the ref alone: the
 composition's revision on the exact head comes first, and every `work_claim_ref`
 is a v4 WorkClaim admitted under that orchestration. (The v1 shape's room
@@ -183,8 +197,10 @@ observed in its own runtime:
   A GoalRun claiming an originating Session, WorkRun, work item, room claim,
   automation step, gateway adapter context, or ioi.ai draft binds the admitted
   `GoalRunActivationEnvelope` through `activation_ref`
-  (see [`goal-pursuit.md`](./goal-pursuit.md)); only the direct
-  `api | hypervisor_new_session` creation lane may leave it null.
+  (see [`goal-pursuit.md`](./goal-pursuit.md)); only the direct creation lane
+  may leave it null: `origin_surface: api`, plus the registered
+  `hypervisor_new_session` tag of the substrate New Goal surface that retired
+  with the Hypervisor's GoalRun plane (R-192, S5-1).
 - **Source context.** When the run targets a workspace, `source_context_binding`
   names the daemon-verified target Session and Project. Verifying that the
   Session exists, is admitted, and has a provisioned workspace is part of the
@@ -750,7 +766,7 @@ Product intent
   User asks ioi.ai or Hypervisor Session to build, fix, review, publish, or run.
 
 Goal coordination
-  Daemon admission freezes one GoalRunProfile revision, allowed overrides,
+  GoalRun admission freezes one GoalRunProfile revision, allowed overrides,
   transitive component snapshot/hash, and resolution receipt.
   GoalRun records normalized intent, constraints, loop phase, continuation,
   receipts, selected RoleTopology, plans, and selected VerifierPath.
