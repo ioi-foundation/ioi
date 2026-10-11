@@ -486,6 +486,10 @@ jobs:
                       /usr/share/swift "$AGENT_TOOLSDIRECTORY" || true
           echo "after:"; df -h / | tail -1
 
+      # bubblewrap (2026-10-11): since 9cd040de87 the TerminalDriver refuses to run a command
+      # unsandboxed when `bwrap` is not on PATH (terminal_sandbox_unavailable), so the ioi-drivers
+      # terminal tests and the ioi-services shell tests need it. Installed exactly as the M04
+      # daemon-backed plane job installs it: one more package in this apt line, no other step.
       - name: Install native deps for kernel build
         run: |
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
@@ -495,7 +499,8 @@ jobs:
             libdbus-1-dev \
             protobuf-compiler \
             libxcb1-dev \
-            libxdo-dev
+            libxdo-dev \
+            bubblewrap
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
