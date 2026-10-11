@@ -5470,7 +5470,13 @@ struct SnapshotChange {
 fn git_snapshot_changes(repo_root: &str) -> Vec<SnapshotChange> {
     let output = super::host_git::workspace_git(
         repo_root,
-        &["-c", "core.quotePath=false", "status", "--porcelain=v1", "-z"],
+        &[
+            "-c",
+            "core.quotePath=false",
+            "status",
+            "--porcelain=v1",
+            "-z",
+        ],
     )
     .map_err(|_| ())
     .and_then(|mut command| command.output().map_err(|_| ()));
@@ -10813,8 +10819,9 @@ pub(crate) struct HarnessSandboxSpec<'a> {
 
 /// Roots visible read-only inside every harness cell. `/etc` is NOT among them: only the files
 /// in [`HARNESS_SANDBOX_ETC`] are bound.
-const HARNESS_SANDBOX_SYSTEM_ROOTS: &[&str] =
-    &["/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32"];
+const HARNESS_SANDBOX_SYSTEM_ROOTS: &[&str] = &[
+    "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32",
+];
 
 /// The minimal `/etc` a harness needs: the dynamic linker cache, name resolution (the harness
 /// reaches the daemon's model proxy over loopback), users/groups without shadow, TLS roots,
@@ -10982,7 +10989,9 @@ pub(crate) fn harness_sandbox_argv(spec: &HarnessSandboxSpec<'_>) -> Result<Vec<
             link = if target.is_absolute() {
                 target
             } else {
-                link.parent().map(|parent| parent.join(&target)).unwrap_or(target)
+                link.parent()
+                    .map(|parent| parent.join(&target))
+                    .unwrap_or(target)
             };
         }
     }
@@ -14224,7 +14233,10 @@ fn project_session_workspace_diff(workspace_root: &str) -> Value {
 /// Run a git subcommand in `cwd`, returning stdout on success. `cwd` is a guest-writable
 /// workspace, so this is always the hardened host-git invocation (W0.4 / G14).
 fn git_capture(cwd: &str, args: &[&str]) -> Option<String> {
-    let output = super::host_git::workspace_git(cwd, args).ok()?.output().ok()?;
+    let output = super::host_git::workspace_git(cwd, args)
+        .ok()?
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }
@@ -16732,7 +16744,11 @@ fn credential_mints_over_network(record: &Value) -> bool {
 /// the endpoints and ids a mint needs are present. Mirrors the early returns of
 /// `resolve_sealed_credential`, so a record that could never mint is not deferred.
 fn mint_precondition_holds(record: &Value) -> bool {
-    let present = |field: &str| record[field].as_str().is_some_and(|value| !value.is_empty());
+    let present = |field: &str| {
+        record[field]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
+    };
     let opens = |field: &str| record[field].as_str().and_then(open_scm_token).is_some();
     match record["kind"].as_str() {
         Some("github-app") => {
@@ -16807,7 +16823,11 @@ async fn local_or_deferred_credential(record: Value) -> BackingCredentialSlot {
         if mint_precondition_holds(&record) {
             BackingCredentialSlot::Deferred(record)
         } else {
-            BackingCredentialSlot::Opened(None, None, record["key_source"].as_str().map(str::to_string))
+            BackingCredentialSlot::Opened(
+                None,
+                None,
+                record["key_source"].as_str().map(str::to_string),
+            )
         }
     } else {
         // Every non-minting kind resolves without a network call.
@@ -17114,11 +17134,8 @@ where
             super::governed_authority::revalidate_admission_receipt(data_dir, exact).await
         }
         CapabilityAuthorityAdmission::Portable(portable) => {
-            super::governed_authority::revalidate_portable_authority_admission(
-                data_dir,
-                portable,
-            )
-            .await
+            super::governed_authority::revalidate_portable_authority_admission(data_dir, portable)
+                .await
         }
         CapabilityAuthorityAdmission::Standing(standing) => {
             super::governed_authority::revalidate_standing_admission_receipt(data_dir, standing)
@@ -17322,8 +17339,16 @@ mod capability_lease_mint_order_tests {
             panic!("a caller with no grant was issued a lease");
         };
         assert_ne!(status, StatusCode::PRECONDITION_REQUIRED, "{body}");
-        assert_eq!(body["reason"], json!("scm_publish_authority_required"), "{body}");
-        assert_eq!(mints.load(Ordering::SeqCst), 0, "a refused caller caused a mint");
+        assert_eq!(
+            body["reason"],
+            json!("scm_publish_authority_required"),
+            "{body}"
+        );
+        assert_eq!(
+            mints.load(Ordering::SeqCst),
+            0,
+            "a refused caller caused a mint"
+        );
         assert!(read_record_dir(data_dir, "capability-leases").is_empty());
     }
 
@@ -19431,11 +19456,15 @@ mod connector_invoke_receipt_tests {
     fn every_invocation_gets_its_own_receipt() {
         let directory = tempfile::tempdir().expect("tempdir");
         let data_dir = directory.path().to_str().expect("utf8");
-        let first = commit_connector_invoke_receipt(data_dir, "intent-1", receipt()).expect("first");
+        let first =
+            commit_connector_invoke_receipt(data_dir, "intent-1", receipt()).expect("first");
         let second =
             commit_connector_invoke_receipt(data_dir, "intent-1", receipt()).expect("second");
         assert_ne!(first["receipt_id"], second["receipt_id"]);
-        assert_eq!(read_record_dir(data_dir, "connector-invoke-receipts").len(), 2);
+        assert_eq!(
+            read_record_dir(data_dir, "connector-invoke-receipts").len(),
+            2
+        );
     }
 
     #[test]
@@ -19443,8 +19472,11 @@ mod connector_invoke_receipt_tests {
         let directory = tempfile::tempdir().expect("tempdir");
         let data_dir = directory.path().to_str().expect("utf8");
         // A path shadow: the receipt family is a regular file, so no receipt can land in it.
-        std::fs::write(directory.path().join("connector-invoke-receipts"), b"not a directory")
-            .expect("shadow");
+        std::fs::write(
+            directory.path().join("connector-invoke-receipts"),
+            b"not a directory",
+        )
+        .expect("shadow");
         assert!(commit_connector_invoke_receipt(data_dir, "intent-1", receipt()).is_err());
     }
 }
@@ -21104,13 +21136,16 @@ pub(crate) fn auth_enforced(data_dir: &str, headers: &HeaderMap) -> bool {
 /// The configured enforcement mode: "always", "never" or "auto" (the default).
 fn auth_policy_mode(data_dir: &str) -> String {
     let policy = auth_policy(data_dir);
-    policy["mode"].as_str().map(String::from).unwrap_or_else(|| {
-        if policy["require_authentication"].as_bool().unwrap_or(false) {
-            "always".into()
-        } else {
-            "auto".into()
-        }
-    })
+    policy["mode"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_else(|| {
+            if policy["require_authentication"].as_bool().unwrap_or(false) {
+                "always".into()
+            } else {
+                "auto".into()
+            }
+        })
 }
 /// Deployment auth posture — how much trust identity claims deserve on THIS instance:
 /// `local_development` (loopback, unenforced), `exposed_untrusted` (reachable from outside but
@@ -22729,30 +22764,51 @@ mod auth_gate_tests {
             };
             assert_eq!(status, StatusCode::UNAUTHORIZED, "{path}");
             assert_eq!(body["code"], "request_principal_required", "{path}");
-            assert_eq!(body["error"]["code"], "request_principal_required", "{path}");
+            assert_eq!(
+                body["error"]["code"], "request_principal_required",
+                "{path}"
+            );
         }
         for method in [Method::PUT, Method::PATCH, Method::DELETE] {
             assert!(
-                auth_gate_refusal(&state, &method, "/v1/hypervisor/environments/env-1", &loopback)
-                    .is_some(),
+                auth_gate_refusal(
+                    &state,
+                    &method,
+                    "/v1/hypervisor/environments/env-1",
+                    &loopback
+                )
+                .is_some(),
                 "{method}"
             );
         }
 
         // Reads on loopback, the login/bootstrap lane, the daemon's own dispatches and a signed-in
         // caller all stay admitted, and so do the capability-token namespaces outside the plane.
-        assert!(auth_gate_refusal(&state, &Method::GET, "/v1/hypervisor/storage-archives", &loopback)
-            .is_none());
-        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/auth/login", &loopback)
-            .is_none());
-        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/chat/completions", &loopback)
-            .is_none());
+        assert!(auth_gate_refusal(
+            &state,
+            &Method::GET,
+            "/v1/hypervisor/storage-archives",
+            &loopback
+        )
+        .is_none());
+        assert!(auth_gate_refusal(
+            &state,
+            &Method::POST,
+            "/v1/hypervisor/auth/login",
+            &loopback
+        )
+        .is_none());
+        assert!(
+            auth_gate_refusal(&state, &Method::POST, "/v1/chat/completions", &loopback).is_none()
+        );
         let mut internal = loopback.clone();
         internal.insert(
             "x-ioi-internal-dispatch",
             state.internal_dispatch_token.parse().unwrap(),
         );
-        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/exec", &internal).is_none());
+        assert!(
+            auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/exec", &internal).is_none()
+        );
         let mut forged = loopback.clone();
         forged.insert("x-ioi-internal-dispatch", "idisp_forged".parse().unwrap());
         assert!(auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/exec", &forged).is_some());
@@ -22765,8 +22821,9 @@ mod auth_gate_tests {
                 .parse()
                 .unwrap(),
         );
-        assert!(auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/exec", &signed_in)
-            .is_none());
+        assert!(
+            auth_gate_refusal(&state, &Method::POST, "/v1/hypervisor/exec", &signed_in).is_none()
+        );
     }
 }
 
@@ -26639,9 +26696,12 @@ mod scm_connect_operator_tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             header::AUTHORIZATION,
-            format!("Bearer {}", issued["session_token"].as_str().expect("token"))
-                .parse()
-                .expect("header"),
+            format!(
+                "Bearer {}",
+                issued["session_token"].as_str().expect("token")
+            )
+            .parse()
+            .expect("header"),
         );
         headers
     }
@@ -26663,7 +26723,11 @@ mod scm_connect_operator_tests {
             handle_scm_connect_github(State(state.clone()), HeaderMap::new(), Json(body.clone()))
                 .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED, "{refusal}");
-        assert_eq!(refusal["code"], json!("hypervisor.authentication_required"), "{refusal}");
+        assert_eq!(
+            refusal["code"],
+            json!("hypervisor.authentication_required"),
+            "{refusal}"
+        );
 
         let (status, Json(refusal)) = handle_scm_connect_github(
             State(state.clone()),
@@ -26672,7 +26736,11 @@ mod scm_connect_operator_tests {
         )
         .await;
         assert_eq!(status, StatusCode::FORBIDDEN, "{refusal}");
-        assert_eq!(refusal["code"], json!("scm_credential_binder_not_operator"), "{refusal}");
+        assert_eq!(
+            refusal["code"],
+            json!("scm_credential_binder_not_operator"),
+            "{refusal}"
+        );
 
         assert!(
             read_record_dir(data_dir, "scm-credentials").is_empty(),
@@ -30032,12 +30100,11 @@ pub(crate) mod runtime_host {
                 reopened.get(b"firewall-receipt").expect("get"),
                 Some(b"signed bytes v2".to_vec())
             );
-            let names: Vec<String> =
-                std::fs::read_dir(directory.path().join("runtime-host-state"))
-                    .expect("dir")
-                    .flatten()
-                    .map(|entry| entry.file_name().to_string_lossy().into_owned())
-                    .collect();
+            let names: Vec<String> = std::fs::read_dir(directory.path().join("runtime-host-state"))
+                .expect("dir")
+                .flatten()
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .collect();
             assert_eq!(names, vec![hex_encode(b"firewall-receipt")]);
             let mut state = reopened;
             state.delete(b"firewall-receipt").expect("durable delete");
@@ -31553,7 +31620,10 @@ mod w0_hardening_tests {
         let root = tempfile::tempdir().expect("tempdir");
         let home = root.path().join("home").join("operator");
         let data_dir = home.join(".ioi").join("hypervisor").join("data");
-        let workspace = data_dir.join("environments").join("env-1").join("workspace");
+        let workspace = data_dir
+            .join("environments")
+            .join("env-1")
+            .join("workspace");
         let shim_dir = root.path().join("repo").join("packages").join("shims");
         for dir in [&home, &workspace, &shim_dir, &home.join(".ssh")] {
             std::fs::create_dir_all(dir).expect("mkdir");
@@ -31602,7 +31672,10 @@ mod w0_hardening_tests {
             "--new-session",
             "--die-with-parent",
         ] {
-            assert!(argv.iter().any(|arg| arg == flag), "missing {flag}: {argv:?}");
+            assert!(
+                argv.iter().any(|arg| arg == flag),
+                "missing {flag}: {argv:?}"
+            );
         }
         // Recorded gap (W2): the harness still reaches the daemon's model proxy over loopback.
         assert!(!argv.iter().any(|arg| arg == "--unshare-net"));
@@ -31616,13 +31689,19 @@ mod w0_hardening_tests {
             .windows(3)
             .position(|w| w[0] == "--bind" && w[1] == ws && w[2] == ws)
             .expect("workspace is bound read-write");
-        assert!(ws_bind > home_tmpfs, "the workspace bind must come after the home mask");
+        assert!(
+            ws_bind > home_tmpfs,
+            "the workspace bind must come after the home mask"
+        );
         // Nothing that exposes the secrets is bound.
         let ssh = fixture.home.join(".ssh").to_string_lossy().into_owned();
         let data = fixture.data_dir.to_string_lossy().into_owned();
         for (index, arg) in argv.iter().enumerate() {
             let is_source = index > 0
-                && matches!(argv[index - 1].as_str(), "--bind" | "--ro-bind" | "--ro-bind-try");
+                && matches!(
+                    argv[index - 1].as_str(),
+                    "--bind" | "--ro-bind" | "--ro-bind-try"
+                );
             if is_source {
                 assert!(
                     !(arg == &home || arg == &ssh || arg == &data || ssh.starts_with(arg.as_str())),
@@ -31646,7 +31725,10 @@ mod w0_hardening_tests {
             executables: &[],
             state_dirs: &[],
         });
-        assert!(refused.is_err(), "a workspace above home would re-expose it");
+        assert!(
+            refused.is_err(),
+            "a workspace above home would re-expose it"
+        );
     }
 
     #[test]
@@ -31662,7 +31744,10 @@ mod w0_hardening_tests {
             executables: &[loose],
             state_dirs: &[],
         });
-        assert!(refused.is_err(), "an install root of home would bind ~/.ssh back read-only: {refused:?}");
+        assert!(
+            refused.is_err(),
+            "an install root of home would bind ~/.ssh back read-only: {refused:?}"
+        );
         // a binary under a dedicated directory binds only that directory
         let tools = fixture.home.join(".local").join("bin");
         std::fs::create_dir_all(&tools).expect("mkdir");
@@ -31677,10 +31762,19 @@ mod w0_hardening_tests {
         })
         .expect("a dedicated install dir is fine");
         let home_text = fixture.home.to_string_lossy().into_owned();
-        assert!(!argv.windows(3).any(|w| w[0] == "--ro-bind" && w[1] == home_text), "home is never bound");
+        assert!(
+            !argv
+                .windows(3)
+                .any(|w| w[0] == "--ro-bind" && w[1] == home_text),
+            "home is never bound"
+        );
     }
 
-    fn run_in_cell(argv: &[String], command: &[&str], home: &std::path::Path) -> std::process::Output {
+    fn run_in_cell(
+        argv: &[String],
+        command: &[&str],
+        home: &std::path::Path,
+    ) -> std::process::Output {
         std::process::Command::new(&argv[0])
             .args(&argv[1..])
             .args(command)
@@ -31698,13 +31792,22 @@ mod w0_hardening_tests {
             return;
         }
         let fixture = cell_fixture();
-        let state = fixture.home.join(".local").join("share").join("adapter-state");
+        let state = fixture
+            .home
+            .join(".local")
+            .join("share")
+            .join("adapter-state");
         std::fs::create_dir_all(&state).expect("state dir");
         let argv = cell_argv(&fixture, &[state.clone()]);
         // Positive control: the cell runs, and the workspace is readable and writable.
-        let control = run_in_cell(&argv, &["/bin/sh", "-c", "cat readme.txt && echo written > out.txt"], &fixture.home);
+        let control = run_in_cell(
+            &argv,
+            &["/bin/sh", "-c", "cat readme.txt && echo written > out.txt"],
+            &fixture.home,
+        );
         if !control.status.success()
-            && String::from_utf8_lossy(&control.stderr).contains("No permissions to create new namespace")
+            && String::from_utf8_lossy(&control.stderr)
+                .contains("No permissions to create new namespace")
         {
             eprintln!("bwrap cannot create namespaces here: argv assertions only");
             return;
@@ -31716,7 +31819,9 @@ mod w0_hardening_tests {
         );
         assert!(String::from_utf8_lossy(&control.stdout).contains("workspace file"));
         assert_eq!(
-            std::fs::read_to_string(fixture.workspace.join("out.txt")).ok().as_deref(),
+            std::fs::read_to_string(fixture.workspace.join("out.txt"))
+                .ok()
+                .as_deref(),
             Some("written\n")
         );
         // The planted secrets are unreadable from inside the cell.
@@ -31737,13 +31842,30 @@ mod w0_hardening_tests {
         }
         assert_eq!(denied, 3);
         // Listing home shows nothing but the mount points the cell itself needs.
-        let listing = run_in_cell(&argv, &["/bin/ls", "-A", &fixture.home.to_string_lossy()], &fixture.home);
+        let listing = run_in_cell(
+            &argv,
+            &["/bin/ls", "-A", &fixture.home.to_string_lossy()],
+            &fixture.home,
+        );
         let names = String::from_utf8_lossy(&listing.stdout);
-        assert!(!names.contains(".ssh") && !names.contains(".bash_history"), "home leaked: {names}");
+        assert!(
+            !names.contains(".ssh") && !names.contains(".bash_history"),
+            "home leaked: {names}"
+        );
         // The host PID namespace is not visible.
-        let ps = run_in_cell(&argv, &["/bin/sh", "-c", "ls /proc | grep -c '^[0-9]'"], &fixture.home);
-        let visible: u32 = String::from_utf8_lossy(&ps.stdout).trim().parse().unwrap_or(9999);
-        assert!(visible < 10, "host processes visible inside the cell: {visible}");
+        let ps = run_in_cell(
+            &argv,
+            &["/bin/sh", "-c", "ls /proc | grep -c '^[0-9]'"],
+            &fixture.home,
+        );
+        let visible: u32 = String::from_utf8_lossy(&ps.stdout)
+            .trim()
+            .parse()
+            .unwrap_or(9999);
+        assert!(
+            visible < 10,
+            "host processes visible inside the cell: {visible}"
+        );
     }
 
     /// The REAL argv `resolve_adapter_driver` builds for each installed adapter still reaches that
@@ -31770,12 +31892,17 @@ mod w0_hardening_tests {
                 Ok(Some((_, argv))) => argv,
                 Ok(None) => panic!("{harness} must resolve to an adapter driver"),
                 Err(("adapter_driver_missing", _)) => {
-                    eprintln!("{harness}: shims not resolvable from this working directory: skipped");
+                    eprintln!(
+                        "{harness}: shims not resolvable from this working directory: skipped"
+                    );
                     continue;
                 }
                 Err(other) => panic!("{harness}: {other:?}"),
             };
-            let separator = argv.iter().position(|arg| arg == "--").expect("-- separator");
+            let separator = argv
+                .iter()
+                .position(|arg| arg == "--")
+                .expect("-- separator");
             let script = format!(
                 "command -v {binary} >/dev/null && {binary} --version >/dev/null 2>&1; echo rc=$?; \
                  if ls -A \"$HOME/.ssh\" 2>/dev/null | grep -q .; then echo home=LEAK; else echo home=sealed; fi"
@@ -31794,7 +31921,10 @@ mod w0_hardening_tests {
                 "{harness}: `{binary} --version` failed inside its cell: {stdout} {}",
                 String::from_utf8_lossy(&out.stderr)
             );
-            assert!(stdout.contains("home=sealed"), "{harness}: ~/.ssh visible: {stdout}");
+            assert!(
+                stdout.contains("home=sealed"),
+                "{harness}: ~/.ssh visible: {stdout}"
+            );
             exercised += 1;
         }
         eprintln!("resolved adapter cells exercised: {exercised}");

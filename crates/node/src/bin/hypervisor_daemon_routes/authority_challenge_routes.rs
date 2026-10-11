@@ -230,7 +230,8 @@ fn reask_preimage(base_request_hash: &str, ask_nonce: &str) -> Value {
 /// The request hash of a re-ask of the effect whose own request hash is `base_request_hash`: a new
 /// request hash for the same exact effect, so the authority decides it as a new request.
 pub(crate) fn reask_request_hash(base_request_hash: &str, ask_nonce: &str) -> String {
-    let bytes = serde_jcs::to_vec(&reask_preimage(base_request_hash, ask_nonce)).unwrap_or_default();
+    let bytes =
+        serde_jcs::to_vec(&reask_preimage(base_request_hash, ask_nonce)).unwrap_or_default();
     format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 
@@ -3345,7 +3346,11 @@ mod tests {
             .expect("an expired grant is never presented");
         assert_eq!(stale.code, "approval_ref_expired");
         assert_eq!(stale.status, StatusCode::GONE);
-        assert!(!stale.message.contains("approve again"), "{}", stale.message);
+        assert!(
+            !stale.message.contains("approve again"),
+            "{}",
+            stale.message
+        );
         assert!(
             stale.message.contains("cannot be approved again")
                 && stale.message.contains("asked again"),
@@ -3370,7 +3375,11 @@ mod tests {
         assert_eq!(nonce, reask_nonce(&request, 1));
         assert_eq!(reask_ordinal_of(&request, &new_request), Some(1));
         assert_eq!(successor["base_request_hash"], json!(request));
-        assert_eq!(successor["policy_hash"], json!(policy), "the same exact effect");
+        assert_eq!(
+            successor["policy_hash"],
+            json!(policy),
+            "the same exact effect"
+        );
         assert_eq!(successor["supersedes"], json!(old));
         assert_eq!(
             successor["published_preimage"]["reask_preimage"],
@@ -3409,7 +3418,11 @@ mod tests {
         assert_eq!(again.0, StatusCode::GONE, "{}", again.1 .0);
         assert_eq!(again.1 .0["error"]["code"], "challenge_grant_expired");
         assert_eq!(again.1 .0["superseded_by"], json!(new));
-        assert_eq!(stub.invocations(), 1, "no second approve of the old request hash");
+        assert_eq!(
+            stub.invocations(),
+            1,
+            "no second approve of the old request hash"
+        );
 
         // The operator approves the successor: the authority decides the NEW request hash.
         let stub_new = StubAuthority::new("reask-new", &grant_for(&policy, &new_request), "0.1");
@@ -3599,7 +3612,10 @@ mod tests {
         approve_in_place(&dir, &second);
         let_grant_expire(&dir, &second);
         let third = park_id(&dir, &policy, &request);
-        assert!(third != first && third != second, "{first} {second} {third}");
+        assert!(
+            third != first && third != second,
+            "{first} {second} {third}"
+        );
         assert_eq!(record_of(&dir, &second)["superseded_by"], json!(third));
         assert_eq!(record_of(&dir, &second)["ask_ordinal"], json!(1));
         assert_eq!(record_of(&dir, &third)["ask_ordinal"], json!(2));

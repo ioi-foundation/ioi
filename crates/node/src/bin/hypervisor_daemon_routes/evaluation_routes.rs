@@ -2954,7 +2954,13 @@ pub(crate) async fn handle_result_query(
     headers: HeaderMap,
     Query(query): Query<EvaluationQuery>,
 ) -> Reply {
-    inventory(&st, &headers, &RESULT, "evaluation_results", query.system_ref())
+    inventory(
+        &st,
+        &headers,
+        &RESULT,
+        "evaluation_results",
+        query.system_ref(),
+    )
 }
 
 pub(crate) async fn handle_result_get(
@@ -3526,7 +3532,13 @@ pub(crate) async fn handle_continuity_query(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
 ) -> Reply {
-    inventory(&st, &headers, &REPORT, "model_swap_continuity_reports", None)
+    inventory(
+        &st,
+        &headers,
+        &REPORT,
+        "model_swap_continuity_reports",
+        None,
+    )
 }
 
 pub(crate) async fn handle_continuity_get(
@@ -3954,7 +3966,10 @@ pub(crate) mod tests {
     /// after the fact no longer matches the hash that committed to it.
     #[test]
     fn v2_commits_the_system_and_v1_keeps_its_own_commitment() {
-        for (v2, v1) in [(RUN_MATERIAL, RUN_MATERIAL_V1), (RESULT_MATERIAL, RESULT_MATERIAL_V1)] {
+        for (v2, v1) in [
+            (RUN_MATERIAL, RUN_MATERIAL_V1),
+            (RESULT_MATERIAL, RESULT_MATERIAL_V1),
+        ] {
             assert!(v2.contains(&"system_ref") && !v1.contains(&"system_ref"));
             assert_eq!(v2.len(), v1.len() + 1);
             assert!(v1.iter().all(|member| v2.contains(member)));
@@ -3996,13 +4011,23 @@ pub(crate) mod tests {
         }
         // A family with one generation reads everything as itself; an unknown version is the
         // newest's to refuse, never a silent fallback to an older commitment.
-        assert!(std::ptr::eq(generation_for(&SUITE, Some("ioi.evaluation-run.v1")), &SUITE));
-        assert!(std::ptr::eq(generation_for(&RUN, Some("ioi.evaluation-run.v9")), &RUN));
+        assert!(std::ptr::eq(
+            generation_for(&SUITE, Some("ioi.evaluation-run.v1")),
+            &SUITE
+        ));
+        assert!(std::ptr::eq(
+            generation_for(&RUN, Some("ioi.evaluation-run.v9")),
+            &RUN
+        ));
         assert!(std::ptr::eq(generation_for(&RUN, None), &RUN));
     }
 
     fn text_of(value: &Value, key: &str) -> String {
-        value.get(key).and_then(Value::as_str).unwrap_or_default().to_string()
+        value
+            .get(key)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
     }
 
     fn code_of_reply(reply: &Reply) -> (StatusCode, String) {
@@ -4025,7 +4050,11 @@ pub(crate) mod tests {
     #[test]
     fn a_run_names_only_a_system_in_its_submitters_inventory() {
         let held = |id: &str| Ok::<bool, (String, String)>(id == "system://acme/lending");
-        for body in [json!({}), json!({ "system_ref": null }), json!({ "system_ref": "  " })] {
+        for body in [
+            json!({}),
+            json!({ "system_ref": null }),
+            json!({ "system_ref": "  " }),
+        ] {
             assert_eq!(run_system(&body, held).unwrap(), None, "{body}");
         }
         assert_eq!(
@@ -4033,8 +4062,13 @@ pub(crate) mod tests {
             Some("system://acme/lending".to_string())
         );
         assert_eq!(
-            code_of_reply(&run_system(&json!({ "system_ref": "system://acme/other" }), held).unwrap_err()),
-            (StatusCode::UNPROCESSABLE_ENTITY, "evaluation_run_system_unknown".to_string())
+            code_of_reply(
+                &run_system(&json!({ "system_ref": "system://acme/other" }), held).unwrap_err()
+            ),
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "evaluation_run_system_unknown".to_string()
+            )
         );
         for bad_ref in [
             json!("project://acme/lending"),
@@ -4047,17 +4081,35 @@ pub(crate) mod tests {
             let refused = run_system(&json!({ "system_ref": bad_ref }), held).unwrap_err();
             assert_eq!(
                 code_of_reply(&refused),
-                (StatusCode::UNPROCESSABLE_ENTITY, "evaluation_run_system_ref_invalid".to_string()),
+                (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "evaluation_run_system_ref_invalid".to_string()
+                ),
                 "{bad_ref}"
             );
         }
-        let unreadable = |_: &str| Err::<bool, (String, String)>(("system_projection_source_missing".into(), "gone".into()));
+        let unreadable = |_: &str| {
+            Err::<bool, (String, String)>((
+                "system_projection_source_missing".into(),
+                "gone".into(),
+            ))
+        };
         assert_eq!(
-            code_of_reply(&run_system(&json!({ "system_ref": "system://acme/lending" }), unreadable).unwrap_err()),
-            (StatusCode::SERVICE_UNAVAILABLE, "evaluation_run_system_unreadable".to_string())
+            code_of_reply(
+                &run_system(
+                    &json!({ "system_ref": "system://acme/lending" }),
+                    unreadable
+                )
+                .unwrap_err()
+            ),
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "evaluation_run_system_unreadable".to_string()
+            )
         );
         // Asked for no System, the inventory is never consulted.
-        let never = |_: &str| -> Result<bool, (String, String)> { panic!("consulted without a System") };
+        let never =
+            |_: &str| -> Result<bool, (String, String)> { panic!("consulted without a System") };
         assert_eq!(run_system(&json!({}), never).unwrap(), None);
     }
 
@@ -4085,11 +4137,18 @@ pub(crate) mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             axum::http::header::AUTHORIZATION,
-            format!("Bearer {}", issued["session_token"].as_str().expect("token"))
-                .parse()
-                .expect("header"),
+            format!(
+                "Bearer {}",
+                issued["session_token"].as_str().expect("token")
+            )
+            .parse()
+            .expect("header"),
         );
-        Plane { _dir: dir, st, headers }
+        Plane {
+            _dir: dir,
+            st,
+            headers,
+        }
     }
 
     /// Another person, signed in with a bearer session, a member of `tenant` only.
@@ -4215,18 +4274,43 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn a_v1_result_keeps_reading_beside_a_v2_one_and_the_inventory_narrows_by_system() {
         let p = plane();
-        let lending = plant_result(&p.st, &p.headers, PLANT_OWNER, "acme.lending-001", Some("system://acme/lending"), false);
-        let unbound = plant_result(&p.st, &p.headers, PLANT_OWNER, "acme.unbound-001", None, false);
-        let legacy = plant_result(&p.st, &p.headers, PLANT_OWNER, "acme.legacy-001", None, true);
+        let lending = plant_result(
+            &p.st,
+            &p.headers,
+            PLANT_OWNER,
+            "acme.lending-001",
+            Some("system://acme/lending"),
+            false,
+        );
+        let unbound = plant_result(
+            &p.st,
+            &p.headers,
+            PLANT_OWNER,
+            "acme.unbound-001",
+            None,
+            false,
+        );
+        let legacy = plant_result(
+            &p.st,
+            &p.headers,
+            PLANT_OWNER,
+            "acme.legacy-001",
+            None,
+            true,
+        );
         let identity = resolve_request_identity(&p.st.data_dir, &p.headers).expect("signed in");
-        let read = |reference: &str| resolve_result_record(&p.st, &identity, reference).expect("resolves");
+        let read =
+            |reference: &str| resolve_result_record(&p.st, &identity, reference).expect("resolves");
         let v2 = read(&lending);
         assert_eq!(v2["schema_version"], "ioi.evaluation-result.v2");
         assert_eq!(v2["system_ref"], "system://acme/lending");
         assert_eq!(read(&unbound)["system_ref"], Value::Null);
         let v1 = read(&legacy);
         assert_eq!(v1["schema_version"], "ioi.evaluation-result.v1");
-        assert!(v1.get("system_ref").is_none(), "a v1 record reads as v1: no system_ref member");
+        assert!(
+            v1.get("system_ref").is_none(),
+            "a v1 record reads as v1: no system_ref member"
+        );
 
         let (status, Json(all)) = handle_result_query(
             State(p.st.clone()),
@@ -4235,11 +4319,17 @@ pub(crate) mod tests {
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{all}");
-        assert_eq!(all["evaluation_results"].as_array().map_or(0, Vec::len), 3, "{all}");
+        assert_eq!(
+            all["evaluation_results"].as_array().map_or(0, Vec::len),
+            3,
+            "{all}"
+        );
         let (status, Json(narrowed)) = handle_result_query(
             State(p.st.clone()),
             p.headers.clone(),
-            Query(EvaluationQuery { system_ref: Some("system://acme/lending".into()) }),
+            Query(EvaluationQuery {
+                system_ref: Some("system://acme/lending".into()),
+            }),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{narrowed}");
@@ -4251,7 +4341,9 @@ pub(crate) mod tests {
         let (_, Json(none)) = handle_result_query(
             State(p.st.clone()),
             p.headers.clone(),
-            Query(EvaluationQuery { system_ref: Some("system://acme/other".into()) }),
+            Query(EvaluationQuery {
+                system_ref: Some("system://acme/other".into()),
+            }),
         )
         .await;
         assert_eq!(none["evaluation_results"], json!([]));
@@ -4265,7 +4357,10 @@ pub(crate) mod tests {
         .await;
         assert_eq!(
             code_of_reply(&authored),
-            (StatusCode::UNPROCESSABLE_ENTITY, "evaluation_result_caller_authored_evidence_refused".to_string())
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "evaluation_result_caller_authored_evidence_refused".to_string()
+            )
         );
     }
 }

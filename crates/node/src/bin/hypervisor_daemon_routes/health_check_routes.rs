@@ -617,12 +617,8 @@ pub(crate) async fn handle_health_check_evaluate(
     // ADR 0056 P6: the evaluation produces its telemetry — an admitted outcome point about this
     // check, scoped to the System it observes, and the probe's duration as an ephemeral sample. The
     // result above is already admitted; a telemetry refusal is named beside it, never undoes it.
-    let telemetry = super::telemetry_routes::record_health_evaluation(
-        &st,
-        &caller,
-        &record,
-        probe_seconds,
-    );
+    let telemetry =
+        super::telemetry_routes::record_health_evaluation(&st, &caller, &record, probe_seconds);
     (
         StatusCode::CREATED,
         Json(

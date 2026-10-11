@@ -2571,7 +2571,14 @@ pub(crate) async fn handle_initialize(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    post(SystemLifecycleOperation::Initialize, key, state, headers, body).await
+    post(
+        SystemLifecycleOperation::Initialize,
+        key,
+        state,
+        headers,
+        body,
+    )
+    .await
 }
 pub(crate) async fn handle_activate(
     AxumPath(key): AxumPath<String>,
@@ -2579,7 +2586,14 @@ pub(crate) async fn handle_activate(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    post(SystemLifecycleOperation::Activate, key, state, headers, body).await
+    post(
+        SystemLifecycleOperation::Activate,
+        key,
+        state,
+        headers,
+        body,
+    )
+    .await
 }
 
 pub(crate) async fn handle_get_initialize(

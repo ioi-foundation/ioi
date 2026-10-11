@@ -50,11 +50,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[cfg(test)]
+use ioi_services::agentic::runtime::kernel::host_git::hardened_args;
 pub(crate) use ioi_services::agentic::runtime::kernel::host_git::{
     run_workspace_git, workspace_git,
 };
-#[cfg(test)]
-use ioi_services::agentic::runtime::kernel::host_git::hardened_args;
 
 /// Keys pinned on the remote-facing profile. Operator (system/global) config is honoured there —
 /// credentials and ssh settings live in it — but no repository the guest wrote is ever read.
@@ -521,8 +521,7 @@ pub(crate) mod test_support {
             )
             .expect("info attrs");
             // Guest edits after the seed commit, so status/diff have work to do.
-            std::fs::write(workspace.join("tracked.txt"), "committed\nguest edit\n")
-                .expect("edit");
+            std::fs::write(workspace.join("tracked.txt"), "committed\nguest edit\n").expect("edit");
             std::fs::write(workspace.join("notes.md"), "guest note\n").expect("md");
             Self {
                 _root: root,
@@ -546,7 +545,10 @@ pub(crate) mod test_support {
         }
 
         pub(crate) fn clear(&self) {
-            for entry in std::fs::read_dir(&self.sentinels).expect("sentinels").flatten() {
+            for entry in std::fs::read_dir(&self.sentinels)
+                .expect("sentinels")
+                .flatten()
+            {
                 let _ = std::fs::remove_file(entry.path());
             }
         }
@@ -671,7 +673,13 @@ mod tests {
         run(vec!["rev-parse", "--is-inside-work-tree"]);
         run(vec!["rev-parse", "--show-toplevel"]);
         run(vec!["status", "--porcelain"]);
-        run(vec!["-c", "core.quotePath=false", "status", "--porcelain=v1", "-z"]);
+        run(vec![
+            "-c",
+            "core.quotePath=false",
+            "status",
+            "--porcelain=v1",
+            "-z",
+        ]);
         run(vec!["status", "--porcelain", "-uall"]);
         run(vec!["diff", "--numstat", "HEAD"]);
         run(vec!["diff", "HEAD"]);
@@ -688,7 +696,15 @@ mod tests {
         let mut commit = identity.to_vec();
         commit.extend(["commit", "-q", "-m", "daemon commit"]);
         run(commit);
-        run(vec!["worktree", "add", "-q", "-b", "daemon-wt", &worktree, "HEAD"]);
+        run(vec![
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            "daemon-wt",
+            &worktree,
+            "HEAD",
+        ]);
         let fired = repo.fired();
         assert!(
             fired.is_empty(),
@@ -706,8 +722,14 @@ mod tests {
         // The guest's core.worktree did not redirect `add -A` at the host directory.
         let (ok, tree, _) = run_workspace_git(ws, &["ls-tree", "-r", "--name-only", "HEAD"]);
         assert!(ok);
-        assert!(tree.contains("tracked.txt") && tree.contains("notes.md"), "{tree}");
-        assert!(!tree.contains("host-secret.txt"), "core.worktree leaked: {tree}");
+        assert!(
+            tree.contains("tracked.txt") && tree.contains("notes.md"),
+            "{tree}"
+        );
+        assert!(
+            !tree.contains("host-secret.txt"),
+            "core.worktree leaked: {tree}"
+        );
     }
 
     #[test]
@@ -723,18 +745,23 @@ mod tests {
             &["status".to_string(), "--porcelain".to_string()],
         )
         .expect("coding-tool git status");
-        assert!(status.ok && status.stdout.contains("tracked.txt"), "{}", status.stderr);
+        assert!(
+            status.ok && status.stdout.contains("tracked.txt"),
+            "{}",
+            status.stderr
+        );
         let diff = run_git_read_only(
             &repo.workspace,
             &["diff".to_string(), "--stat".to_string(), "HEAD".to_string()],
         )
         .expect("coding-tool git diff");
         assert!(diff.ok, "{}", diff.stderr);
-        let request: RepositoryWorkflowProjectionRequest = serde_json::from_value(serde_json::json!({
-            "projection_kind": "repository_context",
-            "workspace_root": repo.workspace.to_string_lossy(),
-        }))
-        .expect("request");
+        let request: RepositoryWorkflowProjectionRequest =
+            serde_json::from_value(serde_json::json!({
+                "projection_kind": "repository_context",
+                "workspace_root": repo.workspace.to_string_lossy(),
+            }))
+            .expect("request");
         let record = RepositoryWorkflowProjectionCore
             .project(request)
             .expect("repository workflow projection");
@@ -745,7 +772,10 @@ mod tests {
             record.repository_context
         );
         let fired = repo.fired();
-        assert!(fired.is_empty(), "kernel git reads executed planted config: {fired:?}");
+        assert!(
+            fired.is_empty(),
+            "kernel git reads executed planted config: {fired:?}"
+        );
     }
 
     #[test]
@@ -782,7 +812,11 @@ mod tests {
         let neutral = NeutralRepo::create(&format, Some(&objects)).expect("neutral repo");
         let output = neutral
             .git()
-            .args(["push", remote.to_str().unwrap(), &format!("{head}:refs/heads/published")])
+            .args([
+                "push",
+                remote.to_str().unwrap(),
+                &format!("{head}:refs/heads/published"),
+            ])
             .output()
             .expect("push");
         assert!(
@@ -791,7 +825,11 @@ mod tests {
             String::from_utf8_lossy(&output.stderr)
         );
         let listed = remote_git(&repo.outside)
-            .args(["ls-remote", remote.to_str().unwrap(), "refs/heads/published"])
+            .args([
+                "ls-remote",
+                remote.to_str().unwrap(),
+                "refs/heads/published",
+            ])
             .output()
             .expect("ls-remote");
         assert!(String::from_utf8_lossy(&listed.stdout).starts_with(&head));
@@ -854,7 +892,10 @@ mod tests {
             ("GIT_CONFIG_GLOBAL", gitconfig.display().to_string()),
             ("GIT_ASKPASS", helper.display().to_string()),
             ("SSH_ASKPASS", helper.display().to_string()),
-            ("SSH_AUTH_SOCK", root.path().join("agent.sock").display().to_string()),
+            (
+                "SSH_AUTH_SOCK",
+                root.path().join("agent.sock").display().to_string(),
+            ),
         ] {
             env.push((key.into(), value.into()));
         }
@@ -889,7 +930,9 @@ mod tests {
         ls_remote_over_http(command, &capture);
         let presented = capture.decoded_basic_credentials();
         assert!(
-            presented.iter().any(|credential| credential.contains("ambient")),
+            presented
+                .iter()
+                .any(|credential| credential.contains("ambient")),
             "the planted operator credential did not answer: {presented:?}"
         );
     }
@@ -909,7 +952,10 @@ mod tests {
             vec!["x-access-token:leased-token-value".to_string()],
             "the crossing must present the lease and nothing else"
         );
-        assert!(!ambient.sentinel.exists(), "the operator's credential helper ran");
+        assert!(
+            !ambient.sentinel.exists(),
+            "the operator's credential helper ran"
+        );
 
         // With no lease there is no credential at all: no helper, no store, no netrc, no prompt.
         let capture = AuthCapture::start();
@@ -922,7 +968,10 @@ mod tests {
             "an unleased crossing presented a credential: {:?}",
             capture.decoded_basic_credentials()
         );
-        assert!(!ambient.sentinel.exists(), "the operator's credential helper ran");
+        assert!(
+            !ambient.sentinel.exists(),
+            "the operator's credential helper ran"
+        );
         assert!(!format!("{lease:?}").contains("leased-token-value"));
     }
 
@@ -945,12 +994,21 @@ mod tests {
     fn host_git_subcommand_hardening_lands_after_the_subcommand() {
         assert_eq!(
             hardened_args(&["-c", "core.quotePath=false", "status", "-z"]),
-            vec!["-c", "core.quotePath=false", "status", "--ignore-submodules=all", "-z"]
+            vec![
+                "-c",
+                "core.quotePath=false",
+                "status",
+                "--ignore-submodules=all",
+                "-z"
+            ]
         );
         assert_eq!(
             hardened_args(&["show", "HEAD:a"]),
             vec!["show", "--no-ext-diff", "--no-textconv", "HEAD:a"]
         );
-        assert_eq!(hardened_args(&["rev-parse", "HEAD"]), vec!["rev-parse", "HEAD"]);
+        assert_eq!(
+            hardened_args(&["rev-parse", "HEAD"]),
+            vec!["rev-parse", "HEAD"]
+        );
     }
 }

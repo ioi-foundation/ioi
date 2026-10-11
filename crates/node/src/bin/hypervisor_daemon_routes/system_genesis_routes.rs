@@ -2041,10 +2041,11 @@ pub(crate) async fn handle_admit(
         Ok(value) => value,
         // A governance PREVIEW (the serve's preview surface, which renders the pending decision and
         // must mutate nothing) asks nothing of the operator, so it parks no challenge.
-        Err(response) if headers
-            .get(GOVERNED_PREVIEW_HEADER)
-            .and_then(|value| value.to_str().ok())
-            == Some("1") =>
+        Err(response)
+            if headers
+                .get(GOVERNED_PREVIEW_HEADER)
+                .and_then(|value| value.to_str().ok())
+                == Some("1") =>
         {
             return response
         }

@@ -36,7 +36,9 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::event_stream_routes::{self, Appended};
-use super::mutation_event_foundation::{admit_owner_scoped_write, scope_refusal_reply, WriteCaller};
+use super::mutation_event_foundation::{
+    admit_owner_scoped_write, scope_refusal_reply, WriteCaller,
+};
 use super::substrate_store::{self, RequestIdentity, RequestScopeRefusal};
 use super::{persist_record, read_record_dir, DaemonState};
 
@@ -514,7 +516,10 @@ pub(crate) fn append_point(
             }
             let mut key = format!("telemetry-point:{source}");
             if key.len() > 256 {
-                key = format!("telemetry-point:sha256:{:x}", Sha256::digest(source.as_bytes()));
+                key = format!(
+                    "telemetry-point:sha256:{:x}",
+                    Sha256::digest(source.as_bytes())
+                );
             }
             let mut committed = None;
             for _ in 0..APPEND_ATTEMPTS {
@@ -646,7 +651,11 @@ fn scope_of_target(st: &DaemonState, target_ref: &str) -> Option<String> {
     read_record_dir(&st.data_dir, "automations")
         .into_iter()
         .find(|a| text(a, "id") == automation || text(a, "automation_id") == automation)
-        .and_then(|a| a.get("system_ref").and_then(Value::as_str).map(str::to_string))
+        .and_then(|a| {
+            a.get("system_ref")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
         .filter(|s| s.starts_with("system://"))
 }
 
@@ -711,7 +720,15 @@ pub(crate) fn record_health_evaluation(
                 st,
                 &caller.identity,
                 &series,
-                &point(&series, class, time_ms, value, outcome, result_ref, run_ref.as_deref()),
+                &point(
+                    &series,
+                    class,
+                    time_ms,
+                    value,
+                    outcome,
+                    result_ref,
+                    run_ref.as_deref(),
+                ),
             )
         });
         match outcome_of {
@@ -728,7 +745,11 @@ pub(crate) fn record_health_evaluation(
         if outcome == "passed" { 1.0 } else { 0.0 },
     );
     if let Some(seconds) = probe_seconds {
-        produce(HEALTH_DURATION, "ephemeral", (seconds * 1000.0).round() / 1000.0);
+        produce(
+            HEALTH_DURATION,
+            "ephemeral",
+            (seconds * 1000.0).round() / 1000.0,
+        );
     }
     json!({ "points": produced, "refusals": refusals })
 }
@@ -785,13 +806,18 @@ pub(crate) async fn handle_series_list(
         .filter(|s| wants("subject_ref").is_none_or(|v| text(s, "subject_ref") == v))
         .filter(|s| wants("scope_ref").is_none_or(|v| text(s, "scope_ref") == v))
         .filter(|s| {
-            wants("about_ref").is_none_or(|v| text(s, "subject_ref") == v || text(s, "scope_ref") == v)
+            wants("about_ref")
+                .is_none_or(|v| text(s, "subject_ref") == v || text(s, "scope_ref") == v)
         })
         .filter(|s| {
-            wants("metric").is_none_or(|v| s.pointer("/metric/name").and_then(Value::as_str) == Some(v))
+            wants("metric")
+                .is_none_or(|v| s.pointer("/metric/name").and_then(Value::as_str) == Some(v))
         })
         .collect();
-    (StatusCode::OK, Json(json!({ "ok": true, "series": series })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "series": series })),
+    )
 }
 
 /// One series the caller may read, or the refusal.
@@ -811,7 +837,9 @@ fn readable_series(
         ));
     };
     if !visible(&identity, &record) {
-        return Err(scope_refusal_reply(RequestScopeRefusal::ResourceScopeRequired));
+        return Err(scope_refusal_reply(
+            RequestScopeRefusal::ResourceScopeRequired,
+        ));
     }
     Ok((identity, record))
 }
@@ -1112,7 +1140,11 @@ mod telemetry_tests {
     #[test]
     fn the_profile_follows_opentelemetry_naming_units_and_instruments() {
         for c in CONVENTIONS {
-            assert!(otel_metric_name(c.name), "{} is not an OpenTelemetry metric name", c.name);
+            assert!(
+                otel_metric_name(c.name),
+                "{} is not an OpenTelemetry metric name",
+                c.name
+            );
             assert!(
                 ["gauge", "counter", "updowncounter", "histogram"].contains(&c.instrument),
                 "{} names an instrument OpenTelemetry does not define",
@@ -1120,11 +1152,17 @@ mod telemetry_tests {
             );
             match c.registry {
                 "opentelemetry" => {
-                    assert!(c.reference.starts_with("https://opentelemetry.io/docs/specs/semconv/"));
+                    assert!(c
+                        .reference
+                        .starts_with("https://opentelemetry.io/docs/specs/semconv/"));
                     assert!(["stable", "development"].contains(&c.stability));
                 }
                 "ioi" => {
-                    assert!(c.name.starts_with("ioi."), "{} is outside the ioi namespace", c.name);
+                    assert!(
+                        c.name.starts_with("ioi."),
+                        "{} is outside the ioi namespace",
+                        c.name
+                    );
                     assert_eq!(c.stability, "ioi_extension");
                     assert!(c.reference.starts_with("canon://docs/architecture/"));
                 }
@@ -1146,10 +1184,38 @@ mod telemetry_tests {
 
     #[test]
     fn the_producing_principal_is_part_of_a_series_identity() {
-        let a = identity_digest("org://acme", "user://ada", "health-check://hc_1", Some("system://acme/lending"), HEALTH_PASSED, "1");
-        let again = identity_digest("org://acme", "user://ada", "health-check://hc_1", Some("system://acme/lending"), HEALTH_PASSED, "1");
-        let other_principal = identity_digest("org://acme", "user://bo", "health-check://hc_1", Some("system://acme/lending"), HEALTH_PASSED, "1");
-        let other_unit = identity_digest("org://acme", "user://ada", "health-check://hc_1", Some("system://acme/lending"), HEALTH_PASSED, "s");
+        let a = identity_digest(
+            "org://acme",
+            "user://ada",
+            "health-check://hc_1",
+            Some("system://acme/lending"),
+            HEALTH_PASSED,
+            "1",
+        );
+        let again = identity_digest(
+            "org://acme",
+            "user://ada",
+            "health-check://hc_1",
+            Some("system://acme/lending"),
+            HEALTH_PASSED,
+            "1",
+        );
+        let other_principal = identity_digest(
+            "org://acme",
+            "user://bo",
+            "health-check://hc_1",
+            Some("system://acme/lending"),
+            HEALTH_PASSED,
+            "1",
+        );
+        let other_unit = identity_digest(
+            "org://acme",
+            "user://ada",
+            "health-check://hc_1",
+            Some("system://acme/lending"),
+            HEALTH_PASSED,
+            "s",
+        );
         assert_eq!(a, again);
         assert_ne!(a, other_principal);
         assert_ne!(a, other_unit);
@@ -1163,39 +1229,94 @@ mod telemetry_tests {
     fn a_range_request_past_any_bound_is_refused_by_name() {
         let now = 10 * 24 * 3600 * 1000;
         let w = range_window(&q(&[]), now).expect("defaults");
-        assert_eq!((w.to_ms - w.from_ms, w.rolling), (DEFAULT_SPAN_MS, DEFAULT_ROLLING));
+        assert_eq!(
+            (w.to_ms - w.from_ms, w.rolling),
+            (DEFAULT_SPAN_MS, DEFAULT_ROLLING)
+        );
         assert!(w.step_s >= 1);
         let code = |pairs: &[(&str, &str)]| {
-            range_window(&q(pairs), now)
-                .err()
-                .and_then(|(_, Json(b))| b.pointer("/error/code").and_then(Value::as_str).map(str::to_string))
+            range_window(&q(pairs), now).err().and_then(|(_, Json(b))| {
+                b.pointer("/error/code")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
         };
-        assert_eq!(code(&[("from", "5"), ("to", "5")]).as_deref(), Some("telemetry_range_empty"));
-        assert_eq!(code(&[("from", "0"), ("to", "9999999999999")]).as_deref(), Some("telemetry_range_span_exceeded"));
-        assert_eq!(code(&[("from", "0"), ("to", "86400000"), ("step", "0")]).as_deref(), Some("telemetry_range_step_invalid"));
-        assert_eq!(code(&[("from", "0"), ("to", "86400000"), ("step", "1")]).as_deref(), Some("telemetry_range_too_many_buckets"));
-        assert_eq!(code(&[("window", "0")]).as_deref(), Some("telemetry_range_window_invalid"));
-        assert_eq!(code(&[("to", "soon")]).as_deref(), Some("telemetry_range_parameter_invalid"));
+        assert_eq!(
+            code(&[("from", "5"), ("to", "5")]).as_deref(),
+            Some("telemetry_range_empty")
+        );
+        assert_eq!(
+            code(&[("from", "0"), ("to", "9999999999999")]).as_deref(),
+            Some("telemetry_range_span_exceeded")
+        );
+        assert_eq!(
+            code(&[("from", "0"), ("to", "86400000"), ("step", "0")]).as_deref(),
+            Some("telemetry_range_step_invalid")
+        );
+        assert_eq!(
+            code(&[("from", "0"), ("to", "86400000"), ("step", "1")]).as_deref(),
+            Some("telemetry_range_too_many_buckets")
+        );
+        assert_eq!(
+            code(&[("window", "0")]).as_deref(),
+            Some("telemetry_range_window_invalid")
+        );
+        assert_eq!(
+            code(&[("to", "soon")]).as_deref(),
+            Some("telemetry_range_parameter_invalid")
+        );
     }
 
     #[test]
     fn a_range_buckets_its_points_and_names_one_rolling_mean() {
         let p = |t: u64, v: f64| json!({ "time_unix_ms": t, "value": v });
-        let window = RangeWindow { from_ms: 0, to_ms: 3000, step_s: 1, rolling: 2 };
-        let (points, in_window, buckets, derived) =
-            compute_range(vec![p(2500, 1.0), p(100, 0.0), p(900, 1.0), p(3000, 9.0)], &window);
+        let window = RangeWindow {
+            from_ms: 0,
+            to_ms: 3000,
+            step_s: 1,
+            rolling: 2,
+        };
+        let (points, in_window, buckets, derived) = compute_range(
+            vec![p(2500, 1.0), p(100, 0.0), p(900, 1.0), p(3000, 9.0)],
+            &window,
+        );
         assert_eq!(in_window, 3, "the point at `to` is outside [from, to)");
-        assert_eq!(points.iter().map(|x| x["time_unix_ms"].as_u64().unwrap()).collect::<Vec<_>>(), vec![100, 900, 2500]);
+        assert_eq!(
+            points
+                .iter()
+                .map(|x| x["time_unix_ms"].as_u64().unwrap())
+                .collect::<Vec<_>>(),
+            vec![100, 900, 2500]
+        );
         assert_eq!(buckets.len(), 3);
-        assert_eq!((buckets[0]["count"].as_u64(), buckets[0]["mean"].as_f64()), (Some(2), Some(0.5)));
-        assert_eq!((buckets[1]["count"].as_u64(), buckets[1]["mean"].clone()), (Some(0), Value::Null));
-        assert_eq!(derived.iter().map(|x| x["value"].as_f64().unwrap()).collect::<Vec<_>>(), vec![0.0, 0.5, 1.0]);
+        assert_eq!(
+            (buckets[0]["count"].as_u64(), buckets[0]["mean"].as_f64()),
+            (Some(2), Some(0.5))
+        );
+        assert_eq!(
+            (buckets[1]["count"].as_u64(), buckets[1]["mean"].clone()),
+            (Some(0), Value::Null)
+        );
+        assert_eq!(
+            derived
+                .iter()
+                .map(|x| x["value"].as_f64().unwrap())
+                .collect::<Vec<_>>(),
+            vec![0.0, 0.5, 1.0]
+        );
     }
 
     #[test]
     fn a_range_keeps_the_newest_points_when_the_window_holds_too_many() {
-        let window = RangeWindow { from_ms: 0, to_ms: 2_000_000, step_s: 3600, rolling: 1 };
-        let many: Vec<Value> = (0..(MAX_POINTS as u64 + 5)).map(|t| json!({ "time_unix_ms": t, "value": 1.0 })).collect();
+        let window = RangeWindow {
+            from_ms: 0,
+            to_ms: 2_000_000,
+            step_s: 3600,
+            rolling: 1,
+        };
+        let many: Vec<Value> = (0..(MAX_POINTS as u64 + 5))
+            .map(|t| json!({ "time_unix_ms": t, "value": 1.0 }))
+            .collect();
         let (points, in_window, _, _) = compute_range(many, &window);
         assert_eq!((points.len(), in_window), (MAX_POINTS, MAX_POINTS + 5));
         assert_eq!(points[0]["time_unix_ms"].as_u64(), Some(5));
@@ -1204,15 +1325,22 @@ mod telemetry_tests {
     #[test]
     fn the_series_declares_both_sides_of_the_event_class_line() {
         let declaration = class_declaration();
-        assert_eq!(declaration["admitted_truth_classes"][0]["class_id"], ADMITTED_CLASS);
-        assert_eq!(declaration["ephemeral_delivery_classes"][0]["class_id"], EPHEMERAL_CLASS);
+        assert_eq!(
+            declaration["admitted_truth_classes"][0]["class_id"],
+            ADMITTED_CLASS
+        );
+        assert_eq!(
+            declaration["ephemeral_delivery_classes"][0]["class_id"],
+            EPHEMERAL_CLASS
+        );
         let fixture = json!({
             "schema_version": POINT_SCHEMA, "series_ref": "telemetry-series://ts_0123456789abcdef", "point_class": "admitted",
             "time_unix_ms": 1_790_676_300_000u64, "observed_at": stamp(1_790_676_300_000), "value": 1.0,
             "attributes": [{ "key": HEALTH_OUTCOME_ATTRIBUTE, "value": "passed" }],
             "source_ref": "observation://health-check/hc_0123456789abcdef/hcr_fedcba9876543210", "run_ref": null,
         });
-        validate(POINT_CONTRACT, "point", &fixture).expect("a produced point satisfies its contract");
+        validate(POINT_CONTRACT, "point", &fixture)
+            .expect("a produced point satisfies its contract");
         assert_eq!(parse_ms(&stamp(1_790_676_300_123)), Some(1_790_676_300_123));
     }
 }

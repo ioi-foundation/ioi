@@ -76,10 +76,12 @@ pub fn discover_repo(dir: &Path) -> Option<RepoLayout> {
     let start = std::fs::canonicalize(dir).ok()?;
     start.ancestors().find_map(|ancestor| {
         let dot_git = ancestor.join(".git");
-        std::fs::symlink_metadata(&dot_git).ok().map(|_| RepoLayout {
-            git_dir: dot_git,
-            work_tree: ancestor.to_path_buf(),
-        })
+        std::fs::symlink_metadata(&dot_git)
+            .ok()
+            .map(|_| RepoLayout {
+                git_dir: dot_git,
+                work_tree: ancestor.to_path_buf(),
+            })
     })
 }
 
@@ -217,7 +219,9 @@ pub fn workspace_git(dir: impl AsRef<Path>, args: &[&str]) -> Result<Command, St
                 for key in ["clean", "smudge", "process"] {
                     command.arg("-c").arg(format!("filter.{driver}.{key}="));
                 }
-                command.arg("-c").arg(format!("filter.{driver}.required=false"));
+                command
+                    .arg("-c")
+                    .arg(format!("filter.{driver}.required=false"));
             }
             select_repo(&mut command, &layout);
         }
@@ -242,4 +246,3 @@ pub fn run_workspace_git(dir: impl AsRef<Path>, args: &[&str]) -> (bool, String,
         Err(error) => (false, String::new(), format!("git spawn: {error}")),
     }
 }
-

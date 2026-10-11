@@ -651,7 +651,9 @@ mod fail_closed_battery {
         }
     }
 
-    fn spawn(probe: &TerminalSandboxProbe) -> anyhow::Result<super::super::driver::CommandSpawnSpec> {
+    fn spawn(
+        probe: &TerminalSandboxProbe,
+    ) -> anyhow::Result<super::super::driver::CommandSpawnSpec> {
         command_spawn_spec_with_probe("echo", &["hi".to_string()], None, false, probe)
     }
 
@@ -676,10 +678,22 @@ mod fail_closed_battery {
     fn terminal_fallback_battery_denies_every_unsandboxed_path() {
         // (label, probe) — every way the driver used to fall back to an unsandboxed spawn.
         let battery = [
-            ("linux, bwrap missing", probe(true, false, false, true, false)),
-            ("linux, bwrap missing, release build", probe(true, false, false, false, false)),
-            ("non-linux (no sandbox exists)", probe(false, false, false, true, false)),
-            ("non-linux with a bwrap-named binary", probe(false, true, false, true, false)),
+            (
+                "linux, bwrap missing",
+                probe(true, false, false, true, false),
+            ),
+            (
+                "linux, bwrap missing, release build",
+                probe(true, false, false, false, false),
+            ),
+            (
+                "non-linux (no sandbox exists)",
+                probe(false, false, false, true, false),
+            ),
+            (
+                "non-linux with a bwrap-named binary",
+                probe(false, true, false, true, false),
+            ),
             (
                 "escape requested in a release build, bwrap missing",
                 probe(true, false, true, false, false),
@@ -713,10 +727,17 @@ mod fail_closed_battery {
             probe(true, true, true, false, false),
             probe(true, true, true, true, true),
         ] {
-            assert_eq!(terminal_sandbox_posture(&probe), TerminalSandboxPosture::Sandboxed);
+            assert_eq!(
+                terminal_sandbox_posture(&probe),
+                TerminalSandboxPosture::Sandboxed
+            );
             let spec = spawn(&probe).expect("sandboxed spawn spec");
             assert_eq!(spec.executable, "bwrap");
-            assert!(spec.args.iter().any(|arg| arg == "--unshare-net"), "{:?}", spec.args);
+            assert!(
+                spec.args.iter().any(|arg| arg == "--unshare-net"),
+                "{:?}",
+                spec.args
+            );
         }
     }
 

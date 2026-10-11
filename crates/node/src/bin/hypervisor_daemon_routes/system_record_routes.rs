@@ -1412,7 +1412,8 @@ mod authority_tests {
         .unwrap();
         let v2 = |subject: &str| {
             let mut body = attach_body("org://local", "connector", subject, "attached", None);
-            body["contract_id"] = json!("schema://ioi/components/hypervisor/system-data-attachment/v2");
+            body["contract_id"] =
+                json!("schema://ioi/components/hypervisor/system-data-attachment/v2");
             body["record"]["schema_version"] = json!("ioi.hypervisor.system-data-attachment.v2");
             body
         };
@@ -1420,7 +1421,10 @@ mod authority_tests {
         let (status, unknown) = post(&lending(), d, &owner, &v2("connector:conn_other"));
         assert_eq!(
             (status, code_of(&unknown)),
-            (StatusCode::UNPROCESSABLE_ENTITY, "system_record_subject_unknown"),
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "system_record_subject_unknown"
+            ),
             "{unknown}"
         );
         // v1's wire is frozen: its schema has no connector kind.
@@ -1428,14 +1432,27 @@ mod authority_tests {
             &lending(),
             d,
             &owner,
-            &attach_body("org://local", "connector", "connector:conn_walk", "attached", None),
+            &attach_body(
+                "org://local",
+                "connector",
+                "connector:conn_walk",
+                "attached",
+                None,
+            ),
         );
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{under_v1}");
-        assert_eq!(code_of(&under_v1), "system_record_not_registered_valid", "{under_v1}");
+        assert_eq!(
+            code_of(&under_v1),
+            "system_record_not_registered_valid",
+            "{under_v1}"
+        );
         assert_eq!(fingerprint(d), before, "a refused write records nothing");
         let (status, admitted) = post(&lending(), d, &owner, &v2("connector:conn_walk"));
         assert_eq!(status, StatusCode::CREATED, "{admitted}");
-        assert_eq!(admitted["record"]["subject_ref"], "connector:conn_walk", "{admitted}");
+        assert_eq!(
+            admitted["record"]["subject_ref"], "connector:conn_walk",
+            "{admitted}"
+        );
     }
 
     #[test]

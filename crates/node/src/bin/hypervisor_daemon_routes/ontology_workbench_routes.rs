@@ -441,7 +441,9 @@ pub(crate) fn get_proposal(
     match visible_proposal(data_dir, &access, identity, id) {
         Some(record) => (
             StatusCode::OK,
-            Json(json!({ "ok": true, "ontology_proposal": proposal_for_caller(&access, identity, record) })),
+            Json(
+                json!({ "ok": true, "ontology_proposal": proposal_for_caller(&access, identity, record) }),
+            ),
         ),
         None => proposal_not_found(),
     }

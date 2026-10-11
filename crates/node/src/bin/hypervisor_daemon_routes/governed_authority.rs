@@ -3856,7 +3856,11 @@ impl GovernedApprovalClaim {
     /// for the step's answer to say so (empty when nothing was parked).
     pub(crate) fn consumed(mut self, consumption_ref: &str) -> Vec<Value> {
         if let Some(claim) = self.claim.take() {
-            super::authority_challenge_routes::mark_consumed(&self.data_dir, &claim, consumption_ref);
+            super::authority_challenge_routes::mark_consumed(
+                &self.data_dir,
+                &claim,
+                consumption_ref,
+            );
             return Vec::new();
         }
         let Some(presented) = self.presented.take() else {
@@ -4036,7 +4040,9 @@ fn attach_governed_park(
     decision: &GovernedDecision<'_>,
     requester_ref: Option<&str>,
 ) {
-    if let Some(reason) = governed_park_withheld(decision, deployment_authority_principal().as_deref()) {
+    if let Some(reason) =
+        governed_park_withheld(decision, deployment_authority_principal().as_deref())
+    {
         body["error"]["approval_challenge"] = Value::Null;
         body["error"]["approval_challenge_withheld"] = json!(reason);
         return;
@@ -4059,7 +4065,10 @@ fn attach_governed_park(
         },
     );
     body["error"]["approval_challenge"] = json!(parked);
-    if let Some(approval) = body.pointer_mut("/error/approval").and_then(Value::as_object_mut) {
+    if let Some(approval) = body
+        .pointer_mut("/error/approval")
+        .and_then(Value::as_object_mut)
+    {
         approval.insert("audience".into(), json!(audience));
         approval.insert("target_scope".into(), json!(scope));
     }
@@ -5678,8 +5687,8 @@ mod typed_effect_recovery_tests {
 mod governed_approval_tests {
     //! R-240 journey WP-A: a governed System decision parks its challenge on the daemon and takes
     //! its approval by ref, through the session-execute gate's own park/claim.
-    use super::*;
     use super::super::authority_challenge_routes::{approval_ref_for, CHALLENGE_FAMILY};
+    use super::*;
 
     const CONTRACT: AuthorityContract = AuthorityContract {
         scope_prefix: "scope:autonomous_system",
@@ -5762,7 +5771,10 @@ mod governed_approval_tests {
         assert_eq!(body["error"]["approval"]["target_scope"], json!(d.scope()));
         let parked = record(&dir, &id);
         assert_eq!(parked["state"], "pending");
-        assert_eq!(parked["target_scope"], json!("scope:autonomous_system.genesis_admit"));
+        assert_eq!(
+            parked["target_scope"],
+            json!("scope:autonomous_system.genesis_admit")
+        );
         assert_eq!(parked["policy_hash"], json!(d.policy_hash()));
         assert_eq!(parked["request_hash"], json!(d.request_hash()));
         assert_eq!(parked["operation"], "genesis_admit");
@@ -5770,13 +5782,25 @@ mod governed_approval_tests {
         assert_eq!(parked["requester_ref"], "user://operator");
         // The published preimages are the exact bytes the hashes commit to.
         let pre = &parked["published_preimage"];
-        assert_eq!(record_output_hash(&pre["policy_preimage"], &[]), d.policy_hash());
-        assert_eq!(record_output_hash(&pre["request_preimage"], &[]), d.request_hash());
+        assert_eq!(
+            record_output_hash(&pre["policy_preimage"], &[]),
+            d.policy_hash()
+        );
+        assert_eq!(
+            record_output_hash(&pre["request_preimage"], &[]),
+            d.request_hash()
+        );
         assert_eq!(pre["effect"], effect);
-        assert_eq!(pre["request_preimage"]["effect_hash"], json!(d.effect_hash()));
+        assert_eq!(
+            pre["request_preimage"]["effect_hash"],
+            json!(d.effect_hash())
+        );
         // A re-park of the same effect is the same challenge.
         let (_, Json(again)) = park_governed_refusal(&dir, wants_grant(&d), &d, false, None);
-        assert_eq!(again["error"]["approval_challenge"]["challenge_id"], json!(id));
+        assert_eq!(
+            again["error"]["approval_challenge"]["challenge_id"],
+            json!(id)
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -5803,7 +5827,10 @@ mod governed_approval_tests {
         assert!(governed_park_withheld(&d, None).is_none());
         assert!(governed_park_withheld(&d, Some(OWNER)).is_none());
         let reason = governed_park_withheld(&d, Some("domain://pop-os")).expect("withheld");
-        assert!(reason.contains(OWNER) && reason.contains("domain://pop-os"), "{reason}");
+        assert!(
+            reason.contains(OWNER) && reason.contains("domain://pop-os"),
+            "{reason}"
+        );
         let participant = GovernedDecision {
             governance: Governance::Participant,
             ..d
@@ -5824,7 +5851,9 @@ mod governed_approval_tests {
             .to_string();
         let retry = json!({ "release": {}, "wallet_approval_grant": { "approval_ref": approval_ref_for(&id) } });
         // Not approved yet: refused, nothing presented.
-        let refused = claim_governed_approval(&dir, &retry, &d).err().expect("pending");
+        let refused = claim_governed_approval(&dir, &retry, &d)
+            .err()
+            .expect("pending");
         assert_eq!(refused.0, StatusCode::CONFLICT);
         assert_eq!(refused.1 .0["error"]["code"], "approval_ref_not_approved");
         approve_in_place(&dir, &id);
@@ -5834,22 +5863,38 @@ mod governed_approval_tests {
         let foreign = claim_governed_approval(&dir, &retry, &other)
             .err()
             .expect("foreign");
-        assert_eq!(foreign.1 .0["error"]["code"], "approval_ref_coordinates_mismatch");
+        assert_eq!(
+            foreign.1 .0["error"]["code"],
+            "approval_ref_coordinates_mismatch"
+        );
         // The exact decision claims it: the body now carries the stored grant.
-        let (carried, claim) = claim_governed_approval(&dir, &retry, &d).ok().expect("claimed");
+        let (carried, claim) = claim_governed_approval(&dir, &retry, &d)
+            .ok()
+            .expect("claimed");
         assert_eq!(carried["wallet_approval_grant"]["planted"], json!(true));
-        assert_eq!(carried["release"], json!({}), "the rest of the body is untouched");
+        assert_eq!(
+            carried["release"],
+            json!({}),
+            "the rest of the body is untouched"
+        );
         assert_eq!(record(&dir, &id)["state"], "consuming");
         // Refused before consumption: released for a corrected retry.
         drop(claim);
         assert_eq!(record(&dir, &id)["state"], "approved");
         // Consumed: spent for good, and a replay is refused.
-        let (_, claim) = claim_governed_approval(&dir, &retry, &d).ok().expect("claimed again");
+        let (_, claim) = claim_governed_approval(&dir, &retry, &d)
+            .ok()
+            .expect("claimed again");
         claim.consumed("wallet.network://approval-effect-consumption/planted");
         let spent = record(&dir, &id);
         assert_eq!(spent["state"], "consumed");
-        assert_eq!(spent["consumed_by"], "wallet.network://approval-effect-consumption/planted");
-        let replay = claim_governed_approval(&dir, &retry, &d).err().expect("spent");
+        assert_eq!(
+            spent["consumed_by"],
+            "wallet.network://approval-effect-consumption/planted"
+        );
+        let replay = claim_governed_approval(&dir, &retry, &d)
+            .err()
+            .expect("spent");
         assert_eq!(replay.1 .0["error"]["code"], "approval_ref_consumed");
         // A body with no ref passes through unchanged.
         let plain = json!({ "release": {} });
@@ -6106,7 +6151,8 @@ mod governed_approval_tests {
         )
         .unwrap();
         approve_in_place(&dir, &successor);
-        let retry = json!({ "wallet_approval_grant": { "approval_ref": approval_ref_for(&successor) } });
+        let retry =
+            json!({ "wallet_approval_grant": { "approval_ref": approval_ref_for(&successor) } });
         let refused = claim_governed_approval(&dir, &retry, &d)
             .err()
             .expect("a random-nonce re-ask is never presented for a governed decision");

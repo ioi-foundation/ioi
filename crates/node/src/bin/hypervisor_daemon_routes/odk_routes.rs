@@ -1221,9 +1221,20 @@ mod odk_model_changes_tests {
         assert_eq!(changes["object_types"]["loan"], json!("UPDATED"));
         assert_eq!(changes["object_types"]["branch"], json!("CREATED"));
         assert_eq!(changes["object_types"]["old"], json!("DELETED"));
-        assert!(changes.get("action_types").is_none(), "an unchanged kind records nothing");
-        assert_eq!(model_changes(&json!({}), &after)["object_types"]["branch"], json!("CREATED"), "a creation creates every entry");
-        assert_eq!(model_changes(&after, &after), json!({}), "a no-op touches nothing");
+        assert!(
+            changes.get("action_types").is_none(),
+            "an unchanged kind records nothing"
+        );
+        assert_eq!(
+            model_changes(&json!({}), &after)["object_types"]["branch"],
+            json!("CREATED"),
+            "a creation creates every entry"
+        );
+        assert_eq!(
+            model_changes(&after, &after),
+            json!({}),
+            "a no-op touches nothing"
+        );
     }
 }
 
@@ -2275,7 +2286,6 @@ pub(crate) fn resolve_stored_odk_data_recipe_v1(
 #[cfg(test)]
 mod data_recipe_v1_owner_seam_tests {
     use super::*;
-
 
     const STORED_V1: &str = include_str!(
         "../../../../../docs/architecture/_meta/schemas/fixtures/data-recipe-v1/positive-stored-v1-draft.json"

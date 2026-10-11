@@ -523,7 +523,9 @@ fn resolved_basis(
         };
         let shown: String = reference.chars().take(160).collect();
         if resolved.iter().any(|seen| seen == reference) {
-            return Err(refuse(format!("{shown} is named twice; each basis ref is named once")));
+            return Err(refuse(format!(
+                "{shown} is named twice; each basis ref is named once"
+            )));
         }
         if !reference.starts_with("evaluation-result://") {
             return Err(refuse(format!(
@@ -1624,23 +1626,47 @@ mod tests {
         use super::super::evaluation_routes::tests::{plant_result, stranger};
         let p = plane();
         let bp = p.blueprint("bp-basis-evidence").await;
-        let measured = plant_result(&p.st, &p.headers, OWNER, "acme.lending-001", Some("system://acme/lending"), false);
+        let measured = plant_result(
+            &p.st,
+            &p.headers,
+            OWNER,
+            "acme.lending-001",
+            Some("system://acme/lending"),
+            false,
+        );
         let legacy = plant_result(&p.st, &p.headers, OWNER, "acme.legacy-001", None, true);
         let elsewhere = stranger(&p.st.data_dir, "stranger", "org://elsewhere");
-        let foreign = plant_result(&p.st, &elsewhere, "org://elsewhere", "acme.foreign-001", None, false);
+        let foreign = plant_result(
+            &p.st,
+            &elsewhere,
+            "org://elsewhere",
+            "acme.foreign-001",
+            None,
+            false,
+        );
         let open = |key: &str, basis: Value| {
             handle_change_set_open(
                 State(p.st.clone()),
                 p.headers.clone(),
-                Json(json!({ "owner_ref": OWNER, "idempotency_key": key, "subject": { "kind": "blueprint", "family": bp }, "title": "t", "basis_refs": basis })),
+                Json(
+                    json!({ "owner_ref": OWNER, "idempotency_key": key, "subject": { "kind": "blueprint", "family": bp }, "title": "t", "basis_refs": basis }),
+                ),
             )
         };
         let refusals = [
-            ("cs-basis-absent", json!(["evaluation-result://acme.nowhere-001"])),
+            (
+                "cs-basis-absent",
+                json!(["evaluation-result://acme.nowhere-001"]),
+            ),
             ("cs-basis-foreign", json!([foreign])),
             ("cs-basis-kind", json!(["receipt://acme/lending/decision"])),
             ("cs-basis-twice", json!([measured, measured])),
-            ("cs-basis-bound", json!((0..17).map(|n| format!("evaluation-result://acme.r-{n}")).collect::<Vec<_>>())),
+            (
+                "cs-basis-bound",
+                json!((0..17)
+                    .map(|n| format!("evaluation-result://acme.r-{n}"))
+                    .collect::<Vec<_>>()),
+            ),
             ("cs-basis-list", json!(measured)),
             ("cs-basis-string", json!([7])),
         ];
@@ -1648,7 +1674,10 @@ mod tests {
             let refused = open(key, basis.clone()).await;
             assert_eq!(
                 (refused.0, code_of(&refused)),
-                (StatusCode::UNPROCESSABLE_ENTITY, "change_set_basis_unresolvable".to_string()),
+                (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "change_set_basis_unresolvable".to_string()
+                ),
                 "{key} {basis}"
             );
         }
@@ -1661,12 +1690,22 @@ mod tests {
         let cs = &opened["change_set"];
         assert_eq!(cs["basis_refs"], json!([measured, legacy]));
         validate(CONTRACT, "change set", cs).expect("a v2 record with its basis");
-        let id = cs["change_set_ref"].as_str().unwrap().trim_start_matches("change://").to_string();
-        assert_eq!(load(&p.st.data_dir, &id).unwrap()["basis_refs"], json!([measured, legacy]));
+        let id = cs["change_set_ref"]
+            .as_str()
+            .unwrap()
+            .trim_start_matches("change://")
+            .to_string();
+        assert_eq!(
+            load(&p.st.data_dir, &id).unwrap()["basis_refs"],
+            json!([measured, legacy])
+        );
         // Replaying the same key answers the change set it opened, basis and all.
         let (status, Json(replayed)) = open("cs-basis-ok", json!([measured, legacy])).await;
         assert_eq!(status, StatusCode::OK, "{replayed}");
-        assert_eq!(replayed["change_set"]["basis_refs"], json!([measured, legacy]));
+        assert_eq!(
+            replayed["change_set"]["basis_refs"],
+            json!([measured, legacy])
+        );
     }
 
     /// Every change set opened is v2 — a data recipe's too — and a v1 record keeps reading and takes

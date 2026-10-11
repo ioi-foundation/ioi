@@ -203,7 +203,13 @@ fn command_spawn_spec(
     cwd: Option<&Path>,
     detach: bool,
 ) -> Result<CommandSpawnSpec> {
-    command_spawn_spec_with_probe(command, args, cwd, detach, &TerminalSandboxProbe::from_host())
+    command_spawn_spec_with_probe(
+        command,
+        args,
+        cwd,
+        detach,
+        &TerminalSandboxProbe::from_host(),
+    )
 }
 
 pub(super) fn command_spawn_spec_with_probe(

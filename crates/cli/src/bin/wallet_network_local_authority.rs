@@ -3489,9 +3489,16 @@ mod tests {
 
     #[test]
     fn the_approver_allowlist_is_exactly_the_named_list_with_no_system_wildcard() {
-        assert_eq!(approver_scope_allowlist(), EXPECTED_APPROVER_SCOPES.map(str::to_owned).to_vec());
+        assert_eq!(
+            approver_scope_allowlist(),
+            EXPECTED_APPROVER_SCOPES.map(str::to_owned).to_vec()
+        );
         let unique: std::collections::BTreeSet<_> = EXPECTED_APPROVER_SCOPES.iter().collect();
-        assert_eq!(unique.len(), EXPECTED_APPROVER_SCOPES.len(), "a scope is listed twice");
+        assert_eq!(
+            unique.len(),
+            EXPECTED_APPROVER_SCOPES.len(),
+            "a scope is listed twice"
+        );
         assert!(
             approver_scope_allowlist()
                 .iter()
@@ -3500,9 +3507,10 @@ mod tests {
             "the live-route family is the only pattern; every System scope is named exactly"
         );
         // A fresh bring-up and every rotation register the approver with exactly this list.
-        let authority =
-            approval_authority_from_public_key(&keypair(&random_seed()).unwrap().public_key().to_bytes())
-                .unwrap();
+        let authority = approval_authority_from_public_key(
+            &keypair(&random_seed()).unwrap().public_key().to_bytes(),
+        )
+        .unwrap();
         assert_eq!(authority.scope_allowlist, approver_scope_allowlist());
     }
 
@@ -3516,7 +3524,10 @@ mod tests {
             "scope:hypervisor.live-route.session-execute",
             "scope:hypervisor.live-route.materializing-run",
         ] {
-            assert!(approver_may_sign(scope), "{scope} is in the live-route family");
+            assert!(
+                approver_may_sign(scope),
+                "{scope} is in the live-route family"
+            );
         }
         for scope in REFUSED_SCOPES {
             assert!(!approver_may_sign(scope), "{scope:?} must be refused");
@@ -3598,7 +3609,10 @@ mod tests {
             ))
             .unwrap_err()
             .to_string();
-        assert!(refused.contains("outside the deployment approver's allowlist"), "{refused}");
+        assert!(
+            refused.contains("outside the deployment approver's allowlist"),
+            "{refused}"
+        );
     }
 
     #[test]
