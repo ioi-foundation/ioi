@@ -427,6 +427,42 @@ pub(crate) fn canonicalize_approval_grant(value: &Value) -> Result<(ApprovalGran
     Ok((parsed, canonical))
 }
 
+/// The check a parked approval challenge (`authority_challenge_routes`) runs on the grant the
+/// deployment authority hands back, before it STORES that grant on the challenge record: canonical,
+/// signed by its own claimed key, unexpired at `now` (when given), bound to the record's policy and
+/// request hashes, minted for the record's audience, and one-use. Returns the grant's public ref and
+/// its expiry.
+///
+/// The result is STORED EVIDENCE ONLY. It admits nothing, authorizes nothing and consumes nothing:
+/// a stored grant reaches an effect only when a retry claims it by its approval ref, and the claimed
+/// grant is then presented to `authorize_deployment_grant` (session execute, capability lease) or to
+/// the governed equivalent `authorize_decision_with_context` (the System decisions). Both resolve
+/// the current authority independently, require the grant's signer to be that authority, and
+/// consume the grant atomically on the wallet before anything runs. That is why this raw evidence
+/// check lives here, in the owner admission boundary, and not in the challenge plane.
+pub(crate) fn bind_parked_challenge_grant(
+    grant: &Value,
+    policy_hash: &str,
+    request_hash: &str,
+    audience: &str,
+    now: Option<u64>,
+) -> Result<(String, u64), String> {
+    let (typed, canonical) = canonicalize_approval_grant(grant)?;
+    let binding = verify_wallet_approval_grant_binding(
+        &canonical,
+        now,
+        Some(policy_hash),
+        Some(request_hash),
+    )?;
+    if hex::encode(typed.audience) != audience {
+        return Err("the grant's audience is not the challenge's".into());
+    }
+    if typed.max_usages != Some(1) {
+        return Err("the grant is not one-use".into());
+    }
+    Ok((binding.grant_ref, typed.expires_at))
+}
+
 /// The bounds a live route derives for one standing draw: the registered envelope and policy
 /// the grant must bind, the aggregate ceilings the grant may not exceed, and this draw's own
 /// estimates, which must fit inside the grant's per-grant ceilings on their own.

@@ -1423,27 +1423,22 @@ impl AuthorityReader {
 
 /// The grant must be exactly the record's: canonical, bound to the record's hashes, one use, for
 /// the record's audience. Anything else is unusable and is never stored. Returns the grant's
-/// public ref and its expiry.
+/// public ref and its expiry. The check itself is the owner admission boundary's
+/// (`governed_authority::bind_parked_challenge_grant`): this plane only stores what it returns, and
+/// a stored grant admits nothing until a claim presents it to that boundary's resolution and
+/// consumption.
 fn grant_binds(
     grant: &Value,
     coordinates: &Coordinates,
     now: Option<u64>,
 ) -> Result<(String, u64), String> {
-    let (typed, canonical) = super::governed_authority::canonicalize_approval_grant(grant)?;
-    let binding =
-        ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding(
-            &canonical,
-            now,
-            Some(&coordinates.policy_hash),
-            Some(&coordinates.request_hash),
-        )?;
-    if hex::encode(typed.audience) != coordinates.audience {
-        return Err("the grant's audience is not the challenge's".into());
-    }
-    if typed.max_usages != Some(1) {
-        return Err("the grant is not one-use".into());
-    }
-    Ok((binding.grant_ref, typed.expires_at))
+    super::governed_authority::bind_parked_challenge_grant(
+        grant,
+        &coordinates.policy_hash,
+        &coordinates.request_hash,
+        &coordinates.audience,
+        now,
+    )
 }
 
 fn in_progress_reply(id: &str, record: &Value, marker: &Value) -> Reply {
