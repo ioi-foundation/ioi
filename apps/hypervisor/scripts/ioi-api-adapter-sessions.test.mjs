@@ -13,9 +13,11 @@ const AT = "2026-09-27T10:00:00Z";
 const routes = {
   "GET /v1/hypervisor/environments/env_1": () => ({ environment: { id: "env_1", spec: {}, status: { phase: "running", ports: [{ port: 50432, protocol: "tcp" }] } } }),
   "POST /v1/hypervisor/environments/env_1/ops-lease": () => ({ accessToken: "lease_env1", lease_id: "lease_env1", environment_id: "env_1" }),
-  "GET /v1/hypervisor/ops-lease/lease_env1": () => ({ active: true, environment_id: "env_1" }),
-  "GET /v1/hypervisor/ops-lease/lease_env2": () => ({ active: true, environment_id: "env_2" }),
-  "GET /v1/hypervisor/ops-lease/lease_expired": () => ({ active: false, environment_id: "env_1" }),
+  // The daemon resolves an env-ops token presented in a header, never in the URL path.
+  "GET /v1/hypervisor/ops-lease": (req) => {
+    const environment = { lease_env1: "env_1", lease_env2: "env_2" }[req.headers["x-ioi-env-ops-token"]];
+    return environment ? { active: true, environment_id: environment } : { active: false, environment_id: null };
+  },
   "GET /v1/hypervisor/environments/env_1/logs?kind=session": () => ({
     ok: true,
     environment_id: "env_1",
@@ -43,7 +45,7 @@ const fake = http.createServer((req, res) => {
     calls.push({ key, body, headers: req.headers });
     const route = routes[key];
     res.writeHead(route ? 200 : 404, { "content-type": "application/json" });
-    res.end(JSON.stringify(route ? route() : { code: "not_found" }));
+    res.end(JSON.stringify(route ? route(req) : { code: "not_found" }));
   });
 });
 await new Promise((r) => fake.listen(0, "127.0.0.1", r));
@@ -224,6 +226,9 @@ test("the logs GET with a valid token answers the daemon session log as text/pla
   assert.ok(read, "the daemon logs route was read");
   assert.equal(read.headers.cookie, "ioi_session=abc", "the caller's identity reached the daemon");
   assert.equal(read.headers.authorization, undefined, "the logs token is not presented to the daemon as identity");
+  const resolved = calls.find((c) => c.key === "GET /v1/hypervisor/ops-lease");
+  assert.equal(resolved?.headers["x-ioi-env-ops-token"], "lease_env1", "the token is resolved from a header");
+  assert.ok(calls.every((c) => !c.key.includes("lease_env1")), "the token never appears in a daemon URL");
   // The reference's log grammar (log-groups bundle): a section, then `[id:<section>] [<ts>] LEVEL msg`.
   const lines = out.body.trimEnd().split("\n");
   assert.equal(lines.length, 3);
