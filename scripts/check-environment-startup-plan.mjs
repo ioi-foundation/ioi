@@ -51,6 +51,12 @@ let scratch = "";
 let daemon = null;
 let daemonLog = "";
 let BASE = "";
+// The bootstrapped operator's session. Since the W1 survey §7.5 gate (90cd1ddf27) an anonymous
+// POST to `/v1/hypervisor/*` is refused 401 `request_principal_required` on loopback too, before
+// any handler runs, so every request below is made AS the operator: what this check attacks is the
+// plan, never the caller, and an anonymous request would only ever measure the gate.
+let SESSION = "";
+const sessionHeaders = () => (SESSION ? { cookie: `ioi_session=${SESSION}` } : {});
 
 function cleanup() {
   try { daemon?.kill("SIGTERM"); } catch { /* already gone */ }
@@ -64,7 +70,7 @@ process.on("SIGTERM", () => { cleanup(); process.exit(143); });
 async function jd(method, route, body) {
   const res = await fetch(`${BASE}${route}`, {
     method,
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    headers: { ...sessionHeaders(), ...(body === undefined ? {} : { "content-type": "application/json" }) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
@@ -158,6 +164,18 @@ async function main() {
     if (!up) await sleep(300);
   }
   if (!up) { ok("daemon comes up", false, daemonLog.slice(-400)); return; }
+
+  // The operator, bootstrapped with the one-boot token the daemon printed to its own log.
+  const bootToken = daemonLog.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? null;
+  const bootRes = await fetch(`${BASE}/v1/hypervisor/auth/bootstrap`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token: bootToken, password: "environment-startup-plan-v1" }),
+  });
+  SESSION = (await bootRes.json().catch(() => ({})))?.session_token ?? "";
+  ok("PRECONDITION: an authenticated operator session exists (the §7.5 gate refuses every anonymous control-plane write)",
+    !!SESSION, `bootstrap ${bootRes.status}`);
+  if (!SESSION) return;
 
   // ---------------------------------------------------------------- the chain, end to end
   const created = await jd("POST", "/v1/hypervisor/environment-recipes", RECIPE);
@@ -279,7 +297,7 @@ async function main() {
     absent.status === 404 && code(absent) === "environment_startup_plan_resolution_not_found",
     code(absent) ?? `status ${absent.status}`);
 
-  const bodiless = await fetch(`${BASE}/v1/hypervisor/environment-startup-plans`, { method: "POST" });
+  const bodiless = await fetch(`${BASE}/v1/hypervisor/environment-startup-plans`, { method: "POST", headers: sessionHeaders() });
   ok("a bodiless POST is refused for what it lacks, not for its content type — the body extractor does not run before the handler",
     bodiless.status === 400, `status ${bodiless.status}`);
 

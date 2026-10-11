@@ -380,17 +380,23 @@ async function main() {
   const session = (await bootRes.json().catch(() => ({})))?.session_token ?? "";
   ok("PRECONDITION: an authenticated operator session exists", !!session);
 
-  // IDENTITY BEFORE BODY, AND POSTURE BEFORE BOTH. This lane is `read_model_only`, so the estate's
-  // documented `user://local-operator` read-lane convenience applies on a trusted local posture —
-  // an anonymous loopback read projects the legacy operator scope and acquires nothing. What it
-  // must NOT do is hand an organization's installed inventory to an anonymous caller on a daemon
-  // reachable from outside, which is the same door the write lanes close with the same gate.
+  // IDENTITY BEFORE BODY, AND POSTURE BEFORE BOTH. This lane is `read_model_only`, but it is a POST,
+  // and since the W1 survey §7.5 gate (90cd1ddf27) every anonymous POST/PUT/PATCH/DELETE to
+  // `/v1/hypervisor/*` is refused 401 `request_principal_required` on loopback too, before any
+  // handler runs. The `user://local-operator` read-lane convenience this lane used to grant an
+  // anonymous loopback caller is gone: an anonymous local consumer of this projection must now
+  // authenticate (the serve forwards the signed-in caller's session; the route is not on the gate's
+  // public list, and BD-14's AUTH_GATE_PUBLIC_ROUTES does not add it either). An exposed daemon
+  // still projects no organization's inventory to an anonymous caller, and a session is still
+  // served from anywhere.
   //
-  // Both are asserted because asserting either alone gets the posture wrong in one direction: a
-  // flat 401 would break every local consumer, and a flat 200 is a disclosure.
+  // All three are asserted: the uniform loopback refusal, the exposed refusal, and the session
+  // that turns the exposed refusal into an answer (the gate is identity, not the body).
   const anonLocal = await fetch(`${base}/v1/hypervisor/product-surface-projections`, { method: "POST" });
-  ok("an anonymous LOOPBACK read projects the local-operator scope — the documented read-lane posture",
-    anonLocal.status === 200, `status ${anonLocal.status}`);
+  const anonLocalBody = await anonLocal.json().catch(() => ({}));
+  ok("an anonymous LOOPBACK read is refused 401 request_principal_required — the §7.5 gate's uniform refusal, before the handler",
+    anonLocal.status === 401 && anonLocalBody?.code === "request_principal_required",
+    `status ${anonLocal.status} code ${anonLocalBody?.code ?? "(none)"}`);
   const anonExposed = await fetch(`${base}/v1/hypervisor/product-surface-projections`, {
     method: "POST",
     headers: { "x-forwarded-for": "203.0.113.7" },

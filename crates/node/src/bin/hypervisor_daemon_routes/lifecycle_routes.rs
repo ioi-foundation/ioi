@@ -22660,7 +22660,12 @@ fn auth_gate_refusal(
     {
         // The estate's canonical anonymous-write refusal (`RequestScopeRefusal::AuthenticationRequired`),
         // carried in each place a family puts it — flat `code`, `reason`, and nested `error.code` —
-        // so a route that already refused anonymous callers answers with the same code it did.
+        // so every anonymous control-plane write on loopback reads one uniform refusal. It does NOT
+        // keep a route's own earlier code: this gate answers before the handler runs, so a route
+        // whose handler refused anonymous callers under another name (the connector authority
+        // routes' 401 `hypervisor.authentication_required`, R-22) now answers
+        // `request_principal_required` here, and its handler's own refusal is reached only where
+        // this rule does not apply (the `never` policy).
         let message =
             "a change to the Hypervisor control plane needs an authenticated session, on loopback too";
         return Some((

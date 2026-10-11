@@ -113,8 +113,13 @@ let n = 0; const key = (label) => `cpr-${label}-${++n}`;
 // Every node-plane effect is wallet-governed: the first call answers a 403 challenge naming the
 // exact policy and request hashes; the fixture mints and records the grant for the governing owner;
 // the retry carries `wallet_approval_grant`. The verifier never guesses a hash.
+// Both calls carry the bootstrapped operator's SESSION. They used to be sent anonymously, and since
+// the W1 survey §7.5 gate (90cd1ddf27) an anonymous POST to `/v1/hypervisor/*` is refused 401
+// `request_principal_required` on loopback before the plane's handler runs, so an anonymous ladder
+// measured only the gate. The wallet grant still decides each effect: the session is who asks, and
+// the grant for the governing owner is what admits.
 async function governed(route, body, governingOwner) {
-  const challenge = await post(route, body, "");
+  const challenge = await post(route, body);
   const approval = challenge.body?.error?.approval ?? challenge.body?.approval;
   if (!(challenge.status === 403 && approval?.policy_hash && approval?.request_hash)) return { challenge, reply: challenge };
   // The approval is recorded under the challenge's own operation scope: the resolver matches the
@@ -123,7 +128,7 @@ async function governed(route, body, governingOwner) {
   if (!scope) return { challenge, reply: { status: 0, body: { error: { code: "challenge_names_no_scope", message: `challenge keys ${Object.keys(challenge.body?.error ?? challenge.body ?? {}).join(",")}` } } } };
   const grant = resolver.mintForCapability(governingOwner, approval.policy_hash, approval.request_hash);
   await resolver.recordApproval(governingOwner, approval.policy_hash, approval.request_hash, grant, scope);
-  const reply = await post(route, { ...body, wallet_approval_grant: grant }, "");
+  const reply = await post(route, { ...body, wallet_approval_grant: grant });
   return { challenge, reply };
 }
 

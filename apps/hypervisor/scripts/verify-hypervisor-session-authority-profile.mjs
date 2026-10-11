@@ -277,14 +277,19 @@ async function run() {
   // R-22 (2026-09-10, ADR 0052 § 8): the four connector authority routes speak one language to an
   // unresolved caller. Asserted here, on the CI-bound verifier, so a route that drifts back to a
   // local-operator attribution is red in CI; the three-case drill lives in check:standing-consumer-loop.
+  // Since the W1 survey §7.5 gate (90cd1ddf27) that one language is the GATE's: an anonymous
+  // POST/DELETE to `/v1/hypervisor/*` is refused 401 `request_principal_required` on loopback before
+  // any handler runs, so the handlers' own `hypervisor.authentication_required` is no longer what an
+  // unresolved caller reads here. The profile assertions above all run AUTHENTICATED (the bootstrapped
+  // operator's session); only this anonymous case measures the gate.
   const anonFour = await Promise.all([
     fetch(`${DAEMON}/v1/hypervisor/connectors`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ service: "ping-service", name: "r22-anon", base_url: `http://127.0.0.1:${toolPort}` }) }),
     fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(A)}/standing-lease`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ grant: {}, envelope: {} }) }),
     fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(A)}/standing-lease`, { method: "DELETE" }),
     fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(A)}/invoke`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tool: "ping", request: {} }) }),
   ].map((p) => p.then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }))));
-  ok("R-22: register, bind, revoke and invoke answer an UNRESOLVED caller with one typed refusal — 401 hypervisor.authentication_required, byte-identical on all four routes, before any record read",
-    anonFour.every((r) => r.status === 401 && r.body?.code === "hypervisor.authentication_required") && new Set(anonFour.map((r) => JSON.stringify(r.body))).size === 1,
+  ok("R-22: register, bind, revoke and invoke answer an UNRESOLVED caller with one typed refusal — the §7.5 gate's 401 request_principal_required, byte-identical on all four routes, before any record read",
+    anonFour.every((r) => r.status === 401 && r.body?.code === "request_principal_required" && r.body?.error?.code === "request_principal_required") && new Set(anonFour.map((r) => JSON.stringify(r.body))).size === 1,
     anonFour.map((r) => `${r.status}/${r.body?.code || r.body?.reason || ""}`).join(" · "));
 
   // -- revocation fences ----------------------------------------------------------------------------
