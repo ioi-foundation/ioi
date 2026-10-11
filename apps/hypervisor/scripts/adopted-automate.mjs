@@ -1,9 +1,9 @@
 // The Automate seed's adapter (R-241, UX seed depth phase). The reference Automate app itself is the
-// seed: it boots from the local reference mirror through the `/__apps/monitors` lane (never vendored —
+// seed: it boots from the local capture server through the `/__apps/monitors` lane (never vendored —
 // the repository is public and the bundle is not ours to publish). This module answers the app's own
 // data requests from DAEMON TRUTH in the app's own wire shapes, so the adopted list, overview and
 // detail render the Hypervisor's automations. Every request it does not answer passes through to the
-// mirror and is counted, so the unbound surface shrinks by measurement, not by claim.
+// capture server and is counted, so the unbound surface shrinks by measurement, not by claim.
 //
 // Wire shapes are the ones recorded read-only from the reference (docs/ux-seed-depth-phase.md,
 // "Automate — the adapter contract"): the GraphQL gateway answers `text/event-stream`, one
@@ -203,8 +203,8 @@ export function bulkOperations(body) {
   } catch { return []; }
 }
 
-// Merge our answers into the mirror's event stream: replace the events for the indexes we answer, keep
-// the rest verbatim, append ours where the mirror sent none.
+// Merge our answers into the capture server's event stream: replace the events for the indexes we answer, keep
+// the rest verbatim, append ours where the capture server sent none.
 export function mergeStream(mirrorText, answers) {
   const lines = String(mirrorText || "").split(/\n\n/).filter((l) => l.trim());
   const out = [];
@@ -220,7 +220,7 @@ export function mergeStream(mirrorText, answers) {
   return out.join("\n\n") + "\n\n";
 }
 
-// ---- Every operation the adopted app makes gets an answer from HERE, never from the mirror's loose
+// ---- Every operation the adopted app makes gets an answer from HERE, never from the capture server's loose
 // mock (which returns whatever captured document matches least badly — a marketplace component crashed
 // on another operation's data). Daemon truth where a plane exists; an honest EMPTY in the operation's
 // own shape where none does (marketplace templates, walkthroughs, announcements, the reference's own
@@ -232,7 +232,7 @@ export const OPERATIONS = new Set([
   "BrowseTemplatesViewQuery", "LatestAnnouncementQuery", "UpdateAipAssistWalkthroughMetric",
 ]);
 // The reference's own chrome (its sidebar, its principal badges) queries types whose list-ness only the
-// schema knows. For these the mirror's answer is used ONLY as a shape-correct ENVELOPE and every identity
+// schema knows. For these the capture server's answer is used ONLY as a shape-correct ENVELOPE and every identity
 // fact in it is overwritten with the signed-in principal (the model-catalog rebind's pattern) — no tenant
 // name, email or picture survives.
 export const ENVELOPE_OPERATIONS = new Set([
@@ -305,7 +305,7 @@ export const unboundError = (name) => {
 };
 
 // THE IDENTITY TOKEN a seed page reads client-side (it decodes the cookie's JWT `sub` — 16 bytes,
-// base64 — into the current user's UUID). The local mirror injects the reference TENANT'S REAL session
+// base64 — into the current user's UUID). The local capture server injects the reference TENANT'S REAL session
 // token there; a page served through the estate must never carry it. This synthetic token is unsigned
 // and authorizes nothing (the serve and daemon never read it) — it only names the signed-in Hypervisor
 // principal as the same user id the adapter stamps on their automations.
@@ -321,11 +321,11 @@ export function replaceInjectedToken(html, principalRef) {
 }
 
 // ---- THE HARVEST ENVELOPE (for operations not bound yet). The real answer the reference gave for the
-// same operation (recorded read-only, kept in the local mirror, never in the repo) is used as a
+// same operation (recorded read-only, kept in the local capture server, never in the repo) is used as a
 // shape-correct envelope and made honest: the recorded monitor becomes the requested automation (its
 // rid and name), identity becomes the signed-in principal, and EVERY LIST IS EMPTIED — no recorded
 // effect, rule, event or favourite survives onto a Hypervisor automation. An operation with no recording
-// is a named GraphQL error, never the mirror's loose guess.
+// is a named GraphQL error, never the capture server's loose guess.
 import fsH from "node:fs";
 import pathH from "node:path";
 let harvestCache = null;
@@ -334,7 +334,7 @@ export function harvestOperations(mirrorDir) {
   const map = new Map();
   const dir = pathH.join(mirrorDir, "tools/traffic/object-monitoring-flow/operations");
   let files = [];
-  try { files = fsH.readdirSync(dir).filter((f) => /^g.*\.json$/.test(f)).sort(); } catch { /* no mirror */ }
+  try { files = fsH.readdirSync(dir).filter((f) => /^g.*\.json$/.test(f)).sort(); } catch { /* no capture server */ }
   for (const f of files) {
     let d;
     try { d = JSON.parse(fsH.readFileSync(pathH.join(dir, f), "utf8")); } catch { continue; }
@@ -997,7 +997,7 @@ function functionRidOfRef(ref) {
 }
 
 // Principals by user id (the app's user chips and Metadata rows): ONLY the principals our automations
-// name, never the mirror's recorded tenant directory.
+// name, never the capture server's recorded tenant directory.
 export function principalsFor(userIds, principals) {
   const byId = new Map(principals.map((p) => [userIdOf(p.ref), p]));
   return (userIds || []).map((id) => byId.get(id) ? [id, byId.get(id)] : null).filter(Boolean).map(([id, p]) => {

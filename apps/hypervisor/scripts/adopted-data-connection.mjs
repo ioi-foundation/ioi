@@ -1,6 +1,6 @@
 // The adopted Data Connection's answers over Hypervisor truth (R-241, Data Connection cut D1).
 //
-// The reference app (booted by the local mirror, routed at /workspace/data-ingestion-app) lists sources, syncs, agents and
+// The reference app (booted by the local capture server, routed at /workspace/data-ingestion-app) lists sources, syncs, agents and
 // listeners. Here a source is one of the caller's declared data sources (the data-source plane); its connection type is
 // the Hypervisor's kind, answered in the reference's catalog shape under the reference's type id where one names the same
 // thing. A source's syncs are the capability-lease plans on it (cut D4: the import ladder), their builds the plans'

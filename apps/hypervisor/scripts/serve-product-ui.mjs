@@ -268,10 +268,10 @@ const REFERENCE_DOCS_PREFIX = "/docs/foundry/";
 const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"], ["/workspace/hubble", "explorer"], ["/workspace/data-ingestion-app", "sources"], ["/workspace/approvals-app", "approvals"]];
 // THE ONTOLOGY FENCE (R-241 Ontology Manager, cut O1): the adopted Ontology Manager's reads of the ontology, the object
 // registry, object sets, search and data health that are not bound are answered as named gaps — never passed through
-// to the mirror, whose answers are the RECORDED TENANT's ontology.
+// to the capture server, whose answers are the RECORDED TENANT's ontology.
 const ONTOLOGY_FENCED = /^\/(ontology-metadata|phonograph2|object-set-service|foundry-search|data-health|foundry-catalog|monocle|compass)\//u;
 // The adopted Ontology Manager's pages (a request's referer), and a platform service's API path. On that surface a service
-// read that no lane answers is a named gap: never the mirror's recorded answer, and never this serve's HTML shell (which
+// read that no lane answers is a named gap: never the capture server's recorded answer, and never this serve's HTML shell (which
 // answers every unknown path with its index page — an app reads it as a malformed answer, "Failed to load").
 // Object Explorer (/workspace/hubble, O4) reads the same ontology, so it is the same surface: the same fence.
 const ONTOLOGY_SURFACE_REFERER = /\/workspace\/(?:ontology|hubble)(?:[/?#]|$)|\/__apps\/(?:schema|explorer)(?:[/?#]|$)/u;
@@ -281,16 +281,16 @@ const TEMPORARY_OBJECT_SETS = new Map();
 const SERVICE_API_PATH = /^\/[a-z][a-z0-9-]*\/api\//u;
 // THE DATA CONNECTION FENCE (R-241 Data Connection, cut D1): the adopted Data Connection app (/workspace/data-ingestion-app)
 // reads sources, syncs, schedules, datasets and example installs from these services; one that is not bound is a named gap,
-// never the mirror's recorded answer (the recorded tenant's sources) and never this serve's HTML shell.
+// never the capture server's recorded answer (the recorded tenant's sources) and never this serve's HTML shell.
 const DATA_CONNECTION_SURFACE_REFERER = /\/workspace\/data-ingestion-app(?:[/?#]|$)|\/__apps\/sources(?:[/?#]|$)/u;
 const DATA_CONNECTION_FENCED = /^\/(magritte-coordinator|scheduler|marketplace|foundry-catalog|build2|foundry-stemma|monocle|data-health|compass|ontology-metadata|phonograph2|object-set-service|foundry-search|egress|network-egress)\//u;
 // THE APPROVALS FENCE (R-241 Approvals, cut A1): the adopted Approvals app (/workspace/approvals-app) reads task requests,
 // comments, principals, approval policies and checkpoints from these services; one that is not bound is a named gap, never
-// the mirror's recorded answer (the recorded tenant's requests) and never this serve's HTML shell.
+// the capture server's recorded answer (the recorded tenant's requests) and never this serve's HTML shell.
 const APPROVALS_SURFACE_REFERER = /\/workspace\/approvals-app(?:[/?#]|$)|\/__apps\/approvals(?:[/?#]|$)/u;
 const APPROVALS_FENCED = /^\/(approvals|compass|checkpoints|control-panel|resource-policy-manager|foundry-search|audit-export|language-model-service|interventions|issues|monocle)\/|^\/multipass\/api\/(?!sessions\/)/u;
-// Whether the local reference mirror can boot a seed right now (R-241: adopted bundles live in the
-// local mirror only). Cached briefly; a canonical route opens the adopted app only when it can boot.
+// Whether the local capture server can boot a seed right now (R-241: adopted bundles live in the
+// local capture server only). Cached briefly; a canonical route opens the adopted app only when it can boot.
 const adoptedSeedCache = new Map();
 async function adoptedSeedAvailable(basePath) {
   const hit = adoptedSeedCache.get(basePath);
@@ -8971,7 +8971,7 @@ async function handleEstateRequest(req, res, body) {
     }
     const GRE2_TRANSFERS = { "/automations": "/__ioi/automations/monitors", "/evaluations": "/__ioi/evaluations/evalsuites", "/foundry": "/__ioi/foundry/models", "/provenance": "/__ioi/lineage", "/improvement": "/__ioi/improvement/changes", "/governance": "/__ioi/governance/approvals" };
     // R-241: Automations opens the ADOPTED Automate app (the reference app over Hypervisor truth) when the
-    // local mirror can boot it; a deployment without the mirror keeps the owned Automate surface below.
+    // local capture server can boot it; a deployment without the capture server keeps the owned Automate surface below.
     // Opt-in (IOI_ADOPTED_SURFACES=1) so every gate's own serve keeps one deterministic posture wherever
     // it runs; the owner's serves opt in.
     if (pathname === "/automations" && req.method === "GET" && process.env.IOI_ADOPTED_SURFACES === "1" && !new URL(req.url, "http://x").searchParams.get("run") && await adoptedSeedAvailable("/workspace/object-monitoring/")) {
@@ -9319,7 +9319,7 @@ async function handleEstateRequest(req, res, body) {
         return { automations, projects, principal: { ref: p.principal_ref, name: p.name, email: p.email }, functionInfo: await adoptedFunctionInfo(automations), userState };
       };
       // One answer per adopted-app operation: bound (daemon truth) → the adapted harvest envelope → a named
-      // gap. Never the mirror's loose GraphQL mock.
+      // gap. Never the capture server's loose GraphQL mock.
       const ADOPT_MIRROR_DIR = process.env.IOI_REFERENCE_MIRROR_DIR || join(REPO_ROOT, "internal-docs", "reverse-engineering", "palantir");
       // A request made by the adopted Pipeline Builder's own pages (its location dialog answers differently
       // from Automate's: a recipe family is held in the owner's recipe registry, never in a project).
@@ -10053,7 +10053,7 @@ async function handleEstateRequest(req, res, body) {
           return undefined;
         }
         // On the adopted Ontology Manager every operation answers from the adopted layer — bound, the safe chrome envelope,
-        // or a named gap. The passthrough below answers with the recorded tenant's (or the mirror's demo) data.
+        // or a named gap. The passthrough below answers with the recorded tenant's (or the capture server's demo) data.
         if (gqlOp && (onOntologySurface() || onDataConnectionSurface())) return sendJson(await answerAdoptedOp(AUTOMATE.opNameOf(gqlOp), gqlOp.variables || {}, await automateContextOrFailed(), String(gqlOp.query || "")));
         // other GraphQL operations fall through to the capture passthrough
       }
@@ -10144,7 +10144,7 @@ async function handleEstateRequest(req, res, body) {
           if (pathname === "/multipass/api/me/groups") return sendA(200, { groups: [], next: null, orderedBy: null });
           // the requesters and deciders a request names, from the daemon's directory (the caller's own name at least)
           if (pathname === "/multipass/api/administration/principals") return sendA(200, APPROVALS.principalsOf(Array.isArray(asked) ? asked : (asked?.principalIds || asked?.ids || []), (await approvalsContext()).dir));
-          // the invite-reviewers picker's user search (it passed through to the mirror: the recorded tenant's directory)
+          // the invite-reviewers picker's user search (it passed through to the capture server: the recorded tenant's directory)
           if (pathname === "/multipass/api/search/v2/search") return sendA(200, APPROVALS.principalSearchOf(asked, (await approvalsContext()).dir));
           // no comment thread is kept on a request: every count is zero and every page empty; a comment is refused by name
           if (pathname === "/comments/api/comments/counts" && req.method === "POST") return sendA(200, APPROVALS.commentCountsOf(asked));
@@ -10245,9 +10245,9 @@ async function handleEstateRequest(req, res, body) {
         }
       }
       // REBIND (Automate seed, R-241 — the UX seed depth phase): the adopted reference Automate app
-      // (served from the local mirror, never vendored) asks for its monitors; the Hypervisor's
+      // (served from the local capture server, never vendored) asks for its monitors; the Hypervisor's
       // automations answer, in the app's own wire shapes (adopted-automate.mjs). The GraphQL gateway
-      // streams one event per operation: ours replace the mirror's for the operations we answer and
+      // streams one event per operation: ours replace the capture server's for the operations we answer and
       // the rest stay verbatim, so the unbound remainder is visible, not faked.
       if (pathname === "/graphql-gateway/api/bulk" && req.method === "POST") {
         const ops = AUTOMATE.bulkOperations(body.toString());
@@ -10309,7 +10309,7 @@ async function handleEstateRequest(req, res, body) {
         return res.end(JSON.stringify({ comments: [], resolvedReferences: [], nextPageToken: null, totalCommentCount: 0 }));
       }
       // Any other comment call writes a thread the Hypervisor does not keep: refused by name, never the local
-      // mirror's recorded answer (which would read as a comment saved, or show the reference tenant's comments).
+      // capture server's recorded answer (which would read as a comment saved, or show the reference tenant's comments).
       if (pathname.startsWith("/comments/") && req.method !== "GET" && req.method !== "HEAD") {
         res.writeHead(501, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ errorCode: "INVALID_ARGUMENT", errorName: "Comments:NotSupportedByHypervisor", errorInstanceId: "", parameters: { message: "the Hypervisor keeps no comment threads" } }));
@@ -10647,7 +10647,7 @@ async function handleEstateRequest(req, res, body) {
           return send(200, { rid: "ri.compass.main.folder.0", name: "All files", created: { time: t, userId: PIPELINE.uuidOf(p.author || "unknown") }, modified: { time: t, userId: PIPELINE.uuidOf(p.author || "unknown") }, lastModified: Date.parse(t) || 0, urlVariables: {}, directlyTrashed: false, isAutosave: false, isHidden: false, isPreviewResource: false, status: null });
         }
         if ((m = at(`/compass/api/linked-items/(${PR})`)) && req.method === "GET") return (await holds(m[1])) ? send(200, []) : notFound();
-        // User-defined transforms are not offered in a recipe: refused by name here, never the mirror's answer.
+        // User-defined transforms are not offered in a recipe: refused by name here, never the capture server's answer.
         if ((m = at(`/eddie/api/external-transforms/(${PR})/is-udf-enabled-v2`)) && req.method === "GET") {
           return (await holds(m[1])) ? send(404, { errorCode: "NOT_FOUND", errorName: "Eddie:UdfsNotOffered", errorInstanceId: "", parameters: { message: "a DataRecipe runs canon's transformation steps; user-defined transforms are not offered" } }) : notFound();
         }
@@ -10694,7 +10694,7 @@ async function handleEstateRequest(req, res, body) {
         if (pathname === "/people/api/personal/get-favorites" && req.method === "POST") return send(200, { orderedFavorites: [] });
         // A view event is how the adopted app says a resource was opened (it posts one when an automation's page loads).
         // One of the caller's automations viewed is recorded in their Recently viewed (the daemon's preference plane);
-        // nothing else posted here is kept, and its response says so (no event id). The mirror answered every event with
+        // nothing else posted here is kept, and its response says so (no event id). The capture server answered every event with
         // a recorded event id.
         if (pathname === "/people/api/eventsink/create-events" && req.method === "POST") {
           let asked = {};
@@ -10725,7 +10725,7 @@ async function handleEstateRequest(req, res, body) {
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify(answer));
       }
-        // Any other Pipeline Builder WRITE is refused by name here — it never reaches the local mirror, whose
+        // Any other Pipeline Builder WRITE is refused by name here — it never reaches the local capture server, whose
         // recorded answer would read as a success nothing performed. The two POST READS named open (the AIP
         // toggle, the expression examples) still pass through, as the seed-depth record says.
         if (pathname.startsWith("/eddie/") && req.method !== "GET" && req.method !== "HEAD" && !["/eddie/api/natural-language-converter/aip-enabled", "/eddie/api/examples/get"].includes(pathname)) {
@@ -10770,7 +10770,7 @@ async function handleEstateRequest(req, res, body) {
         return sendJson(200, { locator: { rid: AUTOMATE.monitorRidOf(id), version: 1 } });
       }
       // Gatekeeper's hasOperations for an adopted resource: the caller may operate on their own
-      // automation (it is theirs); any other resource answers false. Never the mirror's recorded answer.
+      // automation (it is theirs); any other resource answers false. Never the capture server's recorded answer.
       {
         const gk = /^\/multipass\/api\/authz\/access\/([^/]+)$/.exec(pathname);
         if (gk && req.method === "GET") {
@@ -10942,7 +10942,7 @@ async function handleEstateRequest(req, res, body) {
         }
       }
       // The directory the app resolves user ids against: the principals our automations name (the
-      // mirror would answer with the recorded tenant's people).
+      // capture server would answer with the recorded tenant's people).
       if (pathname === "/multipass/api/administration/principals" && req.method === "POST") {
         let ids = [];
         try { const j = JSON.parse(body.toString() || "[]"); ids = Array.isArray(j) ? j : (j.principalIds || j.ids || []); } catch { /* none */ }
@@ -11499,7 +11499,7 @@ async function handleEstateRequest(req, res, body) {
         //      deferred code tokens. Static-asset parity accounts for these exact transforms.
         if (ct.includes("text/html")) {
           let html = buf.toString("utf8");
-          // NEVER THE TENANT'S TOKEN (R-241): the mirror injects the reference tenant's real session
+          // NEVER THE TENANT'S TOKEN (R-241): the capture server injects the reference tenant's real session
           // cookie into every page it serves; through the estate that put a live credential in this
           // origin's cookie jar, readable by script. Every seed page gets a synthetic, unsigned identity
           // token naming the signed-in principal instead (it authorizes nothing).
@@ -11533,7 +11533,7 @@ async function handleEstateRequest(req, res, body) {
         }
         // A response the serve did NOT answer from Hypervisor truth says so (the adopted-seed audits read it).
         const passthrough = !pathname.startsWith("/assets/") && !adoptedAlias && !pathname.startsWith("/__apps/");
-        res.writeHead(upstream.status, { "Content-Type": ct, "Cache-Control": pathname.startsWith("/assets/") ? "public, max-age=86400" : "no-cache", "content-length": String(buf.length), ...(passthrough ? { "x-ioi-mirror-passthrough": "1" } : {}) });
+        res.writeHead(upstream.status, { "Content-Type": ct, "Cache-Control": pathname.startsWith("/assets/") ? "public, max-age=86400" : "no-cache", "content-length": String(buf.length), ...(passthrough ? { "x-ioi-capture-passthrough": "1" } : {}) });
         return res.end(buf);
       } catch {
         res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });
@@ -18173,8 +18173,8 @@ async function handleEstateRequest(req, res, body) {
             let buf = Buffer.from(await capResp.arrayBuffer());
             if (/text\/html|javascript|ecmascript/.test(ct)) buf = Buffer.from(buf.toString("utf8").replace(/Palantir/g, "IOI"), "utf8");
             // An API answer from the capture is RECORDED tenant data, not an asset: it says so, like the
-            // mirror branch's passthroughs, so the adopted-seed audits count it instead of missing it.
-            const recorded = /\/api\//u.test(pathname) ? { "x-ioi-mirror-passthrough": "1" } : {};
+            // capture branch's passthroughs, so the adopted-seed audits count it instead of missing it.
+            const recorded = /\/api\//u.test(pathname) ? { "x-ioi-capture-passthrough": "1" } : {};
             res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-cache", "content-length": String(buf.length), ...recorded });
             return res.end(buf);
           }

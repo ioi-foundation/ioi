@@ -39,9 +39,9 @@ and error forms of each). An app is **seeded to depth** when every flow state a 
 reference has, in our app:
 
 1. **a harvested capture** — the state's markup, styles, bundle references and API response SHAPES,
-   recorded from the authenticated reference and booted by the local mirror;
+   recorded from the authenticated reference and booted by the local capture server;
 2. **an adopted port** — the reference's own implementation of that state vendored into the owned
-   surface module (or the owned shell bundle, for the Ona-seeded shell), rebranded, never re-authored
+   surface module (or the owned shell bundle, for the shell seeded from the upstream Sessions reference app), rebranded, never re-authored
    from a screenshot;
 3. **a binding** — every data lane on the state reads and writes daemon truth through the serve lane
    or adapter; a control whose plane does not exist yet renders as a disabled, NAMED gap with a reason
@@ -60,9 +60,9 @@ The machinery exists; this phase runs it past the landing.
 
 **H — Harvest (Arm B, read-only).** Attach over CDP to the owner's authenticated Chrome
 (`ps -eo pid,cmd | grep -o 'remote-debugging-port=[0-9]*'`; currently :36831). Tabs are orchestrated
-per app: the Foundry tenant for the Palantir-seeded apps, **Ona (app.gitpod.io) for Sessions** and the
+per app: the Foundry tenant for the Palantir-seeded apps, **the upstream Sessions reference app for Sessions** and the
 rest of the shell. For each flow state record URL, sanitized DOM, network (bundles and API response
-shapes) and a screenshot, and feed the local mirror (`internal-docs/reverse-engineering/palantir`,
+shapes) and a screenshot, and feed the local capture server (`internal-docs/reverse-engineering/palantir`,
 `:9225`, on-demand harvest) so the state boots locally.
 - *Leave what exists alone.* It is a live tenant. Never alter, share or delete the owner's existing resources, and
   never press an acknowledgement that persists a preference on the owner's account.
@@ -72,9 +72,9 @@ shapes) and a screenshot, and feed the local mirror (`internal-docs/reverse-engi
   automation, …) until the state renders populated, then harvest it. Record every tenant write in the app's
   `.artifacts/live-tenant-atlas/<app>/TENANT-WRITES.md`. Examples are not deleted unless asked.
 - *Viable demo data.* Where a state still cannot render populated, synthesize sanitized fixtures shaped by the
-  harvested API responses, served only by the mirror. Demo data never enters product code or a daemon.
+  harvested API responses, served only by the capture server. Demo data never enters product code or a daemon.
 
-**A — Adopt.** Vendor the state's ported implementation from the mirror into the owned tree beside the
+**A — Adopt.** Vendor the state's ported implementation from the capture server into the owned tree beside the
 app's existing port.
 
 **R — Rebrand.** The source-neutral pass (brand, assets, copy), as for every existing port.
@@ -96,7 +96,7 @@ owner's 2026-09-26 captures, the R-240 lane harvests and the atlases) that were 
 |---|---|---|---|---|---|
 | **Automate** (Automations) | `/automations` | 1 | 1 | Overview (active cards, recently viewed/triggered); Automations list + facet panel; New automation: Condition catalog (time, objects added/removed/modified, run on all, threshold, dependency, …), Effects (action, logic, function, notification), Settings (retries, administrators, scenarios), Summary; automation detail + history | automation specs / installations / runs (canonical) + legacy executor; notification plane (P1); checkpoints (P5) |
 | **Pipeline Builder** (Data) | `/data/recipes` | 1 | 1 | Create pipeline (name + location, batch/streaming, compute); graph editor (Graph / Proposals / History, add-data welcome card, outputs panel, output settings, tool rail); node config; preview; deploy | transformation recipes / runs; change sets (P4) for proposals |
-| **Sessions** (Work; Ona-seeded shell) | `/work/sessions`, `/ai` | — | shell | Ona: session list, session detail (workspace, logs, ports), new-session flow, settings panes | sessions / lifecycle / environments |
+| **Sessions** (Work; shell seeded from the upstream Sessions reference app) | `/work/sessions`, `/ai` | — | shell | the upstream Sessions reference app: session list, session detail (workspace, logs, ports), new-session flow, settings panes | sessions / lifecycle / environments |
 | Ontology Manager (Ontology) | `/ontology/schema` | 1 | 1 | object type detail (properties, links, actions), value types, history, proposals | ontology drafts / revisions (M05.1) |
 | Object Explorer (Ontology) | `/ontology/explore` | 2 | 1 | search results, object view, saved sets, exploration | object sets / projections |
 | Data Connection (Data) | `/data/sources` | 1 | 1 | source detail, sync config, credentials, runs | data sources / transformations |
@@ -123,10 +123,10 @@ Owner visibility × plane readiness × done-bar journey legs:
    steps, Settings → failure policy / retries (named gaps where unbuilt), Summary → create.
 2. **Pipeline Builder** — the second comparison; fix-first: the slot that never finished loading is
    repaired (the Open Application slot now ends every load, R-240).
-3. **Sessions** — harvested from the Ona tab, into the owned shell.
+3. **Sessions** — harvested from the upstream Sessions reference app's tab, into the owned shell.
 4. Ontology Manager and Object Explorer; 5. Data Connection; 6. in the master guide's recommended order (§0.6,
    adopted 2026-09-28): Control Panel Approvals with the Approvals app, the rest of Checkpoints, Network egress,
-   Identity, AIP Chatbot Studio, the ontology action type and its action log, AIP Evals and Logic, then Ona Automations
+   Identity, AIP Chatbot Studio, the ontology action type and its action log, AIP Evals and Logic, then the upstream Sessions reference app's Automations
    with Cost & Budgets; 7. Issues, Marketplace with DevOps, Model Catalog, Upgrade Assistant, Machinery, Builds, Build
    Schedules; 8. the browse-only apps. Model Catalog through Builds seed less of the target than anything in step 6.
 
@@ -150,14 +150,14 @@ reorder them:
 
 1. Control Panel Approvals: inbox, request task, policies. A pending state needs one example request.
 2. Control Panel Network egress: policies, the request dialog, Secure Tunnels, PrivateLinks, S3 bucket policies.
-3. Identity: Foundry Groups, Markings, Roles, Users, Tokens and Third-party apps; Control Panel permissions; Ona
+3. Identity: Foundry Groups, Markings, Roles, Users, Tokens and Third-party apps; Control Panel permissions; the upstream Sessions reference app's
    Members, Service Accounts, Login, SCIM and OIDC. Examples needed: a marking, a group, a short-lived token, a service
    account. A secret is never recorded.
 4. AIP Chatbot Studio: agent edit and view.
 5. Ontology action type detail and the action log. Needs an action type on a backed object type, plus one submitted
    action.
 6. The rest of the Checkpoints wizard.
-7. Ona Automations.
+7. The upstream Sessions reference app's Automations.
 8. AIP Evals and Logic editors.
 9. Spend screens and the Linter.
 10. The apps behind planes P8–P11: Sensitive Data Scanner, Cipher, Document Intelligence, Custom Widgets.
@@ -174,15 +174,15 @@ IOI-native, with no seed to copy.
   with facets, an automation's detail (Status, Automation flow, Metadata, Monitoring rules), the wizard's
   condition catalog and all seven condition configurations, the effects step and all four effect
   configurations, Settings and Summary; evidence in `.artifacts/live-tenant-atlas/r241-automate/`
-  (`flow-census.json`, screenshots) and the mirror's `tools/traffic/object-monitoring-flow/`. The 33
-  bundle assets the mirror lacked were fed to it; the mirror now boots the wizard and the list locally
+  (`flow-census.json`, screenshots) and the capture server's `tools/traffic/object-monitoring-flow/`. The 33
+  bundle assets the capture server lacked were fed to it; the capture server now boots the wizard and the list locally
   with no failed request.
 - **Finding that sets the path:** our Automate landing is NOT an adopted port — its source says it
   "reproduces the visible overview shell pixel-faithfully", a recreation made because the booted lane
-  failed then (favorites load, CORS-blocked session lanes). Now that the mirror boots the app, the
+  failed then (favorites load, CORS-blocked session lanes). Now that the capture server boots the app, the
   doctrine's path applies: **adopt the reference bundle itself** — served under the estate as a
   quarantined harvested lane, rebranded — and **answer its API calls from daemon truth through an
-  adapter**, fallthrough tracked to zero (the Ona shell precedent: the owned bundle plus the IOI API
+  adapter**, fallthrough tracked to zero (the precedent of the shell seeded from the upstream Sessions reference app: the owned bundle plus the IOI API
   adapter). Every flow state then arrives with the adopted app instead of being hand-ported one by one.
 - **The adapter's surface (from the harvest):** the GraphQL gateway (`/graphql-gateway/api/bulk`, the
   bulk of the app's reads), the monitor registry (`/object-sentinel/api/registry/v0/*`, validation
@@ -201,14 +201,14 @@ IOI-native, with no seed to copy.
   templates (`BrowseTemplatesViewQuery`, `RecentInstallationsPopoverQuery` — named gaps). REST:
   `monitors-getMonitors`, `monitors/<rid>/published`, `validation/v0/<rid>/validate-update`, profiles,
   sessions. The adapter answers each in the captured shape (streams as event-stream).
-- **Storage ruling (owner, 2026-09-26):** adopted bundles stay in the LOCAL MIRROR only — the repository
-  is public and the bundle is not ours to publish. The estate's `/__apps/<slug>` lanes proxy the mirror
+- **Storage ruling (owner, 2026-09-26):** adopted bundles stay in the LOCAL CAPTURE SERVER only — the repository
+  is public and the bundle is not ours to publish. The estate's `/__apps/<slug>` lanes proxy the capture server
   and rebind specific calls to the daemon; the adapter and bindings are tracked, the bundle never is. (This
   supersedes step (1) below: nothing is vendored.)
 - **First binding live (d21206891):** the adopted reference Automate list renders the Hypervisor's real
   automations — names, the cron condition in the reference's own words ("At 09:00 AM, Monday through
   Friday"), status, the creator resolved through our principal, and facet counts from daemon truth.
-  Security fix found on the way: the mirror injects the reference tenant's real session token into every
+  Security fix found on the way: the capture server injects the reference tenant's real session token into every
   page it serves; the estate now substitutes a synthetic, unsigned identity token. Open next: manual and
   webhook automations need an honest condition — the reference vocabulary has none; today they read as
   "Time · Running on schedule" (a named gap; a condition type the app does not know is worse — it hides
@@ -216,11 +216,11 @@ IOI-native, with no seed to copy.
   condition labels), the referenced-resources filter, Overview's owned count, the detail page
   (`monitors/<rid>/published`), the wizard's validate + create onto the automation plane, and the shell
   embedding (drop the reference's own sidebar under our rail) before `/automations` moves to it.
-- **Current build, one answer per operation (2026-09-26):** the mirror's Automate index was updated to the
+- **Current build, one answer per operation (2026-09-26):** the capture server's Automate index was updated to the
   tenant's CURRENT build (all 130 runtime assets present), which ended a webpack mixed-build crash on the
   detail route; it speaks the streaming `/bulk` gateway (`{operations, requests:[{hash,name,variables}]}`,
   one `data:` event per request index). Every operation is now answered by the serve and never by the
-  mirror's loose mock: bound operations from daemon truth; a SAFE list of fact-free operations (the
+  capture server's loose mock: bound operations from daemon truth; a SAFE list of fact-free operations (the
   reference chrome, permissions, protection, walkthroughs, branches) from the recorded answer with lists
   emptied and identity overwritten; everything else a named GraphQL error. Lesson recorded: enveloping an
   operation that DESCRIBES an automation leaked the recorded tenant monitor's facts ("Objects added ·
@@ -268,13 +268,13 @@ IOI-native, with no seed to copy.
     expiry date and its retry settings. The resolver fix that made this possible — GraphQL merges every
     selection of one response key — also applies to the detail page's reads.
 - **Automations opens the adopted app (2026-09-27; `check:adopted-automate` 9/9).** With
-  `IOI_ADOPTED_SURFACES=1` (the owner's serves) and the local mirror able to boot it, `/automations` opens
+  `IOI_ADOPTED_SURFACES=1` (the owner's serves) and the local capture server able to boot it, `/automations` opens
   the adopted Automate app; `?automation=<id>` opens that automation's own page. The app's own base path
   (`/workspace/object-monitoring/…`, which its router pushes) is served as the seed, so reloads and deep
   links land in place (they used to bounce to Overview). The reference's global sidebar never shows: at
   top level OUR rail stands in its column (our routes, the caller's account chip); framed by the shell,
   neither shows. A function step now appears as the reference's Function effect — in the registry record
-  and on the detail page's Automation flow (function, version, inputs). Without the opt-in or the mirror,
+  and on the detail page's Automation flow (function, version, inputs). Without the opt-in or the capture server,
   `/automations` keeps the owned Automate surface, so every gate's own serve keeps one posture. `/__apps/*`
   now requires sign-in like every other product page.
 - **A manual automation's page renders (2026-09-27; `check:adopted-automate` 11/11).** The detail of an
@@ -308,7 +308,7 @@ IOI-native, with no seed to copy.
   execution, a scheduled or webhook run an automatic trigger — each execution now names its
   `activation_kind`), **Execute** is the automation's Run now (the effect picker; a selection of only some
   effects is refused, since a run executes every step), and **Telemetry** counts its executions (runs,
-  failures, runtime; the run history is one request log per execution). Two mirror feeds were needed: the
+  failures, runtime; the run history is one request log per execution). Two capture-server feeds were needed: the
   telemetry chunk and five stylesheets it loads. The header's File → Rename renames the automation
   (`UpdateResourceName`), and the Metadata card's Location names the project (it showed a bare folder id).
   Favorite has no Hypervisor plane: it is refused by name, but the app shows no message. Move, Share and
@@ -326,7 +326,7 @@ IOI-native, with no seed to copy.
   request states, and a request for parallel effects is refused by name (steps run one after another);
   the editor's record states that order, so it reads "Execute effects sequentially".
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
-  18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
+  18.5 MB, the same scale as the tracked Sessions shell tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets
   from the vendored tree, API through the adapter to the daemon); (3) rebrand; drop the reference's own
   sidebar under our shell; (4) bind operation by operation, fallthrough counted to zero; (5) freeze:
@@ -338,7 +338,7 @@ IOI-native, with no seed to copy.
   and creator filters, New pipeline, marketplace examples), the create form (name and location; Batch or
   Streaming; Standard / Faster / External compute — walked, never created), and the tenant's pipeline in
   the editor (Graph with the four-way add-data welcome card, Proposals, History, Add data, Pipeline
-  outputs and output settings). Evidence in `.artifacts/live-tenant-atlas/r241-pipeline/`. The mirror's
+  outputs and output settings). Evidence in `.artifacts/live-tenant-atlas/r241-pipeline/`. The capture server's
   builder index was a stale build (no script in common with the tenant's); it now serves the current
   build and every asset it and the flow reference (feeds are read-only GETs).
 - **Wire contract, measured:** the landing searches `EDDIE_PIPELINE` resources over GraphQL
@@ -373,7 +373,7 @@ IOI-native, with no seed to copy.
   compass), Batch, and "Not yet deployed". Search and the creator are bound; the Project filter is a named
   gap (a DataRecipe is held in no project). The project picker, the user lookup and the universal capture
   fallback no longer hand out the reference tenant's records (the fallback now flags its API answers).
-  Signed out, the picker and the lookup answer nothing. `check:adopted-pipeline` 11/11 (local mirror only).
+  Signed out, the picker and the lookup answer nothing. `check:adopted-pipeline` 11/11 (local capture server only).
 - **Cut 2b — the editor opens, read-only (2026-09-27).** About 25 opening reads (REST and GraphQL) answer
   from the Hypervisor; a pipeline opens on Main with its declared outputs and "Pipeline not yet deployed". The
   caller holds no edit operation until drafts are bound; Main forbids a direct push (only a merged change set
@@ -405,7 +405,7 @@ IOI-native, with no seed to copy.
   description (the daemon's propose takes them, `518fdab9e`); merging admits the latest draft; denying rejects it
   with the reason; archiving abandons it. Refused by name: transforms (ADR 0057), an output with no contract, a Save
   on Main, approvals, closing, rebasing. The autosave buffer lives in the serve's memory per caller. The missing
-  checkpoint chunk had silently dropped Merge (fed to the mirror). `check:adopted-pipeline` 31/31.
+  checkpoint chunk had silently dropped Merge (fed to the capture server). `check:adopted-pipeline` 31/31.
   **Next:** the proposal page's checks from the change set's validation; then Sessions (the Arm A findings).
 
 ### Sessions — Arm A and cut 2 (2026-09-27)
@@ -436,8 +436,8 @@ assertion in its verifier.
   sections (object, link and action types, interfaces, shared properties, value types, groups, functions, proposals,
   history, health issues, cleanup, configuration); an object type's overview and eleven tabs (properties, security,
   datasources, observability, capabilities, object views, materializations, automations, usage, history); and Object
-  Explorer's landing. Wire bodies were recorded for 17 of them, into the git-ignored mirror traffic dir
-  (`tools/traffic/ontology-manager-flow/`). The mirror was fed the 36 bundle assets it lacked, and now boots the
+  Explorer's landing. Wire bodies were recorded for 17 of them, into the git-ignored capture traffic dir
+  (`tools/traffic/ontology-manager-flow/`). The capture server was fed the 36 bundle assets it lacked, and now boots the
   reference Ontology Manager locally with no failed request.
 - **What the app asks for.** 54 GraphQL operations and 35 REST endpoints:
   - 13 are chrome on every page (sidebars, branch select, walkthroughs, announcements);
@@ -446,8 +446,8 @@ assertion in its verifier.
   - the ontology loads: `ontology-metadata` `v2/load/all`, `loadAllObjectTypes`, `summary`, `bulkLoadEntities`,
     `actions/types/load/all`, `entityMetadata/load`, permissions, `featureConfigurations`, `getSettings/user`;
   - the object registry: `phonograph2` metadata and usage.
-- **The line that must hold first.** Every unbound REST read under the mirror prefixes is passed through to the mirror,
-  and the mirror answers with the RECORDED TENANT's ontology. So the adopted app is not reachable at a canonical route
+- **The line that must hold first.** Every unbound REST read under the capture server prefixes is passed through to the capture server,
+  and the capture server answers with the RECORDED TENANT's ontology. So the adopted app is not reachable at a canonical route
   until two things hold: its reads are bound over daemon truth, and a fence answers every other ontology or registry
   read as a named gap on the ontology surface.
 - **Backing truth.** ODK domain ontologies (`canonical_object_model`: object types with properties and title property,
@@ -489,7 +489,7 @@ assertion in its verifier.
       / 7 refused / 19 named gaps / 6 open (ledger CCXXVII). The harvest is unfinished: the tenant session expired after
       the empty section, the branch switcher and the Create branch dialog were captured, so the populated proposal and
       its page were not harvested and no tenant write was made. The page's answer shapes follow the reference's own
-      documents and bundle in the mirror; harvest the example proposal when the owner signs in again.
+      documents and bundle in the capture server; harvest the example proposal when the owner signs in again.
   - O8: a type backed by its materialized object set. Done 2026-09-29. Harvested read-only first (Object Explorer's search and a
     New exploration, 11 states, `.artifacts/live-tenant-atlas/r241-explorer-search/`; traffic `tools/traffic/explorer-search-flow/`).
     - *The backing.* A materialized object set names its `ontology_ref` and `object_type_id` (from its run's lease plan), so an ODK
@@ -522,13 +522,13 @@ assertion in its verifier.
       operator's CLI is the only path today, a daemon gap); the authority's chain launcher rebuilds its node binaries whenever the
       shared tree is dirty and failed hashing another helper's vanished untracked file (`IOI_NODE_BINARY_DIR` pinned to the warm
       test-node build avoids both).
-    - *Mirror.* The explorer's object pages load the reference's current build. The mirror's `/workspace/hubble/` index is the
-      previous build (runtime `699a765a…`), which asks for chunks the mirror never received (keyword search 47025 `1c37b515…`, and
+    - *Capture server.* The explorer's object pages load the reference's current build. The capture server's `/workspace/hubble/` index is the
+      previous build (runtime `699a765a…`), which asks for chunks the capture server never received (keyword search 47025 `1c37b515…`, and
       the exploration's `58cf5367…`, `3e7be72e…`, `f15fc039…`, `bc8cdc43…`, `16564c7d…`, `0abc0b62…`, `817fa007…`); every chunk of
-      the current build is in the mirror already (the harvest fed them). Refreshing the index to the current build — its entry
+      the current build is in the capture server already (the harvest fed them). Refreshing the index to the current build — its entry
       scripts `d660bf8c…`, `042c578f…`, `2e764643…` (runtime) and `1ed61c51…` in place of `f6552408…`, `2ff85eb5…`, `699a765a…`,
       `5140236…` — is what lets those pages boot; until then they show "Something went wrong when trying to load this component".
-      The Explorer assertions below were measured through a local read-through proxy serving that index (the shared mirror was not
+      The Explorer assertions below were measured through a local read-through proxy serving that index (the shared capture server was not
       changed).
     - `check:adopted-ontology` 49/49 (was 37), `adopted-ontology.test` 20/20, `test:adopted-seeds` 128/128; seed depth 79 = 42 bound
       / 9 refused / 28 named gaps / 0 open (ledger CCLII). No Rust changed.
@@ -548,8 +548,8 @@ assertion in its verifier.
     credentials. So a sync's Overview, Configuration and Versions were harvested with a failed run, plus its build
     report.
 
-  The local mirror boots the app with no failed asset. The GraphQL bodies (documents and streamed answers) are recorded
-  in the mirror's traffic dir (`data-connection-flow/operations`).
+  The local capture server boots the app with no failed asset. The GraphQL bodies (documents and streamed answers) are recorded
+  in the capture server's traffic dir (`data-connection-flow/operations`).
 - **Still to harvest.** A succeeded run and its dataset (they need working credentials), and the setup wizard's
   remaining steps (export configuration, code import configuration, summary). The schedule editor behind "On a
   schedule" (chunk 51877, `48569533…js`; its stylesheet `7730042e…`) was fed on 2026-09-29 (D7 found it missing; D8
@@ -567,7 +567,7 @@ assertion in its verifier.
     CCXIX).
   - D2: a source's pages over its data source and connector. Part 1 done 2026-09-28: a source opens from the list on
     its Overview (name, connection type, what it can do; nothing it cannot), `check:adopted-data-connection` 8/8; seed
-    depth 26 = 5 bound / 5 named gaps / 16 open (ledger CCXX). The mirror's index was an old build loading new
+    depth 26 = 5 bound / 5 named gaps / 16 open (ledger CCXX). The capture server's index was an old build loading new
     chunks, so the page crashed; it now matches the tenant's current build. Part 2 done 2026-09-28: Code imports
     and Webhooks bound (both off; nothing on them can turn either on), `check:adopted-data-connection` 9/9; seed depth
     28 = 7 bound / 6 named gaps / 15 open (ledger CCXXI). Connection settings' reads are bound, but the page shows a
@@ -580,7 +580,7 @@ assertion in its verifier.
     remaining steps; an existing REST source's connection settings edit the same way, keeping the endpoint's path.
     `check:adopted-data-connection` 12/12; seed depth 30 = 14 bound / 1 refused / 7 named gaps / 8 open (ledger CCXXII).
     Traps paid: the Pipeline surface's authz answer ran on every surface (the catalog read "no add-source" and rendered
-    nothing); the mirror's `sources/new` index was a June build, so the whole create flow ran an old app.
+    nothing); the capture server's `sources/new` index was a June build, so the whole create flow ran an old app.
   - D4: syncs over materializing runs. Done 2026-09-28. A sync is a capability-lease plan on one of the caller's
     sources, and its builds are the plan's materializing runs. Bound: the Syncs list and its filters, a source's Batch
     syncs table, and a sync's Overview, Configuration and Versions (the plan's lease shape as its configuration). Run
@@ -589,8 +589,8 @@ assertion in its verifier.
     are refused by name. `check:adopted-data-connection` 18/18; seed depth 41 = 21 bound / 3 refused / 11 named gaps /
     6 open (ledger CCXXIV). Still open: a failed run (reaching it needs a grant), and New / Duplicate / Save.
     Named gaps: Created by (a plan records no declarer), earlier versions, and the dataset and build report apps.
-    Trap paid: the Configuration page loads the reference's CustomSourceAdapter chunk, which the mirror had never
-    recorded; it was fed to the mirror from the tenant's current build.
+    Trap paid: the Configuration page loads the reference's CustomSourceAdapter chunk, which the capture server had never
+    recorded; it was fed to the capture server from the tenant's current build.
   - D2 part 3 and D5: the rest of a source's pages, a failed run, and a sync's writes. Done 2026-09-28. A source's
     Virtual tables are bound (none is registered and none can be), and so are its Logs: the reference's own log viewer
     over the receipts of the source's sync runs, with its level filter and time range evaluated over them — a refused
@@ -607,7 +607,7 @@ assertion in its verifier.
     ladder its configuration names. But a click cannot reach them yet (the checkpoint chunks above), so that row stays
     open. `check:adopted-data-connection` 24/24, `check:adopted-data-connection-runs` 4/4, `adopted-data-connection.test`
     18/18; seed depth 43 = 25 bound / 3 refused / 14 named gaps / 1 open (ledger CCXXIX).
-  - D6: a sync's writes, reached by a click. Done 2026-09-29, once the checkpoint prompt's chunks were in the mirror.
+  - D6: a sync's writes, reached by a click. Done 2026-09-29, once the checkpoint prompt's chunks were in the capture server.
     Before each write the reference asks which checkpoints apply, keyed on the sync's source. That read is answered
     from the daemon's justification-checkpoint plane (ADR 0056 P5). Its catalog gates no lease-plan write, and the
     daemon refuses to configure a checkpoint for one, so the answer is none. If the catalog ever names one and an
@@ -635,7 +635,7 @@ assertion in its verifier.
     - After `add-extract`, the reference awaits `createBranch2` on the reserved dataset. A fenced 501 there crashed the
       page after the plan existed.
     - A project folder's compass resource carried `branches: null`, and the destination link calls `.find` on it.
-  - D7: a source's Edit syncs, and where a source is filed. Done 2026-09-29, once Edit syncs' chunk was in the mirror.
+  - D7: a source's Edit syncs, and where a source is filed. Done 2026-09-29, once Edit syncs' chunk was in the capture server.
     The page is opened from the Overview's sync count (or its tab). It reads `SourceEditSyncsPageQuery`: the source's
     lease plans, newest first, each with its plan's dataset in the source's folder. A sync's panel is its plan: the
     schedule reads Manually (no schedule runs a sync), the build policy reads Always, and the configuration is the plan's.
@@ -662,7 +662,7 @@ assertion in its verifier.
     code). `check:adopted-data-connection` 39/39, `adopted-data-connection.test` 24/24; seed depth 60 = 36 bound / 8
     refused / 15 named gaps / 1 open (ledger CCXLVIII). The open row is "On a schedule" (chunk 51877 above).
   - D8: "On a schedule", and a REST source's Edit syncs. Done 2026-09-29, once the schedule editor's chunk was in the
-    mirror. The Hypervisor has a scheduler, but it is the automation plane's (ADR 0056 put Builds and Schedules under
+    capture server. The Hypervisor has a scheduler, but it is the automation plane's (ADR 0056 put Builds and Schedules under
     Automations): an automation's Time trigger (`schedule_spec`) fires its steps — agent, command, function, proposal —
     and none admits a materializing run. And a sync's run cannot be scheduled at all: each run obtains its lease with
     its own exact wallet-authority grant, and no standing execution authority exists for a schedule to hold. So a
@@ -737,7 +737,7 @@ assertion in its verifier.
       (the same review as Reject), the access facets, Control Panel's redirecting task ids, the inbox's other pending planes
       (improvement and memory proposals, marketplace reviews), the shared sidebar entry. *Open (A1):* a challenge's
       Approved, Completed and expired statuses, and a thread approval — mapped and unit-tested, not driven (bound in A2).
-    - *Mirror.* The captured index was build 6.517.0 while the tenant runs 6.545.0; it was refreshed, and every chunk the
+    - *Capture server.* The captured index was build 6.517.0 while the tenant runs 6.545.0; it was refreshed, and every chunk the
       current runtime can load (1,240 JS and CSS files, plus the harvest's 273 assets) was fed by plain GETs through the
       owner's browser. The harvest's own asset list named an older build's chunks, so feeding only those left the landing
       crashing on missing chunks.
@@ -778,6 +778,6 @@ lanes (Work, Systems, Operations, Environments, Leases & Limits, …) that the r
 ## Rules that do not bend
 
 - Captures, screenshots and `/__apps/*` lanes are evidence; the adopted port is the product.
-- No tenant data in product code; demo data lives only in the mirror's fixtures.
+- No tenant data in product code; demo data lives only in the capture server's fixtures.
 - Leave the tenant's existing resources alone; build clearly named examples where a state needs one (owner, 2026-09-28).
 - A lane may run ahead of its plane only with named gaps; the client never mints the missing truth.

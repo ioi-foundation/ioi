@@ -45,7 +45,7 @@ export const READS = Object.freeze([
   { after: "ontology", consumer: "Open Diagram · Recent has the ontology", route: "/__ioi/studio/designer?open=recent", needle: "{tag}-lending" },
   { after: "ontology", consumer: "Pipeline's picker offers the ontology", route: "/__ioi/pipeline", needle: "{tag}-lending" },
   { after: "ontology", consumer: "ODK lists the ontology", route: "/__ioi/odk", needle: "{tag}-lending" },
-  // The ADOPTED Pipeline Builder (the owner's /data/recipes) is a single-page app over the local reference mirror, so
+  // The ADOPTED Pipeline Builder (the owner's /data/recipes) is a single-page app over the local capture server, so
   // it is read by the WIRE its own pages call, judged by the same tagged needle (R-240 Arm A, 2026-09-27): its output
   // ontology picker (Target ontology) and its landing's pipelines.
   { after: "ontology", consumer: "Pipeline Builder (Data recipes) offers the ontology as an output target", route: "/ontology-metadata/api/ontology/v2/load/all", wire: { method: "POST", body: {} }, needle: "{tag}-lending" },

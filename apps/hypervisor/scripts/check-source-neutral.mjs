@@ -6,7 +6,7 @@
 // regressions while preserving explicitly bounded comparison/provenance tools.
 //
 //   BRAND (hard line, everywhere in the app incl. the seed bundle):
-//     - zero `gitpod` (any case)
+//     - zero `gitpod` (any case), outside the reviewed external wire tokens (ALLOWED_WIRE_TOKENS)
 //     - zero word-boundary `ona` (any case)  [the upstream brand, not "additional"]
 //   BORROWED LANGUAGE (in the authored lane: scripts/src/docs/*.md/package.json):
 //     - zero "live reference"
@@ -64,17 +64,44 @@ function grep(flags, pattern, pathspecs, exclusions = []) {
   }
 }
 
+// EXTERNAL WIRE TOKENS, the reviewed exclusion list (2026-10-11). A token here is an identifier a
+// third party's protocol fixes, which this app must emit or read byte for byte; it is never prose. It
+// is stripped from a hit line BEFORE the pattern is re-tested, so a line that also carries the brand
+// or framing in prose stays caught. Each entry names its reason. Our own names are never listed here:
+// they are renamed instead (the passthrough header became `x-ioi-capture-passthrough`).
+const ALLOWED_WIRE_TOKENS = {
+  gitpod: [
+    // The adopted Sessions SPA's error-message component renders `user_message` only from an error
+    // detail of exactly this protobuf type (ioi-api-adapter.mjs emits it; its port test asserts it).
+    "gitpod.v1.ActionableErrorDetails",
+  ],
+};
+
 const checks = [
-  { name: "gitpod (brand, app-wide)", flags: "-i", pattern: "gitpod", paths: ["apps/hypervisor"] },
+  { name: "gitpod (brand, app-wide)", flags: "-i", pattern: "gitpod", paths: ["apps/hypervisor"], allowedTokens: ALLOWED_WIRE_TOKENS.gitpod },
   { name: "ona (brand word, app-wide)", flags: "-iw", pattern: "ona", paths: ["apps/hypervisor"] },
   { name: "'live reference' (durable authored)", flags: "-i", pattern: "live reference", paths: AUTHORED, exclusions: COMPARATIVE_PROVENANCE },
   { name: "borrowed (durable authored word)", flags: "-iw", pattern: "borrowed", paths: AUTHORED, exclusions: COMPARATIVE_PROVENANCE },
   { name: "mirror (durable authored word)", flags: "-iw", pattern: "mirror", paths: AUTHORED, exclusions: COMPARATIVE_PROVENANCE },
 ];
 
+// A hit survives the wire-token list unless the pattern no longer occurs once the listed tokens are
+// removed from the line's CONTENT (`path:line:content`, the content being everything after the second colon).
+function survivesAllowedTokens(check, hitLine) {
+  if (!check.allowedTokens?.length) return true;
+  const first = hitLine.indexOf(":");
+  const second = hitLine.indexOf(":", first + 1);
+  let content = second >= 0 ? hitLine.slice(second + 1) : hitLine;
+  for (const token of check.allowedTokens) content = content.split(token).join(" ");
+  const word = check.flags.includes("w");
+  const escaped = check.pattern.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(word ? `(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])` : escaped, "iu").test(content);
+}
+
 let failed = false;
 for (const c of checks) {
-  const lines = grep(c.flags, c.pattern, c.paths, c.exclusions).split("\n").filter(Boolean);
+  const lines = grep(c.flags, c.pattern, c.paths, c.exclusions).split("\n").filter(Boolean)
+    .filter((line) => survivesAllowedTokens(c, line));
   if (lines.length) {
     failed = true;
     console.error(`✗ ${c.name}: ${lines.length} hit(s)`);

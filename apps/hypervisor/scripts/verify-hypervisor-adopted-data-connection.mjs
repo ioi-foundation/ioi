@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D8).
 //
-// The reference Data Connection (booted by the local mirror, routed at /workspace/data-ingestion-app) answers from the
+// The reference Data Connection (booted by the local capture server, routed at /workspace/data-ingestion-app) answers from the
 // Hypervisor's data-source plane (adopted-data-connection.mjs), in a real browser against an ISOLATED daemon + serve:
 //   - the Sources list is the caller's declared data sources, each under its connection type, its syncs counted;
 //   - Agents and Listeners say none — no agent or listener exists;
@@ -14,7 +14,7 @@
 //     (cut D5 — the reference's advice to contact a representative, switch runtime or configure a catalog is gone); its
 //     Logs, which are the receipts of its syncs' runs (a refused execute shows as an ERROR, with the daemon's reason);
 //   - Duplicate sync opens over the original's plan (cut D5); a sync's writes are driven as a person does them (cut D6 —
-//     the reference's checkpoint prompt chunks are in the mirror now): Save after a real edit of the configuration
+//     the reference's checkpoint prompt chunks are in the capture server now): Save after a real edit of the configuration
 //     re-declares the plan (the daemon's revision), Duplicate's Create sync and New from a source's Batch syncs (the
 //     reference's own YAML editor, the plan's ladder written into it) each declare a plan, landing on the new sync; the
 //     checkpoint read before each is the daemon's justification-checkpoint plane (none can apply: its catalog gates no
@@ -32,12 +32,12 @@
 //   - New source (cut D3), driven as a person does it: pick REST API, name it, file it in a project, create — a draft
 //     data source — give it its domain (the draft becomes declared, with that endpoint), and walk the remaining steps;
 //   - an existing REST source's connection settings: its declarer's new domain becomes its endpoint, path kept;
-//   - no read reaches the mirror but the reference's chrome, no service read gets the serve's HTML page; a type other
+//   - no read reaches the capture server but the reference's chrome, no service read gets the serve's HTML page; a type other
 //     than REST API is refused by name at create, and any other write is a named gap that writes nothing;
 //   - with the daemon stopped, the Sources list, the Syncs list and a source's Edit syncs show their error rather than
 //     none, and the checkpoint read fails rather than answering none.
 //
-// Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, or the local mirror cannot boot the reference app).
+// Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, or the local capture server cannot boot the reference app).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
 //   node apps/hypervisor/scripts/verify-hypervisor-adopted-data-connection.mjs
 
@@ -55,9 +55,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
 const BIN = path.resolve(ROOT, process.env.IOI_HYPERVISOR_DAEMON_BINARY || "target/debug/hypervisor-daemon");
-const MIRROR = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
+const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
 const BASE = "/workspace/data-ingestion-app";
-// the reference's chrome reads the mirror still answers (the adopted Ontology Manager's set, plus the landing's paged notes)
+// the reference's chrome reads the capture server still answers (the adopted Ontology Manager's set, plus the landing's paged notes)
 const CHROME = new Set(["GET /multipass/api/sessions/definitions/current", "GET /multipass/api/sessions/selection", "POST /documentation/api/v2/release-notes/pagination",
   "POST /documentation/api/v2/release-notes/paginationV2", "GET /aip-assist/api/chat/checkAvailability", "GET /workspace/api/lifecycleStatusByApplication", "POST /log-receiver/api/beacon",
   "GET /compass/api/registry/actions"]);
@@ -73,7 +73,7 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-data-connecti
 
 async function run() {
   if (!fs.existsSync(BIN)) { console.log(`BLOCKED: no daemon binary at ${BIN}`); process.exit(2); }
-  if (!(await fetch(`${MIRROR}${BASE}/splash`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local mirror (${MIRROR}) does not boot ${BASE}/`); process.exit(2); }
+  if (!(await fetch(`${CAPTURE}${BASE}/splash`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local capture server (${CAPTURE}) does not boot ${BASE}/`); process.exit(2); }
   const daemonPort = await freePort();
   const DAEMON = `http://127.0.0.1:${daemonPort}`;
   let log = "";
@@ -88,7 +88,7 @@ async function run() {
   const SERVE = `http://127.0.0.1:${servePort}`;
   serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
     cwd: APP,
-    env: { ...process.env, PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: MIRROR },
+    env: { ...process.env, PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: CAPTURE },
     stdio: ["ignore", "pipe", "pipe"],
   });
   await waitFor(`${SERVE}/__ioi/login`);
@@ -133,7 +133,7 @@ async function run() {
     pg.on("pageerror", (e) => pageErrors.push(String(e.message).slice(0, 160)));
     pg.on("response", async (r) => {
       const u = new URL(r.url()); const key = `${r.request().method()} ${u.pathname.replace(/ri\.[\w.-]+/gu, "<rid>")}`;
-      if (r.headers()["x-ioi-mirror-passthrough"] === "1") passthrough.add(key);
+      if (r.headers()["x-ioi-capture-passthrough"] === "1") passthrough.add(key);
       if (/^\/[a-z][a-z0-9-]*\/api\//u.test(u.pathname) && /text\/html/u.test(r.headers()["content-type"] || "")) htmlAnswers.add(key);
       if (r.status() === 501) { fenced.add(key); const j = await r.json().catch(() => ({})); if (j.errorName !== "Hypervisor:DataConnectionReadNotBound") unnamed.add(key); }
       if (/graphql/u.test(u.pathname)) { const t = await r.text().catch(() => ""); for (const m of t.matchAll(/"message":"([^"]{0,90})/gu)) gqlErrors.add(m[1]); }
@@ -318,7 +318,7 @@ async function run() {
         && declared?.endpoint === "https://payments.example.test" && declared?.lifecycle?.status === "declared" && (declared?.receipt_refs || []).length === 2 && /\/setup\/export-configuration$/u.test(nextUrl),
       `${setupUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · drafted ${drafted ? `${drafted.lifecycle?.status} ${drafted.endpoint || "no endpoint"} ${drafted.project_ref || "no project"}` : "none"} · declared ${declared ? `${declared.lifecycle?.status} ${declared.endpoint} ${(declared.receipt_refs || []).length} receipts` : "none"} · ${nextUrl.replace(/ri\.[\w.-]+/u, "<rid>")}`);
 
-    ok("no page reached the mirror beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation on these pages is unbound",
+    ok("no page reached the capture server beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation on these pages is unbound",
       [...passthrough].every((p) => CHROME.has(p)) && unnamed.size === 0 && htmlAnswers.size === 0 && fenced.size === 0 && gqlErrors.size === 0 && pageErrors.length === 0,
       `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · fenced ${[...fenced].join(",") || "none"} · unnamed ${[...unnamed].join(",") || "none"} · html ${[...htmlAnswers].join(",") || "none"} · gql ${[...gqlErrors].slice(0, 2).join(" | ") || "none"} · page ${pageErrors.slice(0, 1).join("") || "none"}`);
 
@@ -348,7 +348,7 @@ async function run() {
       `shown ${shownHost || "(none)"} · endpoint ${edited?.endpoint} · ${(edited?.receipt_refs || []).length} receipts`);
 
     // ---- (cut D6) a sync's writes, driven as a person does them. The reference first asks which checkpoints apply (its
-    // prompt's chunks are in the mirror now), then writes; every answer on the way is captured here.
+    // prompt's chunks are in the capture server now), then writes; every answer on the way is captured here.
     const writes = [];
     const WRITE_ROUTE = /getConfigsV5|\/build\/add-extract|\/extract-store\/extract\/ri\.|\/set-policies|\/branchesUnrestricted2\/|\/createDataset2|\/hierarchy\/projects\/decorated/u;
     const onWrite = async (r) => {
@@ -638,7 +638,7 @@ async function run() {
       fenced.size === fencedBeforeD7 && pageErrors.length === pageErrorsBeforeD7 && gqlErrors.size === gqlBeforeD7 && unnamed.size === 0 && htmlAnswers.size === 0,
       `fenced ${[...fenced].slice(fencedBeforeD7).join(",") || "none"} · page ${pageErrors.slice(pageErrorsBeforeD7, pageErrorsBeforeD7 + 1).join("") || "none"} · gql ${[...gqlErrors].slice(gqlBeforeD7, gqlBeforeD7 + 2).join(" | ") || "none"}`);
 
-    // ---- (cut D8) "On a schedule": the reference's schedule editor (its chunk is in the mirror now) renders, and each cron
+    // ---- (cut D8) "On a schedule": the reference's schedule editor (its chunk is in the capture server now) renders, and each cron
     // expression it composes is checked by the daemon's own cron parser; but no schedule runs a sync — each run takes its
     // own wallet-authority grant, and the Hypervisor's scheduler fires automation steps, none of which admits a
     // materializing run — so a save on a schedule is refused by name, before anything is written
@@ -750,7 +750,7 @@ async function run() {
     // ---- refused by name: a type this plane cannot create, and a write the app would send that is not bound ----------
     const H = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}${BASE}/sources/new` };
     const countMid = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).length;
-    const s3 = await fetch(`${SERVE}/magritte-coordinator/api/source-store/source/v3`, { method: "POST", headers: H, body: JSON.stringify({ description: { name: "Should not exist", description: "", apiName: null }, config: { source: { type: "s3-direct", config: { url: "s3://x/" } } } }) }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-mirror-passthrough"), j: await r.json().catch(() => ({})) }));
+    const s3 = await fetch(`${SERVE}/magritte-coordinator/api/source-store/source/v3`, { method: "POST", headers: H, body: JSON.stringify({ description: { name: "Should not exist", description: "", apiName: null }, config: { source: { type: "s3-direct", config: { url: "s3://x/" } } } }) }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-capture-passthrough"), j: await r.json().catch(() => ({})) }));
     const exp = await fetch(`${SERVE}/magritte-coordinator/api/export-store/exports`, { method: "POST", headers: H, body: "{}" }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
     const countAfter = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).length;
     ok("a type other than REST API is refused by name at create, and any other Data Connection write is a named gap — neither writes anything, and neither is the recorded tenant's answer",

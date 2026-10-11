@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // THE ADOPTED ONTOLOGY MANAGER READS THE CALLER'S ONTOLOGY, AND NOTHING RECORDED (R-241, Ontology Manager O1–O3, Object Explorer O4).
 //
-// The reference Ontology Manager (booted by the local mirror, routed at /workspace/ontology) answers from the caller's
+// The reference Ontology Manager (booted by the local capture server, routed at /workspace/ontology) answers from the caller's
 // ODK domain ontologies (adopted-ontology.mjs), in a real browser against an ISOLATED daemon + serve:
 //   - it opens the caller's ontology, not the platform's all-zeros default, with its real counts;
 //   - its sections (object, link, action and value types), Discover, History and configuration read daemon truth —
@@ -15,7 +15,7 @@
 //   - Proposals (cut O6) lists the caller's ODK ontology proposals by state; a proposal's page reads its record; Approve is
 //     the daemon's /apply (a stale one its ontology_proposal_stale refusal), Close its /withdraw; Create branch, rejecting,
 //     reviewers and editing the request are refused by name;
-//   - no read reaches the mirror but the reference's chrome, an unbound read is a named gap (never the serve's HTML
+//   - no read reaches the capture server but the reference's chrome, an unbound read is a named gap (never the serve's HTML
 //     page), and a GraphQL batch on the surface is answered by the adopted layer (it had returned a recorded tenant
 //     module);
 //   - with the daemon stopped, each page shows its error rather than an empty ontology;
@@ -27,7 +27,7 @@
 //     expected revision (anything else in a save is refused by name). Object Explorer's keyword search, a result's object view
 //     and an exploration show exactly the set's rows.
 //
-// Exit: 0 pass · 1 fail · 2 blocked (no daemon or authority binary, or the local mirror cannot boot the reference app).
+// Exit: 0 pass · 1 fail · 2 blocked (no daemon or authority binary, or the local capture server cannot boot the reference app).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon (the authority: IOI_WALLET_AUTHORITY_BINARY)
 //   node apps/hypervisor/scripts/verify-hypervisor-adopted-ontology.mjs   (the authority starts a chain: allow several minutes)
 
@@ -47,8 +47,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
 const BIN = path.resolve(ROOT, process.env.IOI_HYPERVISOR_DAEMON_BINARY || "target/debug/hypervisor-daemon");
-const MIRROR = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
-// the reference's chrome reads the mirror still answers (the same set the adopted Automate verifier allows)
+const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
+// the reference's chrome reads the capture server still answers (the same set the adopted Automate verifier allows)
 const CHROME = new Set(["GET /multipass/api/sessions/definitions/current", "GET /multipass/api/sessions/selection", "POST /documentation/api/v2/release-notes/pagination",
   "GET /aip-assist/api/chat/checkAvailability", "GET /workspace/api/lifecycleStatusByApplication", "POST /log-receiver/api/beacon", "GET /compass/api/registry/actions"]);
 
@@ -66,7 +66,7 @@ const OPERATOR_PASS = `adopted-ontology-${randomBytes(12).toString("hex")}`;
 
 async function run() {
   if (!fs.existsSync(BIN) || !fs.existsSync(process.env.IOI_WALLET_AUTHORITY_BINARY || AUTHORITY_BINARY)) { console.log(`BLOCKED: no daemon (${BIN}) or authority binary`); process.exit(2); }
-  if (!(await fetch(`${MIRROR}/workspace/ontology/`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local mirror (${MIRROR}) does not boot /workspace/ontology/`); process.exit(2); }
+  if (!(await fetch(`${CAPTURE}/workspace/ontology/`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local capture server (${CAPTURE}) does not boot /workspace/ontology/`); process.exit(2); }
   // (cut O8) the stack's own sealed deployment authority: a materializing run obtains its lease, opens its sealed session and
   // contacts its source only with grants it mints (the serve names no authority binary or state dir: it holds no key)
   delete process.env[OPERATOR_PASS_ENV];
@@ -86,7 +86,7 @@ async function run() {
   const SERVE = `http://127.0.0.1:${servePort}`;
   serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
     cwd: APP,
-    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: MIRROR },
+    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: CAPTURE },
     stdio: ["ignore", "pipe", "pipe"],
   });
   await waitFor(`${SERVE}/__ioi/login`);
@@ -133,13 +133,13 @@ async function run() {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
     await ctx.addCookies([{ name: "ioi_session", value: boot.session_token, url: SERVE }]);
     const pg = await ctx.newPage();
-    // What the pages read that the adopted layer does not answer: a mirror passthrough (only the reference's chrome may
+    // What the pages read that the adopted layer does not answer: a capture passthrough (only the reference's chrome may
     // pass), a 501 that is not the named gap, a service read answered with this serve's HTML page, a GraphQL error.
     const passthrough = new Set(), fenced = new Set(), unnamed = new Set(), htmlAnswers = new Set(), gqlErrors = new Set(), pageErrors = [];
     pg.on("pageerror", (e) => pageErrors.push(String(e.message).slice(0, 160)));
     pg.on("response", async (r) => {
       const u = new URL(r.url()); const key = `${r.request().method()} ${u.pathname.replace(/ri\.[\w.-]+/gu, "<rid>")}`;
-      if (r.headers()["x-ioi-mirror-passthrough"] === "1") passthrough.add(key);
+      if (r.headers()["x-ioi-capture-passthrough"] === "1") passthrough.add(key);
       if (/^\/[a-z][a-z0-9-]*\/api\//u.test(u.pathname) && /text\/html/u.test(r.headers()["content-type"] || "")) htmlAnswers.add(key);
       if (r.status() === 501) { fenced.add(key); const j = await r.json().catch(() => ({})); if (j.errorName !== "Hypervisor:OntologyReadNotBound") unnamed.add(key); }
       if (/graphql/u.test(u.pathname)) { const t = await r.text().catch(() => ""); for (const m of t.matchAll(/"message":"([^"]{0,90})/gu)) gqlErrors.add(m[1]); }
@@ -226,7 +226,7 @@ async function run() {
     ok("the sections and tabs for what an ODK model does not hold (interfaces, shared properties, groups, datasources, capabilities, materializations, automations) show none, in the reference's own empty states",
       missing.length === 0, missing.join(" | ") || `${empties.length} empty states`);
 
-    ok("no page reached the mirror beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation on these pages is unbound",
+    ok("no page reached the capture server beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation on these pages is unbound",
       [...passthrough].every((p) => CHROME.has(p)) && unnamed.size === 0 && htmlAnswers.size === 0 && gqlErrors.size === 0 && pageErrors.length === 0,
       `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · named gaps ${fenced.size} · unnamed ${[...unnamed].join(",") || "none"} · html ${[...htmlAnswers].join(",") || "none"} · gql ${[...gqlErrors].slice(0, 2).join(" | ") || "none"} · page ${pageErrors.slice(0, 1).join("") || "none"}`);
 
@@ -251,10 +251,10 @@ async function run() {
     const batch = await fetch(`${SERVE}/graphql-gateway/api/graphql/batch`, { method: "POST", headers: H, body: JSON.stringify([{ operationName: "GetResourceQuery", query: "query GetResourceQuery($rid: RID!) { resourceMetadata(rid: $rid) { rid __typename } __typename }", variables: { rid: "ri.workshop.main.module.00000000-0000-0000-0000-000000000000" } }]) }).then(async (r) => ({ status: r.status, headers: r.headers, text: await r.text() }));
     // a function-registry read from another adopted surface answers the Hypervisor's functions too (passed through, it had
     // answered the recorded tenant's)
-    const elsewhere = await fetch(`${SERVE}/graphql-gateway/api/graphql?q=SearchAllFunctionsQuery`, { method: "POST", headers: { ...H, referer: `${SERVE}/workspace/object-monitoring/` }, body: JSON.stringify({ operationName: "SearchAllFunctionsQuery", query: "query SearchAllFunctionsQuery($filter: FunctionFilter) { functionsV2(filter: $filter) { totalNumberOfResults __typename } __typename }", variables: { filter: { clauses: [], type: "OR" } } }) }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-mirror-passthrough"), j: await r.json().catch(() => ({})) }));
+    const elsewhere = await fetch(`${SERVE}/graphql-gateway/api/graphql?q=SearchAllFunctionsQuery`, { method: "POST", headers: { ...H, referer: `${SERVE}/workspace/object-monitoring/` }, body: JSON.stringify({ operationName: "SearchAllFunctionsQuery", query: "query SearchAllFunctionsQuery($filter: FunctionFilter) { functionsV2(filter: $filter) { totalNumberOfResults __typename } __typename }", variables: { filter: { clauses: [], type: "OR" } } }) }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-capture-passthrough"), j: await r.json().catch(() => ({})) }));
     ok("on the ontology surface an unbound read is a named gap and a GraphQL batch is answered by the adopted layer — never the recorded tenant's answer",
       unbound.status === 501 && unbound.j.errorName === "Hypervisor:OntologyReadNotBound" && service.status === 501 && /json/u.test(service.ct) && service.j.errorName === "Hypervisor:OntologyReadNotBound"
-        && batch.status === 200 && !batch.headers.get("x-ioi-mirror-passthrough") && /not bound in the Hypervisor adapter yet/u.test(batch.text)
+        && batch.status === 200 && !batch.headers.get("x-ioi-capture-passthrough") && /not bound in the Hypervisor adapter yet/u.test(batch.text)
         && !elsewhere.pass && elsewhere.j.data?.functionsV2?.totalNumberOfResults === 1,
       `unbound ${unbound.status} ${unbound.j.errorName} · service ${service.status} ${service.ct.split(";")[0]} · batch ${batch.status} ${batch.text.slice(0, 60)} · functions from Automate ${elsewhere.j.data?.functionsV2?.totalNumberOfResults}`);
 
@@ -364,7 +364,7 @@ async function run() {
         && untouched.status === "open" && untouched.title === "Describe the branch type" && (await proposal(pLoan.id)).status === "applied",
       `${refusalOf(disapprove).split(" ")[0]} · ${refusalOf(reviewers).split(" ")[0]} · ${refusalOf(retitle).split(" ")[0]} · ${refusalOf(reclose).split(" ")[0]} · REST ${restWrite.status} ${restWrite.j.errorName}`);
 
-    ok("the proposal pages reach no mirror beyond the reference's chrome, answer no read with the serve's HTML page, and name every gap they meet",
+    ok("the proposal pages reach no capture server beyond the reference's chrome, answer no read with the serve's HTML page, and name every gap they meet",
       [...passthrough].every((p) => CHROME.has(p)) && [...unnamed].every((u) => /\/comments\/api\/comments\/counts/u.test(u)) && htmlAnswers.size === 0
         && [...gqlErrors].every((m) => /keeps no ontology branches/u.test(m)) && pageErrors.every((m) => /keeps no ontology branches/u.test(m)),
       `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · unnamed ${[...unnamed].filter((u) => !/comments/u.test(u)).join(",") || "none (comments are the comment lane's own gap)"} · html ${[...htmlAnswers].join(",") || "none"} · gql ${[...gqlErrors].filter((m) => !/keeps no ontology branches/u.test(m)).slice(0, 2).join(" | ") || "only the named refusal"} · page ${pageErrors.filter((m) => !/keeps no ontology branches/u.test(m)).slice(0, 1).join("") || "none"}`);
@@ -377,7 +377,7 @@ async function run() {
       page.on("pageerror", (e) => seen.pageErrors.push(String(e.message).slice(0, 160)));
       page.on("response", async (r) => {
         const u = new URL(r.url()); const key = `${r.request().method()} ${u.pathname.replace(/ri\.[\w.-]+/gu, "<rid>")}`;
-        if (r.headers()["x-ioi-mirror-passthrough"] === "1") seen.passthrough.add(key);
+        if (r.headers()["x-ioi-capture-passthrough"] === "1") seen.passthrough.add(key);
         if (/^\/[a-z][a-z0-9-]*\/api\//u.test(u.pathname) && /text\/html/u.test(r.headers()["content-type"] || "")) seen.html.add(key);
         if (r.status() === 501) { const j = await r.json().catch(() => ({})); if (j.errorName !== "Hypervisor:OntologyReadNotBound") seen.unnamed.add(key); }
         if (/graphql/u.test(u.pathname)) { for (const op of (u.searchParams.get("q") || "").split(",").filter(Boolean)) seen.ops.add(op); const t = await r.text().catch(() => ""); for (const m of t.matchAll(/"message":"([^"]{0,90})/gu)) seen.gql.add(m[1]); }
@@ -506,7 +506,7 @@ async function run() {
 
     const personGaps = [M.seen, ...ownerSeen, O.seen];
     const allowedGql = (m) => /is not bound in the Hypervisor adapter yet/u.test(m);
-    ok("the permission, edit, save, New, object view and migration pages reach no mirror beyond the reference's chrome, answer no read with the serve's HTML page, and every gap they meet is named",
+    ok("the permission, edit, save, New, object view and migration pages reach no capture server beyond the reference's chrome, answer no read with the serve's HTML page, and every gap they meet is named",
       personGaps.every((s) => [...s.passthrough].every((p) => CHROME.has(p)) && s.unnamed.size === 0 && s.html.size === 0 && [...s.gql].every(allowedGql) && s.pageErrors.every(allowedGql)),
       personGaps.map((s, i) => `${i ? "owner" : "member"}: passthrough ${[...s.passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · unnamed ${[...s.unnamed].join(",") || "none"} · html ${[...s.html].join(",") || "none"} · gql ${[...s.gql].filter((m) => !allowedGql(m)).slice(0, 2).join(" | ") || "named only"} · page ${s.pageErrors.filter((m) => !allowedGql(m)).slice(0, 1).join("") || "none"}`).join(" ‖ "));
     await M.page.context().close(); await O.page.context().close();
@@ -631,7 +631,7 @@ async function run() {
       `member ${byMember.status} ${(byMember.j.parameters?.message || "").slice(0, 70)} · backing ${newBacking.status} ${(newBacking.j.parameters?.message || "").slice(0, 70)} · revision ${afterSave.revision} → ${untouched8.revision}`);
 
     // Object Explorer: its keyword search, a result's object view and an exploration over the loan type show exactly the set's
-    // rows. (Its object pages load the reference's current build; the local mirror's /workspace/hubble index must be that build.)
+    // rows. (Its object pages load the reference's current build; the local capture server's /workspace/hubble index must be that build.)
     const X = await personPage(boot.session_token);
     const catalog8 = await X.go("/workspace/hubble/", /2 of 3|3 of 3/u);
     await X.page.getByPlaceholder(/Search for objects/u).first().click({ timeout: 8000 }).catch(() => {});
@@ -643,7 +643,7 @@ async function run() {
     ok("Object Explorer's keyword search over the caller's objects lists exactly the materialized set's rows — the loan type's three objects, the type filter's count, and the first result's properties in the preview panel",
       /3 objects matching “loan”/u.test(keyword) && /Loan 3/u.test(after(keyword, "Filter results by type", 60)) && titles.every((t) => keyword.includes(t))
         && ["Loan Id L-1", "Title First Loan", "Amount 1250.5"].every((v) => after(keyword, "Object type details", 200).includes(v)) && !/Something went wrong when trying to load/u.test(keyword),
-      /Something went wrong when trying to load/u.test(keyword) ? `the local mirror's /workspace/hubble index loads a build whose object pages it lacks (refresh it to the harvested build): ${after(keyword, "Something went wrong", 80)}` : `${after(keyword, "objects matching", 150)} · ${after(keyword, "Object type details", 90)}`);
+      /Something went wrong when trying to load/u.test(keyword) ? `the local capture server's /workspace/hubble index loads a build whose object pages it lacks (refresh it to the harvested build): ${after(keyword, "Something went wrong", 80)}` : `${after(keyword, "objects matching", 150)} · ${after(keyword, "Object type details", 90)}`);
     await X.page.getByText("Second Loan", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
     const objectView = await X.waitText(/Properties .*Linked objects|Failed to load/u, 20);
     // (the properties in the order the type now lists them)
@@ -694,7 +694,7 @@ async function run() {
     ok("the catalog counts each type's objects from its sets (the loan type 3, the others none)",
       /Loan 3/u.test(after(catalog8, "DESCRIPTION", 160)), after(catalog8, "DESCRIPTION", 160));
     const o8Gaps = [P.seen, X.seen];
-    ok("the backed type's pages and Explorer's object pages reach no mirror beyond the reference's chrome, answer no read with the serve's HTML page, and every gap they meet is named",
+    ok("the backed type's pages and Explorer's object pages reach no capture server beyond the reference's chrome, answer no read with the serve's HTML page, and every gap they meet is named",
       o8Gaps.every((x) => [...x.passthrough].every((p) => CHROME.has(p)) && x.unnamed.size === 0 && x.html.size === 0 && [...x.gql].every(allowedGql)),
       o8Gaps.map((x, i) => `${i ? "explorer" : "manager"}: passthrough ${[...x.passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · unnamed ${[...x.unnamed].join(",") || "none"} · html ${[...x.html].join(",") || "none"} · gql ${[...x.gql].filter((m) => !allowedGql(m)).slice(0, 2).join(" | ") || "named only"}`).join(" ‖ "));
     await P.page.context().close(); await X.page.context().close();

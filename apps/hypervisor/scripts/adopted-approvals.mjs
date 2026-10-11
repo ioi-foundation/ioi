@@ -1,6 +1,6 @@
 // The adopted Approvals app's answers over Hypervisor truth (R-241, Approvals cut A1).
 //
-// The reference Approvals app (booted by the local mirror, routed at /workspace/approvals-app) is an inbox of task requests
+// The reference Approvals app (booted by the local capture server, routed at /workspace/approvals-app) is an inbox of task requests
 // and a request's page with its reviewer tasks. Here a request is one of the daemon's own asks:
 //   - a WALLET APPROVAL CHALLENGE — an exact effect a gate refused for want of a grant, parked by the daemon and waiting on
 //     the operator (`/v1/hypervisor/authority/challenges`); approving it mints ONE one-use grant for exactly its hashes;

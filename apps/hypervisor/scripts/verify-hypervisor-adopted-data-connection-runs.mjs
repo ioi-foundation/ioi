@@ -15,9 +15,9 @@
 //   - in a real browser: the Syncs list and the sync's Overview read Failed; the build's status detail is the refusal;
 //     the source's Logs show the refused execute as an ERROR with the daemon's reason (a REST API source's page lists
 //     only Overview, Connection settings and Webhooks, as the reference's does, so its Logs are opened by their URL);
-//     nothing reaches the mirror but the reference's chrome, and nothing is fenced.
+//     nothing reaches the capture server but the reference's chrome, and nothing is fenced.
 //
-// Exit: 0 pass · 1 fail · 2 blocked (no daemon or authority binary, or the local mirror cannot boot the reference app).
+// Exit: 0 pass · 1 fail · 2 blocked (no daemon or authority binary, or the local capture server cannot boot the reference app).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon (the authority: IOI_WALLET_AUTHORITY_BINARY)
 //   node apps/hypervisor/scripts/verify-hypervisor-adopted-data-connection-runs.mjs   (about ten minutes: the authority starts a chain)
 
@@ -36,9 +36,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
 const BIN = path.resolve(ROOT, process.env.IOI_HYPERVISOR_DAEMON_BINARY || "target/debug/hypervisor-daemon");
-const MIRROR = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
+const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
 const BASE = "/workspace/data-ingestion-app";
-// the reference's chrome reads the mirror still answers (check:adopted-data-connection's set)
+// the reference's chrome reads the capture server still answers (check:adopted-data-connection's set)
 const CHROME = new Set(["GET /multipass/api/sessions/definitions/current", "GET /multipass/api/sessions/selection", "POST /documentation/api/v2/release-notes/pagination",
   "POST /documentation/api/v2/release-notes/paginationV2", "GET /aip-assist/api/chat/checkAvailability", "GET /workspace/api/lifecycleStatusByApplication", "POST /log-receiver/api/beacon",
   "GET /compass/api/registry/actions"]);
@@ -57,7 +57,7 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-dc-runs-"));
 
 async function run() {
   if (!fs.existsSync(BIN) || !fs.existsSync(process.env.IOI_WALLET_AUTHORITY_BINARY || AUTHORITY_BINARY)) { console.log(`BLOCKED: no daemon (${BIN}) or authority binary`); process.exit(2); }
-  if (!(await fetch(`${MIRROR}${BASE}/splash`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local mirror (${MIRROR}) does not boot ${BASE}/`); process.exit(2); }
+  if (!(await fetch(`${CAPTURE}${BASE}/splash`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local capture server (${CAPTURE}) does not boot ${BASE}/`); process.exit(2); }
   delete process.env[OPERATOR_PASS_ENV];
   authority = await startLocalAuthority({ stateDir, principalRef: "domain://adopted-dc-runs", operatorPass: OPERATOR_PASS, log: () => {} });
   const daemonPort = await freePort();
@@ -76,7 +76,7 @@ async function run() {
   const SERVE = `http://127.0.0.1:${servePort}`;
   serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
     cwd: APP,
-    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: MIRROR },
+    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: CAPTURE },
     stdio: ["ignore", "pipe", "pipe"],
   });
   serve.stdout.on("data", () => {}); serve.stderr.on("data", () => {});
@@ -144,7 +144,7 @@ async function run() {
     pg.on("pageerror", (e) => pageErrors.push(String(e.message).slice(0, 160)));
     pg.on("response", async (r) => {
       const u = new URL(r.url()); const key = `${r.request().method()} ${u.pathname.replace(/ri\.[\w.-]+/gu, "<rid>")}`;
-      if (r.headers()["x-ioi-mirror-passthrough"] === "1") passthrough.add(key);
+      if (r.headers()["x-ioi-capture-passthrough"] === "1") passthrough.add(key);
       if (/^\/[a-z][a-z0-9-]*\/api\//u.test(u.pathname) && /text\/html/u.test(r.headers()["content-type"] || "")) htmlAnswers.add(key);
       if (r.status() === 501) fenced.add(key);
       if (/^\/job-tracker\/api\/builds\/bulk(V2)?$/u.test(u.pathname)) { const j = await r.json().catch(() => null); for (const q of Array.isArray(j) ? j : []) builds.push(...(q.buildDetails || [])); }
@@ -176,7 +176,7 @@ async function run() {
       !!refusal && logs.includes("ERROR") && logs.includes(String(refusal.summary)) && /"outcome": "execution_authority_required"/u.test(logs) && /"sync": "Orders import"/u.test(logs) && !/Failed to load logs|Unable to load/u.test(logs),
       `${refusal ? `receipt "${refusal.summary}"` : "NO REFUSAL RECEIPT"} · ${after(logs, "ERROR", 160)}`);
 
-    ok("no page reached the mirror beyond the reference's chrome, nothing was fenced, and no service read got the serve's HTML page",
+    ok("no page reached the capture server beyond the reference's chrome, nothing was fenced, and no service read got the serve's HTML page",
       [...passthrough].every((p) => CHROME.has(p)) && fenced.size === 0 && htmlAnswers.size === 0 && pageErrors.length === 0,
       `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · fenced ${[...fenced].join(",") || "none"} · html ${[...htmlAnswers].join(",") || "none"} · page ${pageErrors.slice(0, 1).join("") || "none"}`);
   } finally {

@@ -21,11 +21,11 @@
 // reason that survives reading; a new one is red, and a named one that becomes alive must be unpinned.
 // Writes are allowed — the stack is disposable — so a control that writes is judged by what it did.
 //
-// Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, no local reference mirror, or the mirror server is
+// Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, no local capture-server pages, or the capture server is
 // not reachable — the apps cannot boot, which is not a pass).
 //
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
-//   IOI_HARVEST_CAPTURE_URL       default http://127.0.0.1:9225 (the local mirror server)
+//   IOI_HARVEST_CAPTURE_URL       default http://127.0.0.1:9225 (the local capture server)
 //   node apps/hypervisor/scripts/verify-hypervisor-adopted-dead-controls.mjs
 
 import { spawn } from "node:child_process";
@@ -69,13 +69,13 @@ const waitFor = async (url, ms) => { const until = Date.now() + ms; while (Date.
 const daemonBinary = path.resolve(ROOT, process.env.IOI_HYPERVISOR_DAEMON_BINARY ?? "target/debug/hypervisor-daemon");
 try { fs.accessSync(daemonBinary, fs.constants.X_OK); } catch { console.error(`BLOCKED: daemon binary not executable at ${daemonBinary}`); process.exit(2); }
 const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
-// each adopted app's mirror: captured locally, and its path answered by the mirror server (an app it cannot boot is not a pass)
+// each adopted app's capture server: captured locally, and its path answered by the capture server (an app it cannot boot is not a pass)
 const SEEDS = ["builder", "object-monitoring", "ontology", "hubble", "data-ingestion-app", "approvals-app"];
 for (const seed of SEEDS) {
-  if (!fs.existsSync(path.join(ROOT, "internal-docs", "reverse-engineering", "palantir", "public", "workspace", seed, "index.html"))) { console.error(`BLOCKED: no local reference mirror for ${seed}`); process.exit(2); }
+  if (!fs.existsSync(path.join(ROOT, "internal-docs", "reverse-engineering", "palantir", "public", "workspace", seed, "index.html"))) { console.error(`BLOCKED: no local capture-server pages for ${seed}`); process.exit(2); }
 }
 for (const seed of SEEDS) {
-  if (!(await fetch(`${CAPTURE}/workspace/${seed}/`, { signal: AbortSignal.timeout(5000) }).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local mirror server at ${CAPTURE} does not answer /workspace/${seed}/`); process.exit(2); }
+  if (!(await fetch(`${CAPTURE}/workspace/${seed}/`, { signal: AbortSignal.timeout(5000) }).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local capture server at ${CAPTURE} does not answer /workspace/${seed}/`); process.exit(2); }
 }
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-dead-"));

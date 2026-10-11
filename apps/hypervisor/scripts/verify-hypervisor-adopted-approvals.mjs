@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // THE ADOPTED APPROVALS APP IS THE DAEMON'S OWN ASKS, AND NOTHING RECORDED (R-241, Approvals A1).
 //
-// The reference Approvals app (booted by the local mirror, routed at /workspace/approvals-app) answers from the daemon's
+// The reference Approvals app (booted by the local capture server, routed at /workspace/approvals-app) answers from the daemon's
 // approvals truth (adopted-approvals.mjs), in a real browser against an ISOLATED stack: a sealed deployment authority node,
 // a daemon pointed at it, and a serve with the adopted surfaces on.
 //   - the fixture is real: two session executes without a grant park two wallet challenges through the live authority;
@@ -13,7 +13,7 @@
 //     which takes the passphrase; this page has none and the UI server holds no key) — and the link opens that very
 //     challenge's page; Reject and close is the daemon's own deny, with the typed reason; Approve on a governance
 //     request is the governance plane's own transition, receipted; every other write is refused by name and writes nothing;
-//   - no read reaches the mirror but the reference's chrome, an unbound read is a named 501, never the serve's HTML;
+//   - no read reaches the capture server but the reference's chrome, an unbound read is a named 501, never the serve's HTML;
 //   - with the daemon stopped, the inbox shows its error, never an empty inbox.
 // Approvals A2 drives the statuses a decision and time reach, and a tool call waiting inside a run:
 //   - a thread approval is parked on a real run through the daemon's own thread-approval route (the route a run's client
@@ -26,7 +26,7 @@
 //     which can only shorten it) and a new effect is parked and left undecided past its expiry: the daemon refuses a
 //     decision on it and drops it from its inbox, and the page reads Closed.
 //
-// Exit: 0 pass · 1 fail · 2 blocked (no daemon or authority binary, or the local mirror cannot boot the reference app).
+// Exit: 0 pass · 1 fail · 2 blocked (no daemon or authority binary, or the local capture server cannot boot the reference app).
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon (the authority: IOI_WALLET_AUTHORITY_BINARY)
 //   node apps/hypervisor/scripts/verify-hypervisor-adopted-approvals.mjs     (several minutes: the authority starts a chain)
 
@@ -44,9 +44,9 @@ import { startIsolatedPlane, isolatedOperatorSession, sanitizedVerifierBaseEnv, 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
-const MIRROR = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
+const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
 const BASE = "/workspace/approvals-app";
-// the reference's chrome reads the mirror still answers (the other adopted apps' set)
+// the reference's chrome reads the capture server still answers (the other adopted apps' set)
 const CHROME = new Set(["GET /multipass/api/sessions/definitions/current", "GET /multipass/api/sessions/selection", "POST /documentation/api/v2/release-notes/pagination",
   "POST /documentation/api/v2/release-notes/paginationV2", "GET /aip-assist/api/chat/checkAvailability", "GET /workspace/api/lifecycleStatusByApplication", "POST /log-receiver/api/beacon"]);
 // unique per run: the passphrase seals this run's authority keys and appears nowhere the adopted app can reach
@@ -71,7 +71,7 @@ async function startServe(daemonUrl) {
   const url = `http://127.0.0.1:${servePort}`;
   const child = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
     cwd: APP,
-    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: daemonUrl, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: MIRROR },
+    env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: daemonUrl, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_ADOPTED_SURFACES: "1", IOI_HARVEST_CAPTURE_URL: CAPTURE },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", () => {}); child.stderr.on("data", () => {});
@@ -87,7 +87,7 @@ const stopServe = async (child) => {
 
 async function run() {
   if (!fs.existsSync(DAEMON_BINARY) || !fs.existsSync(process.env.IOI_WALLET_AUTHORITY_BINARY || AUTHORITY_BINARY)) { console.log(`BLOCKED: no daemon (${DAEMON_BINARY}) or authority binary`); process.exit(2); }
-  if (!(await fetch(`${MIRROR}${BASE}/`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local mirror (${MIRROR}) does not boot ${BASE}/`); process.exit(2); }
+  if (!(await fetch(`${CAPTURE}${BASE}/`, { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false))) { console.log(`BLOCKED: the local capture server (${CAPTURE}) does not boot ${BASE}/`); process.exit(2); }
   delete process.env[OPERATOR_PASS_ENV];
   authority = await startLocalAuthority({ stateDir, principalRef: "domain://adopted-approvals", operatorPass: OPERATOR_PASS, log: () => {} });
   const DAEMON_ENV = { ...authority.daemonEnv, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:9/v1", IOI_WALLET_TEST_SIGNER: "" };
@@ -157,7 +157,7 @@ async function run() {
     pg.on("pageerror", (e) => { if (phase === "read") pageErrors.push(String(e.message).slice(0, 160)); });
     pg.on("response", async (r) => {
       const u = new URL(r.url()); const key = `${r.request().method()} ${u.pathname.replace(/ri\.[\w.-]+/gu, "<rid>")}`;
-      if (r.headers()["x-ioi-mirror-passthrough"] === "1") passthrough.add(key);
+      if (r.headers()["x-ioi-capture-passthrough"] === "1") passthrough.add(key);
       if (/^\/[a-z][a-z0-9-]*\/api\//u.test(u.pathname) && /text\/html/u.test(r.headers()["content-type"] || "")) htmlAnswers.add(key);
       if (r.status() === 501) { fenced.add(key); const j = await r.json().catch(() => ({})); if (j.errorName !== "Hypervisor:ApprovalsReadNotBound") unnamed.add(key); }
       if (r.status() === 409) { const j = await r.json().catch(() => ({})); refusals.push(j.errorName || "?"); }
@@ -288,7 +288,7 @@ async function run() {
         && pageT.t.includes("Asks: write RELEASE.md in the workspace") && pageT.t.includes(`Requested by: ${MY_NAME}`) && pageT.t.includes(`Run: ${runId}`) && pageT.t.includes(`Thread: ${threadId}`)
         && pageT.t.includes(`Approval: ${APPROVAL_ID}`) && pageT.t.includes(`Lease: ${T0.lease_status}`) && T0.lease_status === "pending",
       `${(pageT.href || "(no link)").replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(pageT.t, "Pending approval", 80)} · ${after(pageT.t, "Justification:", 260)}`);
-    ok("no read reached the mirror beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation or page on the inbox and a request's page (a parked effect's, a governance request's, a tool call's) failed",
+    ok("no read reached the capture server beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation or page on the inbox and a request's page (a parked effect's, a governance request's, a tool call's) failed",
       [...passthrough].every((p) => CHROME.has(p)) && unnamed.size === 0 && htmlAnswers.size === 0 && fenced.size === 0 && gqlErrors.size === 0 && pageErrors.length === 0,
       `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · fenced ${[...fenced].join(",") || "none"} · unnamed ${[...unnamed].join(",") || "none"} · html ${[...htmlAnswers].join(",") || "none"} · gql ${[...gqlErrors].slice(0, 2).join(" | ") || "none"} · page ${pageErrors.slice(0, 1).join("") || "none"}`);
 
@@ -403,7 +403,7 @@ async function run() {
       `${[...new Set(refusals)].join(",") || "no refusal"} · REST ${rest.status} ${rest.j.errorName} · challenge ${A2.state} · governance ${G4.status}`);
 
     // ---- the fence: an unbound read is a named gap, never the recorded tenant's answer or the serve's HTML --------------
-    const probe = (method, p) => fetch(`${SERVE}${p}`, { method, headers: H, body: method === "GET" ? undefined : "{}" }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-mirror-passthrough"), j: await r.json().catch(() => ({})) }));
+    const probe = (method, p) => fetch(`${SERVE}${p}`, { method, headers: H, body: method === "GET" ? undefined : "{}" }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-capture-passthrough"), j: await r.json().catch(() => ({})) }));
     const probes = await Promise.all([probe("GET", "/approvals/api/policies/v2"), probe("GET", "/control-panel/api/enrollments/rids"), probe("POST", "/multipass/api/organizations/access"), probe("POST", "/checkpoints/api/checkpoints/configuration/getConfigsV5")]);
     ok("the fence holds: an approvals, Control Panel, directory or checkpoint read the adopted layer does not bind is a named 501 (Hypervisor:ApprovalsReadNotBound) — never the recorded tenant's answer or the serve's HTML",
       probes.every((x) => x.status === 501 && x.j.errorName === "Hypervisor:ApprovalsReadNotBound" && !x.pass), probes.map((x) => `${x.status} ${x.j.errorName || "?"}`).join(" · "));

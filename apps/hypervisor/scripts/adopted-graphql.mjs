@@ -4,7 +4,7 @@
 // truth. The query decides the shape; the facts decide every value.
 //
 // Where a selected field has no fact, the RECORDED reference answer for the same operation (local
-// mirror only) may supply STRUCTURE — a typename, a boolean, an ALL_CAPS enum constant, a nested
+// capture server only) may supply STRUCTURE — a typename, a boolean, an ALL_CAPS enum constant, a nested
 // object — never a name, a time, an id or a list item: those would be the recorded tenant's facts shown
 // as ours. Lists without a fact are empty; other scalars are null.
 //

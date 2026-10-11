@@ -1,12 +1,12 @@
 // The adopted reference Pipeline Builder over Hypervisor truth (R-241, ADR 0056 P4). The app is served
-// from the local mirror (never vendored); this module answers what its landing reads, in the app's own
+// from the local capture server (never vendored); this module answers what its landing reads, in the app's own
 // wire shapes, from the DataRecipe and change-set planes.
 //
 // A PIPELINE is a DataRecipe family (`data-recipe://<family>`). Canon's patch branch is how a family
 // changes, so a pipeline's SANDBOXES are: Main — the family's admitted head (backing branch `master`) —
 // and one sandbox per open or proposed change set over the family. A family that so far exists only as a
 // founding change set is a pipeline whose Main holds no revision. Nothing here writes; nothing is
-// borrowed from the reference's recorded answers except structure (adopted-graphql.mjs).
+// taken from the reference's recorded answers except structure (adopted-graphql.mjs).
 //
 // The GraphQL resolver ignores field arguments, so the facts are scoped HERE from each request's own
 // variables (a search's text / creator filters, a pipeline rid, a sandbox id).

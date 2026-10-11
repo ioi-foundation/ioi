@@ -125,7 +125,7 @@ const PINS = {
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
   "ontology-manager": { total: 79, bound: 42, refused: 9, named_gap: 28, open: 0 },
-  // 2026-09-29 (R-241, Data Connection D8): 60 → 63. The schedule editor's chunk (51877) reached the mirror, and the open
+  // 2026-09-29 (R-241, Data Connection D8): 60 → 63. The schedule editor's chunk (51877) reached the capture server, and the open
   // row splits in three, driven by check:adopted-data-connection over daemon truth: choosing "On a schedule" renders the
   // reference's schedule editor, each cron expression it composes checked by the daemon's own cron parser (the automation
   // scheduler's GET /v1/hypervisor/cron-preview) — bound; a sync saved on a schedule, in Edit syncs and on its
@@ -136,7 +136,7 @@ const PINS = {
   // its New — the source's Create webhook — off, its tooltip the runtime reason D5 made true (never a permission). bound
   // 36 → 38, refused 8 → 10, named 15, open 1 → 0.
   "data-connection": { total: 63, bound: 38, refused: 10, named_gap: 15, open: 0 },
-  // Before that, 2026-09-29 (R-241, Data Connection D7): 51 → 60. Edit syncs' chunk reached the mirror, and the open row splits in
+  // Before that, 2026-09-29 (R-241, Data Connection D7): 51 → 60. Edit syncs' chunk reached the capture server, and the open row splits in
   // eight, driven by check:adopted-data-connection over daemon truth: the page (the source's lease plans, each its dataset
   // in the source's folder; a sync's panel: schedule Manually, build policy Always, the plan's configuration), a panel's
   // Save (the plan's PATCH) and Bulk edit with the schedule Manually (what is already true: nothing written) bound; what
@@ -144,16 +144,16 @@ const PINS = {
   // and Run N syncs (the build service's submitBuild) refused by name; Start pipelining (the Pipeline Builder's create, in
   // a new tab) named. Where a source is filed (Parent folder, Output folder and its settings page: its project's folder,
   // else the organization folder — a project-filed source read "local /" and the output folder "error") and the stopped-
-  // daemon Edit syncs join as bound. Found on the way: "On a schedule" crashes on a chunk the mirror lacks (open). bound
+  // daemon Edit syncs join as bound. Found on the way: "On a schedule" crashes on a chunk the capture server lacks (open). bound
   // 31 → 36, refused 5 → 8, named 14 → 15, open 1 → 1 (source.edit-syncs closed, source.edit-syncs.schedule opened).
-  // Before that, 2026-09-29 (R-241, Data Connection D6): 43 → 51. The reference's checkpoint prompt chunks reached the mirror, so the
+  // Before that, 2026-09-29 (R-241, Data Connection D6): 43 → 51. The reference's checkpoint prompt chunks reached the capture server, so the
   // writes are driven by a click, and the one open row splits in seven: a configuration's Save after a real edit (the
   // plan's PATCH), the checkpoint read before a write (the daemon's justification-checkpoint plane: its catalog gates no
   // lease-plan write, so none applies), Duplicate's Create sync, New on a custom source (the reference's YAML editor, the
   // plan's ladder written in it) and a new sync's output folder (its source's project folder, else the owner's
   // organization folder; nothing created) bound; New on a bucket (the reference's file-sync form) and what a plan cannot
   // hold refused by name. The checkpoint read with the daemon stopped joins as bound. Found on the way: Edit syncs crashes
-  // on a chunk the mirror lacks (open). bound 25 → 31, refused 3 → 5, open 1 → 1 (sync.create-duplicate-save closed,
+  // on a chunk the capture server lacks (open). bound 25 → 31, refused 3 → 5, open 1 → 1 (sync.create-duplicate-save closed,
   // source.edit-syncs opened).
   // Before that, 2026-09-28 (R-241, Data Connection D2 part 3 / D5): 41 → 43. A source's Virtual tables (none, and none can be) and
   // Logs (the reference's log viewer over its syncs' run receipts) bound; Explore source (no explore plane) and the Webhooks
@@ -161,7 +161,7 @@ const PINS = {
   // run bound by check:adopted-data-connection-runs (a sealed authority grants the lease and the session, the daemon refuses
   // the grantless execute, and the sync reads Failed). Duplicate sync's page joins as bound and its destination crumb as a
   // named gap. The writes (New, Duplicate's Create sync, Save) stay open: bound at the adopted layer and asserted through
-  // the serve, but a click never reaches them — the reference's checkpoint prompt chunks are missing from the local mirror.
+  // the serve, but a click never reaches them — the reference's checkpoint prompt chunks are missing from the local capture server.
   // bound 21 → 25, named 11 → 14, open 6 → 1.
   // Earlier, in order:
   // 2026-09-28 (R-241, Data Connection D0): the harvest — 22 flow states, all open until the app is adopted. Examples
@@ -170,7 +170,7 @@ const PINS = {
   // 2026-09-28 (R-241, Data Connection D1): adopted at /workspace/data-ingestion-app behind its fence — the landing and
   // the Sources list bound over the data-source plane (check:adopted-data-connection), with the stopped-daemon state and
   // the fence; Syncs, Agents, Listeners and External stacks named (none exists), and the runtime badge. 22 → 25.
-  // 2026-09-28 (R-241, Data Connection D2, part 1): a source's Overview bound (opened from the list; the mirror's index
+  // 2026-09-28 (R-241, Data Connection D2, part 1): a source's Overview bound (opened from the list; the capture server's index
   // refreshed to the tenant's current build — the old runtime had loaded new chunks); New source's false "no permission"
   // tooltip joins as open. 25 → 26.
   // 2026-09-28 (R-241, Data Connection D2, part 2): a source's Code imports and Webhooks bound (both off, nothing can turn

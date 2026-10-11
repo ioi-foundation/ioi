@@ -1,6 +1,6 @@
 // The adopted Ontology Manager's answers over Hypervisor truth (R-241, Ontology Manager cut O1).
 //
-// The reference app (booted by the local mirror, routed at /workspace/ontology) reads the ontology through the
+// The reference app (booted by the local capture server, routed at /workspace/ontology) reads the ontology through the
 // Ontology Metadata service's REST reads and a handful of GraphQL list queries. Each is answered here from the
 // caller's ODK domain ontologies: an ontology per family (the same rids the Pipeline Builder's picker names), each
 // with the object types, properties, action types and value types of its canonical object model. What the Hypervisor

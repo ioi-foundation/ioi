@@ -26,7 +26,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
 import { verifierStack } from "./lib/verifier-stack.mjs";
 const STACK = await verifierStack({ serve: true });
-STACK.addOrigin("http://127.0.0.1:4603"); // its own mirror-down serve (below) reads the same daemon as the same operator
+STACK.addOrigin("http://127.0.0.1:4603"); // its own capture-down serve (below) reads the same daemon as the same operator
 const SERVE = STACK.serveUrl;
 const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 const DAEMON = STACK.daemonUrl;

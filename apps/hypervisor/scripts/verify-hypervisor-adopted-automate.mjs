@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // THE ADOPTED AUTOMATE WIZARD CREATES A HYPERVISOR AUTOMATION (R-241 seed depth, ADR 0056 P3 cut 3b).
 //
-// The reference Automate app is the seed: it boots from the LOCAL reference mirror (never vendored — the
+// The reference Automate app is the seed: it boots from the LOCAL reference capture server (never vendored — the
 // repository is public) through the /__apps/monitors lane, and the serve answers its reads and writes
 // from the Hypervisor's planes. This proves, against an ISOLATED daemon + serve, that a person can walk
 // the adopted wizard end to end over daemon truth: a function released through Ontology / Functions' own
@@ -9,18 +9,18 @@
 // caller's project, validates the name against their automations and reports no issue; Save admits ONE
 // automation through the automations plane — a cron schedule in its named zone, one function step pinned
 // to the released revision's content hash — and lands on its detail page, which shows that Function effect;
-// /automations opens the adopted app under our rail; the app reaches the local mirror only for the
+// /automations opens the adopted app under our rail; the app reaches the local capture server only for the
 // reference's chrome reads (never its recorded directory or data); Run now on the product's own automation
 // page runs that exact revision and the step records Passed; the adopted editor renames the automation and
 // changes its function input in one Save; a manual command-step automation's page renders with its step
 // shown and its owner named, and the editor does not save it; and no operation the app sent went unanswered.
 //
 // Browser writes are the adopted app's own controls; product writes submit the forms the surface
-// rendered. Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, no local reference mirror, or the
-// mirror server is not reachable — the seed cannot boot, which is not a pass).
+// rendered. Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, no local capture-server pages, or the
+// capture server is not reachable — the seed cannot boot, which is not a pass).
 //
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
-//   IOI_HARVEST_CAPTURE_URL       default http://127.0.0.1:9225 (the local mirror server)
+//   IOI_HARVEST_CAPTURE_URL       default http://127.0.0.1:9225 (the local capture server)
 //   node apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs
 
 import { spawn } from "node:child_process";
@@ -136,10 +136,10 @@ async function submit(route, action, fields, { id = null, postAnonymously = fals
   const location = r?.headers.get("location") || "";
   return { status: r?.status ?? 0, location, q: new URLSearchParams(location.split("?")[1]?.split("#")[0] || ""), text: r ? await r.text() : "" };
 }
-const MIRROR_PAGE = path.join(ROOT, "internal-docs", "reverse-engineering", "palantir", "public", "workspace", "object-monitoring", "index.html");
+const CAPTURE_PAGE = path.join(ROOT, "internal-docs", "reverse-engineering", "palantir", "public", "workspace", "object-monitoring", "index.html");
 const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
-if (!fs.existsSync(MIRROR_PAGE)) { console.error(`BLOCKED: no local reference mirror at ${MIRROR_PAGE}`); process.exit(2); }
-if (!(await fetch(`${CAPTURE}/workspace/object-monitoring/`).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local mirror server is not reachable at ${CAPTURE}`); process.exit(2); }
+if (!fs.existsSync(CAPTURE_PAGE)) { console.error(`BLOCKED: no local capture-server page at ${CAPTURE_PAGE}`); process.exit(2); }
+if (!(await fetch(`${CAPTURE}/workspace/object-monitoring/`).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local capture server is not reachable at ${CAPTURE}`); process.exit(2); }
 const SOURCE = "import json, sys\nprint(json.dumps(json.load(sys.stdin)['amount'] * 2))\n";
 
 async function run() {
@@ -188,10 +188,10 @@ async function run() {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
     await ctx.addCookies([{ name: "ioi_session", value: COOKIE.split("=")[1], url: SERVE }]);
     const pg = await ctx.newPage();
-    // Every response the serve did NOT answer from Hypervisor truth carries x-ioi-mirror-passthrough.
+    // Every response the serve did NOT answer from Hypervisor truth carries x-ioi-capture-passthrough.
     const passthroughs = new Set();
     pg.on("response", (resp) => {
-      if (resp.headers()["x-ioi-mirror-passthrough"] !== "1") return;
+      if (resp.headers()["x-ioi-capture-passthrough"] !== "1") return;
       passthroughs.add(`${resp.request().method()} ${new URL(resp.url()).pathname.replace(/ri\.[a-z-]+\.main\.[a-z-]+\.[0-9a-f-]{36}/gu, "<rid>")}`);
     });
     await pg.goto(`${SERVE}/__apps/monitors`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -284,7 +284,7 @@ async function run() {
         && /Unknown effect/u.test(manualText) && !/There are no effects configured/u.test(manualText) && !!operator && ownerRow.includes(operator),
       `error card ${/An error has occurred/u.test(manualText)} · unknown condition ${/Unknown condition/u.test(manualText)} · step shown ${/Unknown effect/u.test(manualText)} · owner "${ownerRow}" (operator "${operator}")`);
 
-    // The mirror still answers the reference's CHROME reads (sessions, beacons, release notes, application
+    // The capture server still answers the reference's CHROME reads (sessions, beacons, release notes, application
     // favorites, registry actions, lifecycle status, assist availability) and nothing else (view events are the
     // caller's Recently viewed now): a new
     // passthrough is a new lane reaching recorded tenant answers, and fails here until it is bound.
@@ -294,7 +294,7 @@ async function run() {
       "POST /log-receiver/api/beacon", "POST /people/api/personal/get-favorites",
     ]);
     const unexpected = [...passthroughs].filter((p) => !CHROME_PASSTHROUGHS.has(p));
-    ok("the adopted app reaches the local mirror only for the reference's chrome reads — its user directory, functions, projects, automations, create and validation answer from the Hypervisor",
+    ok("the adopted app reaches the local capture server only for the reference's chrome reads — its user directory, functions, projects, automations, create and validation answer from the Hypervisor",
       unexpected.length === 0 && passthroughs.size > 0, unexpected.length ? `unexpected: ${unexpected.join(" · ")}` : `${passthroughs.size} chrome reads`);
 
     // ---- 3. Run now on the product's own automation page --------------------------------------------------

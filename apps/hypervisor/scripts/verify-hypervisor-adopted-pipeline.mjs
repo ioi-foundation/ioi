@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 // THE ADOPTED PIPELINE BUILDER LISTS THE CALLER'S DATARECIPE PIPELINES (R-241 seed depth, ADR 0056 P4).
 //
-// The reference Pipeline Builder is the seed: it boots from the LOCAL reference mirror (never vendored —
+// The reference Pipeline Builder is the seed: it boots from the LOCAL reference capture server (never vendored —
 // the repository is public) through the /__apps/pipeline lane, and the serve answers its landing from the
 // Hypervisor's planes (adopted-pipeline.mjs). A pipeline is a DataRecipe family; its Main sandbox is the
 // family's admitted head, and each open change set over it is a draft sandbox. This proves, against an
 // ISOLATED daemon + serve, that the landing lists exactly the caller's pipelines — a family merged through
 // a change set and a family that exists only as a founding change set — each typed Batch, with no outputs
-// set and never deployed (nothing borrowed from the reference), its creator named from the Hypervisor's
+// set and never deployed (nothing taken from the reference), its creator named from the Hypervisor's
 // principal; that the search narrows the list; that the details, sandboxes, project picker and user lookup
 // the app reads answer from the Hypervisor and name nothing that is not the caller's; and that the app
-// reaches the local mirror only for the reference's chrome reads and the reads named still open.
+// reaches the local capture server only for the reference's chrome reads and the reads named still open.
 //
 // Seed writes go through the daemon's change-set plane (the adopted Create is not bound yet). Exit: 0 pass
-// · 1 fail · 2 blocked (no daemon binary, no local reference mirror, or the mirror server is not reachable
+// · 1 fail · 2 blocked (no daemon binary, no local capture-server pages, or the capture server is not reachable
 // — the seed cannot boot, which is not a pass).
 //
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
-//   IOI_HARVEST_CAPTURE_URL       default http://127.0.0.1:9225 (the local mirror server)
+//   IOI_HARVEST_CAPTURE_URL       default http://127.0.0.1:9225 (the local capture server)
 //   node apps/hypervisor/scripts/verify-hypervisor-adopted-pipeline.mjs
 
 import { spawn } from "node:child_process";
@@ -55,10 +55,10 @@ try { fs.accessSync(daemonBinary, fs.constants.X_OK); } catch {
   console.error(`BLOCKED: daemon binary not executable at ${daemonBinary}`);
   process.exit(2);
 }
-const MIRROR_PAGE = path.join(ROOT, "internal-docs", "reverse-engineering", "palantir", "public", "workspace", "builder", "index.html");
+const CAPTURE_PAGE = path.join(ROOT, "internal-docs", "reverse-engineering", "palantir", "public", "workspace", "builder", "index.html");
 const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
-if (!fs.existsSync(MIRROR_PAGE)) { console.error(`BLOCKED: no local reference mirror at ${MIRROR_PAGE}`); process.exit(2); }
-if (!(await fetch(`${CAPTURE}/workspace/builder/`).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local mirror server is not reachable at ${CAPTURE}`); process.exit(2); }
+if (!fs.existsSync(CAPTURE_PAGE)) { console.error(`BLOCKED: no local capture-server page at ${CAPTURE_PAGE}`); process.exit(2); }
+if (!(await fetch(`${CAPTURE}/workspace/builder/`).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local capture server is not reachable at ${CAPTURE}`); process.exit(2); }
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-pipeline-"));
 let daemon = null, serve = null, DAEMON = "", SERVE = "", COOKIE = "";
@@ -68,7 +68,7 @@ const daemonReq = async (method, route, body) => {
 };
 const serveJson = async (method, route, body) => {
   const r = await fetch(`${SERVE}${route}`, { method, headers: { cookie: COOKIE, "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null);
-  return { status: r?.status ?? 0, passthrough: r?.headers.get("x-ioi-mirror-passthrough") === "1", body: r ? await r.json().catch(() => null) : null };
+  return { status: r?.status ?? 0, passthrough: r?.headers.get("x-ioi-capture-passthrough") === "1", body: r ? await r.json().catch(() => null) : null };
 };
 
 async function run() {
@@ -139,7 +139,7 @@ async function run() {
     const pg = await ctx.newPage();
     const passthroughs = new Set();
     pg.on("response", (resp) => {
-      if (resp.headers()["x-ioi-mirror-passthrough"] !== "1") return;
+      if (resp.headers()["x-ioi-capture-passthrough"] !== "1") return;
       passthroughs.add(`${resp.request().method()} ${new URL(resp.url()).pathname.replace(/ri\.[a-z-]+\.main\.[a-z-]+\.[0-9a-f-]{36}/gu, "<rid>")}`);
     });
     await pg.goto(`${SERVE}/__apps/pipeline`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -302,7 +302,7 @@ async function run() {
         && createBody?.createRequest?.backend === "Spark",
       `${createdUrl} · change set ${JSON.stringify(founded && [founded.status, founded.title, founded.subject?.family_ref, founded.subject?.base_revision_ref])} · backend ${createBody?.createRequest?.backend}`);
 
-    // The mirror still answers the reference's CHROME reads, and the four builder reads named open in the
+    // The capture server still answers the reference's CHROME reads, and the four builder reads named open in the
     // seed-depth record (the transform catalog and its expression examples, the AIP toggle, the editor's
     // display settings); anything else is a new lane reaching recorded tenant answers, and fails here until
     // it is bound.
@@ -314,7 +314,7 @@ async function run() {
     ]);
     const NAMED_OPEN = new Set(["GET /eddie/api/transformations/all", "POST /eddie/api/examples/get", "POST /eddie/api/natural-language-converter/aip-enabled", "GET /eddie/api/pipeline-builder-settings"]);
     const unexpected = [...passthroughs].filter((p) => !CHROME_PASSTHROUGHS.has(p) && !NAMED_OPEN.has(p));
-    ok("the adopted landing and editor reach the local mirror only for the reference's chrome reads and the four builder reads named open — pipelines, sandboxes, projects, users, markings and permissions answer from the Hypervisor",
+    ok("the adopted landing and editor reach the local capture server only for the reference's chrome reads and the four builder reads named open — pipelines, sandboxes, projects, users, markings and permissions answer from the Hypervisor",
       unexpected.length === 0 && passthroughs.size > 0, unexpected.length ? `unexpected: ${unexpected.join(" · ")}` : `${passthroughs.size} chrome/named reads`);
   } finally {
     await browser.close();
