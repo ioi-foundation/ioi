@@ -70,9 +70,9 @@
       "id": "governance-journey",
       "npm_script": "check:governance-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-governance-journey.mjs",
-      "runtime_assertions": 21,
-      "note": "2026-09-26 (R-240): 20 -> 21 — governance control objects are identity-first: an anonymous create and an anonymous delete of an approval request are refused 401 and touch nothing, and the request names its creator (red on the pre-change daemon: the anonymous delete answered 200 and removed the record).",
-      "assertion_names_sha256": "a0278ff3d6768b989cf03a3ce21236e1ac093e31033ffcce0b4faaca031b4694"
+      "runtime_assertions": 22,
+      "note": "2026-10-11 (CI fix lane): 21 -> 22, names a0278ff3… -> 3a4e6115… — b65046b6f0 (2026-09-29, approvals chips link where their plane lives) added the assertion and did not move this pin; the count and digest are the census of a local run at 9df9042e0 (22/22 passed), whose digest matches CI run 38100524173's 3a4e611558d6. Before that, 2026-09-26 (R-240): 20 -> 21 — governance control objects are identity-first: an anonymous create and an anonymous delete of an approval request are refused 401 and touch nothing, and the request names its creator (red on the pre-change daemon: the anonymous delete answered 200 and removed the record).",
+      "assertion_names_sha256": "3a4e611558d65dc94d13bdde608ad809e91212b216827846e74b7344c458878d"
     },
     {
       "id": "governed-effect-assurance",

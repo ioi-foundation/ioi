@@ -428,7 +428,10 @@ function mutation() {
   f = spaFindings(challenge, serveSource, timelineSource.replace(/projectProviderApprovalForTimeline\(run\.pendingApproval\)/gu, "({})"));
   plant("a timeline projection that drops the facets", f.includes("timeline_does_not_project_the_grammar"), f[0]);
   const lifecycle = fs.readFileSync(LIFECYCLE, "utf8");
-  f = sourceFindings(lifecycle.replace(/"request_preimage": capability_lease_request_preimage\(req\),/u, ""));
+  // GLOBAL: f4de34639d (2026-09-29) made the daemon publish the request preimage in a second challenge
+  // body, so removing only the first occurrence left a daemon that still publishes it and the plant was
+  // MISSED. A daemon that stops publishing it stops in every place.
+  f = sourceFindings(lifecycle.replace(/"request_preimage": capability_lease_request_preimage\(req\),/gu, ""));
   plant("a daemon that stops publishing the request preimage", f.includes("daemon_challenge_publishes_request_preimage_missing"), f[0]);
   f = sourceFindings(lifecycle.replace(/sha256_hex_str\(&capability_lease_request_preimage\(req\)\)/u, "sha256_json_ref(&json!({}))"));
   plant("a daemon whose request hash is no longer defined over the published preimage (a second reconstruction)", f.includes("daemon_request_hash_over_preimage_missing"), f[0]);

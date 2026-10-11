@@ -228,7 +228,13 @@ export function sourceFindings({ serve, lib, routes, daemonMain, conformance }) 
   if (laneBody && /mintLocalApproverGrant|wallet_approval_grant|approver/u.test(laneBody)) f.push("pin_serve_lane_touches_authority");
   if (!(serve.includes("renderExtensionMachineReads({ descriptor: desc") && serve.includes("head + banner + model + reads + footer"))) f.push("pin_runtime_view_reads_missing");
   const viewStart = serve.indexOf("const publicReads = {};");
-  const viewBody = viewStart >= 0 ? serve.slice(viewStart, serve.indexOf("renderDomainAppRuntimeView(rt, dapp, descriptor, ontRes.ontology || {}, publicReads)", viewStart)) : "";
+  // The view ends at its render call. 3835b13861 (2026-09-26) gave that call the bound `revision`
+  // argument, so the old end marker stopped occurring and the slice ran to the end of the file
+  // (pin_runtime_view_reads_unguarded:51 counted every fetch after the view). A missing end marker
+  // is now its own finding instead of a miscount.
+  const viewEnd = viewStart >= 0 ? serve.indexOf("renderDomainAppRuntimeView(rt, dapp, descriptor, ontRes.ontology || {}, publicReads, revision)", viewStart) : -1;
+  if (viewStart >= 0 && viewEnd < 0) f.push("pin_runtime_view_end_marker_missing");
+  const viewBody = viewStart >= 0 && viewEnd >= 0 ? serve.slice(viewStart, viewEnd) : "";
   const fetches = (viewBody.match(/daemonFetch\(/gu) ?? []).length;
   if (!(viewBody && fetches === 1 && viewBody.includes("if (ref === \"api://v1/hypervisor/machines\" && PUBLIC_EXTENSION_READS[ref])"))) f.push(`pin_runtime_view_reads_unguarded:${fetches}`);
   if (/\bfetch\(|from "node:fs"|process\.env/u.test(lib)) f.push("pin_lib_not_pure");
