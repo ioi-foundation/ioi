@@ -500,10 +500,47 @@ pub(crate) fn read_runtime_log(data_dir: &str, service_id: &str) -> Value {
     }
 }
 
-/// Stop an editor runtime an OLDER daemon left listening on a loopback TCP port (before runtimes
-/// moved to private sockets): find the process listening on 127.0.0.1:`port` whose command line is
-/// this toolchain's openvscode-server and kill its process group. Returns true iff one was stopped.
-fn stop_legacy_tcp_runtime(port: u16) -> bool {
+/// The fields of `/proc/<pid>/stat` after the command name: state, ppid, pgrp, session, tty_nr, ...
+fn proc_stat_fields(pid: &str) -> Option<Vec<String>> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    let rest = &stat[stat.rfind(')')? + 1..];
+    Some(rest.split_whitespace().map(str::to_string).collect())
+}
+
+/// The four uids (real, effective, saved, filesystem) of `/proc/<pid>/status`.
+fn proc_uids(pid: &str) -> Option<Vec<String>> {
+    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
+    let line = status.lines().find(|line| line.starts_with("Uid:"))?;
+    Some(
+        line.split_whitespace()
+            .skip(1)
+            .map(str::to_string)
+            .collect(),
+    )
+}
+
+/// Does `/proc/<pid>/cmdline` carry `--extensions-dir <marker>` (the argument this daemon gave the
+/// runtime it launched for that record)?
+fn carries_launch_marker(pid: &str, marker: &Path) -> bool {
+    let Ok(cmdline) = std::fs::read(format!("/proc/{pid}/cmdline")) else {
+        return false;
+    };
+    let args: Vec<&[u8]> = cmdline.split(|byte| *byte == 0).collect();
+    args.windows(2).any(|pair| {
+        pair[0] == b"--extensions-dir".as_slice()
+            && Path::new(&*String::from_utf8_lossy(pair[1])) == marker
+    })
+}
+
+/// Stop an editor runtime an OLDER daemon left listening on loopback TCP `port` (before runtimes
+/// moved to private sockets), ONLY when this daemon launched it for that record. Every one of these
+/// must hold for the process listening on exactly that port: its argv carries `--extensions-dir
+/// <marker>` (the record's own extensions dir under this data dir); it runs as this daemon's uid
+/// (real, effective, saved and filesystem); its process group leads its own session (the setsid the
+/// daemon's launch made), has no controlling terminal, and is not the daemon's own group or
+/// session; and the group's leader, while it lives, carries the same marker. Then its process
+/// group is killed. Anything else on the port is left running. Returns true iff one was stopped.
+fn stop_legacy_tcp_runtime(port: u16, marker: &Path) -> bool {
     let wanted = format!("{port:04X}");
     let mut inodes = Vec::new();
     for table in ["/proc/net/tcp", "/proc/net/tcp6"] {
@@ -525,13 +562,21 @@ fn stop_legacy_tcp_runtime(port: u16) -> bool {
     if inodes.is_empty() {
         return false;
     }
-    let toolchain = runtime_root().join("openvscode-server");
+    let (Some(own_uids), Some(own_stat)) = (proc_uids("self"), proc_stat_fields("self")) else {
+        return false;
+    };
+    let (Some(own_uid), Some(own_group), Some(own_session)) =
+        (own_uids.first(), own_stat.get(2), own_stat.get(3))
+    else {
+        return false;
+    };
     let mut stopped = false;
     for entry in std::fs::read_dir("/proc").into_iter().flatten().flatten() {
         let Some(pid) = entry
             .file_name()
             .to_str()
-            .and_then(|name| name.parse::<i32>().ok())
+            .filter(|name| name.parse::<i32>().is_ok())
+            .map(str::to_string)
         else {
             continue;
         };
@@ -545,23 +590,34 @@ fn stop_legacy_tcp_runtime(port: u16) -> bool {
                     .iter()
                     .any(|inode| target.as_os_str() == inode.as_str())
             });
-        if !owns_socket {
+        if !owns_socket || !carries_launch_marker(&pid, marker) {
             continue;
         }
-        let is_runtime = std::fs::read(entry.path().join("cmdline"))
-            .map(|cmdline| {
-                String::from_utf8_lossy(&cmdline).contains(&*toolchain.to_string_lossy())
-            })
-            .unwrap_or(false);
-        if is_runtime {
-            // SAFETY: getpgid/kill on a pid read from /proc; a negative pid signals its group.
+        let same_uid = proc_uids(&pid)
+            .is_some_and(|uids| uids.len() == 4 && uids.iter().all(|uid| uid == own_uid));
+        let Some(stat) = proc_stat_fields(&pid) else {
+            continue;
+        };
+        let (Some(group), Some(session), Some(tty)) = (stat.get(2), stat.get(3), stat.get(4))
+        else {
+            continue;
+        };
+        let Ok(group_id) = group.parse::<i32>() else {
+            continue;
+        };
+        let own_launch_session = group == session
+            && group_id > 1
+            && tty == "0"
+            && group != own_group
+            && session != own_session;
+        let leader_carries_marker = proc_stat_fields(group).is_none()
+            || (carries_launch_marker(group, marker)
+                && proc_uids(group).is_some_and(|uids| uids.iter().all(|uid| uid == own_uid)));
+        if same_uid && own_launch_session && leader_carries_marker {
+            // SAFETY: kill on a process group checked above to be the runtime's own session group,
+            // never this daemon's group or session.
             unsafe {
-                let group = libc::getpgid(pid);
-                if group > 1 {
-                    libc::kill(-group, libc::SIGKILL);
-                } else {
-                    libc::kill(pid, libc::SIGKILL);
-                }
+                libc::kill(-group_id, libc::SIGKILL);
             }
             stopped = true;
         }
@@ -600,7 +656,12 @@ pub(crate) fn reconcile_editor_services(data_dir: &str) -> usize {
             // loopback TCP): stop it if it still listens, and mark the record unusable until the
             // service is started again, on its private socket.
             if let Some(port) = svc.get("internal_port").and_then(|v| v.as_u64()) {
-                let stopped = stop_legacy_tcp_runtime(port as u16);
+                let marker = Path::new(data_dir)
+                    .join("editor-services")
+                    .join(e.path().file_stem().unwrap_or_default())
+                    .join("extensions");
+                let stopped =
+                    u16::try_from(port).is_ok_and(|port| stop_legacy_tcp_runtime(port, &marker));
                 svc["phase"] = json!("degraded");
                 svc["internal_port"] = Value::Null;
                 svc["readiness"] = json!({ "mode": "blocked", "reason": "editor_runtime_legacy_tcp", "detail": if stopped { "an editor runtime listening on a loopback TCP port was stopped; restart the editor service (its runtime now listens on a private socket)" } else { "this record named a loopback TCP runtime; restart the editor service (its runtime now listens on a private socket)" } });
