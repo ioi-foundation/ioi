@@ -11471,65 +11471,137 @@ fn preview_content_type(path: &std::path::Path) -> &'static str {
 #[cfg(test)]
 mod preview_authority_tests {
     use super::*;
+    use sha2::Digest as _;
 
+    /// The listener admits the preview lease's access token from the `x-ioi-lease` header or from
+    /// the cookie its own exchange sets, on every request, while the lease is live. No credential,
+    /// the grant id, the grant ref, the stored hash and any token in a query string are refused.
     #[tokio::test]
     async fn preview_listener_requires_the_exact_live_capability_on_every_request() {
         let data = tempfile::tempdir().unwrap();
         let workspace = tempfile::tempdir().unwrap();
         std::fs::write(workspace.path().join("index.html"), "owner-only-preview").unwrap();
-        let grant = super::super::authority_routes::issue_capability_lease(
-            data.path().to_str().unwrap(),
+        let data_dir = data.path().to_str().unwrap();
+        let (grant, token) = super::super::authority_routes::issue_bearer_capability_lease(
+            data_dir,
             "user://preview-owner",
             "environment.preview.read",
             json!(["environment://local/env_preview"]),
             300,
         );
-        let lease_ref = grant["grant_ref"].as_str().unwrap().to_string();
+        let token = token.expect("the preview lease has an access token");
+        let grant_id = grant["grant_id"].as_str().unwrap().to_string();
+        let grant_ref = grant["grant_ref"].as_str().unwrap().to_string();
         let (port, shutdown, join) = start_preview_server(
             workspace.path().to_string_lossy().into_owned(),
-            data.path().to_string_lossy().into_owned(),
-            lease_ref.clone(),
+            data_dir.to_string(),
+            grant_id.clone(),
         )
         .await
         .unwrap();
 
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
         let base = format!("http://127.0.0.1:{port}/");
-        assert_eq!(
-            client.get(&base).send().await.unwrap().status().as_u16(),
-            403
-        );
-        assert_eq!(
-            client
-                .get(format!("{base}?lease=wrong"))
-                .send()
-                .await
-                .unwrap()
-                .status()
-                .as_u16(),
-            403
-        );
+        let status_with = |path: String, header: Option<(&'static str, String)>| {
+            let mut request = client.get(path);
+            if let Some((name, value)) = header {
+                request = request.header(name, value);
+            }
+            async move { request.send().await.unwrap().status().as_u16() }
+        };
+        let hash = hex::encode(sha2::Sha256::digest(token.as_bytes()));
+        for (label, path, header) in [
+            ("no credential", base.clone(), None),
+            (
+                "a wrong token",
+                base.clone(),
+                Some(("x-ioi-lease", "wrong".to_string())),
+            ),
+            (
+                "the grant id",
+                base.clone(),
+                Some(("x-ioi-lease", grant_id.clone())),
+            ),
+            (
+                "the grant ref",
+                base.clone(),
+                Some(("x-ioi-lease", grant_ref.clone())),
+            ),
+            (
+                "the token hash",
+                base.clone(),
+                Some(("x-ioi-lease", hash.clone())),
+            ),
+            (
+                "the token in the query",
+                format!("{base}?lease={token}"),
+                None,
+            ),
+            (
+                "the grant id in the query",
+                format!("{base}?lease={grant_id}"),
+                None,
+            ),
+        ] {
+            assert_eq!(status_with(path, header).await, 403, "{label} is refused");
+        }
         let admitted = client
-            .get(format!("{base}?lease={lease_ref}"))
+            .get(&base)
+            .header("x-ioi-lease", token.as_str())
             .send()
             .await
             .unwrap();
-        assert_eq!(admitted.status().as_u16(), 200);
+        assert_eq!(
+            admitted.status().as_u16(),
+            200,
+            "the token in the header is admitted"
+        );
         assert_eq!(admitted.text().await.unwrap(), "owner-only-preview");
 
+        let exchanged = client
+            .post(format!("{base}__ioi/lease"))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(format!("token={token}"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(exchanged.status().as_u16(), 303, "the exchange answers 303");
+        let set_cookie = exchanged
+            .headers()
+            .get("set-cookie")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_string();
+        let cookie = format!("ioi_lease_{port}={token}");
+        assert!(
+            set_cookie.starts_with(&cookie),
+            "the exchange sets this listener's cookie: {set_cookie}"
+        );
+        assert!(
+            set_cookie.contains("HttpOnly") && set_cookie.contains("SameSite=Lax"),
+            "the cookie is HttpOnly and SameSite=Lax: {set_cookie}"
+        );
+        assert_eq!(
+            status_with(base.clone(), Some(("cookie", cookie.clone()))).await,
+            200,
+            "the exchanged cookie is admitted"
+        );
+
         assert!(super::super::authority_routes::revoke_lease(
-            data.path().to_str().unwrap(),
-            &lease_ref,
+            data_dir, &grant_id
         ));
         assert_eq!(
-            client
-                .get(format!("{base}?lease={lease_ref}"))
-                .send()
-                .await
-                .unwrap()
-                .status()
-                .as_u16(),
-            403
+            status_with(base.clone(), Some(("x-ioi-lease", token.clone()))).await,
+            403,
+            "a revoked lease's token is refused"
+        );
+        assert_eq!(
+            status_with(base.clone(), Some(("cookie", cookie))).await,
+            403,
+            "a revoked lease's cookie is refused"
         );
         let _ = shutdown.send(());
         let _ = join.await;
