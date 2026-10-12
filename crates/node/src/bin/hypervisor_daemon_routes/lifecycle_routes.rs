@@ -21298,6 +21298,13 @@ pub(crate) fn startup_auth_notice(data_dir: &str) -> Result<(), String> {
     }
     Ok(())
 }
+/// True iff `stored` is the SHA-256 hex a presented secret hashed to (`presented_hash`), compared in
+/// constant time (every byte of both is read, whatever the first difference).
+fn stored_hash_matches(stored: Option<&str>, presented_hash: &str) -> bool {
+    stored.is_some_and(|stored| {
+        super::authority_routes::constant_time_eq(stored.as_bytes(), presented_hash.as_bytes())
+    })
+}
 /// Issue the one-time bootstrap token and persist only its hash. The token is rotated on every
 /// unauthenticated daemon boot so a lost host-log value never requires editing principal bytes.
 fn issue_bootstrap_token(data_dir: &str) -> Result<String, String> {
@@ -21353,7 +21360,7 @@ fn presented_session_record(data_dir: &str, headers: &HeaderMap) -> Option<Value
         read_record_dir(data_dir, "sessions")
             .into_iter()
             .find(|session| {
-                session["token_hash"].as_str() == Some(hash.as_str())
+                stored_hash_matches(session["token_hash"].as_str(), &hash)
                     && session["expires_at"]
                         .as_str()
                         .is_some_and(|expires_at| expires_at > now.as_str())
@@ -21494,7 +21501,7 @@ pub(crate) fn resolve_principal_and_session(
         read_record_dir(data_dir, "sessions")
             .into_iter()
             .find(|s| {
-                s["token_hash"].as_str() == Some(h.as_str())
+                stored_hash_matches(s["token_hash"].as_str(), &h)
                     && s["expires_at"]
                         .as_str()
                         .map(|e| e > now.as_str())
@@ -21575,7 +21582,7 @@ pub(crate) fn resolve_principal_and_session(
         if let Some(rec) = read_record_dir(data_dir, "api-tokens")
             .into_iter()
             .find(|t| {
-                t["token_hash"].as_str() == Some(h.as_str())
+                stored_hash_matches(t["token_hash"].as_str(), &h)
                     && t["expires_at"]
                         .as_str()
                         .is_some_and(|expires_at| expires_at > now.as_str())
@@ -23245,7 +23252,7 @@ pub(crate) async fn handle_auth_logout(
         let h = sha256_hex_str(&tok);
         if let Some(s) = read_record_dir(&st.data_dir, "sessions")
             .into_iter()
-            .find(|s| s["token_hash"].as_str() == Some(h.as_str()))
+            .find(|s| stored_hash_matches(s["token_hash"].as_str(), &h))
         {
             if let Some(sid) = s["session_id"].as_str() {
                 // W1.2 / MEF-GAP-008 (security) — the session was FOUND, so a false return means
@@ -23380,7 +23387,10 @@ pub(crate) async fn handle_auth_bootstrap(
         .find(|b| b["id"].as_str() == Some("bootstrap"))
         .and_then(|b| b["token_hash"].as_str().map(String::from))
         .unwrap_or_default();
-    if token.is_empty() || expected_hash.is_empty() || sha256_hex_str(token) != expected_hash {
+    if token.is_empty()
+        || expected_hash.is_empty()
+        || !stored_hash_matches(Some(expected_hash.as_str()), &sha256_hex_str(token))
+    {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "ok": false, "reason": "invalid_bootstrap_token" })),
@@ -24552,7 +24562,7 @@ pub(crate) async fn handle_auth_oidc_callback(
     let Some(pending) = read_record_dir(&st.data_dir, "oauth-pending")
         .into_iter()
         .find(|p| {
-            p["state"].as_str() == Some(state)
+            super::authority_routes::presented_secret_matches(p["state"].as_str(), state)
                 && matches!(p["flow"].as_str(), Some("login") | Some("link"))
         })
     else {
@@ -24800,7 +24810,7 @@ fn resolve_scim_configuration(data_dir: &str, headers: &HeaderMap) -> Option<Val
     read_record_dir(data_dir, "scim-configurations")
         .into_iter()
         .find(|configuration| {
-            configuration["token_hash"].as_str() == Some(h.as_str())
+            stored_hash_matches(configuration["token_hash"].as_str(), &h)
                 && configuration["enabled"].as_bool() == Some(true)
         })
 }
@@ -25652,7 +25662,7 @@ pub(crate) async fn handle_org_invite_accept(
             Json(json!({ "ok": false, "reason": "invalid_or_expired_invite" })),
         );
     };
-    if invite_id.is_empty() || invite["invite_id"].as_str() != Some(invite_id) {
+    if !super::authority_routes::presented_secret_matches(invite["invite_id"].as_str(), invite_id) {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "ok": false, "reason": "invalid_or_expired_invite" })),
@@ -32863,5 +32873,52 @@ mod w0_hardening_tests {
         assert_eq!(reason, "session_execute_lane_unsupported");
         assert!(session_execute_lane_refusal("host_spawn").is_none());
         assert!(session_execute_lane_refusal("native_local").is_none());
+    }
+}
+
+#[cfg(test)]
+mod bootstrap_token_compare_tests {
+    use super::*;
+
+    /// The bootstrap admits exactly the token whose SHA-256 is stored: a wrong token, an empty
+    /// token, the stored hash itself and a one-character-short token are refused (403
+    /// invalid_bootstrap_token); the token itself sets the first operator's password (200).
+    #[tokio::test]
+    async fn bootstrap_admits_only_the_token_whose_hash_is_stored() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        ensure_operator(data_dir);
+        let token = issue_bootstrap_token(data_dir).expect("a bootstrap token");
+        let st = crate::test_daemon_state(data_dir);
+        let bootstrap = |presented: String| {
+            let st = st.clone();
+            async move {
+                let (status, Json(body)) = handle_auth_bootstrap(
+                    State(st),
+                    Json(json!({ "token": presented, "password": "bootstrap-pass-1" })),
+                )
+                .await;
+                (status, body)
+            }
+        };
+        for (label, presented) in [
+            ("a wrong token", "ioi_bootstrap_wrong".to_string()),
+            ("an empty token", String::new()),
+            ("the stored hash", sha256_hex_str(&token)),
+            (
+                "a one-character-short token",
+                token[..token.len() - 1].to_string(),
+            ),
+        ] {
+            let (status, body) = bootstrap(presented).await;
+            assert_eq!(status, StatusCode::FORBIDDEN, "{label} is refused: {body}");
+            assert_eq!(
+                body["reason"],
+                json!("invalid_bootstrap_token"),
+                "{label}: {body}"
+            );
+        }
+        let (status, body) = bootstrap(token.clone()).await;
+        assert_eq!(status, StatusCode::OK, "the token bootstraps: {body}");
     }
 }
