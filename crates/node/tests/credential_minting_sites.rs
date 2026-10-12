@@ -79,20 +79,21 @@ const MINTS: &[Mint] = &[
 
 /// A function that builds a value carrying a registered credential prefix and is NOT a credential: a name keyed by
 /// something public. Accepted only on an EXACT (file, function, prefix) match, only for one occurrence in that
-/// function, and only when the value is built from its reviewed `source`; an entry whose function no longer builds it
-/// is stale. The list is not a wildcard: the same shape anywhere else, or a second one in the same function, is still
+/// function, and only when that occurrence's statement contains the reviewed `statement` fragment exactly (the same
+/// prefix a real bearer mints, so any other way of building it there, an RNG draw included, is a violation); an entry
+/// whose function no longer builds it is stale. The list is not a wildcard: the same shape anywhere else, or a second one in the same function, is still
 /// a violation. These are not mints and are kept out of `MINTS`.
 struct NonMint {
     file: &'static str,
     function: &'static str,
     prefix: &'static str,
-    /// Text the building statement must contain (what the value is keyed by).
-    source: &'static str,
+    /// The exact statement fragment that builds the value; the matched statement must contain it verbatim.
+    statement: &'static str,
     reason: &'static str,
 }
 
 const REVIEWED_NON_MINTS: &[NonMint] = &[
-    NonMint { file: "node/src/bin/hypervisor_daemon_routes/editor_proxy.rs", function: "lease_cookie_name", prefix: "ioi_lease_", source: "public_port", reason: "builds the cookie NAME; the cookie VALUE is the access token minted by issue_bearer_capability_lease" },
+    NonMint { file: "node/src/bin/hypervisor_daemon_routes/editor_proxy.rs", function: "lease_cookie_name", prefix: "ioi_lease_", statement: "format!(\"ioi_lease_{public_port}\")", reason: "builds the cookie NAME; the cookie VALUE is the access token minted by issue_bearer_capability_lease" },
 ];
 
 /// Credential-NAMED functions that build a `<prefix>_{..}` value and were reviewed: each is an identifier or key, or a
@@ -535,10 +536,10 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                 let statement = &text[cand.statement.0..cand.statement.1.min(text.len())];
                 if nth > 0 {
                     violations.push(format!("{rel}:{line}: `{}` builds `{}…` more than once; only one reviewed non-mint is accepted there", func.name, cand.prefix));
-                } else if !statement.contains(non_mint.source) {
+                } else if !statement.contains(non_mint.statement) {
                     violations.push(format!(
-                        "{rel}:{line}: `{}` builds `{}…` but not from its reviewed source {:?}",
-                        func.name, cand.prefix, non_mint.source
+                        "{rel}:{line}: `{}` builds `{}…` other than by its reviewed statement {:?}",
+                        func.name, cand.prefix, non_mint.statement
                     ));
                 } else {
                     non_mints_built.push((rel.clone(), func.name.clone()));
@@ -625,8 +626,12 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                 .any(|(f, n)| f == non_mint.file && n == non_mint.function)
         {
             violations.push(format!(
-                "{}: the reviewed non-mint `{}` no longer builds `{}…` from {:?} ({}): remove it",
-                non_mint.file, non_mint.function, non_mint.prefix, non_mint.source, non_mint.reason
+                "{}: the reviewed non-mint `{}` no longer builds `{}…` by {:?} ({}): remove it",
+                non_mint.file,
+                non_mint.function,
+                non_mint.prefix,
+                non_mint.statement,
+                non_mint.reason
             ));
         }
     }
@@ -736,8 +741,9 @@ const AUTH: &str = "node/src/bin/hypervisor_daemon_routes/authority_routes.rs";
 
 const PROXY: &str = "node/src/bin/hypervisor_daemon_routes/editor_proxy.rs";
 
-/// A reviewed non-mint is accepted only where it was reviewed: the same `ioi_lease_` cookie-name shape in another
-/// function, or a second one inside the reviewed function, is still a violation.
+/// A reviewed non-mint is accepted only where and as it was reviewed: the same `ioi_lease_` cookie-name shape in
+/// another function, a second one inside the reviewed function, and an RNG-built `ioi_lease_` value in place of the
+/// reviewed statement inside the reviewed function are each still a violation.
 #[test]
 fn a_reviewed_non_mint_is_accepted_only_on_its_exact_site() {
     let elsewhere = tree_with(PROXY, |text| {
@@ -761,6 +767,19 @@ fn a_reviewed_non_mint_is_accepted_only_on_its_exact_site() {
             .iter()
             .any(|v| v.contains("lease_cookie_name") && v.contains("more than once")),
         "a second occurrence in the reviewed function is caught: {violations:?}"
+    );
+    let minted_there = tree_with(PROXY, |text| {
+        text.replacen(
+            "    format!(\"ioi_lease_{public_port}\")\n",
+            "    let mut secret = [0u8; 32];\n    rand::rngs::OsRng.fill_bytes(&mut secret);\n    format!(\"ioi_lease_{}\", hex::encode(secret))\n",
+            1,
+        )
+    });
+    let violations = scan(&minted_there);
+    assert!(
+        violations.iter().any(|v| v.contains("lease_cookie_name")
+            && v.contains("other than by its reviewed statement")),
+        "an RNG-built bearer in place of the reviewed statement is caught: {violations:?}"
     );
 }
 
