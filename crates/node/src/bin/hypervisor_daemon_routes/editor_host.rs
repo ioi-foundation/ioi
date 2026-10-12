@@ -10,6 +10,12 @@
 //! port (the public/proxy port is WS-4), injects the Session Execution Binding refs (WS-6a), and
 //! waits for real `/version` readiness before reporting the service ready. The upstream stripped
 //! reference binary is reference-only and is never vendored.
+//!
+//! CONNECTION TOKEN (BUILD-DELTA #31(c)). The runtime REQUIRES a connection token: a random secret
+//! (32 bytes, OS RNG) per runtime, handed to it in a private file (mode 0600, removed once the
+//! runtime is ready, never on its command line) and kept only in the daemon's memory
+//! (`EditorRuntime::connection_token`). Only the editor proxy presents it, as the runtime's
+//! `vscode-tkn` cookie on every request it forwards; the browser never sees it.
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
@@ -23,6 +29,8 @@ use super::DaemonState;
 pub(crate) struct EditorRuntime {
     pub(crate) child: std::process::Child,
     pub(crate) internal_port: u16,
+    /// The runtime's connection token; only the editor proxy presents it.
+    pub(crate) connection_token: String,
     pub(crate) log_path: String,
     pub(crate) started_at: String,
     pub(crate) workspace_root: String,
@@ -64,8 +72,9 @@ fn free_port() -> Option<u16> {
         .map(|a| a.port())
 }
 
-/// Minimal HTTP GET /version against the internal port (no extra deps). Returns the body if 2xx.
-fn http_get_version(port: u16) -> Option<String> {
+/// Minimal HTTP GET /version against the internal port (no extra deps), presenting the runtime's
+/// connection token. Returns the body if 2xx.
+fn http_get_version(port: u16, connection_token: &str) -> Option<String> {
     let mut stream = TcpStream::connect_timeout(
         &format!("127.0.0.1:{port}").parse().ok()?,
         Duration::from_millis(400),
@@ -79,7 +88,7 @@ fn http_get_version(port: u16) -> Option<String> {
         .ok()?;
     stream
         .write_all(
-            format!("GET /version HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n")
+            format!("GET /version HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nCookie: vscode-tkn={connection_token}\r\nConnection: close\r\n\r\n")
                 .as_bytes(),
         )
         .ok()?;
@@ -243,8 +252,30 @@ pub(crate) async fn start_oss_runtime(
         .unwrap_or("")
         .to_string();
 
+    // The runtime's connection token, handed over in a private file (never on the command line).
+    let connection_token = {
+        use rand::RngCore;
+        let mut secret = [0u8; 32];
+        rand::rngs::OsRng.fill_bytes(&mut secret);
+        hex::encode(secret)
+    };
+    let token_path = log_dir.join(format!("{service_id}.connection-token"));
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let _ = std::fs::remove_file(&token_path);
+        let mut token_file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&token_path)
+            .map_err(|e| format!("write the runtime connection token: {e}"))?;
+        token_file
+            .write_all(connection_token.as_bytes())
+            .map_err(|e| format!("write the runtime connection token: {e}"))?;
+    }
     let mut cmd = std::process::Command::new(oss_server_bin());
-    cmd.arg("--without-connection-token")
+    cmd.arg("--connection-token-file")
+        .arg(&token_path)
         .arg("--host")
         .arg("127.0.0.1")
         .arg("--port")
@@ -278,20 +309,26 @@ pub(crate) async fn start_oss_runtime(
             Ok(())
         });
     }
-    let child = cmd
-        .spawn()
-        .map_err(|e| format!("spawn openvscode-server: {e}"))?;
+    let child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            let _ = std::fs::remove_file(&token_path);
+            return Err(format!("spawn openvscode-server: {e}"));
+        }
+    };
 
     // Wait for real /version readiness (non-blocking: async sleeps between quick probes).
     let started_at = super::iso_now();
     let mut version: Option<String> = None;
     for _ in 0..80 {
-        if let Some(v) = http_get_version(port) {
+        if let Some(v) = http_get_version(port, &connection_token) {
             version = Some(v);
             break;
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
+    // The runtime read its token at start; the file is not kept.
+    let _ = std::fs::remove_file(&token_path);
     let Some(version) = version else {
         // CONTAINMENT (cleanup availability): the launcher shell forks the server WITHOUT exec,
         // so killing only the shell orphaned the child, which kept holding the port. On this path
@@ -323,6 +360,7 @@ pub(crate) async fn start_oss_runtime(
         EditorRuntime {
             child,
             internal_port: port,
+            connection_token,
             log_path: log_path.clone(),
             started_at: started_at.clone(),
             workspace_root: workspace_root.clone(),

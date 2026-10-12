@@ -612,11 +612,19 @@ pub(crate) async fn handle_editor_service_expose(
         let mut proxies = st.editor_proxies.lock().unwrap();
         super::editor_proxy::stop_editor_proxy(&mut proxies, &service_id);
     }
+    // The runtime's connection token, which only this proxy presents (BUILD-DELTA #31(c)).
+    let upstream_token = st
+        .editor_runtimes
+        .lock()
+        .unwrap()
+        .get(&service_id)
+        .map(|runtime| runtime.connection_token.clone());
     let (public_port, proxy) = match super::editor_proxy::bind_editor_proxy(
         &st.data_dir,
         &service_id,
         internal_port,
         &lease_id,
+        upstream_token,
     )
     .await
     {

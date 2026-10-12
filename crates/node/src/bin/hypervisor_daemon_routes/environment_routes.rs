@@ -1769,6 +1769,7 @@ pub(crate) async fn handle_env_port_expose(
         &service_key,
         target_port,
         &lease_id,
+        None,
     )
     .await
     {
