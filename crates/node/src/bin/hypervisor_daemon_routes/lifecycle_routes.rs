@@ -22815,6 +22815,50 @@ pub(crate) async fn auth_gate(
     next.run(req).await
 }
 
+/// True iff a browser sent this state-changing request from another origin: `Sec-Fetch-Site` is
+/// present and neither `same-origin` nor `none` (a user-typed navigation), or `Origin` is present
+/// and names another authority than this request's own Host. Every loopback port is the same SITE,
+/// so this, not the session cookie's SameSite, tells the owner's own page from content served on
+/// another port. A request without browser origin headers (a CLI, a server-side caller) is not
+/// cross-origin by this test.
+pub(crate) fn cross_origin_write(method: &axum::http::Method, headers: &HeaderMap) -> bool {
+    use axum::http::Method;
+    if matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS) {
+        return false;
+    }
+    let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
+    if header("sec-fetch-site").is_some_and(|site| !matches!(site, "same-origin" | "none")) {
+        return true;
+    }
+    let Some(origin) = header("origin") else {
+        return false;
+    };
+    let authority = origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"));
+    !matches!((authority, header("host")), (Some(origin), Some(host)) if origin.eq_ignore_ascii_case(host))
+}
+
+/// Refuse a cross-origin state-changing request (see `cross_origin_write`) before any route runs.
+/// This sits beside the Host allowlist and the auth gate; it does not replace either.
+pub(crate) async fn refuse_cross_origin_writes(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    if cross_origin_write(req.method(), req.headers()) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "cross_origin_request_refused",
+                "message": "a state-changing request from another origin is refused"
+            })),
+        )
+            .into_response();
+    }
+    next.run(req).await
+}
+
 #[cfg(test)]
 mod auth_gate_tests {
     use super::{auth_gate_exempt_path, AUTH_GATE_EXEMPT_PATHS};

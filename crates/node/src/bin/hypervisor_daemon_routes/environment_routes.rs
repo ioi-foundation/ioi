@@ -1779,10 +1779,12 @@ pub(crate) async fn handle_env_port_expose(
             ))
         }
     };
+    let proxy_host = proxy.host.clone();
     st.editor_proxies.lock().unwrap().insert(service_key, proxy);
-    // The URL names the proxy only. The browser presents the lease's access token by header, or
-    // hands it to the proxy's browser handoff (POST /__ioi/lease), which sets its HttpOnly cookie.
-    let url = format!("http://127.0.0.1:{public_port}/");
+    // The URL names the proxy only, on its own host (a different site from the owner's UI). The
+    // browser presents the lease's access token by header, or hands it to the proxy's browser
+    // handoff (POST /__ioi/lease), which sets its HttpOnly cookie.
+    let url = format!("http://{proxy_host}:{public_port}/");
     let mut ports = env["status"]["ports"]
         .as_array()
         .cloned()

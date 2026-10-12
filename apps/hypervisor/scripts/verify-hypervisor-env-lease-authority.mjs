@@ -31,7 +31,7 @@
 // tenant membership is not being mistaken for ownership.
 
 import fs from "node:fs";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -76,6 +76,19 @@ const environmentScopeRefs = (dataDir) => {
   }
   return refs;
 };
+
+// A preview or editor URL names the proxy's own *.localhost host. Connect to 127.0.0.1 (where the
+// proxy listens) and name that host, as a browser does, without depending on host resolution.
+const viaLoopback = (url, headers = {}) => new Promise((resolve) => {
+  const target = new URL(url);
+  const req = httpRequest({ host: "127.0.0.1", port: target.port, path: `${target.pathname}${target.search}`, method: "GET", headers: { host: target.host, ...headers } }, (res) => {
+    let body = "";
+    res.on("data", (chunk) => { body += chunk; });
+    res.on("end", () => resolve({ status: res.statusCode, body }));
+  });
+  req.on("error", () => resolve({ status: 0, body: "" }));
+  req.end();
+});
 
 async function jd(url, { method = "GET", headers = {}, body } = {}) {
   const r = await fetch(url, { method, headers: { "content-type": "application/json", ...headers }, body });
@@ -203,7 +216,7 @@ async function run() {
     const ownPreviewMint = await jd(`${D}/v1/hypervisor/environments/${env}/ports/${ownPreview.port}/expose`, { method: "POST", headers: ownerAuth, body: "{}" });
     const ownPreviewToken = ownPreviewMint.j?.accessToken;
     const ownPreviewReply = ownPreviewMint.j?.url && ownPreviewToken
-      ? await fetch(ownPreviewMint.j.url, { headers: { "x-ioi-lease": ownPreviewToken } }).then(async (response) => ({ status: response.status, body: await response.text() }))
+      ? await viaLoopback(ownPreviewMint.j.url, { "x-ioi-lease": ownPreviewToken })
       : { status: 0, body: "" };
     ok("M03.2 POSITIVE CONTROL — an exact lease reaches the environment's unique admitted TCP target, proving the negative is a target-ownership fence rather than a disabled preview plane",
       ownPreviewMint.j?.ok === true && !!ownPreviewToken
@@ -379,10 +392,10 @@ async function run() {
         ok("THE POSITIVE CONTROL — a matching `environment.editor.open` lease naming this service DOES expose it, so the refusals below are on the action/resource and not a blanket denial",
           goodExpose.j?.ok !== false && goodExpose.status !== 403, `status=${goodExpose.status} ok=${goodExpose.j?.ok}`);
 
-        const proxyPort = goodExpose.j?.public_proxy_port;
-        const tokenlessProxy = proxyPort ? await jd(`http://127.0.0.1:${proxyPort}/`) : { status: "no-proxy" };
-        const wrongTokenProxy = proxyPort ? await jd(`http://127.0.0.1:${proxyPort}/`, { headers: { "x-ioi-lease": "wrong" } }) : { status: "no-proxy" };
-        const exactTokenProxy = proxyPort && editAccess ? await jd(`http://127.0.0.1:${proxyPort}/`, { headers: { "x-ioi-lease": editAccess } }) : { status: "no-proxy" };
+        const openUrl = goodExpose.j?.open_url;
+        const tokenlessProxy = openUrl ? await viaLoopback(openUrl) : { status: "no-proxy" };
+        const wrongTokenProxy = openUrl ? await viaLoopback(openUrl, { "x-ioi-lease": "wrong" }) : { status: "no-proxy" };
+        const exactTokenProxy = openUrl && editAccess ? await viaLoopback(openUrl, { "x-ioi-lease": editAccess }) : { status: "no-proxy" };
         ok("the live editor proxy refuses absent and wrong tokens while the exact active token crosses the authority gate (then reaches the deliberately absent fixture runtime)",
           tokenlessProxy.status === 403 && wrongTokenProxy.status === 403 && exactTokenProxy.status === 502,
           `none=${tokenlessProxy.status} wrong=${wrongTokenProxy.status} exact=${exactTokenProxy.status}`);
@@ -403,7 +416,7 @@ async function run() {
           crossExpose.status === 403 && crossExpose.j?.ok === false, `status=${crossExpose.status} ok=${crossExpose.j?.ok}`);
 
         const revoked = await jd(`${D}/v1/hypervisor/editor-access-leases/${editTok}/revoke`, { method: "POST", headers: ownerAuth, body: "{}" });
-        const revokedTokenProxy = proxyPort && editAccess ? await jd(`http://127.0.0.1:${proxyPort}/`, { headers: { "x-ioi-lease": editAccess } }) : { status: "no-proxy" };
+        const revokedTokenProxy = openUrl && editAccess ? await viaLoopback(openUrl, { "x-ioi-lease": editAccess }) : { status: "no-proxy" };
         ok("the same live editor proxy refuses its exact token immediately after durable revocation",
           revoked.status === 200 && revoked.j?.ok === true && revokedTokenProxy.status === 403,
           `revoke=${revoked.status}/${revoked.j?.ok} proxy=${revokedTokenProxy.status}`);

@@ -628,11 +628,13 @@ pub(crate) async fn handle_editor_service_expose(
             ))
         }
     };
+    let proxy_host = proxy.host.clone();
     st.editor_proxies
         .lock()
         .unwrap()
         .insert(service_id.clone(), proxy);
     svc["public_proxy_port"] = json!(public_port);
+    svc["public_proxy_host"] = json!(proxy_host);
     svc["bound_lease_id"] = json!(lease_id);
     if save_service(&st.data_dir, &svc).is_err() {
         // The proxy is LIVE but no record knows it — sever it before erroring so open-url can
@@ -653,7 +655,7 @@ pub(crate) async fn handle_editor_service_expose(
         Json(json!({
             "ok": true, "service_id": service_id,
             "public_proxy_port": public_port,
-            "open_url": format!("http://127.0.0.1:{public_port}/"),
+            "open_url": format!("http://{proxy_host}:{public_port}/"),
             "auth_mode": "lease_header_or_exchanged_cookie", "lease_id": lease_id
         })),
     ))
@@ -800,6 +802,10 @@ pub(crate) async fn handle_editor_service_open_url(
     // Ready runtime, but the lease-bound PUBLIC url routes through the WS proxy (WS-4). Until the
     // proxy is bound we do NOT hand out the raw internal port as a durable URL — fail closed honestly.
     let port = svc.get("public_proxy_port").and_then(|v| v.as_u64());
+    let proxy_host = svc
+        .get("public_proxy_host")
+        .and_then(|v| v.as_str())
+        .unwrap_or("127.0.0.1");
     let Some(p) = port else {
         return Ok(Json(
             json!({ "ok": false, "reason": "websocket_proxy_not_ready", "detail": "editor runtime is ready on its internal port; the lease-bound public URL needs the WS proxy (WS-4)", "phase": "ready" }),
@@ -807,7 +813,7 @@ pub(crate) async fn handle_editor_service_open_url(
     };
     Ok(Json(json!({
         "ok": true, "service_id": service_id,
-        "open_url": format!("http://127.0.0.1:{p}/"),
+        "open_url": format!("http://{proxy_host}:{p}/"),
         "lease_ref": lease, "websocket_only": true,
         "note": "route through the browser-IDE shell URL; the raw WS-only target is not a plain preview",
     })))

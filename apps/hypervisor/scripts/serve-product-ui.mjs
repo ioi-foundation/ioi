@@ -8892,7 +8892,27 @@ async function signInGate(req, res, pathname) {
   return true;
 }
 
+// A state-changing request a browser sends from another origin is refused before any handler.
+// Every loopback port is the same SITE, so the session cookie's SameSite does not tell this shell's
+// own page from content served on another port (a preview or an editor); Sec-Fetch-Site and
+// Origin do. Requests without browser origin headers (server-side callers, the CLI) pass.
+function crossOriginWrite(req) {
+  if (["GET", "HEAD", "OPTIONS"].includes(String(req.method || "GET").toUpperCase())) return false;
+  const site = String(req.headers["sec-fetch-site"] || "");
+  if (site && site !== "same-origin" && site !== "none") return true;
+  const origin = req.headers.origin;
+  if (!origin) return false;
+  const authority = String(origin).replace(/^https?:\/\//u, "");
+  const own = [req.headers.host, req.headers["x-forwarded-host"]].filter(Boolean).map((h) => String(h).toLowerCase());
+  return authority === String(origin) || !own.includes(authority.toLowerCase());
+}
+
 async function handleEstateRequest(req, res, body) {
+    if (crossOriginWrite(req)) {
+      res.writeHead(403, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ ok: false, code: "cross_origin_request_refused", message: "a state-changing request from another origin is refused" }));
+      return;
+    }
     let pathname = (req.url || "").split("?")[0];
     // Wire bridge: the served SPA's RPC package name is baked into its (immutable) protobuf
     // descriptors, so on the wire it still calls the upstream namespace. Canonicalize any
