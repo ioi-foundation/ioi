@@ -1767,7 +1767,7 @@ pub(crate) async fn handle_env_port_expose(
     let (public_port, proxy) = match super::editor_proxy::bind_editor_proxy(
         &st.data_dir,
         &service_key,
-        target_port,
+        super::editor_proxy::ProxyUpstream::Tcp(target_port),
         &lease_id,
         None,
     )

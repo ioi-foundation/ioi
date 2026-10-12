@@ -566,12 +566,31 @@ pub(crate) async fn handle_editor_service_expose(
             ),
         ));
     }
-    let internal_port = match svc.get("internal_port").and_then(|v| v.as_u64()) {
-        Some(p) => p as u16,
-        None => {
+    // The proxy's upstream: a live runtime's unix socket and connection token (BUILD-DELTA
+    // #31(c)); a service record that names an internal port without a live runtime (one this daemon
+    // did not start: an older record, or a test's stand-in) is reached on that loopback port.
+    let live = st
+        .editor_runtimes
+        .lock()
+        .unwrap()
+        .get(&service_id)
+        .map(|runtime| {
+            (
+                runtime.socket_path.clone(),
+                runtime.connection_token.clone(),
+            )
+        });
+    let (upstream, upstream_token) = match (live, svc.get("internal_port").and_then(|v| v.as_u64()))
+    {
+        (Some((socket_path, token)), _) => (
+            super::editor_proxy::ProxyUpstream::Unix(socket_path),
+            Some(token),
+        ),
+        (None, Some(port)) => (super::editor_proxy::ProxyUpstream::Tcp(port as u16), None),
+        (None, None) => {
             return Ok((
                 StatusCode::OK,
-                Json(json!({ "ok": false, "reason": "no internal runtime port" })),
+                Json(json!({ "ok": false, "reason": "no live editor runtime" })),
             ))
         }
     };
@@ -612,17 +631,10 @@ pub(crate) async fn handle_editor_service_expose(
         let mut proxies = st.editor_proxies.lock().unwrap();
         super::editor_proxy::stop_editor_proxy(&mut proxies, &service_id);
     }
-    // The runtime's connection token, which only this proxy presents (BUILD-DELTA #31(c)).
-    let upstream_token = st
-        .editor_runtimes
-        .lock()
-        .unwrap()
-        .get(&service_id)
-        .map(|runtime| runtime.connection_token.clone());
     let (public_port, proxy) = match super::editor_proxy::bind_editor_proxy(
         &st.data_dir,
         &service_id,
-        internal_port,
+        upstream,
         &lease_id,
         upstream_token,
     )

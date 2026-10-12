@@ -6,18 +6,23 @@
 //! reproducible OSS runtime is installed, `oss_runtime_present()` is fail-closed so the editor
 //! service start fails CLOSED with `editor_runtime_not_provisioned` (honest — never a fake ready).
 //!
-//! `start_oss_runtime` launches openvscode-server bound to the env workspace on a private internal
-//! port (the public/proxy port is WS-4), injects the Session Execution Binding refs (WS-6a), and
-//! waits for real `/version` readiness before reporting the service ready. The upstream stripped
-//! reference binary is reference-only and is never vendored.
+//! `start_oss_runtime` launches openvscode-server bound to the env workspace on a private UNIX
+//! SOCKET (the public, lease-authenticated proxy is WS-4), injects the Session Execution Binding
+//! refs (WS-6a), and waits for real `/version` readiness before reporting the service ready. The
+//! upstream stripped reference binary is reference-only and is never vendored.
 //!
-//! CONNECTION TOKEN (BUILD-DELTA #31(c)). The runtime REQUIRES a connection token: a random secret
-//! (32 bytes, OS RNG) per runtime, handed to it in a private file (mode 0600, removed once the
-//! runtime is ready, never on its command line) and kept only in the daemon's memory
-//! (`EditorRuntime::connection_token`). Only the editor proxy presents it, as the runtime's
-//! `vscode-tkn` cookie on every request it forwards; the browser never sees it.
+//! BUILD-DELTA #31(c). The runtime listens only on `--socket-path`, a socket in a per-launch 0700
+//! directory under the data dir, so no browser can reach it except through the editor proxy, which
+//! requires the editor lease. It also REQUIRES a connection token (defence in depth): a random
+//! secret (32 bytes, OS RNG) per launch, handed over in a per-launch file (mode 0600, created new,
+//! removed once the runtime is ready or the start fails, never on the command line) and kept in the
+//! daemon's memory (`EditorRuntime::connection_token`). The proxy adds it as the runtime's
+//! `vscode-tkn` cookie when a request carries none; the workbench the runtime serves gives the
+//! browser that cookie for its in-band WebSocket auth. The runtime's output is copied to the
+//! service log with the token's exact bytes redacted. Starts of one service are serialized, and a
+//! daemon boot removes token files and sockets a crashed start left behind.
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -28,8 +33,11 @@ use super::DaemonState;
 /// A live openvscode-server process backing one editor access service.
 pub(crate) struct EditorRuntime {
     pub(crate) child: std::process::Child,
-    pub(crate) internal_port: u16,
-    /// The runtime's connection token; only the editor proxy presents it.
+    /// The unix socket the runtime listens on (the editor proxy's upstream).
+    pub(crate) socket_path: PathBuf,
+    /// The per-launch directory holding the socket, removed when the runtime stops.
+    pub(crate) socket_dir: PathBuf,
+    /// The runtime's connection token; the editor proxy adds it when a request carries none.
     pub(crate) connection_token: String,
     pub(crate) log_path: String,
     pub(crate) started_at: String,
@@ -64,22 +72,57 @@ pub(crate) fn oss_runtime_present() -> bool {
             .unwrap_or(false)
 }
 
-/// A free localhost TCP port (bind :0, read the assigned port, drop the listener).
-fn free_port() -> Option<u16> {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .ok()
-        .and_then(|l| l.local_addr().ok())
-        .map(|a| a.port())
+/// The exact bytes of `secret` in `line` replaced (the runtime's output may print its token, e.g. the
+/// startup line `Web UI available at http://localhost:<port>?tkn=<token>`).
+pub(crate) fn redact_secret(line: &str, secret: &str) -> String {
+    if secret.is_empty() {
+        return line.to_string();
+    }
+    line.replace(secret, "[redacted]")
 }
 
-/// Minimal HTTP GET /version against the internal port (no extra deps), presenting the runtime's
-/// connection token. Returns the body if 2xx.
-fn http_get_version(port: u16, connection_token: &str) -> Option<String> {
-    let mut stream = TcpStream::connect_timeout(
-        &format!("127.0.0.1:{port}").parse().ok()?,
-        Duration::from_millis(400),
-    )
-    .ok()?;
+/// Copy a runtime output stream into the service log line by line, with `secret` redacted.
+fn copy_redacted<R: Read + Send + 'static>(source: R, log_path: String, secret: String) {
+    std::thread::spawn(move || {
+        use std::io::BufRead;
+        let mut reader = std::io::BufReader::new(source);
+        let Ok(mut log) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+        else {
+            return;
+        };
+        let mut line = Vec::new();
+        while reader
+            .read_until(b'\n', &mut line)
+            .is_ok_and(|read| read > 0)
+        {
+            let text = redact_secret(&String::from_utf8_lossy(&line), &secret);
+            let _ = log.write_all(text.as_bytes());
+            line.clear();
+        }
+    });
+}
+
+/// One start at a time per editor service.
+fn start_gate(service_id: &str) -> std::sync::Arc<tokio::sync::Mutex<()>> {
+    static GATES: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>>,
+    > = std::sync::OnceLock::new();
+    GATES
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap()
+        .entry(service_id.to_string())
+        .or_default()
+        .clone()
+}
+
+/// Minimal HTTP GET /version over the runtime's unix socket (no extra deps), presenting the
+/// runtime's connection token. Returns the body if 2xx.
+fn http_get_version(socket_path: &Path, connection_token: &str) -> Option<String> {
+    let mut stream = UnixStream::connect(socket_path).ok()?;
     stream
         .set_read_timeout(Some(Duration::from_millis(600)))
         .ok()?;
@@ -88,7 +131,7 @@ fn http_get_version(port: u16, connection_token: &str) -> Option<String> {
         .ok()?;
     stream
         .write_all(
-            format!("GET /version HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nCookie: vscode-tkn={connection_token}\r\nConnection: close\r\n\r\n")
+            format!("GET /version HTTP/1.1\r\nHost: localhost\r\nCookie: vscode-tkn={connection_token}\r\nConnection: close\r\n\r\n")
                 .as_bytes(),
         )
         .ok()?;
@@ -201,13 +244,33 @@ fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
     v["status"]["workspace_root"].as_str().map(str::to_string)
 }
 
-/// Launch the OSS runtime for a service, inject binding refs (WS-6a), and wait for /version. The
-/// public/proxy port is added by WS-4; here we expose only the internal port + ready phase.
+/// Remove a per-launch token file and socket directory (best effort; a daemon boot removes any
+/// left behind). Returns a description of what could not be removed, if anything.
+fn remove_launch_files(token_path: &Path, socket_dir: &Path) -> Option<String> {
+    let mut left = Vec::new();
+    if let Err(error) = std::fs::remove_file(token_path) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            left.push(format!("token file ({error})"));
+        }
+    }
+    if let Err(error) = std::fs::remove_dir_all(socket_dir) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            left.push(format!("socket directory ({error})"));
+        }
+    }
+    (!left.is_empty()).then(|| left.join(", "))
+}
+
+/// Launch the OSS runtime for a service on a private unix socket, inject binding refs (WS-6a), and
+/// wait for /version. The public, lease-authenticated proxy is added by WS-4. Starts of one service
+/// are serialized: a concurrent start waits, then finds the runtime running.
 pub(crate) async fn start_oss_runtime(
     st: &DaemonState,
     service_id: &str,
     svc: &Value,
 ) -> Result<Value, String> {
+    let gate = start_gate(service_id);
+    let _one_start = gate.lock().await;
     // already running? return the live view.
     if st.editor_runtimes.lock().unwrap().contains_key(service_id) {
         let mut s = svc.clone();
@@ -224,21 +287,12 @@ pub(crate) async fn start_oss_runtime(
     // WS-6b — install the REQUIRED Hypervisor adapter FIRST; a required-extension failure blocks
     // readiness (no editor without its adapter).
     let (extensions_dir, installed_exts) = install_required_extensions(&st.data_dir, service_id)?;
-    let port = free_port().ok_or("could not allocate an internal port")?;
     let log_dir = Path::new(&st.data_dir).join("editor-services");
     let _ = std::fs::create_dir_all(&log_dir);
     let log_path = log_dir
         .join(format!("{service_id}.log"))
         .to_string_lossy()
         .to_string();
-    let log_file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-        .map_err(|e| format!("open log: {e}"))?;
-    let log_err = log_file
-        .try_clone()
-        .map_err(|e| format!("clone log: {e}"))?;
 
     // Session Execution Binding refs (WS-6a) — the extension host inherits these from the server.
     let session_ref = svc
@@ -252,34 +306,48 @@ pub(crate) async fn start_oss_runtime(
         .unwrap_or("")
         .to_string();
 
-    // The runtime's connection token, handed over in a private file (never on the command line).
-    let connection_token = {
+    // Per-launch names: the token handoff file and the socket directory are never shared with
+    // another launch.
+    let (connection_token, launch) = {
         use rand::RngCore;
         let mut secret = [0u8; 32];
         rand::rngs::OsRng.fill_bytes(&mut secret);
-        hex::encode(secret)
+        let mut nonce = [0u8; 8];
+        rand::rngs::OsRng.fill_bytes(&mut nonce);
+        (hex::encode(secret), hex::encode(nonce))
     };
-    let token_path = log_dir.join(format!("{service_id}.connection-token"));
+    let token_path = log_dir.join(format!("{service_id}.{launch}.connection-token"));
+    let socket_dir = Path::new(&st.data_dir).join("editor-sockets").join(&launch);
+    let socket_path = socket_dir.join("s");
+    if socket_path.as_os_str().len() > 100 {
+        return Err(format!(
+            "the runtime socket path is too long for a unix socket ({} bytes); use a shorter data dir",
+            socket_path.as_os_str().len()
+        ));
+    }
     {
-        use std::os::unix::fs::OpenOptionsExt;
-        let _ = std::fs::remove_file(&token_path);
-        let mut token_file = std::fs::OpenOptions::new()
+        use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&socket_dir)
+            .map_err(|e| format!("create the runtime socket directory: {e}"))?;
+        let written = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .mode(0o600)
             .open(&token_path)
-            .map_err(|e| format!("write the runtime connection token: {e}"))?;
-        token_file
-            .write_all(connection_token.as_bytes())
-            .map_err(|e| format!("write the runtime connection token: {e}"))?;
+            .and_then(|mut token_file| token_file.write_all(connection_token.as_bytes()));
+        if let Err(e) = written {
+            let _ = remove_launch_files(&token_path, &socket_dir);
+            return Err(format!("write the runtime connection token: {e}"));
+        }
     }
     let mut cmd = std::process::Command::new(oss_server_bin());
     cmd.arg("--connection-token-file")
         .arg(&token_path)
-        .arg("--host")
-        .arg("127.0.0.1")
-        .arg("--port")
-        .arg(port.to_string())
+        .arg("--socket-path")
+        .arg(&socket_path)
         .arg("--default-folder")
         .arg(&workspace_root)
         .arg("--extensions-dir")
@@ -296,10 +364,10 @@ pub(crate) async fn start_oss_runtime(
             format!("environment_service:editor_{service_id}"),
         )
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::from(log_file))
-        .stderr(std::process::Stdio::from(log_err));
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
     // New process group (setsid): the launcher shell forks `node` without exec, so we must kill the
-    // whole group on stop, not just the shell — otherwise the server child is orphaned + keeps the port.
+    // whole group on stop, not just the shell — otherwise the server child is orphaned.
     use std::os::unix::process::CommandExt;
     unsafe {
         cmd.pre_exec(|| {
@@ -309,34 +377,48 @@ pub(crate) async fn start_oss_runtime(
             Ok(())
         });
     }
-    let child = match cmd.spawn() {
+    let mut child = match cmd.spawn() {
         Ok(child) => child,
         Err(e) => {
-            let _ = std::fs::remove_file(&token_path);
+            let _ = remove_launch_files(&token_path, &socket_dir);
             return Err(format!("spawn openvscode-server: {e}"));
         }
     };
+    // The runtime's output reaches the service log with the token's exact bytes redacted.
+    if let Some(stdout) = child.stdout.take() {
+        copy_redacted(stdout, log_path.clone(), connection_token.clone());
+    }
+    if let Some(stderr) = child.stderr.take() {
+        copy_redacted(stderr, log_path.clone(), connection_token.clone());
+    }
 
     // Wait for real /version readiness (non-blocking: async sleeps between quick probes).
     let started_at = super::iso_now();
     let mut version: Option<String> = None;
     for _ in 0..80 {
-        if let Some(v) = http_get_version(port, &connection_token) {
+        if let Some(v) = http_get_version(&socket_path, &connection_token) {
             version = Some(v);
             break;
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
     // The runtime read its token at start; the file is not kept.
-    let _ = std::fs::remove_file(&token_path);
+    if let Err(error) = std::fs::remove_file(&token_path) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            copy_redacted(
+                std::io::Cursor::new(format!(
+                    "hypervisor: the runtime token handoff file could not be removed ({error}); the next daemon boot removes it\n"
+                )),
+                log_path.clone(),
+                connection_token.clone(),
+            );
+        }
+    }
     let Some(version) = version else {
         // CONTAINMENT (cleanup availability): the launcher shell forks the server WITHOUT exec,
-        // so killing only the shell orphaned the child, which kept holding the port. On this path
-        // the runtime was never registered in `st.editor_runtimes`, so `stop_oss_runtime` could
-        // not reach it either — a resource created that nothing could destroy. Kill the whole
-        // process GROUP here, exactly as `stop_oss_runtime` already does on the happy path, and
-        // report whether the group is provably gone rather than assuming it.
-        let mut child = child;
+        // so killing only the shell orphaned the child. On this path the runtime was never
+        // registered in `st.editor_runtimes`, so `stop_oss_runtime` could not reach it either.
+        // Kill the whole process GROUP here and report whether the group is provably gone.
         let pid = child.id() as libc::pid_t;
         // SAFETY: a negative pid signals the process group the launcher created with setsid.
         unsafe {
@@ -348,10 +430,13 @@ pub(crate) async fn start_oss_runtime(
         let cleanup = if group_gone {
             "process group reaped"
         } else {
-            "process group MAY still hold the port — cleanup unverified"
+            "process group MAY still be running — cleanup unverified"
         };
+        let left = remove_launch_files(&token_path, &socket_dir)
+            .map(|left| format!("; could not remove the {left}"))
+            .unwrap_or_default();
         return Err(format!(
-            "openvscode-server did not report /version on 127.0.0.1:{port} within timeout ({cleanup}; see {log_path})"
+            "openvscode-server did not report /version on its socket within timeout ({cleanup}{left}; see {log_path})"
         ));
     };
 
@@ -359,7 +444,8 @@ pub(crate) async fn start_oss_runtime(
         service_id.to_string(),
         EditorRuntime {
             child,
-            internal_port: port,
+            socket_path,
+            socket_dir,
             connection_token,
             log_path: log_path.clone(),
             started_at: started_at.clone(),
@@ -369,17 +455,19 @@ pub(crate) async fn start_oss_runtime(
 
     let mut updated = svc.clone();
     updated["phase"] = json!("ready");
-    updated["internal_port"] = json!(port);
+    updated["internal_port"] = Value::Null;
+    updated["upstream"] = json!("unix_socket");
     updated["runtime_version"] = json!(version);
     updated["installed_extensions"] = json!(installed_exts);
     updated["required_extension"] = json!("ioi.hypervisor-vscode-extension");
-    updated["readiness"] = json!({ "mode": "full", "reason": "openvscode-server /version ready + required adapter installed", "internal_port": port, "installed_extensions": installed_exts });
+    updated["readiness"] = json!({ "mode": "full", "reason": "openvscode-server /version ready on its unix socket + required adapter installed", "upstream": "unix_socket", "installed_extensions": installed_exts });
     updated["started_at"] = json!(started_at);
     Ok(updated)
 }
 
 /// Stop the OSS runtime for a service (idempotent). Kills the whole process GROUP (the launcher
-/// shell + the forked node server + workers), since the shell forks node without exec.
+/// shell + the forked node server + workers), since the shell forks node without exec, and removes
+/// its socket directory.
 pub(crate) fn stop_oss_runtime(st: &DaemonState, service_id: &str) {
     if let Some(mut rt) = st.editor_runtimes.lock().unwrap().remove(service_id) {
         let pid = rt.child.id() as i32;
@@ -389,6 +477,7 @@ pub(crate) fn stop_oss_runtime(st: &DaemonState, service_id: &str) {
         }
         let _ = rt.child.kill();
         let _ = rt.child.wait();
+        let _ = std::fs::remove_dir_all(&rt.socket_dir);
     }
 }
 
@@ -416,9 +505,19 @@ pub(crate) fn read_runtime_log(data_dir: &str, service_id: &str) -> Value {
 /// the count reconciled. Called once at startup.
 pub(crate) fn reconcile_editor_services(data_dir: &str) -> usize {
     let dir = Path::new(data_dir).join("editor-services");
+    // No runtime survives a daemon restart, so every runtime socket and token handoff file a start
+    // left behind (a crash between handoff and cleanup) is stale: remove them.
+    let _ = std::fs::remove_dir_all(Path::new(data_dir).join("editor-sockets"));
     let mut reconciled = 0;
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for e in entries.flatten() {
+            if e.file_name()
+                .to_string_lossy()
+                .ends_with(".connection-token")
+            {
+                let _ = std::fs::remove_file(e.path());
+                continue;
+            }
             if e.path().extension().and_then(|x| x.to_str()) != Some("json") {
                 continue;
             }
@@ -442,4 +541,21 @@ pub(crate) fn reconcile_editor_services(data_dir: &str) -> usize {
         }
     }
     reconciled
+}
+
+#[cfg(test)]
+mod runtime_output_redaction_tests {
+    /// The pinned server's startup line (printed on a TCP port) carries the token in its URL; the
+    /// exact token bytes never reach the service log.
+    #[test]
+    fn the_startup_line_reaches_the_log_with_its_token_redacted() {
+        let token = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90";
+        let line = format!("Web UI available at http://localhost:3000?tkn={token}\n");
+        let logged = super::redact_secret(&line, token);
+        assert_eq!(
+            logged,
+            "Web UI available at http://localhost:3000?tkn=[redacted]\n"
+        );
+        assert!(!logged.contains(token));
+    }
 }
