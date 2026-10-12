@@ -321,13 +321,59 @@ fn upstream() -> Upstream {
                     let head = String::from_utf8_lossy(&pending[..head_end]).to_string();
                     pending.drain(..head_end);
                     let lower = head.to_ascii_lowercase();
+                    let path = lower
+                        .split_whitespace()
+                        .nth(1)
+                        .unwrap_or_default()
+                        .to_string();
+                    if lower.contains("\r\nupgrade: websocket") && path.starts_with("/ws-") {
+                        // A WebSocket service for /ws-* paths: it switches with the RFC 6455
+                        // example accept (/ws-bad-accept: a wrong one; /ws-early-hints: a 103
+                        // first), then records every byte the client sends until it closes.
+                        record.lock().unwrap().push(head);
+                        if path.starts_with("/ws-early-hints") {
+                            let _ = stream.write_all(
+                                b"HTTP/1.1 103 Early Hints\r\nLink: </style.css>; rel=preload\r\n\r\n",
+                            );
+                        }
+                        let accept = if path.starts_with("/ws-bad-accept") {
+                            "AAAAAAAAAAAAAAAAAAAAAAAAAAA="
+                        } else {
+                            "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+                        };
+                        let _ = stream.write_all(
+                            format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n").as_bytes(),
+                        );
+                        let mut after = std::mem::take(&mut pending);
+                        loop {
+                            match stream.read(&mut chunk) {
+                                Ok(0) | Err(_) => break,
+                                Ok(n) => after.extend_from_slice(&chunk[..n]),
+                            }
+                        }
+                        record_bodies.lock().unwrap().push(after);
+                        return;
+                    }
                     if lower.contains("\r\nexpect: 100-continue") {
                         let _ = stream.write_all(b"HTTP/1.1 100 Continue\r\n\r\n");
                     }
                     let body_len = if lower.contains("\r\ntransfer-encoding: chunked") {
+                        // Through the last chunk ("0\r\n") and its trailer section's empty line.
                         loop {
-                            if let Some(at) = pending.windows(5).position(|w| w == b"0\r\n\r\n") {
-                                break at + 5;
+                            let last = pending
+                                .windows(4)
+                                .position(|w| w == b"\n0\r\n")
+                                .map(|at| at + 4)
+                                .or_else(|| pending.starts_with(b"0\r\n").then_some(3));
+                            if let Some(after) = last {
+                                if pending[after..].starts_with(b"\r\n") {
+                                    break after + 2;
+                                }
+                                if let Some(end) =
+                                    pending[after..].windows(4).position(|w| w == b"\r\n\r\n")
+                                {
+                                    break after + end + 4;
+                                }
                             }
                             match stream.read(&mut chunk) {
                                 Ok(0) | Err(_) => return,
@@ -1625,6 +1671,256 @@ fn the_upstream_never_sees_the_referer_or_origin() {
         assert!(
             !head.contains(ui_site),
             "the UI's site never reaches the upstream: {head}"
+        );
+    }
+}
+
+/// The RFC 6455 example key; the stand-in upstream answers its accept value.
+const WS_KEY: &str = "dGhlIHNhbXBsZSBub25jZQ==";
+
+/// A WebSocket handshake to `path` on a proxy, with `extra` header lines, padded with an `X-Pad`
+/// header to exactly `pad_to` bytes when given.
+fn ws_handshake(
+    addr: &ProxyAddr,
+    path: &str,
+    token: &str,
+    extra: &str,
+    pad_to: Option<usize>,
+) -> String {
+    let head = format!(
+        "GET {path} HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\n{extra}Sec-WebSocket-Key: {WS_KEY}\r\nSec-WebSocket-Version: 13\r\nx-ioi-lease: {token}\r\n",
+        addr.authority()
+    );
+    match pad_to {
+        Some(total) => {
+            let fixed = head.len() + "X-Pad: \r\n\r\n".len();
+            assert!(total > fixed, "room for the pad");
+            format!("{head}X-Pad: {}\r\n\r\n", "a".repeat(total - fixed))
+        }
+        None => format!("{head}\r\n"),
+    }
+}
+
+/// Read from `stream` until `done` holds for what was read, or 10 seconds pass.
+fn read_until(stream: &mut TcpStream, done: impl Fn(&str) -> bool) -> String {
+    stream
+        .set_read_timeout(Some(Duration::from_millis(500)))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut got = Vec::new();
+    let mut chunk = [0u8; 4096];
+    while Instant::now() < deadline && !done(&String::from_utf8_lossy(&got)) {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(n) => got.extend_from_slice(&chunk[..n]),
+            Err(_) => continue,
+        }
+    }
+    String::from_utf8_lossy(&got).to_string()
+}
+
+/// The bytes the stand-in recorded after switching for the handshake whose path is `path`, once
+/// the connection closed (waits up to 15 seconds).
+fn bytes_after_switch(f: &Fixture, path: &str) -> Vec<u8> {
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        let seen = f.upstream.seen.lock().unwrap().clone();
+        let bodies = f.upstream.bodies.lock().unwrap().clone();
+        if let Some(index) = seen
+            .iter()
+            .position(|head| head.starts_with(&format!("GET {path} ")))
+        {
+            if let Some(body) = bodies.get(index) {
+                return body.clone();
+            }
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the upstream recorded the switched connection for {path}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// After the upstream's 101, only valid client WebSocket frames reach it: a request appended to a
+/// handshake padded to exactly 1,024 bytes (a read boundary) never does, and the connection closes;
+/// a valid masked frame passes intact.
+#[test]
+fn a_switched_websocket_forwards_only_valid_client_frames() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let token = preview.token.as_str();
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    let appended = format!(
+        "GET /after-the-handshake?lease={token} HTTP/1.1\r\nHost: {}\r\nx-ioi-lease: {token}\r\nConnection: close\r\n\r\n",
+        addr.authority()
+    );
+    let handshake = ws_handshake(
+        &addr,
+        "/ws-switch-padded",
+        token,
+        "Connection: Upgrade\r\n",
+        Some(1024),
+    );
+    assert_eq!(
+        handshake.len(),
+        1024,
+        "the handshake is exactly 1,024 bytes"
+    );
+    stream
+        .write_all(format!("{handshake}{appended}").as_bytes())
+        .unwrap();
+    let answer = read_until(&mut stream, |got| got.contains("\r\n\r\n"));
+    assert!(
+        answer.starts_with("HTTP/1.1 101"),
+        "the upstream switched: {answer}"
+    );
+    let _ = read_until(&mut stream, |_| false);
+    drop(stream);
+    let after = String::from_utf8_lossy(&bytes_after_switch(&f, "/ws-switch-padded")).to_string();
+    assert!(
+        !after.contains("after-the-handshake") && !after.contains(token),
+        "a request after the handshake never reaches the upstream: {after:?}"
+    );
+
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    stream
+        .write_all(
+            ws_handshake(
+                &addr,
+                "/ws-switch-frame",
+                token,
+                "Connection: Upgrade\r\n",
+                None,
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+    let answer = read_until(&mut stream, |got| got.contains("\r\n\r\n"));
+    assert!(answer.starts_with("HTTP/1.1 101"), "switched: {answer}");
+    let mask = [0x37u8, 0xfa, 0x21, 0x3d];
+    let mut frame = vec![0x81u8, 0x80 | 5];
+    frame.extend_from_slice(&mask);
+    frame.extend(b"hello".iter().enumerate().map(|(i, b)| b ^ mask[i % 4]));
+    stream.write_all(&frame).unwrap();
+    let _ = stream.shutdown(std::net::Shutdown::Write);
+    let _ = read_until(&mut stream, |_| false);
+    assert_eq!(
+        bytes_after_switch(&f, "/ws-switch-frame"),
+        frame,
+        "a valid masked client frame reaches the upstream intact"
+    );
+}
+
+/// A 101 without the Sec-WebSocket-Accept the key requires does not switch the connection.
+#[test]
+fn a_101_without_the_matching_accept_is_refused() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    stream
+        .write_all(
+            ws_handshake(
+                &addr,
+                "/ws-bad-accept",
+                &preview.token,
+                "Connection: Upgrade\r\n",
+                None,
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+    let answer = read_until(&mut stream, |got| got.contains("\r\n\r\n"));
+    assert!(
+        !answer.starts_with("HTTP/1.1 101"),
+        "a 101 with the wrong accept is not relayed as a switch: {answer}"
+    );
+}
+
+/// `Connection: keep-alive` followed by a second `Connection: Upgrade` is one combined list that
+/// includes upgrade: the handshake still switches.
+#[test]
+fn a_combined_connection_list_still_upgrades() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    stream
+        .write_all(
+            ws_handshake(
+                &addr,
+                "/ws-switch-combined",
+                &preview.token,
+                "Connection: keep-alive\r\nConnection: Upgrade\r\n",
+                None,
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+    let answer = read_until(&mut stream, |got| got.contains("\r\n\r\n"));
+    assert!(
+        answer.starts_with("HTTP/1.1 101"),
+        "the combined list upgrades: {answer}"
+    );
+}
+
+/// An informational answer (103 Early Hints) before the upstream's 101 does not end the upgrade.
+#[test]
+fn an_early_hints_answer_does_not_end_the_upgrade() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    stream
+        .write_all(
+            ws_handshake(
+                &addr,
+                "/ws-early-hints",
+                &preview.token,
+                "Connection: Upgrade\r\n",
+                None,
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+    let answer = read_until(&mut stream, |got| got.contains("HTTP/1.1 101"));
+    assert!(
+        answer.contains("HTTP/1.1 101"),
+        "the 101 follows the 103: {answer}"
+    );
+}
+
+/// The trailer section of a chunked body carries no lease credential, daemon cookie, Referer or
+/// Origin upstream.
+#[test]
+fn chunked_trailers_carry_no_credential_upstream() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let token = preview.token.as_str();
+    let before = f.upstream.bodies.lock().unwrap().len();
+    let answer = send_and_drain(
+        &addr,
+        &format!(
+            "POST /upload HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\nx-ioi-lease: {token}\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nwiki\r\n0\r\nx-ioi-lease: {token}\r\nCookie: ioi_session={owner}\r\nReferer: http://h-0123456789abcdef.localhost:4173/\r\nOrigin: http://h-0123456789abcdef.localhost:4173\r\n\r\n",
+            authority = addr.authority(),
+            owner = f.owner
+        ),
+    );
+    assert!(
+        answer.starts_with("HTTP/1.1 200"),
+        "the request is answered: {answer}"
+    );
+    let bodies = f.upstream.bodies.lock().unwrap()[before..].to_vec();
+    assert_eq!(bodies.len(), 1, "one body reached the upstream");
+    let body = String::from_utf8_lossy(&bodies[0]).to_string();
+    assert!(body.contains("wiki"), "the body arrived: {body:?}");
+    for leaked in [token, f.owner.as_str(), "h-0123456789abcdef"] {
+        assert!(
+            !body.contains(leaked),
+            "no credential or site name in the trailers upstream: {body:?}"
         );
     }
 }

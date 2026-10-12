@@ -284,3 +284,50 @@ test("a cross-site GET changes nothing: each state-changing shell route acts onl
     daemon.close();
   }
 });
+
+test("the supervisor's terminal writes take only a POST", async () => {
+  const calls = [];
+  const daemon = http.createServer((req, res) => {
+    calls.push(`${req.method} ${req.url}`);
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(req.url.startsWith("/v1/hypervisor/ops-lease") ? JSON.stringify({ active: true, environment_id: "env-1" }) : JSON.stringify({ terminal_id: "term-1" }));
+    });
+  });
+  await new Promise((resolve) => daemon.listen(0, "127.0.0.1", resolve));
+  const [port, productPort] = await Promise.all([freePort(), freePort()]);
+  const child = spawn(process.execPath, [path.join(here, "serve-product-ui.mjs")], {
+    cwd: root,
+    env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(productPort), IOI_HYPERVISOR_DAEMON_URL: `http://127.0.0.1:${daemon.address().port}` },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk; });
+  child.stderr.on("data", (chunk) => { output += chunk; });
+  const shell = `http://127.0.0.1:${port}`;
+  const writes = () => calls.filter((call) => !call.startsWith("GET "));
+  try {
+    await waitFor(`${shell}/__ioi/product-ui-identity`, child);
+    for (const method of ["CreateTerminal", "CloseTerminal"]) {
+      calls.length = 0;
+      const response = await fetch(`${shell}/supervisor/env-1/supervisor.v1.EnvironmentOpsService/${method}`, { headers: { authorization: "Bearer ioi_lease_ops_stub" } });
+      const body = await response.text();
+      assert.equal(response.status, 405, `a GET ${method} is refused (${body})`);
+      assert.deepEqual(writes(), [], `a GET ${method} reaches no daemon write`);
+    }
+    calls.length = 0;
+    const created = await fetch(`${shell}/supervisor/env-1/supervisor.v1.EnvironmentOpsService/CreateTerminal`, {
+      method: "POST",
+      headers: { authorization: "Bearer ioi_lease_ops_stub", "content-type": "application/json" },
+      body: "{}",
+    });
+    await created.text();
+    assert.ok(calls.includes("POST /v1/hypervisor/terminals"), `a POST creates the terminal (${calls.join(", ")})`);
+  } catch (error) {
+    throw new Error(`${error.message}\nproduct shell output:\n${output.slice(-8_000)}`);
+  } finally {
+    await stop(child);
+    daemon.close();
+  }
+});
