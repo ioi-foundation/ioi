@@ -445,13 +445,23 @@ pub(crate) async fn handle_editor_service_start(
     AxumPath(service_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
-    let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
+    let Some(svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
         return Ok((
             StatusCode::OK,
             Json(json!({ "ok": false, "reason": "editor service not found" })),
         ));
     };
     authorize_editor_service_owner(&st.data_dir, &headers, &svc)?;
+    // Starts of one service are serialized from reading its record through persisting the result:
+    // a start that waited reads the record the previous start committed.
+    let gate = super::editor_host::start_gate(&service_id);
+    let _one_start = gate.lock().await;
+    let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
+        return Ok((
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "editor service not found" })),
+        ));
+    };
     // inject binding refs (WS-6a) the editor host will surface in context envelopes.
     if let Some(sr) = body.get("session_ref").and_then(|v| v.as_str()) {
         svc["session_ref"] = json!(sr);
@@ -566,15 +576,33 @@ pub(crate) async fn handle_editor_service_expose(
             ),
         ));
     }
-    let internal_port = match svc.get("internal_port").and_then(|v| v.as_u64()) {
-        Some(p) => p as u16,
-        None => {
-            return Ok((
-                StatusCode::OK,
-                Json(json!({ "ok": false, "reason": "no internal runtime port" })),
-            ))
-        }
+    // The proxy's upstream is ONLY a live runtime this daemon started: its unix socket and its
+    // connection token (BUILD-DELTA #31(c)). A record that names an internal TCP port without such
+    // a runtime is never proxied: a real editor runtime is never reached over TCP.
+    let live = st
+        .editor_runtimes
+        .lock()
+        .unwrap()
+        .get(&service_id)
+        .map(|runtime| {
+            (
+                runtime.socket_path.clone(),
+                runtime.connection_token.clone(),
+            )
+        });
+    let Some((socket_path, connection_token)) = live else {
+        return Ok((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.editor_runtime_not_live",
+                "reason": "the editor service has no live runtime of this daemon; start it again (its runtime listens on a private socket)",
+                "public_proxy_port": Value::Null
+            })),
+        ));
     };
+    let upstream = super::editor_proxy::ProxyUpstream::Unix(socket_path);
+    let upstream_token = Some(connection_token);
     let lease_id = s(&body, "lease_id", "");
     if capability_lease_status(&st.data_dir, &lease_id) != "active" {
         return Ok((
@@ -615,8 +643,9 @@ pub(crate) async fn handle_editor_service_expose(
     let (public_port, proxy) = match super::editor_proxy::bind_editor_proxy(
         &st.data_dir,
         &service_id,
-        internal_port,
+        upstream,
         &lease_id,
+        upstream_token,
     )
     .await
     {

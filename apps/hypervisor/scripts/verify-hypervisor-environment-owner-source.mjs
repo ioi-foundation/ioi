@@ -384,9 +384,9 @@ check("M032_PORT_TARGET_FENCE",
       'Err("environment_port_target_owned_by_another_environment")',
       "environment_port_record_target(port_record)",
     ])
-    && portExpose.includes("target_port,") && !portExpose.includes("port as u16,")
+    && portExpose.includes("ProxyUpstream::Tcp(target_port),") && !portExpose.includes("port as u16")
     && hasAll(src.live, ["M03.2 CROSS-CONSUMER NEGATIVE", "M03.2 POSITIVE CONTROL"]),
-  `fence_index=${portFenceAt} lease_index=${portLeaseAt} target_is_server_derived=${portExpose.includes("target_port,")}`);
+  `fence_index=${portFenceAt} lease_index=${portLeaseAt} target_is_server_derived=${portExpose.includes("ProxyUpstream::Tcp(target_port),")}`);
 
 check("V4_SEVEN_HANDLES",
   get.includes("authorize_environment_owner_identity")

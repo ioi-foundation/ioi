@@ -32,11 +32,17 @@
 //! line included, closes the connection. Any other final answer is relayed as plain HTTP and the
 //! connection closes. Bytes a client sends with a handshake, before the upstream's answer, are
 //! refused. A chunked body's trailer section loses the same fields as the headers.
+//!
+//! UPSTREAM (BUILD-DELTA #31(c)). An editor proxy reaches its runtime over the runtime's unix
+//! socket (a port preview over its loopback port). It holds the runtime's connection token and adds
+//! it as the `vscode-tkn` cookie to a request that carries none; the workbench the runtime serves
+//! gives the browser that cookie for its in-band WebSocket auth, so a request that carries one is
+//! forwarded with it unchanged.
 use std::collections::HashMap;
 
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::{TcpListener, TcpStream, UnixStream};
 
 use super::authority_routes::bearer_admits_lease;
 use super::{iso_now, persist_record};
@@ -46,7 +52,7 @@ pub(crate) struct EditorProxy {
     pub(crate) public_port: u16,
     /// The proxy's own host name (`p<16 hex>.localhost`); its URLs are `http://<host>:<port>/`.
     pub(crate) host: String,
-    pub(crate) internal_port: u16,
+    pub(crate) upstream: ProxyUpstream,
     pub(crate) lease_id: String,
     pub(crate) service_id: String,
     pub(crate) shutdown: tokio::sync::oneshot::Sender<()>,
@@ -139,15 +145,19 @@ fn percent_decoded(text: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// The request target without any query parameter NAMED `lease`, the name compared after
+/// The editor runtime's connection-token cookie, which only the proxy presents.
+const UPSTREAM_TOKEN_COOKIE: &str = "vscode-tkn";
+
+/// The request target without any query parameter named in `names`, each name compared after
 /// percent-decoding (so `%6cease` is `lease` too).
-fn without_lease_query(target: &str) -> String {
+fn without_query_names(target: &str, names: &[&str]) -> String {
     match target.split_once('?') {
         Some((path, query)) => {
             let kept: Vec<&str> = query
                 .split('&')
                 .filter(|pair| {
-                    percent_decoded(pair.split('=').next().unwrap_or_default()) != "lease"
+                    let name = percent_decoded(pair.split('=').next().unwrap_or_default());
+                    !names.contains(&name.as_str())
                 })
                 .collect();
             if kept.is_empty() {
@@ -283,7 +293,10 @@ fn completed_switch(answer_head: &str, accept: &str) -> Option<bool> {
 /// connection headers replaced by `Connection: close`. Err (a status line and a reason) for a body
 /// whose framing the proxy does not forward: conflicting lengths, a transfer coding other than
 /// chunked, or both `Transfer-Encoding` and `Content-Length`.
-fn forwarded_request_head(head: &str) -> Result<Forward, (&'static str, &'static str)> {
+fn forwarded_request_head(
+    head: &str,
+    upstream_token: Option<&str>,
+) -> Result<Forward, (&'static str, &'static str)> {
     let mut lines = head.split("\r\n");
     let request_line = lines.next().unwrap_or_default();
     let mut parts = request_line.splitn(3, ' ');
@@ -292,7 +305,7 @@ fn forwarded_request_head(head: &str) -> Result<Forward, (&'static str, &'static
         parts.next().unwrap_or_default(),
         parts.next().unwrap_or_default(),
     );
-    let target = without_lease_query(target);
+    let target = without_query_names(target, &["lease"]);
     let codings = header_values(head, "transfer-encoding");
     let lengths = header_values(head, "content-length");
     let body = match (codings.as_slice(), lengths.as_slice()) {
@@ -319,6 +332,8 @@ fn forwarded_request_head(head: &str) -> Result<Forward, (&'static str, &'static
     let websocket_accept = websocket_accept_for(head, &body);
     let websocket = websocket_accept.is_some();
     let mut out = format!("{method} {target} {version}\r\n");
+    // Every Cookie line's kept pairs are forwarded as ONE Cookie header.
+    let mut cookies: Vec<String> = Vec::new();
     for line in lines.filter(|line| !line.is_empty()) {
         let Some((key, value)) = line.split_once(':') else {
             continue;
@@ -328,23 +343,34 @@ fn forwarded_request_head(head: &str) -> Result<Forward, (&'static str, &'static
             "x-ioi-lease" | "referer" | "origin" => continue,
             "connection" | "keep-alive" | "proxy-connection" | "upgrade" if !websocket => continue,
             "cookie" => {
-                let kept: Vec<&str> = value
-                    .split(';')
-                    .map(str::trim)
-                    .filter(|pair| !pair.is_empty())
-                    .filter(|pair| {
-                        !is_daemon_cookie(pair.split('=').next().unwrap_or_default().trim())
-                    })
-                    .collect();
-                if !kept.is_empty() {
-                    out.push_str(&format!("{}: {}\r\n", key.trim(), kept.join("; ")));
-                }
+                cookies.extend(
+                    value
+                        .split(';')
+                        .map(str::trim)
+                        .filter(|pair| !pair.is_empty())
+                        .filter(|pair| {
+                            let name = pair.split('=').next().unwrap_or_default().trim();
+                            !is_daemon_cookie(name)
+                        })
+                        .map(str::to_string),
+                );
                 continue;
             }
             _ => {}
         }
         out.push_str(line);
         out.push_str("\r\n");
+    }
+    if let Some(token) = upstream_token {
+        let carries_token = cookies
+            .iter()
+            .any(|pair| pair.split('=').next().unwrap_or_default().trim() == UPSTREAM_TOKEN_COOKIE);
+        if !carries_token {
+            cookies.push(format!("{UPSTREAM_TOKEN_COOKIE}={token}"));
+        }
+    }
+    if !cookies.is_empty() {
+        out.push_str(&format!("Cookie: {}\r\n", cookies.join("; ")));
     }
     if !websocket {
         out.push_str("Connection: close\r\n");
@@ -578,11 +604,81 @@ where
     }
 }
 
+/// Where a proxy forwards: an editor runtime's unix socket, or a port preview's loopback port.
+#[derive(Clone, Debug)]
+pub(crate) enum ProxyUpstream {
+    Tcp(u16),
+    Unix(std::path::PathBuf),
+}
+
+/// A connection to the upstream.
+enum Outbound {
+    Tcp(TcpStream),
+    Unix(UnixStream),
+}
+
+impl Outbound {
+    async fn connect(upstream: &ProxyUpstream) -> std::io::Result<Outbound> {
+        match upstream {
+            ProxyUpstream::Tcp(port) => Ok(Outbound::Tcp(
+                TcpStream::connect(("127.0.0.1", *port)).await?,
+            )),
+            ProxyUpstream::Unix(path) => Ok(Outbound::Unix(UnixStream::connect(path).await?)),
+        }
+    }
+}
+
+impl tokio::io::AsyncRead for Outbound {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Outbound::Tcp(stream) => std::pin::Pin::new(stream).poll_read(cx, buf),
+            Outbound::Unix(stream) => std::pin::Pin::new(stream).poll_read(cx, buf),
+        }
+    }
+}
+
+impl tokio::io::AsyncWrite for Outbound {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            Outbound::Tcp(stream) => std::pin::Pin::new(stream).poll_write(cx, buf),
+            Outbound::Unix(stream) => std::pin::Pin::new(stream).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Outbound::Tcp(stream) => std::pin::Pin::new(stream).poll_flush(cx),
+            Outbound::Unix(stream) => std::pin::Pin::new(stream).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Outbound::Tcp(stream) => std::pin::Pin::new(stream).poll_shutdown(cx),
+            Outbound::Unix(stream) => std::pin::Pin::new(stream).poll_shutdown(cx),
+        }
+    }
+}
+
 /// The upstream's FINAL answer head to a handshake (and whatever arrived with it): (bytes, head
 /// length), or None. An informational answer before it (1xx other than 101, e.g. 103 Early Hints)
 /// is relayed to the client and does not end the exchange.
 async fn read_final_answer(
-    outbound: &mut TcpStream,
+    outbound: &mut Outbound,
     inbound: &mut TcpStream,
 ) -> Option<(Vec<u8>, usize)> {
     let mut answer = Vec::with_capacity(1024);
@@ -616,7 +712,7 @@ async fn read_final_answer(
 /// from the client.
 async fn relay_unswitched_answer(
     inbound: &mut TcpStream,
-    outbound: &mut TcpStream,
+    outbound: &mut Outbound,
     answer: &[u8],
     head_len: usize,
 ) {
@@ -769,14 +865,16 @@ async fn answer_lease_exchange(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_conn(
     mut inbound: TcpStream,
-    internal_port: u16,
+    upstream: &ProxyUpstream,
     public_port: u16,
     host: &str,
     bound_lease: &str,
     service_id: &str,
     data_dir: &str,
+    upstream_token: Option<&str>,
 ) {
     // Read the opening request up to the end of headers (or a cap).
     let mut buf: Vec<u8> = Vec::with_capacity(2048);
@@ -846,7 +944,7 @@ async fn handle_conn(
         "authentication_succeeded",
         bound_lease,
     );
-    let forward = match forwarded_request_head(&head) {
+    let forward = match forwarded_request_head(&head, upstream_token) {
         Ok(forward) => forward,
         Err((status, reason)) => {
             let resp = format!("HTTP/1.1 {status}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reason}", reason.len());
@@ -863,7 +961,7 @@ async fn handle_conn(
         let _ = inbound.write_all(resp.as_bytes()).await;
         return;
     }
-    let Ok(mut outbound) = TcpStream::connect(("127.0.0.1", internal_port)).await else {
+    let Ok(mut outbound) = Outbound::connect(upstream).await else {
         proxy_event(
             data_dir,
             service_id,
@@ -906,7 +1004,7 @@ async fn handle_conn(
                 return;
             }
             let (mut client_read, mut client_write) = inbound.split();
-            let (mut upstream_read, mut upstream_write) = outbound.split();
+            let (mut upstream_read, mut upstream_write) = tokio::io::split(&mut outbound);
             {
                 let frames =
                     forward_client_frames(&mut client_read, &mut upstream_write, rsv1_allowed);
@@ -928,7 +1026,7 @@ async fn handle_conn(
         // after the body reaches this upstream connection.
         let (mut client_read, mut client_write) = inbound.split();
         {
-            let (mut upstream_read, mut upstream_write) = outbound.split();
+            let (mut upstream_read, mut upstream_write) = tokio::io::split(&mut outbound);
             let body = forward_body(
                 &mut client_read,
                 &mut upstream_write,
@@ -955,12 +1053,14 @@ async fn handle_conn(
     proxy_event(data_dir, service_id, "client_disconnected", bound_lease);
 }
 
-/// Bind a lease-authenticated proxy in front of `internal_port`. Returns the public port + handle.
+/// Bind a lease-authenticated proxy in front of `upstream`. Returns the public port + handle.
+/// `upstream_token` is the editor runtime's connection token (None for a port preview).
 pub(crate) async fn bind_editor_proxy(
     data_dir: &str,
     service_id: &str,
-    internal_port: u16,
+    upstream: ProxyUpstream,
     lease_id: &str,
+    upstream_token: Option<String>,
 ) -> Result<(u16, EditorProxy), String> {
     let listener = TcpListener::bind(("127.0.0.1", 0))
         .await
@@ -973,14 +1073,15 @@ pub(crate) async fn bind_editor_proxy(
     let lease = lease_id.to_string();
     let sid = service_id.to_string();
     let proxy_host = host.clone();
+    let proxy_upstream = upstream.clone();
     let join = tokio::spawn(async move {
         loop {
             tokio::select! {
                 _ = &mut rx => { proxy_event(&dd, &sid, "proxy_stopped", &lease); break; }
                 accept = listener.accept() => {
                     let Ok((inbound, _peer)) = accept else { continue; };
-                    let (dd2, lease2, sid2, host2) = (dd.clone(), lease.clone(), sid.clone(), proxy_host.clone());
-                    tokio::spawn(async move { handle_conn(inbound, internal_port, public_port, &host2, &lease2, &sid2, &dd2).await; });
+                    let (dd2, lease2, sid2, host2, token2, upstream2) = (dd.clone(), lease.clone(), sid.clone(), proxy_host.clone(), upstream_token.clone(), proxy_upstream.clone());
+                    tokio::spawn(async move { handle_conn(inbound, &upstream2, public_port, &host2, &lease2, &sid2, &dd2, token2.as_deref()).await; });
                 }
             }
         }
@@ -990,7 +1091,7 @@ pub(crate) async fn bind_editor_proxy(
         EditorProxy {
             public_port,
             host,
-            internal_port,
+            upstream,
             lease_id: lease_id.to_string(),
             service_id: service_id.to_string(),
             shutdown: tx,

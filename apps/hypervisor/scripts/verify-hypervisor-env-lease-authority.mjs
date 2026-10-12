@@ -32,6 +32,7 @@
 
 import fs from "node:fs";
 import { createServer, request as httpRequest } from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -97,6 +98,47 @@ async function jd(url, { method = "GET", headers = {}, body } = {}) {
   return { status: r.status, j };
 }
 
+// A stand-in for the pinned openvscode-server (the sandbox cannot install it), as the daemon's
+// toolchain under `toolchain`: it listens ONLY on the private socket the daemon names (a launch
+// without --socket-path exits, so a TCP launch can never pass as live) and admits only the
+// connection token the daemon handed it, as the real server does. Each start records its pid.
+const installEditorRuntimeStandIn = (toolchain) => {
+  const bin = path.join(toolchain, "openvscode-server", "bin");
+  fs.mkdirSync(bin, { recursive: true });
+  const script = [
+    `#!${process.execPath}`,
+    '"use strict";',
+    'const fs = require("node:fs");',
+    'const http = require("node:http");',
+    'const path = require("node:path");',
+    "const args = process.argv.slice(2);",
+    "const arg = (name) => { const at = args.indexOf(name); return at >= 0 ? args[at + 1] : undefined; };",
+    'const tokenFile = arg("--connection-token-file");',
+    'const token = tokenFile ? fs.readFileSync(tokenFile, "utf8").trim() : null;',
+    'fs.appendFileSync(path.join(__dirname, "runtime-pids"), String(process.pid) + "\\n");',
+    "const server = http.createServer((request, response) => {",
+    '  const cookies = new Map((request.headers.cookie || "").split(";").map((part) => part.trim()).filter((part) => part.includes("=")).map((part) => [part.slice(0, part.indexOf("=")), part.slice(part.indexOf("=") + 1)]));',
+    '  if (request.url.startsWith("/version")) { response.writeHead(200, { "content-type": "text/plain" }); response.end("0123456789abcdef0123456789abcdef01234567"); return; }',
+    '  if (token !== null && cookies.get("vscode-tkn") === token) { response.writeHead(200, { "content-type": "text/html" }); response.end("<!doctype html><title>workbench</title>"); return; }',
+    '  response.writeHead(403, { "content-type": "text/plain" }); response.end("Forbidden");',
+    "});",
+    'const socketPath = arg("--socket-path");',
+    'if (!socketPath) { console.error("this runtime listens only on --socket-path"); process.exit(2); }',
+    "server.listen(socketPath);",
+    "",
+  ].join("\n");
+  fs.writeFileSync(path.join(bin, "openvscode-server"), script, { mode: 0o755 });
+  return path.join(bin, "runtime-pids");
+};
+
+const stopEditorRuntimeStandIns = (pidFile) => {
+  let pids = [];
+  try { pids = fs.readFileSync(pidFile, "utf8").split("\n").filter(Boolean).map(Number); } catch { return; }
+  for (const pid of pids) {
+    try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ }
+  }
+};
+
 const opsUrl = (D, env, m) => `${D}/supervisor/${env}/supervisor.v1.EnvironmentOpsService/${m}`;
 
 const listenMarker = (marker) => new Promise((resolve, reject) => {
@@ -125,7 +167,9 @@ async function run() {
   ok("HANDLE 4/7 — the live preview listener refuses absent, wrong, and revoked capabilities while admitting the exact active one on every request",
     previewAuthority.status === 0,
     previewAuthority.status === 0 ? "targeted live TCP test passed" : `cargo status=${previewAuthority.status}: ${(previewAuthority.stderr || previewAuthority.stdout || "").trim().slice(-500)}`);
-  const plane = await startIsolatedPlane({ serve: false });
+  const toolchain = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-editor-toolchain-"));
+  const runtimePids = installEditorRuntimeStandIn(toolchain);
+  const plane = await startIsolatedPlane({ serve: false, env: { IOI_HYPERVISOR_EDITOR_TOOLCHAIN_DIR: toolchain } });
   if (!plane) { console.error("BLOCKED — no daemon binary (exit 2)"); process.exit(2); }
   const D = plane.daemonUrl;
   const dataDir = plane.dataDir;
@@ -367,23 +411,41 @@ async function run() {
     // call would leave those unit tests green while the hole reopens — the exact failure class this
     // run exists to end.
     //
-    // The fixture is the product record shape: the service is CREATED through its real route, then
-    // advanced to `ready` with an internal port — the one transition `editor_host` provisioning would
-    // make once openvscode is installed, which the sandbox cannot do. The auth gate reads the
-    // service's `environment_id` and the lease; it never consults the live runtime, so the auth
-    // decision is identical whether openvscode is real or the record is advanced here.
+    // The fixture is the product path: the service is CREATED and STARTED through its real routes,
+    // so the daemon launches its runtime (the stand-in installed above as the toolchain) on a
+    // private socket. The editor proxy is bound only to such a live runtime; a record merely
+    // advanced to `ready` is never exposed.
     if (ownerAuth.authorization) {
       const created = await jd(`${D}/v1/hypervisor/editor-services`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env }) });
       const svcId = created.j?.editorService?.service_id ?? created.j?.service?.service_id ?? created.j?.service_id;
       const recPath = svcId ? path.join(dataDir, "editor-services", `${svcId}.json`) : null;
+      const started = svcId ? await jd(`${D}/v1/hypervisor/editor-services/${svcId}/start`, { method: "POST", headers: ownerAuth, body: "{}" }) : { status: "no-service", j: {} };
       if (recPath && fs.existsSync(recPath)) {
         const rec = JSON.parse(fs.readFileSync(recPath, "utf8"));
         const productShape = rec.schema_version === "ioi.hypervisor.editor-access-service.v1" && rec.environment_id === env;
-        rec.phase = "ready";
-        rec.internal_port = 59999; // no live runtime behind it; the auth gate does not read it
-        fs.writeFileSync(recPath, JSON.stringify(rec));
-        ok("the editor-service fixture is the PRODUCT RECORD SHAPE — created through its own route and advanced to `ready`, the transition provisioning makes; only phase+port moved, so the auth gate sees exactly what it sees in production",
-          productShape, `schema=${rec.schema_version} env=${rec.environment_id}`);
+        ok("the editor-service fixture is the PRODUCT PATH — created and started through its own routes; the daemon launched its runtime and the record is `ready`, exactly what the auth gate sees in production",
+          productShape && started.status === 200 && started.j?.ok === true && rec.phase === "ready",
+          `schema=${rec.schema_version} env=${rec.environment_id} start=${started.status}/${started.j?.ok} phase=${rec.phase}`);
+
+        // A record merely ADVANCED to `ready` with an internal TCP port, and no runtime this daemon
+        // started, is never exposed, even with a matching editor lease: no proxy, no port.
+        const unstarted = await jd(`${D}/v1/hypervisor/editor-services`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env }) });
+        const unstartedId = unstarted.j?.editorService?.service_id ?? unstarted.j?.service?.service_id ?? unstarted.j?.service_id;
+        const unstartedPath = unstartedId ? path.join(dataDir, "editor-services", `${unstartedId}.json`) : null;
+        let notLive = { status: "no-service", j: {} };
+        if (unstartedPath && fs.existsSync(unstartedPath)) {
+          const advanced = JSON.parse(fs.readFileSync(unstartedPath, "utf8"));
+          advanced.phase = "ready";
+          advanced.internal_port = 59999;
+          fs.writeFileSync(unstartedPath, JSON.stringify(advanced));
+          const unstartedEal = await jd(`${D}/v1/hypervisor/editor-access-leases`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env, service_id: unstartedId }) });
+          const unstartedTok = unstartedEal.j?.lease_id ?? unstartedEal.j?.grant?.grant_id;
+          notLive = unstartedTok ? await jd(`${D}/v1/hypervisor/editor-services/${unstartedId}/expose`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ lease_id: unstartedTok }) }) : { status: "no-lease", j: {} };
+        }
+        ok("a record advanced to `ready` with a TCP port but no live runtime of this daemon is NOT exposed, even with a matching editor lease (409 hypervisor.editor_runtime_not_live, no proxy port)",
+          notLive.status === 409 && notLive.j?.ok === false && notLive.j?.code === "hypervisor.editor_runtime_not_live"
+            && notLive.j?.public_proxy_port === null && !notLive.j?.open_url,
+          `status=${notLive.status} code=${notLive.j?.code} proxy_port=${notLive.j?.public_proxy_port}`);
 
         const editEal = await jd(`${D}/v1/hypervisor/editor-access-leases`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env, service_id: svcId }) });
         const editTok = editEal.j?.lease_id ?? editEal.j?.grant?.grant_id;
@@ -396,8 +458,8 @@ async function run() {
         const tokenlessProxy = openUrl ? await viaLoopback(openUrl) : { status: "no-proxy" };
         const wrongTokenProxy = openUrl ? await viaLoopback(openUrl, { "x-ioi-lease": "wrong" }) : { status: "no-proxy" };
         const exactTokenProxy = openUrl && editAccess ? await viaLoopback(openUrl, { "x-ioi-lease": editAccess }) : { status: "no-proxy" };
-        ok("the live editor proxy refuses absent and wrong tokens while the exact active token crosses the authority gate (then reaches the deliberately absent fixture runtime)",
-          tokenlessProxy.status === 403 && wrongTokenProxy.status === 403 && exactTokenProxy.status === 502,
+        ok("the live editor proxy refuses absent and wrong tokens while the exact active token crosses the authority gate and reaches the live runtime, which admits only its own connection token",
+          tokenlessProxy.status === 403 && wrongTokenProxy.status === 403 && exactTokenProxy.status === 200,
           `none=${tokenlessProxy.status} wrong=${wrongTokenProxy.status} exact=${exactTokenProxy.status}`);
 
         const portMint2 = await jd(`${D}/v1/hypervisor/environments/${env}/ports/9090/expose`, { method: "POST", headers: ownerAuth, body: "{}" });
@@ -420,6 +482,7 @@ async function run() {
         ok("the same live editor proxy refuses its exact token immediately after durable revocation",
           revoked.status === 200 && revoked.j?.ok === true && revokedTokenProxy.status === 403,
           `revoke=${revoked.status}/${revoked.j?.ok} proxy=${revokedTokenProxy.status}`);
+        await jd(`${D}/v1/hypervisor/editor-services/${svcId}/stop`, { method: "POST", headers: ownerAuth, body: "{}" });
       } else {
         ok("the editor-service fixture was created for the wiring assertions", false, `service_id=${svcId} recPath=${recPath}`);
       }
@@ -500,12 +563,16 @@ async function run() {
     emitVerifierCensus({ verifierId: "env-lease-authority", sourceUrl: import.meta.url, results });
     await Promise.all(markers.map(closeMarker));
     await plane.stop();
+    stopEditorRuntimeStandIns(runtimePids);
+    fs.rmSync(toolchain, { recursive: true, force: true });
     process.exit(fails.length ? 1 : 0);
   } catch (error) {
     for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
     console.error(`FAIL env-lease-authority — ${error?.stack || error}`);
     await Promise.all(markers.map(closeMarker));
     await plane.stop();
+    stopEditorRuntimeStandIns(runtimePids);
+    fs.rmSync(toolchain, { recursive: true, force: true });
     process.exit(1);
   }
 }

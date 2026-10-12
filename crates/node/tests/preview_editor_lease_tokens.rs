@@ -418,6 +418,7 @@ fn upstream() -> Upstream {
 struct Fixture {
     _dir: tempfile::TempDir,
     data: PathBuf,
+    home: PathBuf,
     daemon: Daemon,
     owner: String,
     member: String,
@@ -443,6 +444,8 @@ struct Editor {
     lease_ref: String,
     public_port: u16,
     open_url: String,
+    /// The stand-in runtime behind the editor (stopped when the test ends).
+    _runtime: FakeRuntime,
 }
 
 /// A proxy's address: its TCP port and the host name its URL names (sent as `Host`).
@@ -534,6 +537,7 @@ fn fixture() -> Fixture {
     Fixture {
         _dir: dir,
         data,
+        home,
         daemon,
         owner,
         member,
@@ -597,31 +601,22 @@ impl Fixture {
         }
     }
 
-    /// Create an editor service, advance its record to `ready` on the upstream's port (the one
-    /// transition runtime provisioning makes), mint an editor lease and expose the service.
+    /// Create an editor service, start its runtime (the stand-in for openvscode-server, on its
+    /// unix socket), mint an editor lease and expose the service.
     fn editor(&self) -> Editor {
+        let runtime = FakeRuntime(install_fake_editor_runtime(&self.home));
+        let service_id = self.editor_service();
         let (status, body) = http(
             self.daemon.port,
             "POST",
-            "/v1/hypervisor/editor-services",
+            &format!("/v1/hypervisor/editor-services/{service_id}/start"),
             Some(&self.owner),
-            Some(&json!({ "environment_id": self.env })),
+            Some(&json!({})),
         );
-        assert_eq!(status, 200, "editor service create: {body}");
-        let service_id = json_of(&body)["editorService"]["service_id"]
-            .as_str()
-            .unwrap_or_else(|| panic!("a service id: {body}"))
-            .to_string();
-        let path = self
-            .data
-            .join("editor-services")
-            .join(format!("{service_id}.json"));
-        let mut record: Value =
-            serde_json::from_slice(&std::fs::read(&path).expect("the editor service record"))
-                .expect("the record is JSON");
-        record["phase"] = json!("ready");
-        record["internal_port"] = json!(self.upstream.port);
-        std::fs::write(&path, serde_json::to_vec(&record).unwrap()).unwrap();
+        assert!(
+            status == 200 && json_of(&body)["ok"] == json!(true),
+            "the editor runtime starts: {status} {body}"
+        );
         let (status, body) = http(
             self.daemon.port,
             "POST",
@@ -656,6 +651,7 @@ impl Fixture {
                 .unwrap_or_else(|| panic!("a public proxy port: {body}"))
                 as u16,
             open_url: exposed["open_url"].as_str().unwrap_or_default().to_string(),
+            _runtime: runtime,
         }
     }
 }
@@ -1923,4 +1919,1010 @@ fn chunked_trailers_carry_no_credential_upstream() {
             "no credential or site name in the trailers upstream: {body:?}"
         );
     }
+}
+
+/// A stand-in for openvscode-server at the daemon's toolchain path, modelling the pinned server's
+/// observable contract: it listens on `--socket-path` (a unix socket) or `--host`/`--port`; reads
+/// its token from `--connection-token-file`; prints the real startup line
+/// (`Web UI available at http://localhost:<port>?tkn=<TOKEN>`; the real server prints it only on a
+/// TCP port, the stand-in also on a socket so the log redaction is exercised end to end); answers
+/// /version without a token; redirects `?tkn=<token>` with 302 and `Set-Cookie: vscode-tkn=...`;
+/// answers a request with the `vscode-tkn` cookie 200 with `Set-Cookie: vscode-tkn=<TOKEN>;
+/// Max-Age=604800; SameSite=Lax` (not HttpOnly), else 403; and on a WebSocket requires the FIRST
+/// message to be `{"type":"auth","auth":"<TOKEN>"}`, answering `{"type":"sign",...}` or the real
+/// refusal texts. It records its arguments, token, pid and each request in a JSON-lines file.
+fn install_fake_editor_runtime(home: &Path) -> PathBuf {
+    let bin = home.join(".ioi/editor-toolchain/openvscode-server/bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let record = bin.join("runtime-record.jsonl");
+    let script = r#"#!/usr/bin/python3 -I
+import base64, hashlib, http.server, json, os, socketserver, sys, urllib.parse
+args = sys.argv[1:]
+record = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runtime-record.jsonl")
+def arg(name):
+    return args[args.index(name) + 1] if name in args else None
+token = None
+if arg("--connection-token-file"):
+    with open(arg("--connection-token-file")) as source:
+        token = source.read().strip()
+    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "hold-token-file")):
+        os.remove(arg("--connection-token-file"))
+        os.mkdir(arg("--connection-token-file"))
+        open(os.path.join(arg("--connection-token-file"), "held"), "w").close()
+def note(entry):
+    with open(record, "a") as out:
+        out.write(json.dumps(entry) + "\n")
+note({"pid": os.getpid(), "args": args, "token": token})
+port = int(arg("--port")) if arg("--port") else 3000
+print(f"Web UI available at http://localhost:{port}" + (f"?tkn={token}" if token else ""), flush=True)
+def frame(text):
+    data = text.encode()
+    return bytes([0x81, len(data)]) + data
+class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    def log_message(self, *rest):
+        pass
+    def answer(self, status, body, extra=()):
+        data = body.encode()
+        self.send_response(status)
+        for name, value in extra:
+            self.send_header(name, value)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(data)
+        self.close_connection = True
+    def do_GET(self):
+        cookie = self.headers.get("Cookie") or ""
+        cookies = dict(c.strip().split("=", 1) for c in cookie.split(";") if "=" in c)
+        target = urllib.parse.urlsplit(self.path)
+        query = urllib.parse.parse_qs(target.query)
+        note({"path": self.path, "cookie": cookie})
+        if target.path.startswith("/version"):
+            socket_dir = os.path.dirname(arg("--socket-path") or "")
+            swap = os.path.join(os.path.dirname(os.path.abspath(__file__)), "swap-socket-dir")
+            if socket_dir and os.path.exists(swap) and os.path.isdir(socket_dir):
+                os.rename(socket_dir, socket_dir + ".moved")
+                open(socket_dir, "w").close()
+            return self.answer(200, "0123456789abcdef0123456789abcdef01234567")
+        if "tkn" in query:
+            if query["tkn"][0] != token:
+                return self.answer(403, "Forbidden")
+            rest = urllib.parse.urlencode([(k, v) for k, vs in query.items() if k != "tkn" for v in vs])
+            return self.answer(302, "", [("Set-Cookie", f"vscode-tkn={query['tkn'][0]}; Max-Age=604800; SameSite=Lax"), ("Location", target.path + ("?" + rest if rest else ""))])
+        if (self.headers.get("Upgrade") or "").lower() == "websocket":
+            key = self.headers.get("Sec-WebSocket-Key") or ""
+            accept = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
+            self.wfile.write(f"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n".encode())
+            self.wfile.flush()
+            head = self.rfile.read(2)
+            length = head[1] & 0x7F
+            if length == 126:
+                length = int.from_bytes(self.rfile.read(2), "big")
+            mask = self.rfile.read(4)
+            payload = bytes(b ^ mask[i % 4] for i, b in enumerate(self.rfile.read(length)))
+            try:
+                first = json.loads(payload)
+            except Exception:
+                reply = "Malformed first message"
+            else:
+                if first.get("type") != "auth":
+                    reply = "Invalid first message"
+                elif token is not None and first.get("auth") != token:
+                    reply = "Unauthorized client refused: auth mismatch"
+                else:
+                    reply = json.dumps({"type": "sign", "data": "challenge", "signedData": "signed"})
+            note({"ws_first_message": payload.decode(errors="replace"), "reply": reply})
+            self.wfile.write(frame(reply))
+            self.wfile.flush()
+            self.close_connection = True
+            return
+        if token is not None and cookies.get("vscode-tkn") == token:
+            return self.answer(200, "<!doctype html><title>workbench</title>", [("Set-Cookie", f"vscode-tkn={token}; Max-Age=604800; SameSite=Lax")])
+        return self.answer(403, "Forbidden")
+class UnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+class TcpServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+if arg("--socket-path"):
+    UnixServer(arg("--socket-path"), Handler).serve_forever()
+else:
+    TcpServer((arg("--host") or "127.0.0.1", port), Handler).serve_forever()
+"#;
+    let path = bin.join("openvscode-server");
+    std::fs::write(&path, script).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    record
+}
+
+/// Stops the stand-in runtime (its own process group) when the test ends.
+struct FakeRuntime(PathBuf);
+
+impl FakeRuntime {
+    fn entries(&self) -> Vec<Value> {
+        std::fs::read_to_string(&self.0)
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    }
+
+    fn starts(&self) -> Vec<Value> {
+        self.entries()
+            .into_iter()
+            .filter(|entry| entry["args"].is_array())
+            .collect()
+    }
+}
+
+impl Drop for FakeRuntime {
+    fn drop(&mut self) {
+        for entry in self.entries() {
+            if let Some(pid) = entry["pid"].as_i64() {
+                let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
+            }
+        }
+    }
+}
+
+impl Fixture {
+    /// Create an editor service for the fixture's environment; its id.
+    fn editor_service(&self) -> String {
+        let (status, body) = http(
+            self.daemon.port,
+            "POST",
+            "/v1/hypervisor/editor-services",
+            Some(&self.owner),
+            Some(&json!({ "environment_id": self.env })),
+        );
+        assert_eq!(status, 200, "editor service create: {body}");
+        json_of(&body)["editorService"]["service_id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("a service id: {body}"))
+            .to_string()
+    }
+
+    /// Stop the daemon and start a new one on the same data.
+    fn restart(&mut self) {
+        let _ = self.daemon.child.kill();
+        let _ = self.daemon.child.wait();
+        self.daemon = start_daemon(&self.data, &self.home);
+    }
+}
+
+/// A masked client text frame.
+fn masked_text_frame(text: &str) -> Vec<u8> {
+    let mask = [0x11u8, 0x22, 0x33, 0x44];
+    let payload = text.as_bytes();
+    let mut frame = vec![0x81u8];
+    if payload.len() < 126 {
+        frame.push(0x80 | payload.len() as u8);
+    } else {
+        frame.push(0x80 | 126);
+        frame.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    }
+    frame.extend_from_slice(&mask);
+    frame.extend(payload.iter().enumerate().map(|(i, b)| b ^ mask[i % 4]));
+    frame
+}
+
+/// The editor runtime listens only on a unix socket and requires its connection token: it is
+/// started with --socket-path (no TCP port) and a token file (never without a token); the token is
+/// redacted from the runtime's log and kept in no file; through the lease-authenticated proxy the
+/// workbench answers and hands the browser its token cookie (as the real server does), and the
+/// WebSocket's in-band auth with that token is answered with the server's sign message.
+#[test]
+fn the_editor_runtime_listens_only_on_a_unix_socket_and_requires_its_token() {
+    let f = fixture();
+    let runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let service_id = f.editor_service();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert!(
+        status == 200 && json_of(&body)["ok"] == json!(true),
+        "the editor runtime starts: {status} {body}"
+    );
+    let started = runtime
+        .starts()
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| panic!("the runtime recorded its start"));
+    let args: Vec<String> = started["args"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|arg| arg.as_str().map(str::to_string))
+        .collect();
+    for absent in ["--without-connection-token", "--port", "--host"] {
+        assert!(
+            !args.iter().any(|arg| arg == absent),
+            "the runtime is not started with {absent}: {args:?}"
+        );
+    }
+    for present in ["--socket-path", "--connection-token-file"] {
+        assert!(
+            args.iter().any(|arg| arg == present),
+            "the runtime is started with {present}: {args:?}"
+        );
+    }
+    let token = started["token"].as_str().unwrap_or_default().to_string();
+    assert!(token.len() >= 32, "a long random token: {token:?}");
+    let (_, logs) = http(
+        f.daemon.port,
+        "GET",
+        &format!("/v1/hypervisor/editor-services/{service_id}/logs"),
+        Some(&f.owner),
+        None,
+    );
+    assert!(
+        logs.contains("Web UI available at") && !logs.contains(&token),
+        "the runtime's startup line reaches the log with its token redacted: {logs}"
+    );
+    assert!(
+        files_containing(&f.data, &token).is_empty(),
+        "no file under the daemon's data dir keeps the token"
+    );
+
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/editor-access-leases",
+        Some(&f.owner),
+        Some(&json!({ "environment_id": f.env, "service_id": service_id })),
+    );
+    assert_eq!(status, 200, "editor lease: {body}");
+    let lease = json_of(&body);
+    let access = lease["access_token"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let lease_id = lease["lease_id"].as_str().unwrap_or_default().to_string();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/expose"),
+        Some(&f.owner),
+        Some(&json!({ "lease_id": lease_id })),
+    );
+    let exposed = json_of(&body);
+    assert!(
+        status == 200 && exposed["ok"] == json!(true),
+        "editor expose: {status} {body}"
+    );
+    let addr = ProxyAddr::from_url(
+        exposed["open_url"].as_str().unwrap_or_default(),
+        exposed["public_proxy_port"].as_u64().unwrap_or_default() as u16,
+    );
+    let (status, head, body) = raw(
+        addr.port,
+        &format!(
+            "GET / HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nx-ioi-lease: {access}\r\n\r\n",
+            addr.authority()
+        ),
+    );
+    assert_eq!(
+        status, 200,
+        "the workbench answers through the proxy: {head}"
+    );
+    assert!(body.contains("workbench"), "the workbench page: {body}");
+    let cookie = head
+        .lines()
+        .find_map(|line| {
+            line.to_ascii_lowercase()
+                .starts_with("set-cookie: vscode-tkn=")
+                .then(|| {
+                    line["set-cookie: ".len()..]
+                        .split(';')
+                        .next()
+                        .unwrap_or_default()
+                        .to_string()
+                })
+        })
+        .unwrap_or_else(|| panic!("the workbench hands the browser its token cookie: {head}"));
+
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    stream
+        .write_all(
+            ws_handshake(
+                &addr,
+                "/",
+                &access,
+                &format!("Connection: Upgrade\r\nCookie: {cookie}\r\n"),
+                None,
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+    let answer = read_until(&mut stream, |got| got.contains("\r\n\r\n"));
+    assert!(
+        answer.starts_with("HTTP/1.1 101"),
+        "the WebSocket switches: {answer}"
+    );
+    stream
+        .write_all(&masked_text_frame(
+            &json!({ "type": "auth", "auth": token }).to_string(),
+        ))
+        .unwrap();
+    let reply = read_until(&mut stream, |got| {
+        got.contains("sign") || got.contains("refused")
+    });
+    assert!(
+        reply.contains("\"type\": \"sign\""),
+        "the in-band auth with the browser's token is answered with the sign message: {reply:?}"
+    );
+}
+
+/// Concurrent starts of one editor service launch ONE runtime. Every answer, and the record on disk
+/// after all of them, is the started runtime's own view: ready on its socket, with its version and
+/// its one start time, never a snapshot read before an earlier start committed.
+#[test]
+fn concurrent_starts_of_one_editor_service_launch_one_runtime() {
+    let f = fixture();
+    let runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let service_id = f.editor_service();
+    let port = f.daemon.port;
+    let owner = f.owner.clone();
+    let handles: Vec<_> = (0..3)
+        .map(|_| {
+            let (owner, service_id) = (owner.clone(), service_id.clone());
+            std::thread::spawn(move || {
+                http(
+                    port,
+                    "POST",
+                    &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+                    Some(&owner),
+                    Some(&json!({})),
+                )
+            })
+        })
+        .collect();
+    let answers: Vec<(u16, String)> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+    for (status, body) in &answers {
+        assert!(
+            *status == 200 && json_of(body)["ok"] == json!(true),
+            "each start answers ready: {status} {body}"
+        );
+    }
+    assert_eq!(
+        runtime.starts().len(),
+        1,
+        "one runtime was launched: {:?}",
+        runtime.starts()
+    );
+    let persisted: Value = serde_json::from_slice(
+        &std::fs::read(
+            f.data
+                .join("editor-services")
+                .join(format!("{service_id}.json")),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let started_at = persisted["started_at"].clone();
+    assert!(
+        persisted["phase"] == json!("ready")
+            && persisted["upstream"] == json!("unix_socket")
+            && persisted["runtime_version"].is_string()
+            && started_at.is_string()
+            && persisted["readiness"]["mode"] == json!("full"),
+        "the record on disk is the started runtime's view: {persisted}"
+    );
+    for (_, body) in &answers {
+        let service = &json_of(body)["editorService"];
+        assert!(
+            service["upstream"] == json!("unix_socket")
+                && service["runtime_version"] == persisted["runtime_version"]
+                && service["started_at"] == started_at
+                && service["readiness"]["mode"] == json!("full"),
+            "each answer is the started runtime's view: {service}"
+        );
+    }
+}
+
+/// A daemon boot removes token handoff files and runtime sockets a crashed start left behind.
+#[test]
+fn boot_reconciliation_removes_stale_token_files_and_sockets() {
+    let mut f = fixture();
+    let services = f.data.join("editor-services");
+    std::fs::create_dir_all(&services).unwrap();
+    let stale_token = services.join("edsvc_stale.0123456789abcdef.connection-token");
+    std::fs::write(&stale_token, "stale-token").unwrap();
+    let stale_socket_dir = f.data.join("editor-sockets").join("0123456789abcdef");
+    std::fs::create_dir_all(&stale_socket_dir).unwrap();
+    std::fs::write(stale_socket_dir.join("s"), "").unwrap();
+    f.restart();
+    assert!(!stale_token.exists(), "the stale token file is removed");
+    assert!(
+        !stale_socket_dir.exists(),
+        "the stale runtime socket is removed"
+    );
+}
+
+/// A legacy editor-service record that names an internal TCP port but has no live runtime of this
+/// daemon is never proxied over TCP: its expose is refused by name and binds no proxy, and a boot
+/// marks the record unusable until the service is started again (on its socket).
+#[test]
+fn a_legacy_editor_record_is_never_proxied_over_tcp() {
+    let mut f = fixture();
+    let service_id = f.editor_service();
+    let path = f
+        .data
+        .join("editor-services")
+        .join(format!("{service_id}.json"));
+    let mut record: Value =
+        serde_json::from_slice(&std::fs::read(&path).expect("the editor service record"))
+            .expect("the record is JSON");
+    record["phase"] = json!("ready");
+    record["internal_port"] = json!(f.upstream.port);
+    std::fs::write(&path, serde_json::to_vec(&record).unwrap()).unwrap();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/editor-access-leases",
+        Some(&f.owner),
+        Some(&json!({ "environment_id": f.env, "service_id": service_id })),
+    );
+    assert_eq!(status, 200, "editor lease: {body}");
+    let lease_id = json_of(&body)["lease_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let before = f.upstream.seen.lock().unwrap().len();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/expose"),
+        Some(&f.owner),
+        Some(&json!({ "lease_id": lease_id })),
+    );
+    let answer = json_of(&body);
+    assert!(
+        answer["ok"] != json!(true) && answer["public_proxy_port"].is_null(),
+        "a legacy record is not exposed: {status} {body}"
+    );
+    assert_eq!(
+        answer["code"],
+        json!("hypervisor.editor_runtime_not_live"),
+        "refused by name: {body}"
+    );
+    assert_eq!(
+        f.upstream.seen.lock().unwrap().len(),
+        before,
+        "nothing reached the TCP port"
+    );
+    f.restart();
+    let record: Value =
+        serde_json::from_slice(&std::fs::read(&path).expect("the editor service record"))
+            .expect("the record is JSON");
+    assert!(
+        record["internal_port"].is_null() && record["phase"] != json!("ready"),
+        "a boot marks the legacy record unusable: {record}"
+    );
+}
+
+/// Stops a test-spawned stand-in runtime when the test ends.
+struct Spawned(Child);
+
+impl Drop for Spawned {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// How a stand-in runtime is grouped: in a new session (as the daemon's launcher did with setsid),
+/// or as a job in the caller's session (its own process group, as a terminal starts a command).
+#[derive(Clone, Copy, PartialEq)]
+enum Grouping {
+    NewSession,
+    JobInCallersSession,
+}
+
+/// Start the stand-in openvscode-server on a loopback TCP port, as an older daemon (or the owner,
+/// by hand) would have.
+fn spawn_tcp_runtime(home: &Path, port: u16, extra: &[&str], grouping: Grouping) -> Spawned {
+    let bin = home.join(".ioi/editor-toolchain/openvscode-server/bin/openvscode-server");
+    let mut command = Command::new(bin);
+    command
+        .args(["--host", "127.0.0.1", "--port", &port.to_string()])
+        .args(extra)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    use std::os::unix::process::CommandExt;
+    if grouping == Grouping::NewSession {
+        // SAFETY: setsid in the forked child before exec.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+    } else {
+        command.process_group(0);
+    }
+    let child = Spawned(command.spawn().expect("spawn the stand-in runtime"));
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while TcpStream::connect(("127.0.0.1", port)).is_err() {
+        assert!(Instant::now() < deadline, "the stand-in listens on {port}");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    child
+}
+
+/// Write an editor-service record as a LEGACY one: ready on an internal TCP port.
+fn make_legacy_record(f: &Fixture, service_id: &str, port: u16) {
+    let path = f
+        .data
+        .join("editor-services")
+        .join(format!("{service_id}.json"));
+    let mut record: Value =
+        serde_json::from_slice(&std::fs::read(&path).expect("the editor service record"))
+            .expect("the record is JSON");
+    record["phase"] = json!("ready");
+    record["internal_port"] = json!(port);
+    std::fs::write(&path, serde_json::to_vec(&record).unwrap()).unwrap();
+}
+
+/// A boot stops a legacy TCP editor runtime ONLY when this daemon launched it for that record: its
+/// argv carries the record's extensions dir under this data dir, it runs as this uid, in its own
+/// session (never a job in the owner's terminal session), on the port the record names. The same
+/// binary run by hand without the marker, or with the marker as a job in the caller's session, is
+/// not killed. Every legacy record is made unusable either way.
+#[test]
+fn boot_stops_only_a_legacy_editor_runtime_this_daemon_launched() {
+    let mut f = fixture();
+    let _runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let launched = f.editor_service();
+    let unmarked = f.editor_service();
+    let terminal = f.editor_service();
+    let marker = |service: &str| {
+        f.data
+            .join("editor-services")
+            .join(service)
+            .join("extensions")
+            .to_string_lossy()
+            .to_string()
+    };
+    let launched_marker = marker(&launched);
+    let terminal_marker = marker(&terminal);
+    // Each port is taken by its stand-in before the next is chosen, so the three differ.
+    let launched_port = free_port();
+    let mut daemon_launched = spawn_tcp_runtime(
+        &f.home,
+        launched_port,
+        &["--extensions-dir", &launched_marker],
+        Grouping::NewSession,
+    );
+    let unmarked_port = free_port();
+    let mut by_hand = spawn_tcp_runtime(&f.home, unmarked_port, &[], Grouping::NewSession);
+    let terminal_port = free_port();
+    let mut in_terminal_group = spawn_tcp_runtime(
+        &f.home,
+        terminal_port,
+        &["--extensions-dir", &terminal_marker],
+        Grouping::JobInCallersSession,
+    );
+    make_legacy_record(&f, &launched, launched_port);
+    make_legacy_record(&f, &unmarked, unmarked_port);
+    make_legacy_record(&f, &terminal, terminal_port);
+    f.restart();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while daemon_launched.0.try_wait().ok().flatten().is_none() {
+        assert!(
+            Instant::now() < deadline,
+            "the legacy runtime this daemon launched is stopped"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert!(
+        by_hand.0.try_wait().ok().flatten().is_none(),
+        "the same binary run without the daemon's marker is not killed"
+    );
+    assert!(
+        in_terminal_group.0.try_wait().ok().flatten().is_none(),
+        "a runtime run as a job in the caller's session is not killed"
+    );
+    for service in [&launched, &unmarked, &terminal] {
+        let record: Value = serde_json::from_slice(
+            &std::fs::read(
+                f.data
+                    .join("editor-services")
+                    .join(format!("{service}.json")),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(
+            record["internal_port"].is_null() && record["phase"] != json!("ready"),
+            "every legacy record is unusable: {record}"
+        );
+    }
+}
+
+/// Stops processes a test started outside its own children when the test ends.
+struct KillPids(Vec<i32>);
+
+impl Drop for KillPids {
+    fn drop(&mut self) {
+        for pid in &self.0 {
+            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
+        }
+    }
+}
+
+/// Is `pid` a live (not zombie) process?
+fn alive(pid: i32) -> bool {
+    std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|stat| {
+            stat.rfind(')')
+                .map(|end| stat[end + 1..].trim_start().starts_with(['Z', 'X']))
+        })
+        .is_some_and(|dead| !dead)
+}
+
+/// A boot never stops a process group whose leader it cannot read and verify. Here a terminal-free
+/// setsid wrapper that is not this daemon's launch started a runtime carrying the record's marker on
+/// the record's port, plus an unrelated sibling, and exited. Nothing in that group is killed; the
+/// legacy record is still made unusable.
+#[test]
+fn boot_never_stops_a_group_whose_leader_is_gone() {
+    let mut f = fixture();
+    let _runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let service = f.editor_service();
+    let marker = f
+        .data
+        .join("editor-services")
+        .join(&service)
+        .join("extensions");
+    let port = free_port();
+    let bin = f
+        .home
+        .join(".ioi/editor-toolchain/openvscode-server/bin/openvscode-server");
+    let script = format!(
+        "'{}' --host 127.0.0.1 --port {port} --extensions-dir '{}' </dev/null >/dev/null 2>&1 & echo $!; sleep 600 </dev/null >/dev/null 2>&1 & echo $!",
+        bin.display(),
+        marker.display()
+    );
+    let mut wrapper = Command::new("sh");
+    wrapper
+        .arg("-c")
+        .arg(&script)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    {
+        use std::os::unix::process::CommandExt;
+        // SAFETY: setsid in the forked child before exec.
+        unsafe {
+            wrapper.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+    }
+    let out = wrapper.output().expect("the wrapper runs and exits");
+    let pids: Vec<i32> = String::from_utf8_lossy(&out.stdout)
+        .split_whitespace()
+        .filter_map(|pid| pid.parse().ok())
+        .collect();
+    let _group = KillPids(pids.clone());
+    assert_eq!(pids.len(), 2, "the runtime and its sibling: {pids:?}");
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while TcpStream::connect(("127.0.0.1", port)).is_err() {
+        assert!(Instant::now() < deadline, "the runtime listens on {port}");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    make_legacy_record(&f, &service, port);
+    f.restart();
+    for pid in &pids {
+        assert!(
+            alive(*pid),
+            "{pid}, in a group whose leader is gone, is not killed"
+        );
+    }
+    let record: Value = serde_json::from_slice(
+        &std::fs::read(
+            f.data
+                .join("editor-services")
+                .join(format!("{service}.json")),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        record["internal_port"].is_null() && record["phase"] != json!("ready"),
+        "the legacy record is unusable: {record}"
+    );
+}
+
+/// When the runtime's token handoff file cannot be removed at readiness, the start FAILS: the
+/// runtime is stopped, the answer names the reason, nothing can be exposed, and the daemon logs a
+/// SECURITY line. The secret never stays behind a success.
+#[test]
+fn a_token_file_that_cannot_be_removed_at_readiness_fails_the_start() {
+    let f = fixture();
+    let runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    std::fs::write(
+        f.home
+            .join(".ioi/editor-toolchain/openvscode-server/bin/hold-token-file"),
+        "",
+    )
+    .unwrap();
+    let service_id = f.editor_service();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    let answer = json_of(&body);
+    assert!(
+        answer["ok"] != json!(true)
+            && answer["reason"] == json!("editor_runtime_token_not_removed"),
+        "the start fails by name: {status} {body}"
+    );
+    for start in runtime.starts() {
+        let pid = start["pid"].as_i64().unwrap_or_default() as i32;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while alive(pid) {
+            assert!(Instant::now() < deadline, "the runtime {pid} is stopped");
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/editor-access-leases",
+        Some(&f.owner),
+        Some(&json!({ "environment_id": f.env, "service_id": service_id })),
+    );
+    assert_eq!(status, 200, "editor lease: {body}");
+    let lease_id = json_of(&body)["lease_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/expose"),
+        Some(&f.owner),
+        Some(&json!({ "lease_id": lease_id })),
+    );
+    let exposed = json_of(&body);
+    assert!(
+        exposed["ok"] == json!(false)
+            && exposed["phase"] == json!("failed")
+            && exposed["public_proxy_port"].is_null()
+            && exposed["open_url"].is_null(),
+        "nothing is exposed, by an explicit refusal: {status} {body}"
+    );
+    let log = std::fs::read_to_string(&f.daemon.log).unwrap_or_default();
+    assert!(
+        log.lines()
+            .any(|line| line.starts_with("SECURITY") && line.contains(&service_id)),
+        "the daemon logs a SECURITY line naming the service"
+    );
+}
+
+/// A boot that cannot remove a token handoff file logs a SECURITY line and leaves that service
+/// degraded; the service does not start while the file remains, and starts once it is gone.
+#[test]
+fn a_token_file_a_boot_cannot_remove_keeps_its_service_degraded() {
+    let mut f = fixture();
+    let _runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let service_id = f.editor_service();
+    let held = f
+        .data
+        .join("editor-services")
+        .join(format!("{service_id}.0123456789abcdef.connection-token"));
+    std::fs::create_dir_all(&held).unwrap();
+    std::fs::write(held.join("held"), "").unwrap();
+    f.restart();
+    let record: Value = serde_json::from_slice(
+        &std::fs::read(
+            f.data
+                .join("editor-services")
+                .join(format!("{service_id}.json")),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        record["phase"] == json!("degraded")
+            && record["readiness"]["reason"] == json!("editor_runtime_token_not_removed"),
+        "the service is degraded by name: {record}"
+    );
+    let log = std::fs::read_to_string(&f.daemon.log).unwrap_or_default();
+    assert!(
+        log.lines()
+            .any(|line| line.starts_with("SECURITY") && line.contains(&service_id)),
+        "the boot logs a SECURITY line naming the service"
+    );
+    let start = |f: &Fixture| {
+        http(
+            f.daemon.port,
+            "POST",
+            &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+            Some(&f.owner),
+            Some(&json!({})),
+        )
+    };
+    let (status, body) = start(&f);
+    assert!(
+        json_of(&body)["ok"] != json!(true)
+            && json_of(&body)["reason"] == json!("editor_runtime_token_not_removed"),
+        "no start while the token file remains: {status} {body}"
+    );
+    std::fs::remove_dir_all(&held).unwrap();
+    let (status, body) = start(&f);
+    assert!(
+        status == 200 && json_of(&body)["ok"] == json!(true),
+        "the service starts once the file is gone: {status} {body}"
+    );
+}
+
+/// Editor service logs written before runtimes moved to private sockets can carry the runtime's
+/// token in a `tkn=` URL parameter. A boot redacts every such value in the log files, and the logs
+/// endpoint serves none of them.
+#[test]
+fn boot_redacts_connection_tokens_in_existing_editor_logs() {
+    let mut f = fixture();
+    let service_id = f.editor_service();
+    let first = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    let second = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+    let log_path = f
+        .data
+        .join("editor-services")
+        .join(format!("{service_id}.log"));
+    std::fs::write(
+        &log_path,
+        format!(
+            "Web UI available at http://localhost:3000?tkn={first}\nExtension host agent started.\nopen http://127.0.0.1:3000/?folder=/w&tkn={second}&x=1\n"
+        ),
+    )
+    .unwrap();
+    f.restart();
+    let on_disk = std::fs::read_to_string(&log_path).unwrap();
+    assert!(
+        !on_disk.contains(first) && !on_disk.contains(second),
+        "no token value is left in the log file: {on_disk}"
+    );
+    assert_eq!(
+        on_disk.matches("tkn=[redacted]").count(),
+        2,
+        "each value is redacted in place: {on_disk}"
+    );
+    assert!(
+        on_disk.contains("Extension host agent started.") && on_disk.contains("&x=1"),
+        "the rest of the log is kept: {on_disk}"
+    );
+    let (status, body) = http(
+        f.daemon.port,
+        "GET",
+        &format!("/v1/hypervisor/editor-services/{service_id}/logs"),
+        Some(&f.owner),
+        None,
+    );
+    assert!(
+        status == 200 && !body.contains(first) && !body.contains(second),
+        "the logs endpoint serves no token value: {status} {body}"
+    );
+}
+
+/// A boot redacts the `tkn=` values of an editor service log whose bytes are not all UTF-8; the
+/// rest of the file, the non-UTF-8 byte included, is kept.
+#[test]
+fn boot_redacts_connection_tokens_in_a_log_that_is_not_utf8() {
+    let mut f = fixture();
+    let service_id = f.editor_service();
+    let token = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+    let log_path = f
+        .data
+        .join("editor-services")
+        .join(format!("{service_id}.log"));
+    let mut bytes = format!("Web UI available at http://localhost:3000?tkn={token}\n").into_bytes();
+    bytes.extend_from_slice(b"raw \xff byte\n");
+    std::fs::write(&log_path, &bytes).unwrap();
+    f.restart();
+    let on_disk = std::fs::read(&log_path).unwrap();
+    let find = |needle: &[u8]| on_disk.windows(needle.len()).any(|w| w == needle);
+    assert!(
+        !find(token.as_bytes()),
+        "no token value is left in the log file: {}",
+        String::from_utf8_lossy(&on_disk)
+    );
+    assert!(
+        find(&b"tkn=[redacted]"[..]) && find(&b"raw \xff byte\n"[..]),
+        "the value is redacted in place and the rest is kept: {}",
+        String::from_utf8_lossy(&on_disk)
+    );
+}
+
+/// The daemon log's SECURITY line names its service and what could not be removed.
+fn security_line_naming(f: &Fixture, service_id: &str, what: &str) -> bool {
+    std::fs::read_to_string(&f.daemon.log)
+        .unwrap_or_default()
+        .lines()
+        .any(|line| {
+            line.starts_with("SECURITY") && line.contains(service_id) && line.contains(what)
+        })
+}
+
+/// When a failed start (its token file cannot be removed) also cannot remove the runtime's socket
+/// directory, the SECURITY line reports that too.
+#[test]
+fn a_failed_start_reports_a_socket_directory_it_cannot_remove() {
+    let f = fixture();
+    let _runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let bin = f.home.join(".ioi/editor-toolchain/openvscode-server/bin");
+    std::fs::write(bin.join("hold-token-file"), "").unwrap();
+    std::fs::write(bin.join("swap-socket-dir"), "").unwrap();
+    let service_id = f.editor_service();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert_eq!(
+        json_of(&body)["reason"],
+        json!("editor_runtime_token_not_removed"),
+        "the start fails by name: {status} {body}"
+    );
+    assert!(
+        security_line_naming(&f, &service_id, "socket directory"),
+        "the SECURITY line reports the socket directory"
+    );
+}
+
+/// When stopping a runtime cannot remove its socket directory, the daemon logs a SECURITY line
+/// naming the service.
+#[test]
+fn a_stop_reports_a_socket_directory_it_cannot_remove() {
+    let f = fixture();
+    let _runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    std::fs::write(
+        f.home
+            .join(".ioi/editor-toolchain/openvscode-server/bin/swap-socket-dir"),
+        "",
+    )
+    .unwrap();
+    let service_id = f.editor_service();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert!(
+        status == 200 && json_of(&body)["ok"] == json!(true),
+        "the runtime starts: {status} {body}"
+    );
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/stop"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert_eq!(status, 200, "the stop is answered: {body}");
+    assert!(
+        security_line_naming(&f, &service_id, "socket directory"),
+        "the SECURITY line reports the socket directory"
+    );
 }
