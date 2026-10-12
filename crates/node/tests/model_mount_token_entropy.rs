@@ -232,6 +232,42 @@ fn logs_status(daemon: &Daemon, token: &str) -> u16 {
     .0
 }
 
+#[test]
+fn a_revoked_token_is_absent_from_the_listing_and_no_longer_authorizes() {
+    let (_dir, data, home) = fixture();
+    let daemon = start_daemon(&data, &home);
+    let first = create_token(&daemon, &token_body());
+    let second = create_token(&daemon, &token_body());
+    let token = first["token"].as_str().unwrap().to_string();
+    assert_eq!(logs_status(&daemon, &token), 200);
+    let id = first["token_id"].as_str().unwrap();
+    let (status, text) = http(
+        daemon.port,
+        "DELETE",
+        &format!("/v1/model-mount/tokens/{id}"),
+        None,
+        None,
+    );
+    assert_eq!(status, 200, "{text}");
+    let (_, listing) = http(daemon.port, "GET", "/v1/model-mount/tokens", None, None);
+    let ids: Vec<String> = json_of(&listing)
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["token_id"].as_str().map(str::to_string))
+        .collect();
+    assert_eq!(
+        ids,
+        vec![second["token_id"].as_str().unwrap().to_string()],
+        "only the live token is listed: {listing}"
+    );
+    assert_eq!(
+        logs_status(&daemon, &token),
+        403,
+        "a revoked token authorizes nothing"
+    );
+}
+
 const LISTED_KEYS: &[&str] = &[
     "allowed_scopes",
     "audience",

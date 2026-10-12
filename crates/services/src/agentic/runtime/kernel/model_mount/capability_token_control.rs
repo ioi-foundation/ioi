@@ -817,6 +817,39 @@ mod tests {
     }
 
     #[test]
+    fn a_revoked_token_is_absent_from_the_list() {
+        let state = scratch_state();
+        let first = create_in(&state);
+        let second = create_in(&state);
+        let mut revoke = request("model_mount.capability_token.revoke");
+        revoke.state_dir = Some(state.to_string_lossy().to_string());
+        revoke.token_id = first.public_response["token_id"]
+            .as_str()
+            .map(str::to_string);
+        let plan = plan_capability_token_control(&revoke).expect("revoke");
+        fs::write(
+            state
+                .join("capability-tokens")
+                .join(format!("{}.json", plan.record_id.replace(':', "_"))),
+            serde_json::to_vec(&plan.record).unwrap(),
+        )
+        .unwrap();
+        let mut list = request("model_mount.capability_token.list");
+        list.state_dir = Some(state.to_string_lossy().to_string());
+        let listed = plan_capability_token_control(&list).expect("list");
+        let ids: Vec<&str> = listed.public_response["tokens"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|t| t["token_id"].as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            vec![second.public_response["token_id"].as_str().unwrap()]
+        );
+    }
+
+    #[test]
     fn constant_time_eq_is_equality() {
         assert!(constant_time_eq(b"abc", b"abc"));
         assert!(!constant_time_eq(b"abc", b"abd"));
