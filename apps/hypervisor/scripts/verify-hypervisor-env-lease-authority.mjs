@@ -372,17 +372,43 @@ async function run() {
 
     // ---------------------------------------------------------------- the editor lease
     let editorTok = null;
+    let editorGrant = null;
     if (ownerAuth.authorization) {
       const em = await jd(`${D}/v1/hypervisor/editor-access-leases`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env, service_id: "eds_x" }) });
       // The editor lease's ACCESS TOKEN (a bearer the env-ops seam can find by its hash), so the refusal
       // below is the action check, not a failed token lookup.
       editorTok = em.j?.access_token ?? null;
+      editorGrant = em.j?.lease_id ?? em.j?.grant?.grant_id ?? null;
     }
+    const editorWrite = (marker) => (editorTok
+      ? jd(opsUrl(D, env, "WriteFile"), { method: "POST", headers: { authorization: `Bearer ${editorTok}` }, body: JSON.stringify({ path: marker, content: B64("x") }) })
+      : Promise.resolve({ status: "no-lease", j: {} }));
     const editorMarker = `editor-lease-write-${safeId}.txt`;
-    const wfEditor = editorTok ? await jd(opsUrl(D, env, "WriteFile"), { method: "POST", headers: { authorization: `Bearer ${editorTok}` }, body: JSON.stringify({ path: editorMarker, content: B64("x") }) }) : { status: "no-lease" };
+    const wfEditor = await editorWrite(editorMarker);
     const editorWroteFile = fs.existsSync(path.join(ws, editorMarker));
-    ok("THE CHOKEPOINT — an `environment.editor.open` lease CANNOT WriteFile through the env-ops seam either, PROVEN BY THE ABSENCE OF THE FILE: the action check does not special-case one non-ops action, it requires the ops action",
-      !!editorTok && wfEditor.status !== 200 && !editorWroteFile, `editorTok=${!!editorTok} status=${wfEditor.status} file_on_disk=${editorWroteFile}`);
+    // THE DIFFERENTIAL that makes the refusal the ACTION check's: the same token, its grant changed
+    // ONLY in its action to `environment.ops`, writes the file; restored, it is refused again. A
+    // token the seam cannot find (a grant id sent in its place, say) is refused both times.
+    const editorGrantPath = editorGrant ? path.join(dataDir, "authority-grants", `${editorGrant}.json`) : null;
+    let flipped = { status: "no-grant", j: {} };
+    let restored = { status: "no-grant", j: {} };
+    const flippedMarker = `editor-lease-as-ops-${safeId}.txt`;
+    const restoredMarker = `editor-lease-restored-${safeId}.txt`;
+    if (editorGrantPath && fs.existsSync(editorGrantPath)) {
+      const grantRecord = JSON.parse(fs.readFileSync(editorGrantPath, "utf8"));
+      const action = grantRecord.action;
+      fs.writeFileSync(editorGrantPath, JSON.stringify({ ...grantRecord, action: "environment.ops" }));
+      flipped = await editorWrite(flippedMarker);
+      fs.writeFileSync(editorGrantPath, JSON.stringify({ ...grantRecord, action }));
+      restored = await editorWrite(restoredMarker);
+    }
+    const flippedWrote = fs.existsSync(path.join(ws, flippedMarker));
+    const restoredWrote = fs.existsSync(path.join(ws, restoredMarker));
+    ok("THE CHOKEPOINT — an `environment.editor.open` lease CANNOT WriteFile through the env-ops seam either, and it is the ACTION check that refuses it: its token is refused 401 `unauthenticated` with no file, the same token whose grant carries `environment.ops` instead writes its file, and restored to `environment.editor.open` it is refused again",
+      !!editorTok && wfEditor.status === 401 && wfEditor.j?.code === "unauthenticated" && !editorWroteFile
+        && flipped.status === 200 && flippedWrote
+        && restored.status === 401 && restored.j?.code === "unauthenticated" && !restoredWrote,
+      `editorTok=${!!editorTok} status=${wfEditor.status}/${wfEditor.j?.code} file_on_disk=${editorWroteFile} as_ops=${flipped.status}/${flippedWrote} restored=${restored.status}/${restored.j?.code}/${restoredWrote}`);
 
     // ---------------------------------------------------------------- the positive control
     const opsMint = await jd(`${D}/v1/hypervisor/environments/${env}/ops-lease`, { method: "POST", headers: ownerAuth, body: "{}" });
