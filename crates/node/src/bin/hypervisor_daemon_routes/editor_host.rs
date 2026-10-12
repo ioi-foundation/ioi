@@ -15,12 +15,15 @@
 //! directory under the data dir, so no browser can reach it except through the editor proxy, which
 //! requires the editor lease. It also REQUIRES a connection token (defence in depth): a random
 //! secret (32 bytes, OS RNG) per launch, handed over in a per-launch file (mode 0600, created new,
-//! removed once the runtime is ready or the start fails, never on the command line) and kept in the
-//! daemon's memory (`EditorRuntime::connection_token`). The proxy adds it as the runtime's
+//! removed once the runtime is ready or the start fails, never on the command line; a start whose
+//! file cannot be removed fails and stops its runtime) and kept in the daemon's memory
+//! (`EditorRuntime::connection_token`). The proxy adds it as the runtime's
 //! `vscode-tkn` cookie when a request carries none; the workbench the runtime serves gives the
 //! browser that cookie for its in-band WebSocket auth. The runtime's output is copied to the
-//! service log with the token's exact bytes redacted. Starts of one service are serialized, and a
-//! daemon boot removes token files and sockets a crashed start left behind.
+//! service log with the token's exact bytes redacted. Starts of one service are serialized from
+//! reading the record through persisting it. A daemon boot removes token files and sockets a
+//! crashed start left behind (a service whose token file cannot be removed stays degraded and does
+//! not start until it is), and redacts `tkn=` values older TCP runtimes printed into service logs.
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
@@ -81,6 +84,57 @@ pub(crate) fn redact_secret(line: &str, secret: &str) -> String {
     line.replace(secret, "[redacted]")
 }
 
+/// Every `tkn=<value>` URL parameter in `text` with its value replaced (a runtime that listened on
+/// a TCP port printed its token that way). Returns None when nothing changed.
+pub(crate) fn redact_tkn_values(text: &str) -> Option<String> {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    let mut changed = false;
+    while let Some(at) = rest.find("tkn=") {
+        let (head, tail) = rest.split_at(at + "tkn=".len());
+        out.push_str(head);
+        let end = tail
+            .find(|c: char| {
+                c.is_whitespace() || matches!(c, '&' | '#' | '"' | '\'' | '<' | '>' | ';' | ')')
+            })
+            .unwrap_or(tail.len());
+        let value = &tail[..end];
+        if value.is_empty() || value == "[redacted]" {
+            out.push_str(value);
+        } else {
+            out.push_str("[redacted]");
+            changed = true;
+        }
+        rest = &tail[end..];
+    }
+    out.push_str(rest);
+    changed.then_some(out)
+}
+
+/// A SECURITY line on the daemon's own log: a secret may have been left on disk.
+fn security_line(message: &str) {
+    eprintln!("SECURITY editor runtime: {message}");
+}
+
+/// Remove every token handoff file a previous start of `service_id` left in `dir`. Returns the
+/// ones that could not be removed.
+fn remove_stale_token_files(dir: &Path, service_id: &str) -> Vec<String> {
+    let prefix = format!("{service_id}.");
+    let mut left = Vec::new();
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.starts_with(&prefix) || !name.ends_with(".connection-token") {
+            continue;
+        }
+        if let Err(error) = std::fs::remove_file(entry.path()) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                left.push(format!("{name} ({error})"));
+            }
+        }
+    }
+    left
+}
+
 /// Copy a runtime output stream into the service log line by line, with `secret` redacted.
 fn copy_redacted<R: Read + Send + 'static>(source: R, log_path: String, secret: String) {
     std::thread::spawn(move || {
@@ -105,8 +159,9 @@ fn copy_redacted<R: Read + Send + 'static>(source: R, log_path: String, secret: 
     });
 }
 
-/// One start at a time per editor service.
-fn start_gate(service_id: &str) -> std::sync::Arc<tokio::sync::Mutex<()>> {
+/// One start at a time per editor service: the start route holds it from reading the service record
+/// through persisting the result.
+pub(crate) fn start_gate(service_id: &str) -> std::sync::Arc<tokio::sync::Mutex<()>> {
     static GATES: std::sync::OnceLock<
         std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>>,
     > = std::sync::OnceLock::new();
@@ -262,16 +317,15 @@ fn remove_launch_files(token_path: &Path, socket_dir: &Path) -> Option<String> {
 }
 
 /// Launch the OSS runtime for a service on a private unix socket, inject binding refs (WS-6a), and
-/// wait for /version. The public, lease-authenticated proxy is added by WS-4. Starts of one service
-/// are serialized: a concurrent start waits, then finds the runtime running.
+/// wait for /version. The public, lease-authenticated proxy is added by WS-4. The caller holds the
+/// service's `start_gate` from reading `svc` through persisting the result, so a start that waited
+/// reads the record the previous start committed and finds its runtime running.
 pub(crate) async fn start_oss_runtime(
     st: &DaemonState,
     service_id: &str,
     svc: &Value,
 ) -> Result<Value, String> {
-    let gate = start_gate(service_id);
-    let _one_start = gate.lock().await;
-    // already running? return the live view.
+    // already running? `svc` is the record the start that launched it committed.
     if st.editor_runtimes.lock().unwrap().contains_key(service_id) {
         let mut s = svc.clone();
         s["phase"] = json!("ready");
@@ -289,6 +343,16 @@ pub(crate) async fn start_oss_runtime(
     let (extensions_dir, installed_exts) = install_required_extensions(&st.data_dir, service_id)?;
     let log_dir = Path::new(&st.data_dir).join("editor-services");
     let _ = std::fs::create_dir_all(&log_dir);
+    // A token file an earlier start left behind (no runtime of it is running) must be gone before
+    // this service runs again.
+    let stale = remove_stale_token_files(&log_dir, service_id);
+    if !stale.is_empty() {
+        security_line(&format!(
+            "service {service_id}: a token handoff file could not be removed: {}; the service does not start until it is",
+            stale.join(", ")
+        ));
+        return Err("editor_runtime_token_not_removed".to_string());
+    }
     let log_path = log_dir
         .join(format!("{service_id}.log"))
         .to_string_lossy()
@@ -339,7 +403,11 @@ pub(crate) async fn start_oss_runtime(
             .open(&token_path)
             .and_then(|mut token_file| token_file.write_all(connection_token.as_bytes()));
         if let Err(e) = written {
-            let _ = remove_launch_files(&token_path, &socket_dir);
+            if let Some(left) = remove_launch_files(&token_path, &socket_dir) {
+                security_line(&format!(
+                    "service {service_id}: could not remove the {left}"
+                ));
+            }
             return Err(format!("write the runtime connection token: {e}"));
         }
     }
@@ -380,7 +448,11 @@ pub(crate) async fn start_oss_runtime(
     let mut child = match cmd.spawn() {
         Ok(child) => child,
         Err(e) => {
-            let _ = remove_launch_files(&token_path, &socket_dir);
+            if let Some(left) = remove_launch_files(&token_path, &socket_dir) {
+                security_line(&format!(
+                    "service {service_id}: could not remove the {left}"
+                ));
+            }
             return Err(format!("spawn openvscode-server: {e}"));
         }
     };
@@ -402,17 +474,24 @@ pub(crate) async fn start_oss_runtime(
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
-    // The runtime read its token at start; the file is not kept.
-    if let Err(error) = std::fs::remove_file(&token_path) {
-        if error.kind() != std::io::ErrorKind::NotFound {
-            copy_redacted(
-                std::io::Cursor::new(format!(
-                    "hypervisor: the runtime token handoff file could not be removed ({error}); the next daemon boot removes it\n"
-                )),
-                log_path.clone(),
-                connection_token.clone(),
-            );
+    // The runtime read its token at start; the file is not kept. If it cannot be removed the start
+    // FAILS: the runtime is stopped, so the secret never stays behind a success.
+    let unremoved = std::fs::remove_file(&token_path)
+        .err()
+        .filter(|error| error.kind() != std::io::ErrorKind::NotFound);
+    if let Some(error) = unremoved {
+        let pid = child.id() as libc::pid_t;
+        // SAFETY: a negative pid signals the process group the launcher created with setsid.
+        unsafe {
+            libc::kill(-pid, libc::SIGKILL);
         }
+        let _ = child.kill();
+        let _ = child.wait();
+        let _ = std::fs::remove_dir_all(&socket_dir);
+        security_line(&format!(
+            "service {service_id}: the token handoff file could not be removed at readiness ({error}); the runtime was stopped and the start failed"
+        ));
+        return Err("editor_runtime_token_not_removed".to_string());
     }
     let Some(version) = version else {
         // CONTAINMENT (cleanup availability): the launcher shell forks the server WITHOUT exec,
@@ -433,6 +512,11 @@ pub(crate) async fn start_oss_runtime(
             "process group MAY still be running — cleanup unverified"
         };
         let left = remove_launch_files(&token_path, &socket_dir)
+            .inspect(|left| {
+                security_line(&format!(
+                    "service {service_id}: could not remove the {left}"
+                ))
+            })
             .map(|left| format!("; could not remove the {left}"))
             .unwrap_or_default();
         return Err(format!(
@@ -486,7 +570,7 @@ pub(crate) fn read_runtime_log(data_dir: &str, service_id: &str) -> Value {
     let p = Path::new(data_dir)
         .join("editor-services")
         .join(format!("{service_id}.log"));
-    match std::fs::read_to_string(&p) {
+    match std::fs::read_to_string(&p).map(|s| redact_tkn_values(&s).unwrap_or(s)) {
         Ok(s) => json!(s
             .lines()
             .rev()
@@ -538,8 +622,9 @@ fn carries_launch_marker(pid: &str, marker: &Path) -> bool {
 /// <marker>` (the record's own extensions dir under this data dir); it runs as this daemon's uid
 /// (real, effective, saved and filesystem); its process group leads its own session (the setsid the
 /// daemon's launch made), has no controlling terminal, and is not the daemon's own group or
-/// session; and the group's leader, while it lives, carries the same marker. Then its process
-/// group is killed. Anything else on the port is left running. Returns true iff one was stopped.
+/// session; and the group's leader is alive and carries the same marker and uids (a group whose
+/// leader cannot be read is never killed). Then its process group is killed. Anything else on the
+/// port is left running. Returns true iff one was stopped.
 fn stop_legacy_tcp_runtime(port: u16, marker: &Path) -> bool {
     let wanted = format!("{port:04X}");
     let mut inodes = Vec::new();
@@ -610,9 +695,12 @@ fn stop_legacy_tcp_runtime(port: u16, marker: &Path) -> bool {
             && tty == "0"
             && group != own_group
             && session != own_session;
-        let leader_carries_marker = proc_stat_fields(group).is_none()
-            || (carries_launch_marker(group, marker)
-                && proc_uids(group).is_some_and(|uids| uids.iter().all(|uid| uid == own_uid)));
+        // The leader must be READ and VERIFIED: a group whose leader is gone or unreadable may be
+        // anyone's, so it is never killed.
+        let leader_carries_marker = proc_stat_fields(group).is_some()
+            && carries_launch_marker(group, marker)
+            && proc_uids(group)
+                .is_some_and(|uids| uids.len() == 4 && uids.iter().all(|uid| uid == own_uid));
         if same_uid && own_launch_session && leader_carries_marker {
             // SAFETY: kill on a process group checked above to be the runtime's own session group,
             // never this daemon's group or session.
@@ -631,18 +719,51 @@ fn stop_legacy_tcp_runtime(port: u16, marker: &Path) -> bool {
 pub(crate) fn reconcile_editor_services(data_dir: &str) -> usize {
     let dir = Path::new(data_dir).join("editor-services");
     // No runtime survives a daemon restart, so every runtime socket and token handoff file a start
-    // left behind (a crash between handoff and cleanup) is stale: remove them.
-    let _ = std::fs::remove_dir_all(Path::new(data_dir).join("editor-sockets"));
+    // left behind (a crash between handoff and cleanup) is stale: remove them. A token file that
+    // cannot be removed keeps its service degraded (and a start refuses) until it is.
+    let sockets = Path::new(data_dir).join("editor-sockets");
+    if let Err(error) = std::fs::remove_dir_all(&sockets) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            security_line(&format!(
+                "the runtime socket directory {} could not be removed ({error})",
+                sockets.display()
+            ));
+        }
+    }
+    let mut unremoved_tokens = std::collections::BTreeSet::new();
+    for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+        let name = e.file_name().to_string_lossy().to_string();
+        if name.ends_with(".connection-token") {
+            if let Err(error) = std::fs::remove_file(e.path()) {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    let service = name.split('.').next().unwrap_or_default().to_string();
+                    security_line(&format!(
+                        "service {service}: the token handoff file {name} could not be removed at boot ({error}); the service stays degraded until it is"
+                    ));
+                    unremoved_tokens.insert(service);
+                }
+            }
+        } else if name.ends_with(".log") {
+            // A runtime that listened on a TCP port printed its token in a `tkn=` URL parameter.
+            let redacted = std::fs::read_to_string(e.path())
+                .ok()
+                .and_then(|text| redact_tkn_values(&text));
+            if let Some(text) = redacted {
+                let staged = dir.join(format!("{name}.redacting"));
+                let replaced =
+                    std::fs::write(&staged, text).and_then(|_| std::fs::rename(&staged, e.path()));
+                if let Err(error) = replaced {
+                    let _ = std::fs::remove_file(&staged);
+                    security_line(&format!(
+                        "the editor service log {name} carries tkn= values that could not be redacted ({error})"
+                    ));
+                }
+            }
+        }
+    }
     let mut reconciled = 0;
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for e in entries.flatten() {
-            if e.file_name()
-                .to_string_lossy()
-                .ends_with(".connection-token")
-            {
-                let _ = std::fs::remove_file(e.path());
-                continue;
-            }
             if e.path().extension().and_then(|x| x.to_str()) != Some("json") {
                 continue;
             }
@@ -652,6 +773,27 @@ pub(crate) fn reconcile_editor_services(data_dir: &str) -> usize {
             let Ok(mut svc) = serde_json::from_slice::<Value>(&bytes) else {
                 continue;
             };
+            let stem = e
+                .path()
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if unremoved_tokens.contains(&stem) {
+                if let Some(port) = svc.get("internal_port").and_then(|v| v.as_u64()) {
+                    let marker = dir.join(&stem).join("extensions");
+                    let _ = u16::try_from(port)
+                        .is_ok_and(|port| stop_legacy_tcp_runtime(port, &marker));
+                }
+                svc["phase"] = json!("degraded");
+                svc["internal_port"] = Value::Null;
+                svc["readiness"] = json!({ "mode": "blocked", "reason": "editor_runtime_token_not_removed", "detail": "a runtime token handoff file of this service could not be removed; the service does not start until it is" });
+                let _ = std::fs::write(
+                    e.path(),
+                    serde_json::to_vec_pretty(&svc).unwrap_or_default(),
+                );
+                reconciled += 1;
+                continue;
+            }
             // A record naming an internal TCP port is a LEGACY runtime (an older daemon's, on
             // loopback TCP): stop it if it still listens, and mark the record unusable until the
             // service is started again, on its private socket.

@@ -445,13 +445,23 @@ pub(crate) async fn handle_editor_service_start(
     AxumPath(service_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
-    let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
+    let Some(svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
         return Ok((
             StatusCode::OK,
             Json(json!({ "ok": false, "reason": "editor service not found" })),
         ));
     };
     authorize_editor_service_owner(&st.data_dir, &headers, &svc)?;
+    // Starts of one service are serialized from reading its record through persisting the result:
+    // a start that waited reads the record the previous start committed.
+    let gate = super::editor_host::start_gate(&service_id);
+    let _one_start = gate.lock().await;
+    let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
+        return Ok((
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "editor service not found" })),
+        ));
+    };
     // inject binding refs (WS-6a) the editor host will surface in context envelopes.
     if let Some(sr) = body.get("session_ref").and_then(|v| v.as_str()) {
         svc["session_ref"] = json!(sr);
