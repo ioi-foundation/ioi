@@ -194,6 +194,7 @@
     "serve:product-ui": "node scripts/serve-product-ui.mjs",
     "serve:reference": "node scripts/serve-product-ui.mjs",
     "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
+    "test:invite-page": "node --test scripts/invite-page.test.mjs",
     "test:operations-telemetry": "node --test scripts/operations-telemetry.test.mjs",
     "test:system-governed-approval": "node --test scripts/system-governed-approval.test.mjs",
     "test:system-improve-mode": "node --test scripts/system-improve-mode.test.mjs",

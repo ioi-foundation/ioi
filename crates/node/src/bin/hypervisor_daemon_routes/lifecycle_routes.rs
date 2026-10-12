@@ -21203,6 +21203,13 @@ fn issue_bootstrap_token(data_dir: &str) -> Result<String, String> {
     Ok(token)
 }
 
+/// A session minted with any route constraint is route-scoped.
+fn session_record_is_route_scoped(session: &Value) -> bool {
+    session.get("allowed_route_prefixes").is_some()
+        || session.get("allowed_exact_routes").is_some()
+        || session.get("allowed_route_patterns").is_some()
+}
+
 fn presented_session_record(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
     let mut tokens = Vec::new();
     if let Some(cookie) = headers.get("cookie").and_then(|value| value.to_str().ok()) {
@@ -21336,6 +21343,16 @@ pub(crate) fn resolve_acting_principal_ref(
 }
 
 pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
+    resolve_principal_and_session(data_dir, headers).map(|(principal, _)| principal)
+}
+
+/// The principal a request resolves to AND the session record that resolved it (`None` for an API token),
+/// from ONE read of the sessions: a caller that must judge the session (its scope, its impersonation) judges
+/// this record, never a second lookup of the same token that could answer differently (an expiry between).
+pub(crate) fn resolve_principal_and_session(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Option<(Value, Option<Value>)> {
     // 1) session cookie
     let mut session_tok: Option<String> = None;
     if let Some(cookie) = headers.get("cookie").and_then(|c| c.to_str().ok()) {
@@ -21356,7 +21373,7 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
     // The portal exchange records `tenant_ref` on the session at mint; without returning it here
     // the scope is admitted once and never enforced, so a session minted for one tenant resolves
     // a principal carrying every tenant it belongs to.
-    let try_session = |tok: &str| -> Option<(Value, Option<String>, Option<String>)> {
+    let try_session = |tok: &str| -> Option<(Value, Option<String>, Option<String>, Value)> {
         let h = sha256_hex_str(tok);
         let now = iso_now();
         read_record_dir(data_dir, "sessions")
@@ -21374,7 +21391,7 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
                 s["principal_id"]
                     .as_str()
                     .and_then(|pid| find_principal(data_dir, pid))
-                    .map(|principal| (principal, scope, actor))
+                    .map(|principal| (principal, scope, actor, s.clone()))
             })
     };
 
@@ -21413,26 +21430,28 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
         Some(principal)
     };
     if let Some(tok) = &session_tok {
-        if let Some((p, scope, actor)) = try_session(tok) {
+        if let Some((p, scope, actor, session)) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
                 return attribute_actor(
                     principal_public_with_memberships(data_dir, p)
                         .ok()
                         .and_then(|principal| narrow_to_session_tenant(principal, scope)),
                     actor,
-                );
+                )
+                .map(|principal| (principal, Some(session)));
             }
         }
     }
     if let Some(tok) = &bearer {
-        if let Some((p, scope, actor)) = try_session(tok) {
+        if let Some((p, scope, actor, session)) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
                 return attribute_actor(
                     principal_public_with_memberships(data_dir, p)
                         .ok()
                         .and_then(|principal| narrow_to_session_tenant(principal, scope)),
                     actor,
-                );
+                )
+                .map(|principal| (principal, Some(session)));
             }
         }
         // API access token: match the stored hash → its user_id → principal
@@ -21450,7 +21469,9 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
             if let Some(uid) = rec["user_id"].as_str() {
                 if let Some(p) = find_principal(data_dir, uid) {
                     if p["status"].as_str() == Some("active") {
-                        return principal_public_with_memberships(data_dir, p).ok();
+                        return principal_public_with_memberships(data_dir, p)
+                            .ok()
+                            .map(|principal| (principal, None));
                     }
                 }
             }
@@ -22503,6 +22524,53 @@ mod principal_tenant_membership_tests {
             resolve_principal(data_dir, &headers).is_none(),
             "a session whose admitted tenant membership is gone must fail closed"
         );
+    }
+
+    /// BUILD-DELTA #24 FIX-5 — the principal and the session that resolved it come from ONE read, so
+    /// the route-scope judgement is made on that very record (a second lookup of the same token could
+    /// answer differently, e.g. after an expiry between the two reads, and skip the refusal).
+    #[test]
+    fn the_resolved_session_record_is_the_one_the_scope_check_reads() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+        let bearer = |token: &str| {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                header::AUTHORIZATION,
+                format!("Bearer {token}").parse().unwrap(),
+            );
+            headers
+        };
+
+        let (status, scoped) = issue_portal_exchange_session(
+            data_dir,
+            OPERATOR_ID,
+            "https://portal.test",
+            "https://daemon.test",
+            "org://local",
+            "consumption://fix5",
+            None,
+        );
+        assert_eq!(status, StatusCode::OK);
+        let token = scoped["session_token"].as_str().unwrap();
+        let (_, session) = resolve_principal_and_session(data_dir, &bearer(token))
+            .expect("the scoped session resolves");
+        let session = session.expect("a session resolution returns the session record");
+        assert_eq!(
+            session["token_hash"].as_str(),
+            Some(sha256_hex_str(token).as_str()),
+            "the returned record is the one this token resolved"
+        );
+        assert!(session_record_is_route_scoped(&session));
+
+        let (status, plain) = issue_session(data_dir, OPERATOR_ID, "login");
+        assert_eq!(status, StatusCode::OK);
+        let (_, plain_session) = resolve_principal_and_session(
+            data_dir,
+            &bearer(plain["session_token"].as_str().unwrap()),
+        )
+        .expect("the plain session resolves");
+        assert!(!session_record_is_route_scoped(&plain_session.unwrap()));
     }
 
     /// W1.1 / DEF-IDENT-3 — an impersonated session resolves to the SUBJECT and must carry the
@@ -24791,10 +24859,44 @@ pub(crate) async fn handle_organization_patch(
         ),
     )
 }
-/// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a member +
-/// issue a session. Fails closed if the invite id doesn't match the current link.
+/// The one credential a request presents: its `ioi_session` cookie or its bearer, or both when they are the
+/// same token. Two session cookies, two bearers, or a cookie and a different bearer are ambiguous (`Err`).
+fn single_presented_credential(headers: &HeaderMap) -> Result<Option<String>, ()> {
+    let mut cookies = Vec::new();
+    for cookie in headers.get_all("cookie") {
+        let Ok(cookie) = cookie.to_str() else {
+            continue;
+        };
+        for part in cookie.split(';') {
+            if let Some(token) = part.trim().strip_prefix("ioi_session=") {
+                cookies.push(token.to_string());
+            }
+        }
+    }
+    let mut bearers: Vec<String> = headers
+        .get_all(header::AUTHORIZATION)
+        .iter()
+        .filter_map(|value| value.to_str().ok()?.strip_prefix("Bearer "))
+        .map(|token| token.trim().to_string())
+        .collect();
+    if cookies.len() > 1 || bearers.len() > 1 {
+        return Err(());
+    }
+    match (cookies.pop(), bearers.pop()) {
+        (Some(cookie), Some(bearer)) if cookie != bearer => Err(()),
+        (Some(cookie), _) => Ok(Some(cookie)),
+        (None, bearer) => Ok(bearer),
+    }
+}
+
+/// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a NEW member +
+/// issue its session. Fails closed if the invite id doesn't match the current link. An email that already
+/// names a principal is never signed in here (BUILD-DELTA #24): that principal joins by an accept
+/// authenticated as itself by one credential (its own session or API token; not impersonated, not
+/// route-scoped), which records its membership and issues no session.
 pub(crate) async fn handle_org_invite_accept(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(request) = body.as_object() else {
@@ -24870,18 +24972,82 @@ pub(crate) async fn handle_org_invite_accept(
             Json(json!({ "ok": false, "reason": "email is required" })),
         );
     }
-    if body
-        .get("password")
-        .and_then(Value::as_str)
-        .is_some_and(|password| !password.is_empty() && password.len() < 8)
-    {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "reason": "password_too_short" })),
-        );
-    }
     let (principal, principal_created) = match find_principal_by_email(&st.data_dir, &email) {
-        Some(p) if p["status"].as_str() == Some("active") => (p, false),
+        // BUILD-DELTA #24: the invite never signs in an existing principal. It joins only by an accept
+        // authenticated as exactly that principal, by ONE credential: its own session or API token. An
+        // impersonated session and a route-scoped session are refused, whatever the scope lists.
+        Some(p) if p["status"].as_str() == Some("active") => {
+            let Ok(credential) = single_presented_credential(&headers) else {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.ambiguous_request_identity",
+                        "message": "the request presents more than one credential; present exactly one"
+                    })),
+                );
+            };
+            // The identity and the session check below both read exactly this one credential.
+            let presented = credential.and_then(|token| {
+                let mut only = HeaderMap::new();
+                only.insert(
+                    header::AUTHORIZATION,
+                    format!("Bearer {token}").parse().ok()?,
+                );
+                Some(only)
+            });
+            let Some((caller, resolved_session)) = presented
+                .as_ref()
+                .and_then(|only| resolve_principal_and_session(&st.data_dir, only))
+            else {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.org_invite_existing_principal_sign_in_required",
+                        "message": "this email already has an account: sign in as that account, then accept the invite"
+                    })),
+                );
+            };
+            if caller["is_impersonated"].as_bool() == Some(true) {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.org_invite_impersonated_session_refused",
+                        "message": "an impersonated session does not accept an invite: sign in as yourself"
+                    })),
+                );
+            }
+            let caller_is_this_principal = caller["principal_id"]
+                .as_str()
+                .is_some_and(|caller_id| p["principal_id"].as_str() == Some(caller_id));
+            if !caller_is_this_principal {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.org_invite_principal_mismatch",
+                        "message": "an invite is accepted for an existing account only by that account, signed in as itself"
+                    })),
+                );
+            }
+            // The scope is judged on the record that resolved the identity: no second read of the session.
+            if resolved_session
+                .as_ref()
+                .is_some_and(session_record_is_route_scoped)
+            {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.org_invite_scoped_session_refused",
+                        "message": "a route-scoped session does not accept an invite: sign in as yourself"
+                    })),
+                );
+            }
+            (p, false)
+        }
         Some(_) => {
             return (
                 StatusCode::CONFLICT,
@@ -24889,6 +25055,17 @@ pub(crate) async fn handle_org_invite_accept(
             )
         }
         None => {
+            // The password rule applies only to a new account; an existing account's join sets none.
+            if body
+                .get("password")
+                .and_then(Value::as_str)
+                .is_some_and(|password| !password.is_empty() && password.len() < 8)
+            {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "reason": "password_too_short" })),
+                );
+            }
             let pid = format!("usr_{}", short_hash(&format!("invite:{email}")));
             let mut p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
                 "name": body.get("name").and_then(Value::as_str).unwrap_or(email.as_str()), "role": "member",
@@ -24927,6 +25104,19 @@ pub(crate) async fn handle_org_invite_accept(
         Ok(receipt) => receipt,
         Err(error) => return membership_error_response(error),
     };
+    if !principal_created {
+        // BUILD-DELTA #24: the existing principal is signed in already, as itself; the accept records its
+        // membership and issues no session.
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "joined": true,
+                "principal_id": principal_id,
+                "membership_receipt": membership_receipt
+            })),
+        );
+    }
     let (status, sess) = issue_session(&st.data_dir, principal_id, "invite");
     let mut response = sess;
     if status == StatusCode::OK {

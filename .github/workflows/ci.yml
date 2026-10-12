@@ -172,6 +172,25 @@ jobs:
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: npm run check:work-lifecycle-integrity
 
+      # SECURITY REGRESSION TESTS (2026-10-11). The daemon test step runs only the binary's own
+      # suite, so no target in crates/node/tests/ ran in CI. Each security fix's regression target
+      # goes in `targets`, one per line. They start a real daemon and run only in an isolated
+      # network namespace: `unshare -rn` with loopback up (Ubuntu's AppArmor restriction on
+      # unprivileged user namespaces lifted first). `--no-fail-fast`: one red target hides no other.
+      - name: security regression tests
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: |
+          targets=(
+            d24_invite_accept
+          )
+          args=()
+          for target in "${targets[@]}"; do args+=(--test "$target"); done
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          unshare -rn bash -c 'ip link set lo up && exec "$@"' _ \
+            cargo test --locked --no-fail-fast -p ioi-node "${args[@]}"
+
       # M05.10 is a Rust-backed live-daemon gate. Keep it beside the daemon build and full daemon
       # test so the Node-only product job never invokes Cargo implicitly. The verifier refuses an
       # out-of-worktree binary and exercises only synthetic records on an isolated data directory.
@@ -1894,6 +1913,10 @@ jobs:
       - name: Verify product client contract — test:product-shell-auth
         if: ${{ !cancelled() }}
         run: npm run test:product-shell-auth --workspace=@ioi/hypervisor-app
+
+      - name: Verify the invite page's answers — test:invite-page
+        if: ${{ !cancelled() }}
+        run: npm run test:invite-page --workspace=@ioi/hypervisor-app
 
       - name: Verify adopted seed adapters — test:adopted-seeds
         if: ${{ !cancelled() }}

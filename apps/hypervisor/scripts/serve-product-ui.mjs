@@ -8455,9 +8455,23 @@ ${error ? `<div class="err">${String(error).replace(/[<>]/g, "")}</div>` : ""}
 </form></main></body></html>`;
 }
 
-// Owned invite-acceptance surface — provisions a member account from the org invite link.
-function inviteShell(inviteId, error) {
+// Owned invite-acceptance surface. `view.mode`: "create" (signed out: a new email creates a member account),
+// "join" (signed in as { email, org }: joins as itself, no password field), or "neutral" (who is asking could
+// not be confirmed: no form at all, never the create-account form).
+function inviteShell(inviteId, error, view = { mode: "create" }) {
   const safe = String(inviteId).replace(/[^A-Za-z0-9_-]/g, "");
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const form = view.mode === "join"
+    ? `<h1>Join ${esc(view.org || "the organization")} as ${esc(view.email)}</h1><div class="sub">You've been invited. Not you? <a href="/__ioi/logout">Sign out</a></div>
+<input type="hidden" name="email" value="${esc(view.email)}">
+<button type="submit">Join</button>`
+    : view.mode === "neutral"
+    ? `<h1>Join the organization</h1><div class="sub">You've been invited. <a href="/__ioi/invite/${safe}">Reload</a></div>`
+    : `<h1>Join the organization</h1><div class="sub">You've been invited. Create your account.</div>
+<label>Full name</label><input name="name" autocomplete="name" autofocus placeholder="Your name">
+<label>Email</label><input name="email" type="email" autocomplete="email" placeholder="you@org.com">
+<label>Password</label><input name="password" type="password" autocomplete="new-password" placeholder="Choose a password">
+<button type="submit">Create account &amp; join</button>`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Join · IOI Hypervisor</title><style>
 *{box-sizing:border-box}body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:#0b0c0f;color:#e7e9ee;display:flex;min-height:100vh;align-items:center;justify-content:center}
@@ -8466,13 +8480,9 @@ function inviteShell(inviteId, error) {
 h1{font-size:20px;margin:0 0 4px}.sub{color:#8a90a0;font-size:13px;margin-bottom:14px}label{display:block;font-size:13px;color:#aeb4c2;margin:12px 0 5px}
 input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #2c313c;background:#0e1014;color:#e7e9ee;font-size:14px}
 button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;background:#5b7cfa;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
-.err{margin-top:14px;color:#ff9b9b;font-size:13px}
+.err{margin-top:14px;color:#ff9b9b;font-size:13px}a{color:#9db1ff}
 </style></head><body><main><form class="card" method="POST" action="/__ioi/invite/${safe}">
-<div class="brand">IOI Hypervisor</div><h1>Join the organization</h1><div class="sub">You've been invited. Create your account.</div>
-<label>Full name</label><input name="name" autocomplete="name" autofocus placeholder="Your name">
-<label>Email</label><input name="email" type="email" autocomplete="email" placeholder="you@org.com">
-<label>Password</label><input name="password" type="password" autocomplete="new-password" placeholder="Choose a password">
-<button type="submit">Create account &amp; join</button>
+<div class="brand">IOI Hypervisor</div>${form}
 ${error ? `<div class="err">${error}</div>` : ""}
 </form></main></body></html>`;
 }
@@ -8859,7 +8869,7 @@ async function runSurfaceAction(hit, res, body) {
 // Automation that browses the product without an account opts out explicitly:
 // IOI_PRODUCT_SIGNIN_REQUIRED=0.
 const SIGNIN_REQUIRED = process.env.IOI_PRODUCT_SIGNIN_REQUIRED !== "0";
-const SIGNIN_PUBLIC = /^\/(?:__ioi\/(?:login|logout|bootstrap|join-organization|help|assets)(?:[/?]|$)|join-organization(?:[/?]|$)|auth\/|changelog(?:[/?]|$)|api\/|v1\/|scim\/|static\/|releases\/|ioi-augmentation\.js$)/u;
+const SIGNIN_PUBLIC = /^\/(?:__ioi\/(?:login|logout|bootstrap|join-organization|invite|help|assets)(?:[/?]|$)|join-organization(?:[/?]|$)|auth\/|changelog(?:[/?]|$)|api\/|v1\/|scim\/|static\/|releases\/|ioi-augmentation\.js$)/u;
 async function signInGate(req, res, pathname) {
   if (!SIGNIN_REQUIRED || req.method !== "GET") return false;
   if (!String(req.headers.accept || "").includes("text/html")) return false;
@@ -11797,29 +11807,81 @@ async function handleEstateRequest(req, res, body) {
       }
       return;
     }
-    // Invite acceptance — provision a member account from the org invite link, then sign in.
+    // Invite acceptance: a new email gets a member account and is signed in; an account signed in as itself
+    // joins with no new session (daemonFetch forwards this request's session).
     if (pathname.startsWith("/__ioi/invite/")) {
       const inviteId = decodeURIComponent(pathname.slice("/__ioi/invite/".length).split("/")[0]);
+      const signIn = `<a href="/__ioi/login?next=${encodeURIComponent(`/__ioi/invite/${inviteId}`)}">Sign in</a>`;
+      const impersonated = `An impersonated session can't accept an invite. ${signIn} as yourself.`;
+      const failed = "Couldn't complete joining. Try again.";
+      const isObject = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+      // Who is asking. No session on the request: signed out. A session: the daemon says who it is, or that it
+      // is not signed in. Anything else (a failed or unexpected answer) is "neutral": no form, never the
+      // create-account form shown to someone who may be signed in.
+      const hasSession = /(?:^|;)\s*ioi_session=[^;\s]/.test(String(req.headers.cookie || "")) || Boolean(req.headers.authorization);
+      const viewer = async () => {
+        if (!hasSession) return { mode: "create" };
+        try {
+          const r = await daemonFetch(`/v1/hypervisor/auth/whoami`);
+          const w = await r.json().catch(() => null);
+          // Either classification needs HTTP success: a 500/503 body that claims a state is not an answer.
+          if (r.ok && isObject(w) && w.authenticated === true && isObject(w.principal) && typeof w.principal.email === "string") {
+            const o = await daemonFetch(`/v1/hypervisor/organization`).then((x) => x.json()).catch(() => null);
+            const org = isObject(o) && isObject(o.organization) && typeof o.organization.display_name === "string" ? o.organization.display_name : "";
+            return { mode: "join", email: w.principal.email, org, impersonated: w.principal.is_impersonated === true };
+          }
+          // Account creation is offered only on a successful (2xx), well-formed answer that says signed out.
+          if (r.ok && isObject(w) && w.authenticated === false) return { mode: "create" };
+        } catch { /* the daemon could not say */ }
+        return { mode: "neutral" };
+      };
       if (req.method === "POST") {
         const form = new URLSearchParams(body.toString("utf8"));
         try {
           const r = await daemonFetch(`/v1/hypervisor/org-invite/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invite_id: inviteId, email: form.get("email") || "", name: form.get("name") || "", password: form.get("password") || "" }) });
-          const d = await r.json().catch(() => ({}));
-          if (r.ok && d.ok && d.session_token) {
+          // An answer that is not a JSON object is unexpected: it reads as a failed join, not as a refusal.
+          const raw = await r.json().catch(() => null);
+          const d = isObject(raw) ? raw : {};
+          if (r.ok && d.ok === true && typeof d.session_token === "string" && d.session_token) {
             res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
             res.end();
             return;
           }
+          // An existing account joins signed in as itself: the daemon records the membership, no new session.
+          if (r.ok && d.ok === true && d.joined === true) {
+            res.writeHead(302, { Location: "/ai" });
+            res.end();
+            return;
+          }
+          // Each typed refusal reads as what happened; only a wrong or rotated invite is called invalid.
+          const invalid = "This invite link is invalid or expired.";
+          const messages = {
+            "hypervisor.org_invite_existing_principal_sign_in_required": `This email already has an account. ${signIn} first, then open the invite again to join.`,
+            "hypervisor.org_invite_principal_mismatch": `This email belongs to another account. ${signIn} as that account, then open the invite again to join.`,
+            "hypervisor.org_invite_impersonated_session_refused": impersonated,
+            "hypervisor.org_invite_scoped_session_refused": `This session can't accept an invite. ${signIn} as yourself.`,
+            "hypervisor.ambiguous_request_identity": `This request carries more than one sign-in. <a href="/__ioi/logout">Sign out</a>, then sign in and open the invite again.`,
+            "hypervisor.org_invite_principal_inactive": "This account is inactive.",
+            password_too_short: "Password must be at least 8 characters.",
+            "email is required": "Enter your email.",
+            invalid_or_expired_invite: invalid,
+            "hypervisor.org_invite_issuer_binding_required": invalid,
+            "hypervisor.org_invite_issuer_no_longer_authorized": invalid,
+          };
+          const known = (key) => (typeof key === "string" && Object.hasOwn(messages, key) ? messages[key] : null);
+          const message = known(d.code) || known(d.reason) || failed;
           res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(inviteShell(inviteId, "This invite link is invalid or expired."));
-        } catch (e) {
+          res.end(inviteShell(inviteId, message, await viewer()));
+        } catch {
+          // The daemon could not be reached or answered mid-way: a true, neutral failure, no form for a session.
           res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(inviteShell(inviteId, `Invite service unavailable: ${e.message}`));
+          res.end(inviteShell(inviteId, failed, { mode: hasSession ? "neutral" : "create" }));
         }
         return;
       }
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(inviteShell(inviteId, ""));
+      const view = await viewer();
+      res.writeHead(view.mode === "neutral" ? 503 : 200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(inviteShell(inviteId, view.mode === "neutral" ? failed : view.impersonated ? impersonated : "", view));
       return;
     }
     if (pathname === "/__ioi/logout") {
