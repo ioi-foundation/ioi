@@ -566,9 +566,9 @@ pub(crate) async fn handle_editor_service_expose(
             ),
         ));
     }
-    // The proxy's upstream: a live runtime's unix socket and connection token (BUILD-DELTA
-    // #31(c)); a service record that names an internal port without a live runtime (one this daemon
-    // did not start: an older record, or a test's stand-in) is reached on that loopback port.
+    // The proxy's upstream is ONLY a live runtime this daemon started: its unix socket and its
+    // connection token (BUILD-DELTA #31(c)). A record that names an internal TCP port without such
+    // a runtime is never proxied: a real editor runtime is never reached over TCP.
     let live = st
         .editor_runtimes
         .lock()
@@ -580,20 +580,19 @@ pub(crate) async fn handle_editor_service_expose(
                 runtime.connection_token.clone(),
             )
         });
-    let (upstream, upstream_token) = match (live, svc.get("internal_port").and_then(|v| v.as_u64()))
-    {
-        (Some((socket_path, token)), _) => (
-            super::editor_proxy::ProxyUpstream::Unix(socket_path),
-            Some(token),
-        ),
-        (None, Some(port)) => (super::editor_proxy::ProxyUpstream::Tcp(port as u16), None),
-        (None, None) => {
-            return Ok((
-                StatusCode::OK,
-                Json(json!({ "ok": false, "reason": "no live editor runtime" })),
-            ))
-        }
+    let Some((socket_path, connection_token)) = live else {
+        return Ok((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.editor_runtime_not_live",
+                "reason": "the editor service has no live runtime of this daemon; start it again (its runtime listens on a private socket)",
+                "public_proxy_port": Value::Null
+            })),
+        ));
     };
+    let upstream = super::editor_proxy::ProxyUpstream::Unix(socket_path);
+    let upstream_token = Some(connection_token);
     let lease_id = s(&body, "lease_id", "");
     if capability_lease_status(&st.data_dir, &lease_id) != "active" {
         return Ok((

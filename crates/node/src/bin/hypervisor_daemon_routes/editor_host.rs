@@ -500,6 +500,75 @@ pub(crate) fn read_runtime_log(data_dir: &str, service_id: &str) -> Value {
     }
 }
 
+/// Stop an editor runtime an OLDER daemon left listening on a loopback TCP port (before runtimes
+/// moved to private sockets): find the process listening on 127.0.0.1:`port` whose command line is
+/// this toolchain's openvscode-server and kill its process group. Returns true iff one was stopped.
+fn stop_legacy_tcp_runtime(port: u16) -> bool {
+    let wanted = format!("{port:04X}");
+    let mut inodes = Vec::new();
+    for table in ["/proc/net/tcp", "/proc/net/tcp6"] {
+        let Ok(text) = std::fs::read_to_string(table) else {
+            continue;
+        };
+        for line in text.lines().skip(1) {
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            let (Some(local), Some(state), Some(inode)) =
+                (fields.get(1), fields.get(3), fields.get(9))
+            else {
+                continue;
+            };
+            if *state == "0A" && local.rsplit(':').next() == Some(wanted.as_str()) {
+                inodes.push(format!("socket:[{inode}]"));
+            }
+        }
+    }
+    if inodes.is_empty() {
+        return false;
+    }
+    let toolchain = runtime_root().join("openvscode-server");
+    let mut stopped = false;
+    for entry in std::fs::read_dir("/proc").into_iter().flatten().flatten() {
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|name| name.parse::<i32>().ok())
+        else {
+            continue;
+        };
+        let owns_socket = std::fs::read_dir(entry.path().join("fd"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|fd| std::fs::read_link(fd.path()).ok())
+            .any(|target| {
+                inodes
+                    .iter()
+                    .any(|inode| target.as_os_str() == inode.as_str())
+            });
+        if !owns_socket {
+            continue;
+        }
+        let is_runtime = std::fs::read(entry.path().join("cmdline"))
+            .map(|cmdline| {
+                String::from_utf8_lossy(&cmdline).contains(&*toolchain.to_string_lossy())
+            })
+            .unwrap_or(false);
+        if is_runtime {
+            // SAFETY: getpgid/kill on a pid read from /proc; a negative pid signals its group.
+            unsafe {
+                let group = libc::getpgid(pid);
+                if group > 1 {
+                    libc::kill(-group, libc::SIGKILL);
+                } else {
+                    libc::kill(pid, libc::SIGKILL);
+                }
+            }
+            stopped = true;
+        }
+    }
+    stopped
+}
+
 /// WS-3r — reconcile editor runtimes on daemon boot: a service persisted as `ready` whose runtime
 /// did NOT survive this boot is marked `degraded` (the process died with the prior daemon). Returns
 /// the count reconciled. Called once at startup.
@@ -527,6 +596,21 @@ pub(crate) fn reconcile_editor_services(data_dir: &str) -> usize {
             let Ok(mut svc) = serde_json::from_slice::<Value>(&bytes) else {
                 continue;
             };
+            // A record naming an internal TCP port is a LEGACY runtime (an older daemon's, on
+            // loopback TCP): stop it if it still listens, and mark the record unusable until the
+            // service is started again, on its private socket.
+            if let Some(port) = svc.get("internal_port").and_then(|v| v.as_u64()) {
+                let stopped = stop_legacy_tcp_runtime(port as u16);
+                svc["phase"] = json!("degraded");
+                svc["internal_port"] = Value::Null;
+                svc["readiness"] = json!({ "mode": "blocked", "reason": "editor_runtime_legacy_tcp", "detail": if stopped { "an editor runtime listening on a loopback TCP port was stopped; restart the editor service (its runtime now listens on a private socket)" } else { "this record named a loopback TCP runtime; restart the editor service (its runtime now listens on a private socket)" } });
+                let _ = std::fs::write(
+                    e.path(),
+                    serde_json::to_vec_pretty(&svc).unwrap_or_default(),
+                );
+                reconciled += 1;
+                continue;
+            }
             if svc.get("phase").and_then(|v| v.as_str()) == Some("ready") {
                 // No live process survives a daemon restart -> degraded, restart required.
                 svc["phase"] = json!("degraded");
