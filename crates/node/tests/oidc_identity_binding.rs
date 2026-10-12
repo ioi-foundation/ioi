@@ -1292,3 +1292,133 @@ fn oidc_link_required_answer_names_the_recovery() {
         );
     }
 }
+
+/// A binding whose write is VISIBLE but not confirmed durable is not a success: the sign-in answers
+/// 503 (the state is spent), the provisioning intent stays, and after a restart the same subject's
+/// next sign-in confirms the record and completes as the principal derived from its identity.
+#[test]
+fn oidc_an_unconfirmed_binding_write_keeps_the_intent_and_completes_after_a_restart() {
+    let mut f = fixture();
+    let (subject, email) = ("unconfirmed-sub", "unconfirmed@example.test");
+    let key = subject_key(&f.idp.issuer, subject);
+    f.restart(&[("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED", "sso-subject-links")]);
+    let (status, answer, body) = f.sign_in("unconfirmed", verified(subject, email));
+    assert_eq!(
+        status, 503,
+        "an unconfirmed binding is not a success: {body}"
+    );
+    assert!(session_of(&answer).is_none(), "no session: {body}");
+    assert_eq!(
+        answer["state_spent"],
+        json!(true),
+        "the answer says the state is spent: {body}"
+    );
+    assert!(
+        f.data
+            .join("sso-provisioning-intents")
+            .join(format!("spi_{key}.json"))
+            .exists(),
+        "the provisioning intent stays"
+    );
+    f.restart(&[]);
+    let (status, answer, body) = f.sign_in("unconfirmed-again", verified(subject, email));
+    assert_eq!(status, 200, "the same subject completes it: {body}");
+    assert_eq!(
+        f.whoami(&session_of(&answer).unwrap_or_else(|| panic!("a session: {body}"))),
+        provisioned_principal_id(&key),
+        "as the principal derived from its identity"
+    );
+    assert!(
+        !f.data
+            .join("sso-provisioning-intents")
+            .join(format!("spi_{key}.json"))
+            .exists(),
+        "the intent is removed once the binding is confirmed"
+    );
+}
+
+/// Every refusal after the callback claimed its state says the state is spent and to start again:
+/// a subject linked to another principal, an email that belongs to an existing account, an email an
+/// unfinished provisioning reserves, and an unverified email.
+#[test]
+fn oidc_every_refusal_after_the_claim_says_the_state_is_spent() {
+    let f = fixture();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/principals",
+        Some(&f.owner),
+        Some(
+            &json!({ "email": "linker@example.test", "password": "linker-password-1", "name": "Linker" }),
+        ),
+    );
+    assert!(
+        status == 200 || status == 201,
+        "test-setup member: {status} {body}"
+    );
+    let member = login(&f.daemon, ("linker@example.test", "linker-password-1"));
+    let (status, started, body) = f.start(Some(&f.owner), true);
+    let started = started.unwrap_or_else(|| panic!("a started link: {status} {body}"));
+    let (status, _, body) =
+        f.callback(&started, "spent-owner-link", verified("taken-sub", OWNER.0));
+    assert_eq!(status, 200, "test-setup link: {body}");
+    let key = subject_key(&f.idp.issuer, "reserving-sub");
+    let intents = f.data.join("sso-provisioning-intents");
+    std::fs::create_dir_all(&intents).unwrap();
+    std::fs::write(
+        intents.join(format!("spi_{key}.json")),
+        serde_json::to_vec(&json!({
+            "schema_version": "ioi.hypervisor.sso-provisioning-intent.v1", "key": key,
+            "issuer": f.idp.issuer, "subject": "reserving-sub", "sso_id": f.sso_id,
+            "principal_id": provisioned_principal_id(&key), "email": "reserved@example.test",
+            "name": "Reserved", "created_at": "2026-10-12T00:00:00Z",
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let mut answers = Vec::new();
+    let (status, started, body) = f.start(Some(&member), true);
+    let started = started.unwrap_or_else(|| panic!("a started link: {status} {body}"));
+    answers.push((
+        "a subject linked elsewhere",
+        f.callback(
+            &started,
+            "spent-linked-elsewhere",
+            verified("taken-sub", "linker@example.test"),
+        ),
+    ));
+    answers.push((
+        "an existing account's email",
+        f.sign_in("spent-existing-email", verified("spent-other-sub", OWNER.0)),
+    ));
+    answers.push((
+        "a reserved email",
+        f.sign_in(
+            "spent-reserved-email",
+            verified("spent-reserving-other", "reserved@example.test"),
+        ),
+    ));
+    answers.push((
+        "an unverified email",
+        f.sign_in(
+            "spent-unverified",
+            TokenAnswer::IdToken(
+                json!({ "sub": "spent-unverified-sub", "email": "unverified-spent@example.test", "email_verified": false }),
+            ),
+        ),
+    ));
+    for (label, (status, answer, body)) in answers {
+        assert_ne!(status, 200, "{label}: refused: {body}");
+        assert_eq!(
+            answer["state_spent"],
+            json!(true),
+            "{label}: the answer says the state is spent: {body}"
+        );
+        assert!(
+            answer["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("start again")),
+            "{label}: and to start again: {body}"
+        );
+    }
+}
