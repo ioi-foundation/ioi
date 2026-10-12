@@ -279,6 +279,18 @@ fn stored_sessions(data_dir: &Path) -> usize {
         .unwrap_or(0)
 }
 
+/// How many accounts the daemon has stored.
+fn stored_principals(data_dir: &Path) -> usize {
+    std::fs::read_dir(data_dir.join("principals"))
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| entry.path().extension().is_some_and(|e| e == "json"))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
 fn accept(daemon: &Daemon, token: Option<&str>, body: &Value) -> (u16, String) {
     http(
         daemon.port,
@@ -369,6 +381,14 @@ fn d24_a_new_email_is_still_provisioned_and_signed_in() {
         before + 1,
         "the new member's session is stored"
     );
+    let member = whoami(&f.daemon, &token);
+    assert_eq!(member["role"], json!("member"), "{member}");
+    assert!(
+        member["tenant_refs"]
+            .as_array()
+            .is_some_and(|refs| refs.contains(&json!("org://local"))),
+        "the new member's organization membership exists: {member}"
+    );
 }
 
 /// An existing principal signed in as itself accepts the invite: it joins, and no new session is issued.
@@ -447,24 +467,26 @@ fn whoami(daemon: &Daemon, token: &str) -> Value {
     json_of(&body)["principal"].clone()
 }
 
-/// A portal-exchanged session for `subject`, impersonated by `actor`.
-fn impersonated_session(daemon: &Daemon, subject: &str, actor: &str) -> String {
+/// A portal-exchanged session for `subject`, impersonated by `actor` when one is given.
+fn portal_session(daemon: &Daemon, subject: &str, actor: Option<&str>) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64;
-    let claims = json!({
+    let mut claims = json!({
         "iss": PORTAL_ISSUER,
         "aud": PORTAL_AUDIENCE,
         "sub": subject,
-        "act": actor,
         "tenant_ref": "org://local",
         "source_identity_hash": format!("sha256:{}", "a".repeat(64)),
         "iat": now,
         "nbf": now,
         "exp": now + 30,
-        "jti": format!("d24_impersonated_{}", "1".repeat(32)),
+        "jti": format!("d24_portal_{}", "1".repeat(32)),
     });
+    if let Some(actor) = actor {
+        claims["act"] = json!(actor);
+    }
     let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
     header.typ = Some("ioi-portal-daemon-exchange+jwt".to_string());
     let assertion = jsonwebtoken::encode(
@@ -496,7 +518,7 @@ fn d24_an_impersonated_session_does_not_accept_for_its_subject() {
         .as_str()
         .unwrap()
         .to_string();
-    let session = impersonated_session(&f.daemon, owner_id, &admin_id);
+    let session = portal_session(&f.daemon, owner_id, Some(&admin_id));
     let resolved = whoami(&f.daemon, &session);
     assert_eq!(
         resolved["principal_id"],
@@ -513,9 +535,206 @@ fn d24_an_impersonated_session_does_not_accept_for_its_subject() {
     assert_eq!(status, 403, "{answer}");
     assert_eq!(
         json_of(&answer)["code"],
-        json!("hypervisor.org_invite_principal_mismatch"),
+        json!("hypervisor.org_invite_impersonated_session_refused"),
         "{answer}"
     );
     assert!(session_token_of(&answer).is_none(), "no session: {answer}");
     assert_eq!(stored_sessions(&f.data), before, "no session was stored");
+}
+
+/// A route-scoped session (the portal exchange's, not impersonated) for the owner does not accept the owner's
+/// invite: its scope does not admit the route. Refused, typed, with no session.
+#[test]
+fn d24_a_route_scoped_session_does_not_accept_outside_its_scope() {
+    let f = fixture_env(&PORTAL_ENV);
+    let owner = whoami(&f.daemon, &f.owner);
+    let owner_id = owner["principal_id"].as_str().unwrap();
+    let session = portal_session(&f.daemon, owner_id, None);
+    let resolved = whoami(&f.daemon, &session);
+    assert_eq!(resolved["principal_id"], json!(owner_id), "{resolved}");
+    assert!(resolved.get("is_impersonated").is_none(), "{resolved}");
+    let before = stored_sessions(&f.data);
+    let (status, answer) = accept(
+        &f.daemon,
+        Some(&session),
+        &json!({ "invite_id": f.invite, "email": OWNER.0 }),
+    );
+    assert_eq!(status, 403, "{answer}");
+    assert_eq!(
+        json_of(&answer)["code"],
+        json!("hypervisor.auth_session_route_scope_denied"),
+        "{answer}"
+    );
+    assert!(session_token_of(&answer).is_none(), "no session: {answer}");
+    assert_eq!(stored_sessions(&f.data), before, "no session was stored");
+}
+
+/// An agent-held capability token is not a principal: its accept for an existing account is refused, typed,
+/// with no session. The principal's own API token is that principal authenticating: it joins, with no session.
+#[test]
+fn d24_a_capability_token_is_refused_and_the_principals_own_api_token_joins() {
+    let f = fixture();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/model-mount/tokens",
+        Some(&f.owner),
+        Some(&json!({ "audience": "d24-run", "allowed": ["*"] })),
+    );
+    assert_eq!(status, 200, "test-setup capability token: {body}");
+    let capability = json_of(&body)["token"]
+        .as_str()
+        .unwrap_or_else(|| panic!("a capability token: {body}"))
+        .to_string();
+    let member = login(&f.daemon, MEMBER);
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/api-tokens",
+        Some(&member),
+        Some(&json!({ "description": "d24 member token" })),
+    );
+    assert_eq!(status, 200, "test-setup api token: {body}");
+    let api_token = json_of(&body)["token"]["value"]
+        .as_str()
+        .unwrap_or_else(|| panic!("an api token: {body}"))
+        .to_string();
+    let before = stored_sessions(&f.data);
+    for email in [OWNER.0, MEMBER.0] {
+        let (status, answer) = accept(
+            &f.daemon,
+            Some(&capability),
+            &json!({ "invite_id": f.invite, "email": email }),
+        );
+        assert_eq!(status, 401, "{email}: {answer}");
+        assert_eq!(
+            json_of(&answer)["code"],
+            json!("hypervisor.org_invite_existing_principal_sign_in_required"),
+            "{email}: {answer}"
+        );
+        assert!(
+            session_token_of(&answer).is_none(),
+            "{email}: no session: {answer}"
+        );
+    }
+    let (status, answer) = accept(
+        &f.daemon,
+        Some(&api_token),
+        &json!({ "invite_id": f.invite, "email": MEMBER.0 }),
+    );
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(json_of(&answer)["joined"], json!(true), "{answer}");
+    assert!(
+        session_token_of(&answer).is_none(),
+        "no new session: {answer}"
+    );
+    assert_eq!(stored_sessions(&f.data), before, "no session was stored");
+}
+
+/// The password rule applies only to a new account: a short password never blocks an existing account's join,
+/// and a new email with one is refused before any account exists.
+#[test]
+fn d24_a_short_password_never_blocks_an_existing_accounts_join() {
+    let f = fixture();
+    let member = login(&f.daemon, MEMBER);
+    let (status, answer) = accept(
+        &f.daemon,
+        Some(&member),
+        &json!({ "invite_id": f.invite, "email": MEMBER.0, "password": "short" }),
+    );
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(json_of(&answer)["joined"], json!(true), "{answer}");
+    let principals = stored_principals(&f.data);
+    let (status, answer) = accept(
+        &f.daemon,
+        None,
+        &json!({ "invite_id": f.invite, "email": "short@example.test", "password": "short" }),
+    );
+    assert_eq!(status, 400, "{answer}");
+    assert_eq!(
+        json_of(&answer)["reason"],
+        json!("password_too_short"),
+        "{answer}"
+    );
+    assert_eq!(
+        stored_principals(&f.data),
+        principals,
+        "no account was made"
+    );
+}
+
+/// An inactive account's email is refused, typed, with no session.
+#[test]
+fn d24_an_inactive_account_is_refused() {
+    let f = fixture();
+    let member = login(&f.daemon, MEMBER);
+    let member_id = whoami(&f.daemon, &member)["principal_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let (status, body) = http(
+        f.daemon.port,
+        "DELETE",
+        &format!("/v1/hypervisor/principals/{member_id}"),
+        Some(&f.owner),
+        None,
+    );
+    assert_eq!(status, 200, "test-setup deactivate: {body}");
+    let before = stored_sessions(&f.data);
+    let (status, answer) = accept(
+        &f.daemon,
+        None,
+        &json!({ "invite_id": f.invite, "email": MEMBER.0, "password": MEMBER.1 }),
+    );
+    assert_eq!(status, 409, "{answer}");
+    assert_eq!(
+        json_of(&answer)["code"],
+        json!("hypervisor.org_invite_principal_inactive"),
+        "{answer}"
+    );
+    assert!(session_token_of(&answer).is_none(), "no session: {answer}");
+    assert_eq!(stored_sessions(&f.data), before, "no session was stored");
+}
+
+/// A rotated or unknown invite is refused before any account lookup: an existing email gets the invite
+/// refusal (not the account's), and a new email makes no account. No session either way.
+#[test]
+fn d24_a_rotated_or_invalid_invite_is_refused_before_any_lookup() {
+    let f = fixture();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/org-invite",
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert_eq!(status, 200, "test-setup rotate: {body}");
+    assert_ne!(
+        json_of(&body)["invite"]["invite_id"],
+        json!(f.invite),
+        "{body}"
+    );
+    let sessions = stored_sessions(&f.data);
+    let principals = stored_principals(&f.data);
+    for invite in [f.invite.as_str(), "inv_not_an_invite"] {
+        for email in [OWNER.0, "rotated@example.test"] {
+            let (status, answer) = accept(
+                &f.daemon,
+                None,
+                &json!({ "invite_id": invite, "email": email, "password": "d24-new-password-1" }),
+            );
+            assert_eq!(status, 403, "{invite} {email}: {answer}");
+            assert_eq!(
+                json_of(&answer)["reason"],
+                json!("invalid_or_expired_invite"),
+                "{invite} {email}: {answer}"
+            );
+        }
+    }
+    assert_eq!(stored_sessions(&f.data), sessions, "no session was stored");
+    assert_eq!(
+        stored_principals(&f.data),
+        principals,
+        "no account was made"
+    );
 }

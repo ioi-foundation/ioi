@@ -24794,7 +24794,8 @@ pub(crate) async fn handle_organization_patch(
 /// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a NEW member +
 /// issue its session. Fails closed if the invite id doesn't match the current link. An email that already
 /// names a principal is never signed in here (BUILD-DELTA #24): that principal joins by an accept
-/// authenticated as itself, which records its membership and issues no session.
+/// authenticated as itself (its own session or API token, not impersonated), which records its
+/// membership and issues no session.
 pub(crate) async fn handle_org_invite_accept(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -24873,19 +24874,10 @@ pub(crate) async fn handle_org_invite_accept(
             Json(json!({ "ok": false, "reason": "email is required" })),
         );
     }
-    if body
-        .get("password")
-        .and_then(Value::as_str)
-        .is_some_and(|password| !password.is_empty() && password.len() < 8)
-    {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "reason": "password_too_short" })),
-        );
-    }
     let (principal, principal_created) = match find_principal_by_email(&st.data_dir, &email) {
         // BUILD-DELTA #24: the invite never signs in an existing principal. It joins only by an accept
-        // authenticated as exactly that principal (not an impersonated session).
+        // authenticated as exactly that principal: its own session or API token, never an impersonated
+        // session, and a route-scoped session only where its scope admits this route.
         Some(p) if p["status"].as_str() == Some("active") => {
             let Some(caller) = resolve_principal(&st.data_dir, &headers) else {
                 return (
@@ -24897,10 +24889,19 @@ pub(crate) async fn handle_org_invite_accept(
                     })),
                 );
             };
+            if caller["is_impersonated"].as_bool() == Some(true) {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.org_invite_impersonated_session_refused",
+                        "message": "an impersonated session does not accept an invite: sign in as yourself"
+                    })),
+                );
+            }
             let caller_is_this_principal = caller["principal_id"]
                 .as_str()
-                .is_some_and(|caller_id| p["principal_id"].as_str() == Some(caller_id))
-                && caller["is_impersonated"].as_bool() != Some(true);
+                .is_some_and(|caller_id| p["principal_id"].as_str() == Some(caller_id));
             if !caller_is_this_principal {
                 return (
                     StatusCode::FORBIDDEN,
@@ -24908,6 +24909,16 @@ pub(crate) async fn handle_org_invite_accept(
                         "ok": false,
                         "code": "hypervisor.org_invite_principal_mismatch",
                         "message": "an invite is accepted for an existing account only by that account, signed in as itself"
+                    })),
+                );
+            }
+            if !session_allows_route(&st.data_dir, &headers, "/v1/hypervisor/org-invite/accept") {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.auth_session_route_scope_denied",
+                        "message": "this short-lived session is not scoped to the requested daemon route"
                     })),
                 );
             }
@@ -24920,6 +24931,17 @@ pub(crate) async fn handle_org_invite_accept(
             )
         }
         None => {
+            // The password rule applies only to a new account; an existing account's join sets none.
+            if body
+                .get("password")
+                .and_then(Value::as_str)
+                .is_some_and(|password| !password.is_empty() && password.len() < 8)
+            {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "reason": "password_too_short" })),
+                );
+            }
             let pid = format!("usr_{}", short_hash(&format!("invite:{email}")));
             let mut p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
                 "name": body.get("name").and_then(Value::as_str).unwrap_or(email.as_str()), "role": "member",
