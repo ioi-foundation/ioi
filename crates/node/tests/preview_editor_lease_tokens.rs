@@ -444,6 +444,8 @@ struct Editor {
     lease_ref: String,
     public_port: u16,
     open_url: String,
+    /// The stand-in runtime behind the editor (stopped when the test ends).
+    _runtime: FakeRuntime,
 }
 
 /// A proxy's address: its TCP port and the host name its URL names (sent as `Host`).
@@ -599,31 +601,22 @@ impl Fixture {
         }
     }
 
-    /// Create an editor service, advance its record to `ready` on the upstream's port (the one
-    /// transition runtime provisioning makes), mint an editor lease and expose the service.
+    /// Create an editor service, start its runtime (the stand-in for openvscode-server, on its
+    /// unix socket), mint an editor lease and expose the service.
     fn editor(&self) -> Editor {
+        let runtime = FakeRuntime(install_fake_editor_runtime(&self.home));
+        let service_id = self.editor_service();
         let (status, body) = http(
             self.daemon.port,
             "POST",
-            "/v1/hypervisor/editor-services",
+            &format!("/v1/hypervisor/editor-services/{service_id}/start"),
             Some(&self.owner),
-            Some(&json!({ "environment_id": self.env })),
+            Some(&json!({})),
         );
-        assert_eq!(status, 200, "editor service create: {body}");
-        let service_id = json_of(&body)["editorService"]["service_id"]
-            .as_str()
-            .unwrap_or_else(|| panic!("a service id: {body}"))
-            .to_string();
-        let path = self
-            .data
-            .join("editor-services")
-            .join(format!("{service_id}.json"));
-        let mut record: Value =
-            serde_json::from_slice(&std::fs::read(&path).expect("the editor service record"))
-                .expect("the record is JSON");
-        record["phase"] = json!("ready");
-        record["internal_port"] = json!(self.upstream.port);
-        std::fs::write(&path, serde_json::to_vec(&record).unwrap()).unwrap();
+        assert!(
+            status == 200 && json_of(&body)["ok"] == json!(true),
+            "the editor runtime starts: {status} {body}"
+        );
         let (status, body) = http(
             self.daemon.port,
             "POST",
@@ -658,6 +651,7 @@ impl Fixture {
                 .unwrap_or_else(|| panic!("a public proxy port: {body}"))
                 as u16,
             open_url: exposed["open_url"].as_str().unwrap_or_default().to_string(),
+            _runtime: runtime,
         }
     }
 }
@@ -2309,5 +2303,67 @@ fn boot_reconciliation_removes_stale_token_files_and_sockets() {
     assert!(
         !stale_socket_dir.exists(),
         "the stale runtime socket is removed"
+    );
+}
+
+/// A legacy editor-service record that names an internal TCP port but has no live runtime of this
+/// daemon is never proxied over TCP: its expose is refused by name and binds no proxy, and a boot
+/// marks the record unusable until the service is started again (on its socket).
+#[test]
+fn a_legacy_editor_record_is_never_proxied_over_tcp() {
+    let mut f = fixture();
+    let service_id = f.editor_service();
+    let path = f
+        .data
+        .join("editor-services")
+        .join(format!("{service_id}.json"));
+    let mut record: Value =
+        serde_json::from_slice(&std::fs::read(&path).expect("the editor service record"))
+            .expect("the record is JSON");
+    record["phase"] = json!("ready");
+    record["internal_port"] = json!(f.upstream.port);
+    std::fs::write(&path, serde_json::to_vec(&record).unwrap()).unwrap();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/editor-access-leases",
+        Some(&f.owner),
+        Some(&json!({ "environment_id": f.env, "service_id": service_id })),
+    );
+    assert_eq!(status, 200, "editor lease: {body}");
+    let lease_id = json_of(&body)["lease_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let before = f.upstream.seen.lock().unwrap().len();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/expose"),
+        Some(&f.owner),
+        Some(&json!({ "lease_id": lease_id })),
+    );
+    let answer = json_of(&body);
+    assert!(
+        answer["ok"] != json!(true) && answer["public_proxy_port"].is_null(),
+        "a legacy record is not exposed: {status} {body}"
+    );
+    assert_eq!(
+        answer["code"],
+        json!("hypervisor.editor_runtime_not_live"),
+        "refused by name: {body}"
+    );
+    assert_eq!(
+        f.upstream.seen.lock().unwrap().len(),
+        before,
+        "nothing reached the TCP port"
+    );
+    f.restart();
+    let record: Value =
+        serde_json::from_slice(&std::fs::read(&path).expect("the editor service record"))
+            .expect("the record is JSON");
+    assert!(
+        record["internal_port"].is_null() && record["phase"] != json!("ready"),
+        "a boot marks the legacy record unusable: {record}"
     );
 }
