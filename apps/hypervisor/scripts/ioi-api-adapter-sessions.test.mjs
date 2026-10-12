@@ -16,6 +16,8 @@ const routes = {
   "GET /v1/hypervisor/environments/env_1": () => ({ environment: { id: "env_1", spec: {}, status: { phase: "running", ports: [{ port: 50432, protocol: "tcp" }] } } }),
   // The access token and the lease (grant) id are distinct values, as the daemon mints them.
   "POST /v1/hypervisor/environments/env_1/ops-lease": () => ({ accessToken: "tok_env1", lease_id: "lease_env1", environment_id: "env_1" }),
+  // A mint answer with a lease id and NO access token: the adapter must refuse, never hand on the lease id.
+  "POST /v1/hypervisor/environments/env_untokened/ops-lease": () => ({ lease_id: "lease_untokened", environment_id: "env_untokened" }),
   // The daemon resolves an env-ops token presented in a header, never in the URL path, and answers
   // 401 with no environment for anything that is not an active env-ops token.
   "GET /v1/hypervisor/ops-lease": (req) => {
@@ -211,6 +213,20 @@ test("CreateEnvironmentLogsToken mints the env-scoped ops lease (no fabricated t
   assert.equal(out.status ?? 200, 200);
   assert.deepEqual(JSON.parse(out.body), { accessToken: "tok_env1" }, "the access token, never the lease id");
   assert.deepEqual(calls.map((c) => c.key), ["POST /v1/hypervisor/environments/env_1/ops-lease"]);
+});
+
+test("a mint answer without an access token is refused by name (503) and the lease id is never handed on as a token", async () => {
+  for (const [method, gap] of [
+    ["EnvironmentService/CreateEnvironmentLogsToken", "environment_logs_token_unissued"],
+    ["EnvironmentService/CreateEnvironmentAccessToken", "environment_access_token_unissued"],
+  ]) {
+    calls.length = 0;
+    const out = await rpc(method, { environmentId: "env_untokened" });
+    assert.equal(out.status, 503, method);
+    assert.match(messageOf(out), new RegExp(`^${gap}: `, "u"), method);
+    assert.ok(!out.body.includes("lease_untokened"), `${method}: the lease id is not returned as a token`);
+    assert.deepEqual(calls.map((c) => c.key), ["POST /v1/hypervisor/environments/env_untokened/ops-lease"], `${method}: nothing else reached the daemon`);
+  }
 });
 
 test("environmentUrls.logs points at the adapter's logs route on the gateway origin, not local://", async () => {

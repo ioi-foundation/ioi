@@ -382,6 +382,28 @@ impl Fixture {
         std::fs::write(&path, serde_json::to_vec(&grant).unwrap()).expect("rewrite the grant");
     }
 
+    /// Assert each reader's audit-trail read cites the lease's grant id and never its access token.
+    fn assert_trail_clean(&self, lease: &Lease, readers: &[(&str, &str)], when: &str) {
+        for (who, session) in readers {
+            let (status, trail) = http(
+                self.daemon.port,
+                "GET",
+                "/v1/hypervisor/audit/trail?limit=500",
+                Some(session),
+                None,
+            );
+            assert_eq!(status, 200, "{when}: {who} reads the trail: {trail}");
+            assert!(
+                trail.contains(&lease.lease_id),
+                "{when}: the trail cites the lease's grant id (so this check reads the right rows)"
+            );
+            assert!(
+                !trail.contains(&lease.token),
+                "{when}: {who}: the trail never carries the access token"
+            );
+        }
+    }
+
     /// Assert no stored file under the data dir carries the access token.
     fn assert_token_stored_nowhere(&self, lease: &Lease, when: &str) {
         assert_eq!(
@@ -551,6 +573,8 @@ fn env_ops_access_token_never_appears_in_receipts_the_trail_or_any_stored_file()
     assert_eq!(status, 200, "the token read its file");
     let (status, _, body) = f.resolve(&lease.token);
     assert_eq!(status, 200, "the token resolves: {body}");
+    let readers = [("member", member.as_str()), ("owner", f.owner.as_str())];
+    f.assert_trail_clean(&lease, &readers, "after WriteFile, ReadFile and a resolve");
     f.assert_token_stored_nowhere(&lease, "after WriteFile, ReadFile and a resolve");
 
     f.revoke(&lease);
@@ -560,18 +584,7 @@ fn env_ops_access_token_never_appears_in_receipts_the_trail_or_any_stored_file()
         "a revoked token is refused: {status}"
     );
     f.assert_resolve_refuses("a revoked token", &lease.token);
-    let (status, trail) = http(
-        f.daemon.port,
-        "GET",
-        "/v1/hypervisor/audit/trail?limit=500",
-        Some(&f.owner),
-        None,
-    );
-    assert_eq!(status, 200, "the trail after revocation: {trail}");
-    assert!(
-        !trail.contains(&lease.token),
-        "the trail never carries the access token, after revocation either"
-    );
+    f.assert_trail_clean(&lease, &readers, "after revocation");
     f.assert_token_stored_nowhere(&lease, "after revocation");
 }
 
