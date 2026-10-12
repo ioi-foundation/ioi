@@ -296,6 +296,23 @@ pub(crate) fn capability_lease_by_bearer(data_dir: &str, bearer: &str) -> Option
     found
 }
 
+/// True iff `presented` is the bearer of the live lease `grant_id`: its SHA-256 equals the grant's
+/// stored `bearer_sha256` (constant-time compare) and the grant is active. The preview and editor
+/// proxies bind a lease by its grant id and admit only its bearer.
+pub(crate) fn bearer_admits_lease(data_dir: &str, grant_id: &str, presented: &str) -> bool {
+    if presented.is_empty() {
+        return false;
+    }
+    let Some(grant) = load_grant(data_dir, grant_id) else {
+        return false;
+    };
+    let Some(stored) = grant.get("bearer_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    constant_time_eq(stored.as_bytes(), bearer_sha256(presented).as_bytes())
+        && live_grant_status(&grant) == "active"
+}
+
 fn issue_capability_lease_record(
     data_dir: &str,
     subject: &str,
@@ -944,20 +961,35 @@ pub(crate) async fn handle_authority_revoke(
 }
 
 /// GET /v1/hypervisor/authority/grants — list persisted grants with LIVE status (active | expired
-/// | revoked | denied | no_grant_needed) computed from the real clock + revoke flag.
+/// | revoked | denied | no_grant_needed) computed from the real clock + revoke flag. Requires an
+/// authenticated principal; an anonymous caller (loopback included) is refused with 401.
 pub(crate) async fn handle_authority_grants_list(
     State(st): State<Arc<DaemonState>>,
-) -> Json<Value> {
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    if super::lifecycle_routes::resolve_principal(&st.data_dir, &headers).is_none() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false,
+                "code": "authority_grants_principal_required",
+                "message": "listing authority grants requires an authenticated principal"
+            })),
+        );
+    }
     let mut grants = read_record_dir(&st.data_dir, "authority-grants");
     for g in grants.iter_mut() {
         let status = live_grant_status(g);
         g["status"] = json!(status);
     }
-    Json(json!({
-        "schema_version": "ioi.hypervisor.authority-grants.v1",
-        "grants": grants,
-        "at": iso_now()
-    }))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.authority-grants.v1",
+            "grants": grants,
+            "at": iso_now()
+        })),
+    )
 }
 
 /// POST /v1/hypervisor/authority/preflight — environment-lifecycle crossing admission. Body:

@@ -6,9 +6,12 @@
 // deep links to the operator's decision — and nothing else. The relay holds no key, mints nothing,
 // caches no grant and adds no decision path: it imports neither the wallet authority module nor the
 // grant minter, it reads no key path and no test-signer flag, and every record it touches is the
-// lane's own. The editor access lease AUTHENTICATES the attach (an active `environment.editor.open`
-// lease naming the editor service); it never authorizes the effect — the user's session does, at the
-// daemon, exactly as for the App path, which is what makes the daemon's receipts identical.
+// lane's own. The editor access lease AUTHENTICATES the attach: the editor presents the lease's ACCESS
+// TOKEN, and the relay finds the lease by that token's SHA-256 (an active `environment.editor.open`
+// lease naming the editor service), never by a grant id or reference. It never authorizes the effect —
+// the user's session does, at the daemon, exactly as for the App path, which is what makes the daemon's
+// receipts identical. The token is never kept or re-stated: the run record and the notification carry
+// the lease's grant ref.
 import crypto from "node:crypto";
 import { PROVIDER_OPERATION_KIND, getRun, persistRun, submitProviderOperation } from "../ioi-agent-runs.mjs";
 
@@ -22,21 +25,29 @@ const HASH = /^sha256:[0-9a-f]{64}$/u;
 const stable = (v) => JSON.stringify(v, (k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((key) => [key, x[key]])) : x));
 const sha256 = (text) => `sha256:${crypto.createHash("sha256").update(text, "utf8").digest("hex")}`;
 
-/** The attach tuple an editor host carries (the refs the daemon injects into its hosted editor). */
+/** The attach tuple an editor host presents: its refs plus the editor access lease's access token. */
 export function attachRefs(input) {
   const a = input && typeof input === "object" ? input : {};
-  const refs = { editor_service_ref: String(a.editor_service_ref ?? ""), access_lease_ref: String(a.access_lease_ref ?? ""), session_ref: a.session_ref == null ? null : String(a.session_ref), environment_ref: String(a.environment_ref ?? "") };
-  return refs.editor_service_ref && refs.access_lease_ref && refs.environment_ref ? refs : null;
+  const refs = { editor_service_ref: String(a.editor_service_ref ?? ""), access_token: String(a.access_token ?? ""), session_ref: a.session_ref == null ? null : String(a.session_ref), environment_ref: String(a.environment_ref ?? "") };
+  return refs.editor_service_ref && refs.access_token && refs.environment_ref ? refs : null;
+}
+
+/** True iff `stored` (a grant's `bearer_sha256`, hex) is the SHA-256 of `token`, compared in constant time. */
+function bearerMatches(stored, token) {
+  if (typeof stored !== "string" || !/^[0-9a-f]{64}$/u.test(stored)) return false;
+  const presented = crypto.createHash("sha256").update(token, "utf8").digest();
+  return crypto.timingSafeEqual(Buffer.from(stored, "hex"), presented);
 }
 
 /**
- * Verify the attach against the daemon's own grant projection: the access lease must be ACTIVE, carry
- * the editor-open action and name this editor service. Nothing here is authority for the effect.
+ * Verify the attach against the daemon's own grant projection: the presented access token must hash to
+ * an access lease's `bearer_sha256`, and that lease must be ACTIVE, carry the editor-open action and name
+ * this editor service. Nothing here is authority for the effect.
  */
 export function verifyAttach(refs, grants) {
   const list = Array.isArray(grants) ? grants : [];
   const serviceId = refs.editor_service_ref.replace(/^environment_service:editor_/u, "");
-  const match = list.find((g) => [g?.lease_id, g?.grant_id, g?.id, g?.lease_ref, g?.grant_ref].some((v) => typeof v === "string" && (v === refs.access_lease_ref || refs.access_lease_ref.endsWith(v) || v.endsWith(refs.access_lease_ref))));
+  const match = list.find((g) => bearerMatches(g?.bearer_sha256, refs.access_token));
   if (!match) return { ok: false, code: "editor_attach_lease_unknown" };
   const status = String(match.status ?? match.state ?? "");
   if (status !== "active") return { ok: false, code: `editor_attach_lease_${status || "inactive"}` };
@@ -44,7 +55,7 @@ export function verifyAttach(refs, grants) {
   if (!actions.includes(EDITOR_ACCESS_ACTION)) return { ok: false, code: "editor_attach_lease_wrong_action" };
   const resources = Array.isArray(match.resources) ? match.resources : (Array.isArray(match.resource_refs) ? match.resource_refs : []);
   if (!resources.some((r) => String(r) === `editor_service:${serviceId}` || String(r) === `editor_service:${refs.editor_service_ref}`)) return { ok: false, code: "editor_attach_lease_foreign_service" };
-  return { ok: true, code: null, lease: { status, action: EDITOR_ACCESS_ACTION, service_id: serviceId } };
+  return { ok: true, code: null, lease: { status, action: EDITOR_ACCESS_ACTION, service_id: serviceId, lease_ref: String(match.grant_ref ?? match.grant_id ?? "") } };
 }
 
 /** The typed notification: coordinates and links only. */
@@ -109,10 +120,13 @@ export function verifyNotificationGrammar(notification, challenge, { runId = nul
  * projection (the caller reads it under the same identity); `transport` is the lane's daemon transport.
  */
 export async function relayEditorEffect({ body, attach, grants, daemonHeaders = {}, transport, serveBase = "" }) {
-  const refs = attachRefs(attach);
-  if (!refs) return { ok: false, status: 400, error: { code: "editor_attach_refs_required", message: "editor_service_ref, access_lease_ref and environment_ref are required" } };
-  const attached = verifyAttach(refs, grants);
+  const presented = attachRefs(attach);
+  if (!presented) return { ok: false, status: 400, error: { code: "editor_attach_refs_required", message: "editor_service_ref, access_token and environment_ref are required" } };
+  const attached = verifyAttach(presented, grants);
   if (!attached.ok) return { ok: false, status: 403, error: { code: attached.code, message: "the editor attach is not an active editor-open lease for this service; nothing was submitted" } };
+  // What the relay keeps and re-states: the attach refs with the lease named by its grant ref; the token
+  // authenticated the attach and goes no further.
+  const refs = { editor_service_ref: presented.editor_service_ref, access_lease_ref: attached.lease.lease_ref, session_ref: presented.session_ref, environment_ref: presented.environment_ref };
   if (body && typeof body === "object" && String(body.environment_ref ?? "") !== refs.environment_ref) return { ok: false, status: 403, error: { code: "editor_attach_environment_mismatch", message: "an attached editor may only relay an effect on the environment it is attached to" } };
   const submitted = await submitProviderOperation({ body, daemonHeaders, ...(transport ? { transport } : {}) });
   if (!submitted.ok || !submitted.run_id) return { ...submitted, relayed: true };

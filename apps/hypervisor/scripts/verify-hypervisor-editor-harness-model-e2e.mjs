@@ -146,16 +146,22 @@ async function run() {
   // ── STEP 4: EDITOR SHOWS THE WORKSPACE CHANGE — the file is in the editor's served root, live ──
   const onDisk = written.length >= 1 && written.every((f) => fs.existsSync(path.join(envWorkspace, f)) && fs.statSync(path.join(envWorkspace, f)).size > 0);
   ok("every reported file exists in the environment workspace = the editor's served root", onDisk, written.map((f) => path.join(envWorkspace, f)).join(","));
-  // Drive the VS Code Browser open lane: 302 -> a live serving openvscode instance over THIS root.
+  // Drive the VS Code Browser open lane: a form that POSTs the lease token to the editor proxy's
+  // exchange, which answers 303 with the proxy's lease cookie -> a live serving openvscode instance.
   const open = await fetch(`${SHELL}/__ioi/editor/open?environmentId=${encodeURIComponent(envId)}`, { redirect: "manual" });
-  const loc = open.headers.get("location");
-  ok("VS Code Browser open lane redirects to a live editor URL", (open.status === 302 || open.status === 303) && !!loc, `${open.status} ${loc || ""}`);
-  if (loc) {
-    const editorUrl = loc.startsWith("http") ? loc : `${SHELL}${loc}`;
-    const editorResp = await fetch(editorUrl, { redirect: "manual" }).catch(() => null);
+  const page = open.status === 200 ? await open.text() : "";
+  const action = /<form method="post" action="([^"]+)"/u.exec(page)?.[1]?.replace(/&#38;/gu, "&") || "";
+  const token = /name="token" value="([^"]+)"/u.exec(page)?.[1] || "";
+  ok("VS Code Browser open lane hands the browser to the editor proxy's exchange (no token in a URL)", !!action && !!token && !action.includes("lease="), `${open.status} ${action}`);
+  const exchanged = action && token
+    ? await fetch(action, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `token=${encodeURIComponent(token)}` }).catch(() => null)
+    : null;
+  const cookie = (exchanged?.headers.get("set-cookie") || "").split(";")[0];
+  if (exchanged?.status === 303 && cookie) {
+    const editorResp = await fetch(new URL("/", action).href, { redirect: "manual", headers: { cookie } }).catch(() => null);
     ok("the opened editor instance is serving (workbench reachable over the changed workspace)", editorResp && (editorResp.status === 200 || editorResp.status === 302), editorResp ? editorResp.status : "unreachable");
   } else {
-    ok("editor instance serving check skipped (no redirect target)", false);
+    ok("editor instance serving check skipped (the exchange set no cookie)", false, `${exchanged?.status ?? "no exchange"}`);
   }
 
   // ── STEP 5: WORK LEDGER shows the receipt (proof stream) ──

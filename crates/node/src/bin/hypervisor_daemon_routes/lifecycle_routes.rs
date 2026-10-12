@@ -11367,11 +11367,13 @@ async fn start_preview_server(
     let port = listener.local_addr()?.port();
     let app = axum::Router::new()
         .route("/", axum::routing::get(serve_preview_root))
+        .route("/__ioi/lease", axum::routing::post(preview_lease_exchange))
         .route("/*preview_path", axum::routing::get(serve_preview_path))
         .with_state(PreviewState {
             workspace_root,
             data_dir,
             capability_lease_ref,
+            port,
         });
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     // Graceful shutdown so a revoke/teardown deterministically closes the socket:
@@ -11390,25 +11392,65 @@ async fn start_preview_server(
 struct PreviewState {
     workspace_root: String,
     data_dir: String,
+    /// The grant id of the preview lease this listener is bound to.
     capability_lease_ref: String,
+    port: u16,
 }
 
-fn preview_request_authorized(
-    state: &PreviewState,
-    query: &std::collections::HashMap<String, String>,
-) -> bool {
-    query.get("lease").map(String::as_str) == Some(state.capability_lease_ref.as_str())
-        && super::authority_routes::capability_lease_status(
+/// The listener admits only its lease's access token: the `x-ioi-lease` header, else its lease
+/// cookie (set by `POST /__ioi/lease`). A token in the query string is not a credential.
+fn preview_request_authorized(state: &PreviewState, headers: &HeaderMap) -> bool {
+    let cookie_prefix = format!("{}=", super::editor_proxy::lease_cookie_name(state.port));
+    let token = headers
+        .get("x-ioi-lease")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.trim().to_string())
+        .or_else(|| {
+            headers
+                .get_all(header::COOKIE)
+                .iter()
+                .filter_map(|value| value.to_str().ok())
+                .flat_map(|value| value.split(';'))
+                .find_map(|part| part.trim().strip_prefix(cookie_prefix.as_str()))
+                .map(str::to_string)
+        });
+    token.is_some_and(|token| {
+        super::authority_routes::bearer_admits_lease(
             &state.data_dir,
             &state.capability_lease_ref,
-        ) == "active"
+            &token,
+        )
+    })
 }
 
-async fn serve_preview_root(
-    State(state): State<PreviewState>,
-    Query(query): Query<std::collections::HashMap<String, String>>,
-) -> Response {
-    if !preview_request_authorized(&state, &query) {
+/// `POST /__ioi/lease` (form field `token`): the browser exchange. A valid token for this
+/// listener's lease is answered 303 to `/` with the listener's HttpOnly, SameSite=Lax cookie.
+async fn preview_lease_exchange(State(state): State<PreviewState>, body: String) -> Response {
+    let token = super::editor_proxy::form_field(&body, "token").unwrap_or_default();
+    if !super::authority_routes::bearer_admits_lease(
+        &state.data_dir,
+        &state.capability_lease_ref,
+        &token,
+    ) {
+        return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
+    }
+    let cookie = format!(
+        "{}={token}; HttpOnly; SameSite=Lax; Path=/",
+        super::editor_proxy::lease_cookie_name(state.port)
+    );
+    (
+        StatusCode::SEE_OTHER,
+        [
+            (header::LOCATION, "/".to_string()),
+            (header::SET_COOKIE, cookie),
+            (header::CACHE_CONTROL, "no-store".to_string()),
+        ],
+    )
+        .into_response()
+}
+
+async fn serve_preview_root(State(state): State<PreviewState>, headers: HeaderMap) -> Response {
+    if !preview_request_authorized(&state, &headers) {
         return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
     }
     serve_preview_file(&state.workspace_root, "index.html")
@@ -11416,10 +11458,10 @@ async fn serve_preview_root(
 
 async fn serve_preview_path(
     State(state): State<PreviewState>,
-    Query(query): Query<std::collections::HashMap<String, String>>,
+    headers: HeaderMap,
     AxumPath(rel): AxumPath<String>,
 ) -> Response {
-    if !preview_request_authorized(&state, &query) {
+    if !preview_request_authorized(&state, &headers) {
         return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
     }
     serve_preview_file(&state.workspace_root, &rel)
@@ -11471,65 +11513,137 @@ fn preview_content_type(path: &std::path::Path) -> &'static str {
 #[cfg(test)]
 mod preview_authority_tests {
     use super::*;
+    use sha2::Digest as _;
 
+    /// The listener admits the preview lease's access token from the `x-ioi-lease` header or from
+    /// the cookie its own exchange sets, on every request, while the lease is live. No credential,
+    /// the grant id, the grant ref, the stored hash and any token in a query string are refused.
     #[tokio::test]
     async fn preview_listener_requires_the_exact_live_capability_on_every_request() {
         let data = tempfile::tempdir().unwrap();
         let workspace = tempfile::tempdir().unwrap();
         std::fs::write(workspace.path().join("index.html"), "owner-only-preview").unwrap();
-        let grant = super::super::authority_routes::issue_capability_lease(
-            data.path().to_str().unwrap(),
+        let data_dir = data.path().to_str().unwrap();
+        let (grant, token) = super::super::authority_routes::issue_bearer_capability_lease(
+            data_dir,
             "user://preview-owner",
             "environment.preview.read",
             json!(["environment://local/env_preview"]),
             300,
         );
-        let lease_ref = grant["grant_ref"].as_str().unwrap().to_string();
+        let token = token.expect("the preview lease has an access token");
+        let grant_id = grant["grant_id"].as_str().unwrap().to_string();
+        let grant_ref = grant["grant_ref"].as_str().unwrap().to_string();
         let (port, shutdown, join) = start_preview_server(
             workspace.path().to_string_lossy().into_owned(),
-            data.path().to_string_lossy().into_owned(),
-            lease_ref.clone(),
+            data_dir.to_string(),
+            grant_id.clone(),
         )
         .await
         .unwrap();
 
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
         let base = format!("http://127.0.0.1:{port}/");
-        assert_eq!(
-            client.get(&base).send().await.unwrap().status().as_u16(),
-            403
-        );
-        assert_eq!(
-            client
-                .get(format!("{base}?lease=wrong"))
-                .send()
-                .await
-                .unwrap()
-                .status()
-                .as_u16(),
-            403
-        );
+        let status_with = |path: String, header: Option<(&'static str, String)>| {
+            let mut request = client.get(path);
+            if let Some((name, value)) = header {
+                request = request.header(name, value);
+            }
+            async move { request.send().await.unwrap().status().as_u16() }
+        };
+        let hash = hex::encode(sha2::Sha256::digest(token.as_bytes()));
+        for (label, path, header) in [
+            ("no credential", base.clone(), None),
+            (
+                "a wrong token",
+                base.clone(),
+                Some(("x-ioi-lease", "wrong".to_string())),
+            ),
+            (
+                "the grant id",
+                base.clone(),
+                Some(("x-ioi-lease", grant_id.clone())),
+            ),
+            (
+                "the grant ref",
+                base.clone(),
+                Some(("x-ioi-lease", grant_ref.clone())),
+            ),
+            (
+                "the token hash",
+                base.clone(),
+                Some(("x-ioi-lease", hash.clone())),
+            ),
+            (
+                "the token in the query",
+                format!("{base}?lease={token}"),
+                None,
+            ),
+            (
+                "the grant id in the query",
+                format!("{base}?lease={grant_id}"),
+                None,
+            ),
+        ] {
+            assert_eq!(status_with(path, header).await, 403, "{label} is refused");
+        }
         let admitted = client
-            .get(format!("{base}?lease={lease_ref}"))
+            .get(&base)
+            .header("x-ioi-lease", token.as_str())
             .send()
             .await
             .unwrap();
-        assert_eq!(admitted.status().as_u16(), 200);
+        assert_eq!(
+            admitted.status().as_u16(),
+            200,
+            "the token in the header is admitted"
+        );
         assert_eq!(admitted.text().await.unwrap(), "owner-only-preview");
 
+        let exchanged = client
+            .post(format!("{base}__ioi/lease"))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(format!("token={token}"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(exchanged.status().as_u16(), 303, "the exchange answers 303");
+        let set_cookie = exchanged
+            .headers()
+            .get("set-cookie")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_string();
+        let cookie = format!("ioi_lease_{port}={token}");
+        assert!(
+            set_cookie.starts_with(&cookie),
+            "the exchange sets this listener's cookie: {set_cookie}"
+        );
+        assert!(
+            set_cookie.contains("HttpOnly") && set_cookie.contains("SameSite=Lax"),
+            "the cookie is HttpOnly and SameSite=Lax: {set_cookie}"
+        );
+        assert_eq!(
+            status_with(base.clone(), Some(("cookie", cookie.clone()))).await,
+            200,
+            "the exchanged cookie is admitted"
+        );
+
         assert!(super::super::authority_routes::revoke_lease(
-            data.path().to_str().unwrap(),
-            &lease_ref,
+            data_dir, &grant_id
         ));
         assert_eq!(
-            client
-                .get(format!("{base}?lease={lease_ref}"))
-                .send()
-                .await
-                .unwrap()
-                .status()
-                .as_u16(),
-            403
+            status_with(base.clone(), Some(("x-ioi-lease", token.clone()))).await,
+            403,
+            "a revoked lease's token is refused"
+        );
+        assert_eq!(
+            status_with(base.clone(), Some(("cookie", cookie))).await,
+            403,
+            "a revoked lease's cookie is refused"
         );
         let _ = shutdown.send(());
         let _ = join.await;
@@ -11552,7 +11666,8 @@ async fn open_session_preview_port(
     )
     .await
     .ok()?;
-    let url = format!("http://127.0.0.1:{port}/?lease={capability_lease_ref}");
+    // The URL names the listener only; it carries no credential.
+    let url = format!("http://127.0.0.1:{port}/");
     // Replace any prior listener for this session (signal the old one to shut down;
     // the new listener binds a fresh port, so we don't need to await the old close).
     if let Ok(mut servers) = st.preview_servers.lock() {

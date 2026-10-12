@@ -2,17 +2,20 @@
 //!
 //! Security infrastructure, not UI plumbing (Locked Decision 5). The OSS runtime listens on a
 //! PRIVATE internal port; the daemon never hands out that raw port. This proxy binds a public port
-//! per editor service, authenticates the OPENING request against the capability lease (first-
-//! message/query token -> principal), and only then forwards the raw connection (HTTP + the WS
-//! upgrade) to the internal target. Expiry/revoke fail CLOSED on new connections (existing ones get
-//! reconnect grace). Auth reuses the EXISTING capability-lease machinery (`capability_lease_status`).
+//! per editor service, authenticates the OPENING request against the capability lease, and only
+//! then forwards the raw connection (HTTP + the WS upgrade) to the internal target. Expiry/revoke
+//! fail CLOSED on new connections (existing ones get reconnect grace). The proxy is bound to one
+//! lease (its grant id) and admits only that lease's access token, presented in the `x-ioi-lease`
+//! header or in the cookie this proxy's own browser handoff (`POST /__ioi/lease`) sets; never from
+//! a URL. The handoff is not single-use: it answers any POST carrying the live lease's token. The
+//! token is checked by its hash in constant time (`authority_routes::bearer_admits_lease`).
 use std::collections::HashMap;
 
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-use super::authority_routes::capability_lease_status;
+use super::authority_routes::bearer_admits_lease;
 use super::{iso_now, persist_record};
 
 /// A live lease-authenticated proxy in front of one editor service's internal runtime port.
@@ -46,36 +49,121 @@ fn headers_end(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == b"\r\n\r\n").map(|p| p + 4)
 }
 
-/// Extract the lease token from the opening request: `?lease=<token>` on the request-target, or an
-/// `x-ioi-lease:` header. The token is the slash-free grant_id (capability lease id).
-fn extract_lease_token(buf: &[u8]) -> Option<String> {
-    let head = String::from_utf8_lossy(buf);
-    // request line: METHOD <target> HTTP/1.1
-    if let Some(line) = head.lines().next() {
-        if let Some(target) = line.split_whitespace().nth(1) {
-            if let Some(q) = target.split('?').nth(1) {
-                for kv in q.split('&') {
-                    let mut it = kv.splitn(2, '=');
-                    if it.next() == Some("lease") {
-                        if let Some(v) = it.next() {
-                            return Some(v.trim().to_string());
-                        }
+/// The cookie this proxy's exchange sets. Cookies are not port-scoped, so the name carries the
+/// proxy's public port.
+pub(crate) fn lease_cookie_name(public_port: u16) -> String {
+    format!("ioi_lease_{public_port}")
+}
+
+/// The lease access token an opening request presents: the `x-ioi-lease` header, else this
+/// proxy's lease cookie. A token in the request-target (query string) is not a credential.
+fn presented_lease_token(head: &str, public_port: u16) -> Option<String> {
+    let cookie_prefix = format!("{}=", lease_cookie_name(public_port));
+    let mut from_cookie = None;
+    for line in head.lines().skip(1) {
+        let Some((name, value)) = line.split_once(':') else {
+            continue;
+        };
+        let name = name.trim().to_ascii_lowercase();
+        if name == "x-ioi-lease" {
+            return Some(value.trim().to_string());
+        }
+        if name == "cookie" && from_cookie.is_none() {
+            from_cookie = value
+                .split(';')
+                .find_map(|part| part.trim().strip_prefix(cookie_prefix.as_str()))
+                .map(str::to_string);
+        }
+    }
+    from_cookie
+}
+
+/// Decode one `application/x-www-form-urlencoded` field value.
+pub(crate) fn form_field(body: &str, field: &str) -> Option<String> {
+    body.split('&').find_map(|pair| {
+        let (name, value) = pair.split_once('=')?;
+        (name == field).then(|| {
+            let bytes = value.replace('+', " ").into_bytes();
+            let mut out = Vec::with_capacity(bytes.len());
+            let mut index = 0;
+            while index < bytes.len() {
+                let hex = (bytes[index] == b'%')
+                    .then(|| bytes.get(index + 1..index + 3))
+                    .flatten()
+                    .and_then(|pair| std::str::from_utf8(pair).ok())
+                    .and_then(|pair| u8::from_str_radix(pair, 16).ok());
+                match hex {
+                    Some(byte) => {
+                        out.push(byte);
+                        index += 3;
+                    }
+                    None => {
+                        out.push(bytes[index]);
+                        index += 1;
                     }
                 }
             }
+            String::from_utf8_lossy(&out).into_owned()
+        })
+    })
+}
+
+/// The browser exchange's answer: 303 to `/` with this proxy's HttpOnly, SameSite=Lax lease cookie.
+pub(crate) fn lease_exchange_response(public_port: u16, token: &str) -> String {
+    format!(
+        "HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: {}={token}; HttpOnly; SameSite=Lax; Path=/\r\nCache-Control: no-store\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+        lease_cookie_name(public_port)
+    )
+}
+
+/// `POST /__ioi/lease` with the token as the `token` form field: a valid token for the bound lease
+/// is answered with the lease cookie; anything else with 403 and no cookie. Nothing is forwarded.
+async fn answer_lease_exchange(
+    inbound: &mut TcpStream,
+    mut buf: Vec<u8>,
+    head_len: usize,
+    public_port: u16,
+    bound_lease: &str,
+    service_id: &str,
+    data_dir: &str,
+) {
+    let head = String::from_utf8_lossy(&buf[..head_len]).to_string();
+    let content_length = head
+        .lines()
+        .filter_map(|line| line.split_once(':'))
+        .find(|(name, _)| name.trim().eq_ignore_ascii_case("content-length"))
+        .and_then(|(_, value)| value.trim().parse::<usize>().ok())
+        .unwrap_or(0)
+        .min(4096);
+    let mut tmp = [0u8; 1024];
+    while buf.len() < head_len + content_length {
+        match inbound.read(&mut tmp).await {
+            Ok(0) | Err(_) => break,
+            Ok(n) => buf.extend_from_slice(&tmp[..n]),
         }
     }
-    for line in head.lines() {
-        if let Some(rest) = line.to_ascii_lowercase().strip_prefix("x-ioi-lease:") {
-            return Some(rest.trim().to_string());
-        }
+    let end = buf.len().min(head_len + content_length);
+    let body = String::from_utf8_lossy(&buf[head_len..end]).to_string();
+    let token = form_field(&body, "token").unwrap_or_default();
+    if bearer_admits_lease(data_dir, bound_lease, &token) {
+        proxy_event(data_dir, service_id, "lease_cookie_issued", bound_lease);
+        let _ = inbound
+            .write_all(lease_exchange_response(public_port, &token).as_bytes())
+            .await;
+    } else {
+        proxy_event(data_dir, service_id, "authentication_denied", bound_lease);
+        let _ = inbound
+            .write_all(
+                b"HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            )
+            .await;
     }
-    None
 }
 
 async fn handle_conn(
     mut inbound: TcpStream,
     internal_port: u16,
+    public_port: u16,
     bound_lease: &str,
     service_id: &str,
     data_dir: &str,
@@ -96,14 +184,26 @@ async fn handle_conn(
         }
     }
     proxy_event(data_dir, service_id, "websocket_intercepted", bound_lease);
-    // Auth model for this loopback, per-service public port: the bound capability lease must be
-    // active (fail-closed on revoke/expire), and every opening request must carry the exact token.
-    // Tokenless same-origin subrequests require a future authenticated session-cookie exchange;
-    // admitting them directly would turn knowledge of the loopback port into workspace authority.
-    let token = extract_lease_token(&buf);
-    let lease_active = capability_lease_status(data_dir, bound_lease) == "active";
-    let token_ok = token.as_deref() == Some(bound_lease);
-    let authed = lease_active && token_ok;
+    let head_len = headers_end(&buf).unwrap_or(buf.len());
+    let head = String::from_utf8_lossy(&buf[..head_len]).to_string();
+    if head.starts_with("POST /__ioi/lease ") {
+        answer_lease_exchange(
+            &mut inbound,
+            buf,
+            head_len,
+            public_port,
+            bound_lease,
+            service_id,
+            data_dir,
+        )
+        .await;
+        return;
+    }
+    // Auth model for this loopback, per-service public port: every opening request carries the
+    // bound lease's access token (header or exchanged cookie), and the lease must be active
+    // (fail-closed on revoke/expire). Knowledge of the port, a grant id or a URL admits nothing.
+    let authed = presented_lease_token(&head, public_port)
+        .is_some_and(|token| bearer_admits_lease(data_dir, bound_lease, &token));
     if !authed {
         proxy_event(data_dir, service_id, "authentication_denied", bound_lease);
         let body = "Hypervisor editor access denied: a valid, unexpired, non-revoked editor capability lease is required. Open through Sessions/Environments, not the raw endpoint.";
@@ -165,7 +265,7 @@ pub(crate) async fn bind_editor_proxy(
                 accept = listener.accept() => {
                     let Ok((inbound, _peer)) = accept else { continue; };
                     let (dd2, lease2, sid2) = (dd.clone(), lease.clone(), sid.clone());
-                    tokio::spawn(async move { handle_conn(inbound, internal_port, &lease2, &sid2, &dd2).await; });
+                    tokio::spawn(async move { handle_conn(inbound, internal_port, public_port, &lease2, &sid2, &dd2).await; });
                 }
             }
         }

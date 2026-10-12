@@ -203,7 +203,7 @@ async function run() {
     const ownPreviewMint = await jd(`${D}/v1/hypervisor/environments/${env}/ports/${ownPreview.port}/expose`, { method: "POST", headers: ownerAuth, body: "{}" });
     const ownPreviewToken = ownPreviewMint.j?.accessToken;
     const ownPreviewReply = ownPreviewMint.j?.url && ownPreviewToken
-      ? await fetch(ownPreviewMint.j.url).then(async (response) => ({ status: response.status, body: await response.text() }))
+      ? await fetch(ownPreviewMint.j.url, { headers: { "x-ioi-lease": ownPreviewToken } }).then(async (response) => ({ status: response.status, body: await response.text() }))
       : { status: 0, body: "" };
     ok("M03.2 POSITIVE CONTROL — an exact lease reaches the environment's unique admitted TCP target, proving the negative is a target-ownership fence rather than a disabled preview plane",
       ownPreviewMint.j?.ok === true && !!ownPreviewToken
@@ -317,7 +317,9 @@ async function run() {
     let editorTok = null;
     if (ownerAuth.authorization) {
       const em = await jd(`${D}/v1/hypervisor/editor-access-leases`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env, service_id: "eds_x" }) });
-      editorTok = em.j?.lease_id ?? em.j?.grant?.grant_id;
+      // The editor lease's ACCESS TOKEN (a bearer the env-ops seam can find by its hash), so the refusal
+      // below is the action check, not a failed token lookup.
+      editorTok = em.j?.access_token ?? null;
     }
     const editorMarker = `editor-lease-write-${safeId}.txt`;
     const wfEditor = editorTok ? await jd(opsUrl(D, env, "WriteFile"), { method: "POST", headers: { authorization: `Bearer ${editorTok}` }, body: JSON.stringify({ path: editorMarker, content: B64("x") }) }) : { status: "no-lease" };
@@ -372,20 +374,21 @@ async function run() {
 
         const editEal = await jd(`${D}/v1/hypervisor/editor-access-leases`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env, service_id: svcId }) });
         const editTok = editEal.j?.lease_id ?? editEal.j?.grant?.grant_id;
+        const editAccess = editEal.j?.access_token;
         const goodExpose = editTok ? await jd(`${D}/v1/hypervisor/editor-services/${svcId}/expose`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ lease_id: editTok }) }) : { status: "no-lease", j: {} };
         ok("THE POSITIVE CONTROL — a matching `environment.editor.open` lease naming this service DOES expose it, so the refusals below are on the action/resource and not a blanket denial",
           goodExpose.j?.ok !== false && goodExpose.status !== 403, `status=${goodExpose.status} ok=${goodExpose.j?.ok}`);
 
         const proxyPort = goodExpose.j?.public_proxy_port;
         const tokenlessProxy = proxyPort ? await jd(`http://127.0.0.1:${proxyPort}/`) : { status: "no-proxy" };
-        const wrongTokenProxy = proxyPort ? await jd(`http://127.0.0.1:${proxyPort}/?lease=wrong`) : { status: "no-proxy" };
-        const exactTokenProxy = proxyPort ? await jd(`http://127.0.0.1:${proxyPort}/?lease=${encodeURIComponent(editTok)}`) : { status: "no-proxy" };
+        const wrongTokenProxy = proxyPort ? await jd(`http://127.0.0.1:${proxyPort}/`, { headers: { "x-ioi-lease": "wrong" } }) : { status: "no-proxy" };
+        const exactTokenProxy = proxyPort && editAccess ? await jd(`http://127.0.0.1:${proxyPort}/`, { headers: { "x-ioi-lease": editAccess } }) : { status: "no-proxy" };
         ok("the live editor proxy refuses absent and wrong tokens while the exact active token crosses the authority gate (then reaches the deliberately absent fixture runtime)",
           tokenlessProxy.status === 403 && wrongTokenProxy.status === 403 && exactTokenProxy.status === 502,
           `none=${tokenlessProxy.status} wrong=${wrongTokenProxy.status} exact=${exactTokenProxy.status}`);
 
         const portMint2 = await jd(`${D}/v1/hypervisor/environments/${env}/ports/9090/expose`, { method: "POST", headers: ownerAuth, body: "{}" });
-        const portTok2 = portMint2.j?.accessToken;
+        const portTok2 = portMint2.j?.lease_id;
         const portExpose = portTok2 ? await jd(`${D}/v1/hypervisor/editor-services/${svcId}/expose`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ lease_id: portTok2 }) }) : { status: "no-lease", j: {} };
         ok("THE WIRING — the editor-expose handler REFUSES a port lease (action `environment.port`), proving it calls the action/resource predicate and does not merely check the lease is active; a 403, not a bound proxy",
           portExpose.status === 403 && portExpose.j?.ok === false, `status=${portExpose.status} ok=${portExpose.j?.ok}`);
@@ -400,7 +403,7 @@ async function run() {
           crossExpose.status === 403 && crossExpose.j?.ok === false, `status=${crossExpose.status} ok=${crossExpose.j?.ok}`);
 
         const revoked = await jd(`${D}/v1/hypervisor/editor-access-leases/${editTok}/revoke`, { method: "POST", headers: ownerAuth, body: "{}" });
-        const revokedTokenProxy = proxyPort ? await jd(`http://127.0.0.1:${proxyPort}/?lease=${encodeURIComponent(editTok)}`) : { status: "no-proxy" };
+        const revokedTokenProxy = proxyPort && editAccess ? await jd(`http://127.0.0.1:${proxyPort}/`, { headers: { "x-ioi-lease": editAccess } }) : { status: "no-proxy" };
         ok("the same live editor proxy refuses its exact token immediately after durable revocation",
           revoked.status === 200 && revoked.j?.ok === true && revokedTokenProxy.status === 403,
           `revoke=${revoked.status}/${revoked.j?.ok} proxy=${revokedTokenProxy.status}`);
