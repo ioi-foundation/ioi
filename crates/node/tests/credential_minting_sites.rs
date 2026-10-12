@@ -77,6 +77,24 @@ const MINTS: &[Mint] = &[
     Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "login", prefix: "", nth: 0, inline: "random_url_safe_token(24)", fed_by: "", tolerates: &[], note: "Google OAuth state: a 24-byte draw from that primitive" },
 ];
 
+/// A function that builds a value carrying a registered credential prefix and is NOT a credential: a name keyed by
+/// something public. Accepted only on an EXACT (file, function, prefix) match, only for one occurrence in that
+/// function, and only when the value is built from its reviewed `source`; an entry whose function no longer builds it
+/// is stale. The list is not a wildcard: the same shape anywhere else, or a second one in the same function, is still
+/// a violation. These are not mints and are kept out of `MINTS`.
+struct NonMint {
+    file: &'static str,
+    function: &'static str,
+    prefix: &'static str,
+    /// Text the building statement must contain (what the value is keyed by).
+    source: &'static str,
+    reason: &'static str,
+}
+
+const REVIEWED_NON_MINTS: &[NonMint] = &[
+    NonMint { file: "node/src/bin/hypervisor_daemon_routes/editor_proxy.rs", function: "lease_cookie_name", prefix: "ioi_lease_", source: "public_port", reason: "builds the cookie NAME; the cookie VALUE is the access token minted by issue_bearer_capability_lease" },
+];
+
 /// Credential-NAMED functions that build a `<prefix>_{..}` value and were reviewed: each is an identifier or key, or a
 /// nonce with its own entropy, not a bearer. Reviewed by name; a new one must be added here with its reason.
 const DISCOVERY_REVIEWED: &[(&str, &str, &str)] = &[
@@ -493,6 +511,7 @@ fn is_comparing(statement: &str) -> bool {
 fn scan(files: &[(String, String)]) -> Vec<String> {
     let mut violations = Vec::new();
     let mut found: Vec<(String, String, String, usize)> = Vec::new(); // (file, function, prefix, occurrences)
+    let mut non_mints_built: Vec<(String, String)> = Vec::new(); // (file, function) of reviewed non-mints seen
     for (rel, text) in files {
         let (code, lits) = lex(text);
         let (funcs, tests) = spans(&code);
@@ -509,6 +528,23 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                 .count();
             seen.push((func.name.clone(), cand.prefix.to_string(), nth));
             let line = line_of(text, cand.at);
+            if let Some(non_mint) = REVIEWED_NON_MINTS
+                .iter()
+                .find(|n| n.file == rel && n.function == func.name && n.prefix == cand.prefix)
+            {
+                let statement = &text[cand.statement.0..cand.statement.1.min(text.len())];
+                if nth > 0 {
+                    violations.push(format!("{rel}:{line}: `{}` builds `{}…` more than once; only one reviewed non-mint is accepted there", func.name, cand.prefix));
+                } else if !statement.contains(non_mint.source) {
+                    violations.push(format!(
+                        "{rel}:{line}: `{}` builds `{}…` but not from its reviewed source {:?}",
+                        func.name, cand.prefix, non_mint.source
+                    ));
+                } else {
+                    non_mints_built.push((rel.clone(), func.name.clone()));
+                }
+                continue;
+            }
             let Some(mint) = MINTS.iter().find(|m| {
                 m.file == rel && m.function == func.name && m.prefix == cand.prefix && m.nth == nth
             }) else {
@@ -580,7 +616,20 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
             }
         }
     }
-    // 3. the registry against the tree: every registered file and function exists, every registered mint is found
+    // 3. the registry against the tree: every registered file and function exists, every registered mint is found,
+    // and every reviewed non-mint is still built where it was reviewed
+    for non_mint in REVIEWED_NON_MINTS {
+        if files.iter().any(|(rel, _)| rel == non_mint.file)
+            && !non_mints_built
+                .iter()
+                .any(|(f, n)| f == non_mint.file && n == non_mint.function)
+        {
+            violations.push(format!(
+                "{}: the reviewed non-mint `{}` no longer builds `{}…` from {:?} ({}): remove it",
+                non_mint.file, non_mint.function, non_mint.prefix, non_mint.source, non_mint.reason
+            ));
+        }
+    }
     let mut missing_files: Vec<&str> = Vec::new();
     for mint in MINTS {
         let Some((rel, text)) = files.iter().find(|(rel, _)| rel == mint.file) else {
@@ -684,6 +733,36 @@ fn tree_with(rel: &str, edit: impl Fn(&str) -> String) -> Vec<(String, String)> 
 const KERNEL: &str = "services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs";
 const ORCH: &str = "node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs";
 const AUTH: &str = "node/src/bin/hypervisor_daemon_routes/authority_routes.rs";
+
+const PROXY: &str = "node/src/bin/hypervisor_daemon_routes/editor_proxy.rs";
+
+/// A reviewed non-mint is accepted only where it was reviewed: the same `ioi_lease_` cookie-name shape in another
+/// function, or a second one inside the reviewed function, is still a violation.
+#[test]
+fn a_reviewed_non_mint_is_accepted_only_on_its_exact_site() {
+    let elsewhere = tree_with(PROXY, |text| {
+        format!("{text}\npub(crate) fn another_cookie_name(public_port: u16) -> String {{\n    format!(\"ioi_lease_{{public_port}}\")\n}}\n")
+    });
+    let violations = scan(&elsewhere);
+    assert!(
+        violations.iter().any(|v| v.contains("another_cookie_name")),
+        "the same shape in another function is caught: {violations:?}"
+    );
+    let twice = tree_with(PROXY, |text| {
+        text.replacen(
+            "    format!(\"ioi_lease_{public_port}\")\n",
+            "    let _again = format!(\"ioi_lease_{public_port}\");\n    format!(\"ioi_lease_{public_port}\")\n",
+            1,
+        )
+    });
+    let violations = scan(&twice);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("lease_cookie_name") && v.contains("more than once")),
+        "a second occurrence in the reviewed function is caught: {violations:?}"
+    );
+}
 
 #[test]
 fn the_real_tree_has_no_unregistered_mint_and_every_registered_mint_shows_its_entropy() {
