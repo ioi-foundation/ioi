@@ -524,7 +524,20 @@ const READS_THAT_WRITE_OR_ARE_UNPROVEN: &[(&str, &str)] = &[
     ("GET", "/v1/hypervisor/no-such-route-at-all"),
 ];
 
-const ALL_METHODS: &[&str] = &["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"];
+const ALL_METHODS: &[&str] = &[
+    "GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE", "TRACE", "CONNECT", "PURGE",
+];
+
+/// Methods with no handler on any route: a router answers them without reaching a handler. A read-only token's answer
+/// must then equal the full token's (proving no handler ran for either) and is printed as NO-HANDLER, never as admitted.
+const NO_HANDLER_METHODS: &[&str] = &["TRACE", "CONNECT", "PURGE"];
+const NO_HANDLER_STATUSES: &[u16] = &[0, 400, 404, 405, 501]; // 0: the connection was closed by the parser
+
+/// The ONLY case allowed to be excluded as vacuous (its full-token control is also 403 because the principal does not exist).
+const PERMITTED_VACUOUS: &[(&str, &str)] = &[(
+    "HEAD",
+    "/v1/hypervisor/auth/device-held-principals/principal-x/binding-state",
+)];
 
 /// The exact metadata keys the token listing returns for each token: an explicit projection, never the stored record.
 const LISTED_TOKEN_KEYS: &[&str] = &[
@@ -557,7 +570,7 @@ fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
     paths.sort_unstable();
     paths.dedup();
     let mut admitted: Vec<(String, String)> = Vec::new();
-    let mut vacuous: Vec<String> = Vec::new();
+    let mut vacuous: Vec<(String, String)> = Vec::new();
     for path in &paths {
         for method in ALL_METHODS {
             let body =
@@ -565,11 +578,25 @@ fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
             let (status, answer) = call(&f, &read_only, method, path, body.as_ref());
             // A HEAD or OPTIONS answer has no body to carry the refusal code, so it is read from the status:
             // the read-only token's 403 where a full token's answer is not a 403.
-            let refused = if *method == "HEAD" || *method == "OPTIONS" {
+            let refused = if NO_HANDLER_METHODS.contains(method) {
+                let (full_status, _) = call(&f, &full, method, path, body.as_ref());
+                if status == 403 {
+                    true
+                } else if status == full_status && NO_HANDLER_STATUSES.contains(&status) {
+                    println!(
+                        "  NO-HANDLER {method} {path} -> {status} (a full token gets the same)"
+                    );
+                    continue;
+                } else {
+                    false
+                }
+            } else if *method == "HEAD" || *method == "OPTIONS" {
                 let (full_status, _) = call(&f, &full, method, path, body.as_ref());
                 if full_status == 403 {
                     // The full token is refused here too, so this case cannot show the guard acted: named, not silent.
-                    vacuous.push(format!("{method} {path} (a full token also gets 403)"));
+                    // The read-only token's own answer must still be 403 before the case is excluded.
+                    assert_eq!(status, 403, "{method} {path}: a read-only token must be refused even where the control is vacuous");
+                    vacuous.push((method.to_string(), path.to_string()));
                     continue;
                 }
                 status == 403
@@ -587,14 +614,22 @@ fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
         .collect();
     admitted.sort();
     expected.sort();
-    for case in &vacuous {
-        println!("  EXCLUDED-VACUOUS {case}");
+    for (method, path) in &vacuous {
+        println!("  EXCLUDED-VACUOUS {method} {path} (a full token also gets 403)");
     }
+    let mut permitted: Vec<(String, String)> = PERMITTED_VACUOUS
+        .iter()
+        .map(|(m, p)| (m.to_string(), p.to_string()))
+        .collect();
+    vacuous.sort();
+    permitted.sort();
+    assert_eq!(
+        vacuous, permitted,
+        "exactly the permitted vacuous exclusion, nothing else"
+    );
     for (method, path) in READ_ONLY_ALLOWLIST {
         assert!(
-            !vacuous
-                .iter()
-                .any(|v| v.starts_with(&format!("{method} {path} "))),
+            !vacuous.iter().any(|(m, p)| m == method && p == path),
             "a listed route's control answer must not be vacuous: {method} {path}"
         );
     }
@@ -979,6 +1014,10 @@ fn a_read_only_call_on_an_allowlisted_route_changes_nothing() {
     let idle_a = snapshot(&data);
     std::thread::sleep(Duration::from_millis(800));
     let idle_b = snapshot(&data);
+    // The log may only grow while the daemon idles (a truncated or replaced log fails), and its new lines are printed.
+    for line in appended_log_lines(&idle_a, &idle_b) {
+        println!("  daemon.log + [idle] {line}");
+    }
     let idle = differences(&idle_a, &idle_b);
     assert!(idle.is_empty(), "the data directory changed while the daemon idled (name it in EXCLUDED with its reason): {idle:?}");
     let mut failures = Vec::new();
