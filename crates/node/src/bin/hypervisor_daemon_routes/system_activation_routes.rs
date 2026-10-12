@@ -750,6 +750,21 @@ pub(crate) fn validate_wallet_receipt(
     Ok(value)
 }
 
+/// Run synchronous System work (it takes the System source locks and may make a full Agentgres
+/// pass, tens of seconds on a large log) on the blocking thread pool, so it never holds one of the
+/// async workers every other request needs, identity resolution included (BUILD-DELTA #48). Work
+/// that panics answers a typed refusal instead of tearing down the request.
+pub(crate) async fn off_the_async_workers<T: Send + 'static>(
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, VErr> {
+    tokio::task::spawn_blocking(work).await.map_err(|error| {
+        verr(
+            "system_source_read_unreadable",
+            format!("the read did not complete on the blocking pool ({error})"),
+        )
+    })
+}
+
 pub(crate) fn with_source_locks<T>(f: impl FnOnce() -> T) -> T {
     let _genesis = super::system_genesis_routes::SYSTEM_GENESIS_LOCK
         .lock()

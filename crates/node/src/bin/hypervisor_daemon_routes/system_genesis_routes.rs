@@ -2291,7 +2291,16 @@ pub(crate) async fn handle_get(
         ));
     }
     let tail = record_tail(system_id);
-    handle_get_tail(&state.data_dir, &tail)
+    let data_dir = state.data_dir.clone();
+    // BUILD-DELTA #48: the read waits on SYSTEM_GENESIS_LOCK; it runs on the blocking pool.
+    match super::system_activation_routes::off_the_async_workers(move || {
+        handle_get_tail(&data_dir, &tail)
+    })
+    .await
+    {
+        Ok(answer) => answer,
+        Err(error) => classify(error),
+    }
 }
 
 pub(crate) async fn handle_get_by_key(
@@ -2304,7 +2313,16 @@ pub(crate) async fn handle_get_by_key(
             "record key must be the exact canonical asg_<64 lowercase hex> storage identity",
         ));
     }
-    handle_get_tail(&state.data_dir, &tail)
+    let data_dir = state.data_dir.clone();
+    // BUILD-DELTA #48: the read waits on SYSTEM_GENESIS_LOCK; it runs on the blocking pool.
+    match super::system_activation_routes::off_the_async_workers(move || {
+        handle_get_tail(&data_dir, &tail)
+    })
+    .await
+    {
+        Ok(answer) => answer,
+        Err(error) => classify(error),
+    }
 }
 
 fn handle_get_tail(data_dir: &str, tail: &str) -> (StatusCode, Json<Value>) {

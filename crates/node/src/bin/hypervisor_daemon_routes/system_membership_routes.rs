@@ -1230,18 +1230,24 @@ pub(crate) async fn handle_get_projection(
             "id is not canonical",
         ));
     }
-    match with_source_locks(|| {
-        let source = load_membership_source(&state.data_dir, &key)?;
-        build_membership_projection(
-            &source.binding.system_id,
-            source
-                .desired_topology
-                .as_ref()
-                .zip(source.desired_topology_root.as_deref()),
-            &source.records,
-            &source.head,
-        )
-    }) {
+    // BUILD-DELTA #48: the read waits on the System source locks; it runs on the blocking pool.
+    let state = state.clone();
+    let read = super::system_activation_routes::off_the_async_workers(move || {
+        with_source_locks(|| {
+            let source = load_membership_source(&state.data_dir, &key)?;
+            build_membership_projection(
+                &source.binding.system_id,
+                source
+                    .desired_topology
+                    .as_ref()
+                    .zip(source.desired_topology_root.as_deref()),
+                &source.records,
+                &source.head,
+            )
+        })
+    })
+    .await;
+    match read.and_then(|answer| answer) {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(error) => classify(error),
     }
