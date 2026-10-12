@@ -297,6 +297,22 @@ try {
     const plantedNames = pinnedNamesOf(pinnedBlockOf(plantedSource));
     ok("DRILL M6 — the pinned block is read to its matching brace: a brace inside a comment does not end it, and a name only a comment or a later block mentions is not a pin",
       plantedNames.join(",") === "first-bucket,second-bucket,third-bucket", plantedNames.join(",") || "NOTHING READ");
+
+    // M7 — a template literal is read as one: a nested template inside its interpolation does not end
+    // it or the block, and a quoted name inside it (a comment in an interpolation included) is not a pin.
+    const templateSource = [
+      "const PINNED = {",
+      "  unadjudicable: {",
+      "    note: `${`}`}`,",
+      '    "real-bucket": 1,',
+      '    label: `a ${ /* "comment-bucket": 9 */ "x" } b`,',
+      '    "other-bucket": 0,',
+      "  },",
+      "};",
+    ].join("\n");
+    const templateNames = pinnedNamesOf(pinnedBlockOf(templateSource));
+    ok("DRILL M7 — a template literal is read as one: a nested template in its interpolation ends neither it nor the block, and a quoted name inside it, a comment in an interpolation included, is not a pin",
+      templateNames.join(",") === "other-bucket,real-bucket", templateNames.join(",") || "NOTHING READ");
   }
 } catch (error) {
   failures += 1;
