@@ -115,10 +115,6 @@ fn json_of(body: &str) -> Value {
     serde_json::from_str(body).unwrap_or_else(|_| json!({ "raw": body }))
 }
 
-fn start_daemon(data_dir: &Path, home: &Path) -> Daemon {
-    start_daemon_env(data_dir, home, &[])
-}
-
 /// The daemon with extra environment. Ready only when ITS OWN log says it is listening and the port answers:
 /// a port another test's daemon took first is never mistaken for ours; a child that failed to bind is detected
 /// and the start retried on a new port.
@@ -298,16 +294,21 @@ struct Fixture {
     data: std::path::PathBuf,
     daemon: Daemon,
     invite: String,
+    owner: String,
 }
 
 fn fixture() -> Fixture {
+    fixture_env(&[])
+}
+
+fn fixture_env(extra: &[(&str, &str)]) -> Fixture {
     assert_isolated_namespace();
     let dir = tempfile::tempdir().unwrap();
     let data = dir.path().join("data");
     let home = dir.path().join("home");
     std::fs::create_dir_all(&data).unwrap();
     std::fs::create_dir_all(home.join(".config")).unwrap();
-    let daemon = start_daemon(&data, &home);
+    let daemon = start_daemon_env(&data, &home, extra);
     let owner = owner_token(&daemon);
     create_principal(&daemon, &owner, ADMIN, "admin");
     create_principal(&daemon, &owner, MEMBER, "member");
@@ -317,6 +318,7 @@ fn fixture() -> Fixture {
         data,
         daemon,
         invite,
+        owner,
     }
 }
 
@@ -419,5 +421,101 @@ fn d24_an_authenticated_accept_for_another_principal_is_refused() {
             "{email}: no session: {answer}"
         );
     }
+    assert_eq!(stored_sessions(&f.data), before, "no session was stored");
+}
+
+/// The daemon's portal session exchange, configured for the impersonation test (an HS256 test secret).
+const PORTAL_SECRET: &str = "d24-portal-exchange-test-secret-000000000000000000";
+const PORTAL_ISSUER: &str = "surface://portal.test/d24";
+const PORTAL_AUDIENCE: &str = "daemon://hypervisor/d24";
+const PORTAL_ENV: [(&str, &str); 4] = [
+    ("IOI_PORTAL_DAEMON_EXCHANGE_SECRET", PORTAL_SECRET),
+    ("IOI_PORTAL_DAEMON_EXCHANGE_ISSUER", PORTAL_ISSUER),
+    ("IOI_PORTAL_DAEMON_EXCHANGE_AUDIENCE", PORTAL_AUDIENCE),
+    ("IOI_PORTAL_DAEMON_EXCHANGE_TENANT_REF", "org://local"),
+];
+
+fn whoami(daemon: &Daemon, token: &str) -> Value {
+    let (status, body) = http(
+        daemon.port,
+        "GET",
+        "/v1/hypervisor/auth/whoami",
+        Some(token),
+        None,
+    );
+    assert_eq!(status, 200, "whoami: {body}");
+    json_of(&body)["principal"].clone()
+}
+
+/// A portal-exchanged session for `subject`, impersonated by `actor`.
+fn impersonated_session(daemon: &Daemon, subject: &str, actor: &str) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let claims = json!({
+        "iss": PORTAL_ISSUER,
+        "aud": PORTAL_AUDIENCE,
+        "sub": subject,
+        "act": actor,
+        "tenant_ref": "org://local",
+        "source_identity_hash": format!("sha256:{}", "a".repeat(64)),
+        "iat": now,
+        "nbf": now,
+        "exp": now + 30,
+        "jti": format!("d24_impersonated_{}", "1".repeat(32)),
+    });
+    let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
+    header.typ = Some("ioi-portal-daemon-exchange+jwt".to_string());
+    let assertion = jsonwebtoken::encode(
+        &header,
+        &claims,
+        &jsonwebtoken::EncodingKey::from_secret(PORTAL_SECRET.as_bytes()),
+    )
+    .unwrap();
+    let (status, body) = http(
+        daemon.port,
+        "POST",
+        "/v1/hypervisor/auth/portal-session-exchange",
+        None,
+        Some(&json!({ "assertion": assertion })),
+    );
+    assert_eq!(status, 200, "test-setup portal exchange: {body}");
+    session_token_of(&body).unwrap_or_else(|| panic!("an exchanged session: {body}"))
+}
+
+/// An accept by an impersonated session for its subject's email is refused, typed, with no session: the
+/// subject is not the one acting.
+#[test]
+fn d24_an_impersonated_session_does_not_accept_for_its_subject() {
+    let f = fixture_env(&PORTAL_ENV);
+    let owner = whoami(&f.daemon, &f.owner);
+    let owner_id = owner["principal_id"].as_str().unwrap();
+    let admin = login(&f.daemon, ADMIN);
+    let admin_id = whoami(&f.daemon, &admin)["principal_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let session = impersonated_session(&f.daemon, owner_id, &admin_id);
+    let resolved = whoami(&f.daemon, &session);
+    assert_eq!(
+        resolved["principal_id"],
+        json!(owner_id),
+        "the session's subject is the owner: {resolved}"
+    );
+    assert_eq!(resolved["is_impersonated"], json!(true), "{resolved}");
+    let before = stored_sessions(&f.data);
+    let (status, answer) = accept(
+        &f.daemon,
+        Some(&session),
+        &json!({ "invite_id": f.invite, "email": OWNER.0 }),
+    );
+    assert_eq!(status, 403, "{answer}");
+    assert_eq!(
+        json_of(&answer)["code"],
+        json!("hypervisor.org_invite_principal_mismatch"),
+        "{answer}"
+    );
+    assert!(session_token_of(&answer).is_none(), "no session: {answer}");
     assert_eq!(stored_sessions(&f.data), before, "no session was stored");
 }

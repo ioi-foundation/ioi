@@ -11810,8 +11810,20 @@ async function handleEstateRequest(req, res, body) {
             res.end();
             return;
           }
+          // An existing account joins signed in as itself (daemonFetch forwards this request's session):
+          // the daemon records the membership and issues no new session.
+          if (r.ok && d.ok && d.joined) {
+            res.writeHead(302, { Location: "/ai" });
+            res.end();
+            return;
+          }
+          const signIn = `<a href="/__ioi/login?next=${encodeURIComponent(`/__ioi/invite/${inviteId}`)}">Sign in</a>`;
+          const message = {
+            "hypervisor.org_invite_existing_principal_sign_in_required": `This email already has an account. ${signIn} first, then open the invite again to join.`,
+            "hypervisor.org_invite_principal_mismatch": `This email belongs to another account. ${signIn} as that account, then open the invite again to join.`,
+          }[d.code] || "This invite link is invalid or expired.";
           res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(inviteShell(inviteId, "This invite link is invalid or expired."));
+          res.end(inviteShell(inviteId, message));
         } catch (e) {
           res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
           res.end(inviteShell(inviteId, `Invite service unavailable: ${e.message}`));
