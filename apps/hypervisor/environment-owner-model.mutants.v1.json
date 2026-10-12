@@ -75,8 +75,8 @@
     {
       "id": "r11-editor-proxy-admits-tokenless-request",
       "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs",
-      "find": "let authed = lease_active && token_ok;",
-      "replace": "let authed = lease_active && (token_ok || token.is_none());",
+      "find": ".is_some_and(|token| bearer_admits_lease(data_dir, bound_lease, &token));",
+      "replace": ".is_none_or(|token| bearer_admits_lease(data_dir, bound_lease, &token));",
       "red_on": "R11_THREE_UNAUTHENTICATED_SURFACES_CLOSED"
     },
     {

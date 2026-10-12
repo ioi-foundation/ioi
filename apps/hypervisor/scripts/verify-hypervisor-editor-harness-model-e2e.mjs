@@ -153,12 +153,23 @@ async function run() {
   const action = /<form method="post" action="([^"]+)"/u.exec(page)?.[1]?.replace(/&#38;/gu, "&") || "";
   const token = /name="token" value="([^"]+)"/u.exec(page)?.[1] || "";
   ok("VS Code Browser open lane hands the browser to the editor proxy's exchange (no token in a URL)", !!action && !!token && !action.includes("lease="), `${open.status} ${action}`);
+  // The editor proxy is served on its own *.localhost name: connect to 127.0.0.1 and name it.
+  const loopback = (url, { method = "GET", headers = {}, body = "" } = {}) => new Promise((resolve) => {
+    const target = new URL(url);
+    const req = http.request({ host: "127.0.0.1", port: target.port, path: `${target.pathname}${target.search}`, method, headers: { host: target.host, ...headers } }, (res) => {
+      res.resume();
+      res.on("end", () => resolve({ status: res.statusCode, setCookie: [].concat(res.headers["set-cookie"] || [])[0] || "" }));
+    });
+    req.on("error", () => resolve(null));
+    req.end(body);
+  });
+  const form = `token=${encodeURIComponent(token)}`;
   const exchanged = action && token
-    ? await fetch(action, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `token=${encodeURIComponent(token)}` }).catch(() => null)
+    ? await loopback(action, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "content-length": Buffer.byteLength(form) }, body: form })
     : null;
-  const cookie = (exchanged?.headers.get("set-cookie") || "").split(";")[0];
+  const cookie = (exchanged?.setCookie || "").split(";")[0];
   if (exchanged?.status === 303 && cookie) {
-    const editorResp = await fetch(new URL("/", action).href, { redirect: "manual", headers: { cookie } }).catch(() => null);
+    const editorResp = await loopback(new URL("/", action).href, { headers: { cookie } });
     ok("the opened editor instance is serving (workbench reachable over the changed workspace)", editorResp && (editorResp.status === 200 || editorResp.status === 302), editorResp ? editorResp.status : "unreachable");
   } else {
     ok("editor instance serving check skipped (the exchange set no cookie)", false, `${exchanged?.status ?? "no exchange"}`);

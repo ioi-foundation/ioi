@@ -507,13 +507,27 @@ async function waitForRunTerminal(runId, timeoutMs = 45000) {
   return getRun(runId);
 }
 
-export async function handle(pathname, bodyText, reqHeaders = {}) {
-  const daemonHeaders = daemonIdentityHeaders(reqHeaders);
-  const contentType = String(reqHeaders["content-type"] || reqHeaders["Content-Type"] || "");
-  return reqCtx.run({ daemonHeaders, contentType }, () => handleImpl(pathname, bodyText));
+// A write is taken only as a POST (`method` is the browser request's): every RPC (the shell's Connect
+// transport sends each one as a POST) and the IOI panel's own writes. Anything else is refused before
+// any daemon call, so a cross-site GET navigation can never become a daemon write.
+const PANEL_WRITES = [/^exec$/u, /^workruns\/[^/]+\/execute$/u];
+function methodRefusal(pathname, method) {
+  if (String(method || "").toUpperCase() === "POST") return null;
+  const panel = pathname.startsWith("/api/ioi/") ? pathname.slice("/api/ioi/".length) : null;
+  if (panel === null ? !/^\/api\/ioi\.v1\./u.test(pathname) : !PANEL_WRITES.some((write) => write.test(panel))) return null;
+  return jsonStatus(405, { code: "method_not_allowed", message: "this call changes state and is taken only as a POST" });
 }
 
-async function handleImpl(pathname, bodyText) {
+export async function handle(pathname, bodyText, reqHeaders = {}, method = "POST") {
+  const refusal = methodRefusal(pathname, method);
+  if (refusal) return refusal;
+  const daemonHeaders = daemonIdentityHeaders(reqHeaders);
+  const contentType = String(reqHeaders["content-type"] || reqHeaders["Content-Type"] || "");
+  const post = String(method || "").toUpperCase() === "POST";
+  return reqCtx.run({ daemonHeaders, contentType }, () => handleImpl(pathname, bodyText, post));
+}
+
+async function handleImpl(pathname, bodyText, post = true) {
   let body = {};
   try {
     body = JSON.parse(bodyText || "{}");
@@ -540,7 +554,7 @@ async function handleImpl(pathname, bodyText) {
         return json({ error: e.message, daemon: "unreachable" });
       }
     }
-    if (sub === "workruns" && bodyText && body.environment_id) {
+    if (sub === "workruns" && post && bodyText && body.environment_id) {
       try {
         return json(await daemon("POST", "/v1/hypervisor/workruns", body));
       } catch (e) {

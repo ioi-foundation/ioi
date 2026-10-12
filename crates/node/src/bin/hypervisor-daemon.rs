@@ -5079,6 +5079,11 @@ async fn async_main() -> anyhow::Result<()> {
             state.clone(),
             lifecycle_routes::auth_gate,
         ))
+        // A state-changing request a browser sends from another origin (a preview or editor site,
+        // or another loopback port) is refused before the auth gate or any route.
+        .layer(axum::middleware::from_fn(
+            lifecycle_routes::refuse_cross_origin_writes,
+        ))
         .with_state(state.clone());
 
     // Background automation scheduler: fire due time-triggered automations through the manual-run
