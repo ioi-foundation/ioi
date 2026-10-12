@@ -302,6 +302,10 @@ fn upstream() -> Upstream {
                         Ok(n) => head.extend_from_slice(&chunk[..n]),
                     }
                 }
+                // A bare connect (the daemon's port-listening probe) is not a request.
+                if head.is_empty() {
+                    return;
+                }
                 record
                     .lock()
                     .unwrap()
