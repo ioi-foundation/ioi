@@ -653,10 +653,20 @@ fn snapshot(data: &Path) -> Snapshot {
 /// The ONLY paths the no-write comparison does not hold fixed, each with the reason. Anything else that changes,
 /// during a call or while the daemon idles, fails the test. tmp/ is NOT excluded: it is the daemon's TMPDIR and
 /// could hold persistent scratch or lock state, so a write there must be seen.
-const EXCLUDED: &[(&str, &str)] = &[(
-    "daemon.log",
-    "the daemon's own log: it may only be appended to, and its new lines are printed",
-)];
+const EXCLUDED: &[(&str, &str)] = &[
+    (
+        "daemon.log",
+        "the daemon's own log: it may only be appended to, and its new lines are printed",
+    ),
+    (
+        "scheduler-heartbeats",
+        "the directory the automation scheduler's timer creates, present only after its first tick, independent of any request (the daemon has no switch that disables its scheduler: it is spawned unconditionally)",
+    ),
+    (
+        "scheduler-heartbeats/automation-scheduler.json",
+        "the automation scheduler's heartbeat, rewritten by the daemon's own timer (measured changing while idle; no switch disables the scheduler, so it is excluded by name rather than by configuration)",
+    ),
+];
 
 /// Paths whose bytes or presence differ between two snapshots, outside EXCLUDED.
 fn differences(before: &Snapshot, after: &Snapshot) -> Vec<String> {
@@ -668,6 +678,9 @@ fn differences(before: &Snapshot, after: &Snapshot) -> Vec<String> {
         }
     }
     for path in before.dirs.symmetric_difference(&after.dirs) {
+        if excluded(path) {
+            continue;
+        }
         out.push(format!("directory {path}"));
     }
     out.sort();
@@ -695,12 +708,12 @@ struct Case {
     path: &'static str,
     body: Option<Value>,
     /// The expected SUCCESS-path result: a fixed, asserted answer, so the call provably reached its read.
-    check: Box<dyn Fn(u16, &str) -> Result<(), String>>,
+    check: Box<dyn Fn(u16, &str) -> Result<String, String>>,
 }
 
-fn must(condition: bool, what: &str, body: &str) -> Result<(), String> {
+fn must(condition: bool, what: &str, body: &str) -> Result<String, String> {
     if condition {
-        Ok(())
+        Ok(what.to_string())
     } else {
         Err(format!("{what}: {body}"))
     }
@@ -955,8 +968,12 @@ fn a_read_only_call_on_an_allowlisted_route_changes_nothing() {
             ));
             continue;
         }
-        if let Err(why) = (case.check)(status, &body) {
-            failures.push(format!("{}: {why}", case.label));
+        match (case.check)(status, &body) {
+            Ok(asserted) => println!(
+                "  REACHED {} ({} {}) -> {status}: {asserted}",
+                case.label, case.method, case.path
+            ),
+            Err(why) => failures.push(format!("{}: {why}", case.label)),
         }
         let changed = differences(&before, &after);
         if !changed.is_empty() {
