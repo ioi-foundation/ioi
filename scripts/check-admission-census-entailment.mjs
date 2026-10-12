@@ -90,9 +90,80 @@ function rustcFileSet() {
     .sort();
 }
 
+/// Index just past the quoted string that opens at `at` (a single or double quote).
+function quotedEnd(source, at) {
+  const quote = source[at];
+  let index = at + 1;
+  while (index < source.length && source[index] !== quote) index += source[index] === "\\" ? 2 : 1;
+  return index + 1;
+}
+
+/// Index just past a comment that opens at `at`, or `at` itself when none does.
+function commentEnd(source, at) {
+  const two = source.slice(at, at + 2);
+  if (two === "//") {
+    const end = source.indexOf("\n", at);
+    return end < 0 ? source.length : end;
+  }
+  if (two === "/*") {
+    const end = source.indexOf("*/", at + 2);
+    return end < 0 ? source.length : end + 2;
+  }
+  return at;
+}
+
+/// Index just past the template literal that opens at `at` (a backtick). Each `${…}` interpolation
+/// is read as code to its own matching brace: strings, comments and nested templates inside it
+/// neither end it nor the template.
+function templateEnd(source, at) {
+  let index = at + 1;
+  while (index < source.length) {
+    const char = source[index];
+    if (char === "\\") {
+      index += 2;
+    } else if (char === "`") {
+      return index + 1;
+    } else if (char === "$" && source[index + 1] === "{") {
+      index = interpolationEnd(source, index + 2);
+    } else {
+      index += 1;
+    }
+  }
+  return source.length;
+}
+
+/// Index just past the `}` that closes an interpolation whose code starts at `at`.
+function interpolationEnd(source, at) {
+  let depth = 0;
+  let index = at;
+  while (index < source.length) {
+    const skipped = commentEnd(source, index);
+    if (skipped !== index) {
+      index = skipped;
+      continue;
+    }
+    const char = source[index];
+    if (char === '"' || char === "'") {
+      index = quotedEnd(source, index);
+    } else if (char === "`") {
+      index = templateEnd(source, index);
+    } else {
+      if (char === "{") depth += 1;
+      if (char === "}") {
+        if (depth === 0) return index + 1;
+        depth -= 1;
+      }
+      index += 1;
+    }
+  }
+  return source.length;
+}
+
 /// The CODE of the census's pinned `unadjudicable` block, from its opening brace to the MATCHING
-/// closing brace: braces inside comments and strings neither open nor close it, and comments are
-/// left out of the text returned, so a pin is read only from code.
+/// closing brace: braces inside comments, strings and template literals (their interpolations
+/// included) neither open nor close it. Comments are left out of the text returned, and a template
+/// literal is replaced by an empty one (a template is a value, never a pin), so a pin is read only
+/// from the block's own code.
 function pinnedBlockOf(source) {
   const opener = source.indexOf("unadjudicable: {");
   if (opener < 0) return "";
@@ -100,23 +171,21 @@ function pinnedBlockOf(source) {
   let depth = 0;
   let code = "";
   while (at < source.length) {
-    const two = source.slice(at, at + 2);
-    if (two === "//") {
-      const end = source.indexOf("\n", at);
-      at = end < 0 ? source.length : end;
-      continue;
-    }
-    if (two === "/*") {
-      const end = source.indexOf("*/", at + 2);
-      at = end < 0 ? source.length : end + 2;
+    const skipped = commentEnd(source, at);
+    if (skipped !== at) {
+      at = skipped;
       continue;
     }
     const char = source[at];
-    if (char === '"' || char === "'" || char === "`") {
-      let end = at + 1;
-      while (end < source.length && source[end] !== char) end += source[end] === "\\" ? 2 : 1;
-      code += source.slice(at, end + 1);
-      at = end + 1;
+    if (char === '"' || char === "'") {
+      const end = quotedEnd(source, at);
+      code += source.slice(at, end);
+      at = end;
+      continue;
+    }
+    if (char === "`") {
+      at = templateEnd(source, at);
+      code += "``";
       continue;
     }
     code += char;
