@@ -1980,6 +1980,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(target.query)
         note({"path": self.path, "cookie": cookie})
         if target.path.startswith("/version"):
+            socket_dir = os.path.dirname(arg("--socket-path") or "")
+            swap = os.path.join(os.path.dirname(os.path.abspath(__file__)), "swap-socket-dir")
+            if socket_dir and os.path.exists(swap) and os.path.isdir(socket_dir):
+                os.rename(socket_dir, socket_dir + ".moved")
+                open(socket_dir, "w").close()
             return self.answer(200, "0123456789abcdef0123456789abcdef01234567")
         if "tkn" in query:
             if query["tkn"][0] != token:
@@ -2698,10 +2703,11 @@ fn a_token_file_that_cannot_be_removed_at_readiness_fails_the_start() {
     );
     let exposed = json_of(&body);
     assert!(
-        exposed["ok"] != json!(true)
+        exposed["ok"] == json!(false)
+            && exposed["phase"] == json!("failed")
             && exposed["public_proxy_port"].is_null()
             && exposed["open_url"].is_null(),
-        "nothing is exposed: {status} {body}"
+        "nothing is exposed, by an explicit refusal: {status} {body}"
     );
     let log = std::fs::read_to_string(&f.daemon.log).unwrap_or_default();
     assert!(
@@ -2813,5 +2819,110 @@ fn boot_redacts_connection_tokens_in_existing_editor_logs() {
     assert!(
         status == 200 && !body.contains(first) && !body.contains(second),
         "the logs endpoint serves no token value: {status} {body}"
+    );
+}
+
+/// A boot redacts the `tkn=` values of an editor service log whose bytes are not all UTF-8; the
+/// rest of the file, the non-UTF-8 byte included, is kept.
+#[test]
+fn boot_redacts_connection_tokens_in_a_log_that_is_not_utf8() {
+    let mut f = fixture();
+    let service_id = f.editor_service();
+    let token = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+    let log_path = f
+        .data
+        .join("editor-services")
+        .join(format!("{service_id}.log"));
+    let mut bytes = format!("Web UI available at http://localhost:3000?tkn={token}\n").into_bytes();
+    bytes.extend_from_slice(b"raw \xff byte\n");
+    std::fs::write(&log_path, &bytes).unwrap();
+    f.restart();
+    let on_disk = std::fs::read(&log_path).unwrap();
+    let find = |needle: &[u8]| on_disk.windows(needle.len()).any(|w| w == needle);
+    assert!(
+        !find(token.as_bytes()),
+        "no token value is left in the log file: {}",
+        String::from_utf8_lossy(&on_disk)
+    );
+    assert!(
+        find(&b"tkn=[redacted]"[..]) && find(&b"raw \xff byte\n"[..]),
+        "the value is redacted in place and the rest is kept: {}",
+        String::from_utf8_lossy(&on_disk)
+    );
+}
+
+/// The daemon log's SECURITY line names its service and what could not be removed.
+fn security_line_naming(f: &Fixture, service_id: &str, what: &str) -> bool {
+    std::fs::read_to_string(&f.daemon.log)
+        .unwrap_or_default()
+        .lines()
+        .any(|line| {
+            line.starts_with("SECURITY") && line.contains(service_id) && line.contains(what)
+        })
+}
+
+/// When a failed start (its token file cannot be removed) also cannot remove the runtime's socket
+/// directory, the SECURITY line reports that too.
+#[test]
+fn a_failed_start_reports_a_socket_directory_it_cannot_remove() {
+    let f = fixture();
+    let _runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let bin = f.home.join(".ioi/editor-toolchain/openvscode-server/bin");
+    std::fs::write(bin.join("hold-token-file"), "").unwrap();
+    std::fs::write(bin.join("swap-socket-dir"), "").unwrap();
+    let service_id = f.editor_service();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert_eq!(
+        json_of(&body)["reason"],
+        json!("editor_runtime_token_not_removed"),
+        "the start fails by name: {status} {body}"
+    );
+    assert!(
+        security_line_naming(&f, &service_id, "socket directory"),
+        "the SECURITY line reports the socket directory"
+    );
+}
+
+/// When stopping a runtime cannot remove its socket directory, the daemon logs a SECURITY line
+/// naming the service.
+#[test]
+fn a_stop_reports_a_socket_directory_it_cannot_remove() {
+    let f = fixture();
+    let _runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    std::fs::write(
+        f.home
+            .join(".ioi/editor-toolchain/openvscode-server/bin/swap-socket-dir"),
+        "",
+    )
+    .unwrap();
+    let service_id = f.editor_service();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert!(
+        status == 200 && json_of(&body)["ok"] == json!(true),
+        "the runtime starts: {status} {body}"
+    );
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/stop"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert_eq!(status, 200, "the stop is answered: {body}");
+    assert!(
+        security_line_naming(&f, &service_id, "socket directory"),
+        "the SECURITY line reports the socket directory"
     );
 }
