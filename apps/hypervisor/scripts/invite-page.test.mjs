@@ -37,6 +37,8 @@ function stubDaemon() {
       switch (mode.whoami) {
         case "fail": return send(500, "daemon error, not json");
         case "503-signed-out": return send(503, JSON.stringify({ ok: false, authenticated: false }));
+        case "500-authed": return send(500, JSON.stringify({ ok: true, authenticated: true, principal: { principal_id: "p1", email: EMAIL } }));
+        case "503-authed": return send(503, JSON.stringify({ ok: true, authenticated: true, principal: { principal_id: "p1", email: EMAIL } }));
         case "malformed": return send(200, "[1,2]");
         case "signed-out": return send(200, JSON.stringify({ ok: true, authenticated: false }));
         case "drop": return q.socket.destroy();
@@ -49,6 +51,10 @@ function stubDaemon() {
         case "drop": return q.socket.destroy();
         case "refuse": return send(403, JSON.stringify({ ok: false, code: "hypervisor.org_invite_principal_mismatch" }));
         case "truthy-strings": return send(200, JSON.stringify({ ok: "false", joined: "false" }));
+        case "ok-string": return send(200, JSON.stringify({ ok: "true", joined: true }));
+        case "joined-string": return send(200, JSON.stringify({ ok: true, joined: "true" }));
+        case "token-ok-string": return send(200, JSON.stringify({ ok: "true", session_token: "tok_x" }));
+        case "token": return send(200, JSON.stringify({ ok: true, session_token: "tok_x" }));
         case "joined": return send(200, JSON.stringify({ ok: true, joined: true }));
         default: return send(200, "null");
       }
@@ -96,13 +102,15 @@ async function withShell(fn) {
         body: new URLSearchParams(fields).toString(),
         redirect: "manual",
       });
-      return { status: r.status, text: await r.text(), location: r.headers.get("location") };
+      return { status: r.status, text: await r.text(), location: r.headers.get("location"), setCookie: r.headers.get("set-cookie") };
     };
     await fn({ page, post });
   } finally {
-    const exited = new Promise((r) => child.once("exit", r));
-    child.kill("SIGKILL");
-    await exited;
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = new Promise((r) => child.once("exit", r));
+      child.kill("SIGKILL");
+      await exited;
+    }
     child.stdout.destroy();
     child.stderr.destroy();
     stub.close();
@@ -167,6 +175,33 @@ test("the invite page's answers", { timeout: 120_000 }, async (t) => {
       assert.equal(r.status, 403);
       assert.equal(r.location, null);
       assert.ok(failed(r.text));
+    });
+    await t.test("each guard alone: ok as a string, joined as a string, ok as a string with a session token", async () => {
+      for (const m of ["ok-string", "joined-string", "token-ok-string"]) {
+        mode.accept = m;
+        const r = await post({ email: EMAIL }, COOKIE);
+        assert.equal(r.status, 403, m);
+        assert.equal(r.location, null, m);
+        assert.equal(r.setCookie, null, m);
+        assert.ok(failed(r.text), m);
+      }
+    });
+    await t.test("a real session token with ok:true sets the cookie", async () => {
+      mode.accept = "token";
+      const r = await post({ email: EMAIL });
+      assert.equal(r.status, 302);
+      assert.match(String(r.setCookie), /^ioi_session=tok_x;/);
+    });
+    await t.test("whoami 500 / 503 carrying authenticated:true is the neutral error, never the join view", async () => {
+      for (const m of ["500-authed", "503-authed"]) {
+        mode.whoami = m;
+        const r = await page(COOKIE);
+        assert.equal(r.status, 503, m);
+        assert.ok(failed(r.text) && noCreate(r.text), m);
+        assert.ok(!r.text.includes(`Join Acme Test Org as ${EMAIL}`), m);
+        assert.ok(!r.text.includes('type="submit"') || !r.text.includes(">Join<"), m);
+      }
+      mode.whoami = "member";
     });
     await t.test("ok:true joined:true joins: 302 /ai", async () => {
       mode.accept = "joined";

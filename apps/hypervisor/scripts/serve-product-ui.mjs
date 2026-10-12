@@ -11824,7 +11824,8 @@ async function handleEstateRequest(req, res, body) {
         try {
           const r = await daemonFetch(`/v1/hypervisor/auth/whoami`);
           const w = await r.json().catch(() => null);
-          if (isObject(w) && w.authenticated === true && isObject(w.principal) && typeof w.principal.email === "string") {
+          // Either classification needs HTTP success: a 500/503 body that claims a state is not an answer.
+          if (r.ok && isObject(w) && w.authenticated === true && isObject(w.principal) && typeof w.principal.email === "string") {
             const o = await daemonFetch(`/v1/hypervisor/organization`).then((x) => x.json()).catch(() => null);
             const org = isObject(o) && isObject(o.organization) && typeof o.organization.display_name === "string" ? o.organization.display_name : "";
             return { mode: "join", email: w.principal.email, org, impersonated: w.principal.is_impersonated === true };
