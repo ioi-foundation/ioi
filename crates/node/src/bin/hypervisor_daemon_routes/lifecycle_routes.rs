@@ -22638,31 +22638,43 @@ fn control_plane_mutation_requires_principal(
 const CAPABILITY_AUTHENTICATED_MUTATIONS: &[&str] =
     &["/v1/hypervisor/workload-effect-capabilities/consume"];
 
-/// The reviewed POST-shaped READS (BUILD-DELTA #13's class) a read-only API token may call: each
-/// handler only reads (no record, file or receipt write on its path).
-const READ_ONLY_TOKEN_POST_READS: &[&str] = &[
-    "/v1/hypervisor/product-surface-projections",
-    "/v1/hypervisor/collections/query",
-    "/v1/hypervisor/odk/object-instance-search",
-    "/v1/hypervisor/authority/evaluate",
-    "/v1/hypervisor/provider-ladder/resolve",
-    "/v1/mcp/gateway-requirements/resolve",
+/// BUILD-DELTA #30: the ONLY requests a read-only API token is admitted on, by method and exact path (HEAD is GET).
+/// Default deny: any other request carrying a read-only token is refused, whatever its method, because in
+/// this daemon a GET can write (lazy seeding, recovery on read, an invite minted by a read, a submitted
+/// transaction). A route is listed only when its handler and the helpers it calls were read for writes and
+/// the no-write harness (crates/node/tests/read_only_api_tokens.rs) shows a read-only call leaves the data
+/// directory byte-identical. Not listed, on purpose: auth/whoami (the identity bootstrap can write) and
+/// product-surface-projections (durable compilation) until each is proven.
+const READ_ONLY_TOKEN_ROUTES: &[(&str, &str)] = &[
+    ("GET", "/healthz"),
+    ("GET", "/readyz"),
+    ("GET", "/v1/hypervisor/api-tokens"),
+    ("POST", "/v1/hypervisor/collections/query"),
+    ("POST", "/v1/hypervisor/odk/object-instance-search"),
+    ("POST", "/v1/hypervisor/authority/evaluate"),
+    ("POST", "/v1/hypervisor/provider-ladder/resolve"),
+    ("POST", "/v1/mcp/gateway-requirements/resolve"),
 ];
 
-/// True iff a state-changing request (any method but GET, HEAD and OPTIONS, outside the reviewed
-/// POST-shaped reads) presents a READ-ONLY API token as ANY of its credentials: the bearer or a
-/// session-cookie value (a route that resolves its own caller may read either).
+/// True iff the request presents a READ-ONLY API token as ANY of its credentials (the bearer or a
+/// session-cookie value: a route that resolves its own caller may read either) and is not on the allowlist.
 fn read_only_token_refused(
     data_dir: &str,
     method: &axum::http::Method,
     path: &str,
     headers: &HeaderMap,
 ) -> bool {
-    use axum::http::Method;
-    if *method == Method::GET || *method == Method::HEAD || *method == Method::OPTIONS {
-        return false;
-    }
-    if READ_ONLY_TOKEN_POST_READS.contains(&path) {
+    let method_name = if *method == axum::http::Method::HEAD {
+        "GET"
+    } else {
+        method.as_str()
+    };
+    if READ_ONLY_TOKEN_ROUTES
+        .iter()
+        .any(|(allowed_method, allowed_path)| {
+            *allowed_method == method_name && *allowed_path == path
+        })
+    {
         return false;
     }
     let mut presented: Vec<String> = headers
@@ -22707,10 +22719,10 @@ fn auth_gate_refusal(
     path: &str,
     headers: &HeaderMap,
 ) -> Option<(StatusCode, Value)> {
-    // BUILD-DELTA #30: a read-only API token changes nothing. Checked before the exemption list, so
+    // BUILD-DELTA #30: a read-only API token is admitted only on READ_ONLY_TOKEN_ROUTES. Checked before the exemption list, so
     // a gate-exempt route that resolves its own caller (e.g. the org-invite accept) is covered too.
     if read_only_token_refused(&st.data_dir, method, path, headers) {
-        let message = "this API token is read-only: it reads, and changes nothing";
+        let message = "this API token is read-only: it may call only the routes verified to read and change nothing";
         return Some((
             StatusCode::FORBIDDEN,
             json!({

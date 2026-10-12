@@ -312,9 +312,8 @@ fn is_read_only_refusal(status: u16, body: &str) -> bool {
             || answer["error"]["code"] == json!("hypervisor.auth_token_read_only"))
 }
 
-/// The reviewed POST-shaped reads a read-only token may call (BUILD-DELTA #13's class).
+/// The allowlisted POST-shaped reads (BUILD-DELTA #13's class); product-surface-projections is not proven write-free and is not here.
 const POST_SHAPED_READS: &[&str] = &[
-    "/v1/hypervisor/product-surface-projections",
     "/v1/hypervisor/collections/query",
     "/v1/hypervisor/odk/object-instance-search",
     "/v1/hypervisor/authority/evaluate",
