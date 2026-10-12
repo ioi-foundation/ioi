@@ -3549,3 +3549,67 @@ mod automation_project_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod webhook_token_compare_tests {
+    use super::*;
+
+    const ID: &str = "aut_token_compare";
+    const TOKEN: &str = "whk_token_compare_under_test_0123456789abcdef";
+
+    /// The webhook admits exactly the token whose SHA-256 is the durable hash: a wrong token, an
+    /// empty token, the stored hash itself and a one-character-short token are refused (401
+    /// invalid_token); the token itself passes the token check (it is then refused for its
+    /// missing project, which proves the compare admitted it).
+    #[tokio::test]
+    async fn the_webhook_admits_only_the_token_whose_hash_is_stored() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        let record = json!({
+            "id": ID, "project_id": "prj_absent", "name": "compare",
+            "trigger_kind": "webhook", "enabled": true,
+            "webhook_token_hash": sha256_hex_str(TOKEN),
+        });
+        super::super::durable_fs::persist_record_durable(data_dir, "automations", ID, &record)
+            .unwrap();
+        let st = crate::test_daemon_state(data_dir);
+        let fire = |presented: String| {
+            let st = st.clone();
+            async move {
+                let mut headers = HeaderMap::new();
+                headers.insert("x-ioi-trigger-token", presented.parse().unwrap());
+                let (status, Json(body)) = handle_automation_webhook(
+                    State(st),
+                    AxumPath(ID.to_string()),
+                    headers,
+                    Bytes::new(),
+                )
+                .await;
+                (status, body)
+            }
+        };
+        for (label, presented) in [
+            ("a wrong token", "whk_wrong".to_string()),
+            ("an empty token", String::new()),
+            ("the stored hash", sha256_hex_str(TOKEN)),
+            (
+                "a one-character-short token",
+                TOKEN[..TOKEN.len() - 1].to_string(),
+            ),
+        ] {
+            let (status, body) = fire(presented).await;
+            assert_eq!(
+                status,
+                StatusCode::UNAUTHORIZED,
+                "{label} is refused: {body}"
+            );
+            assert_eq!(body["reason"], json!("invalid_token"), "{label}: {body}");
+        }
+        let (status, body) = fire(TOKEN.to_string()).await;
+        assert_eq!(
+            body["reason"],
+            json!("project_missing"),
+            "the token passes the token check ({status}): {body}"
+        );
+    }
+}

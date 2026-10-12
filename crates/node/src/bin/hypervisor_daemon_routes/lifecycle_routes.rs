@@ -31949,3 +31949,50 @@ mod w0_hardening_tests {
         assert!(session_execute_lane_refusal("native_local").is_none());
     }
 }
+
+#[cfg(test)]
+mod bootstrap_token_compare_tests {
+    use super::*;
+
+    /// The bootstrap admits exactly the token whose SHA-256 is stored: a wrong token, an empty
+    /// token, the stored hash itself and a one-character-short token are refused (403
+    /// invalid_bootstrap_token); the token itself sets the first operator's password (200).
+    #[tokio::test]
+    async fn bootstrap_admits_only_the_token_whose_hash_is_stored() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap();
+        ensure_operator(data_dir);
+        let token = issue_bootstrap_token(data_dir).expect("a bootstrap token");
+        let st = crate::test_daemon_state(data_dir);
+        let bootstrap = |presented: String| {
+            let st = st.clone();
+            async move {
+                let (status, Json(body)) = handle_auth_bootstrap(
+                    State(st),
+                    Json(json!({ "token": presented, "password": "bootstrap-pass-1" })),
+                )
+                .await;
+                (status, body)
+            }
+        };
+        for (label, presented) in [
+            ("a wrong token", "ioi_bootstrap_wrong".to_string()),
+            ("an empty token", String::new()),
+            ("the stored hash", sha256_hex_str(&token)),
+            (
+                "a one-character-short token",
+                token[..token.len() - 1].to_string(),
+            ),
+        ] {
+            let (status, body) = bootstrap(presented).await;
+            assert_eq!(status, StatusCode::FORBIDDEN, "{label} is refused: {body}");
+            assert_eq!(
+                body["reason"],
+                json!("invalid_bootstrap_token"),
+                "{label}: {body}"
+            );
+        }
+        let (status, body) = bootstrap(token.clone()).await;
+        assert_eq!(status, StatusCode::OK, "the token bootstraps: {body}");
+    }
+}
