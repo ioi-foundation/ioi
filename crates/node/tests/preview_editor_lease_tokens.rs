@@ -2367,3 +2367,144 @@ fn a_legacy_editor_record_is_never_proxied_over_tcp() {
         "a boot marks the legacy record unusable: {record}"
     );
 }
+
+/// Stops a test-spawned stand-in runtime when the test ends.
+struct Spawned(Child);
+
+impl Drop for Spawned {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// How a stand-in runtime is grouped: in a new session (as the daemon's launcher did with setsid),
+/// or as a job in the caller's session (its own process group, as a terminal starts a command).
+#[derive(Clone, Copy, PartialEq)]
+enum Grouping {
+    NewSession,
+    JobInCallersSession,
+}
+
+/// Start the stand-in openvscode-server on a loopback TCP port, as an older daemon (or the owner,
+/// by hand) would have.
+fn spawn_tcp_runtime(home: &Path, port: u16, extra: &[&str], grouping: Grouping) -> Spawned {
+    let bin = home.join(".ioi/editor-toolchain/openvscode-server/bin/openvscode-server");
+    let mut command = Command::new(bin);
+    command
+        .args(["--host", "127.0.0.1", "--port", &port.to_string()])
+        .args(extra)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    use std::os::unix::process::CommandExt;
+    if grouping == Grouping::NewSession {
+        // SAFETY: setsid in the forked child before exec.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+    } else {
+        command.process_group(0);
+    }
+    let child = Spawned(command.spawn().expect("spawn the stand-in runtime"));
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while TcpStream::connect(("127.0.0.1", port)).is_err() {
+        assert!(Instant::now() < deadline, "the stand-in listens on {port}");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    child
+}
+
+/// Write an editor-service record as a LEGACY one: ready on an internal TCP port.
+fn make_legacy_record(f: &Fixture, service_id: &str, port: u16) {
+    let path = f
+        .data
+        .join("editor-services")
+        .join(format!("{service_id}.json"));
+    let mut record: Value =
+        serde_json::from_slice(&std::fs::read(&path).expect("the editor service record"))
+            .expect("the record is JSON");
+    record["phase"] = json!("ready");
+    record["internal_port"] = json!(port);
+    std::fs::write(&path, serde_json::to_vec(&record).unwrap()).unwrap();
+}
+
+/// A boot stops a legacy TCP editor runtime ONLY when this daemon launched it for that record: its
+/// argv carries the record's extensions dir under this data dir, it runs as this uid, in its own
+/// session (never a job in the owner's terminal session), on the port the record names. The same
+/// binary run by hand without the marker, or with the marker as a job in the caller's session, is
+/// not killed. Every legacy record is made unusable either way.
+#[test]
+fn boot_stops_only_a_legacy_editor_runtime_this_daemon_launched() {
+    let mut f = fixture();
+    let _runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let launched = f.editor_service();
+    let unmarked = f.editor_service();
+    let terminal = f.editor_service();
+    let marker = |service: &str| {
+        f.data
+            .join("editor-services")
+            .join(service)
+            .join("extensions")
+            .to_string_lossy()
+            .to_string()
+    };
+    let launched_marker = marker(&launched);
+    let terminal_marker = marker(&terminal);
+    // Each port is taken by its stand-in before the next is chosen, so the three differ.
+    let launched_port = free_port();
+    let mut daemon_launched = spawn_tcp_runtime(
+        &f.home,
+        launched_port,
+        &["--extensions-dir", &launched_marker],
+        Grouping::NewSession,
+    );
+    let unmarked_port = free_port();
+    let mut by_hand = spawn_tcp_runtime(&f.home, unmarked_port, &[], Grouping::NewSession);
+    let terminal_port = free_port();
+    let mut in_terminal_group = spawn_tcp_runtime(
+        &f.home,
+        terminal_port,
+        &["--extensions-dir", &terminal_marker],
+        Grouping::JobInCallersSession,
+    );
+    make_legacy_record(&f, &launched, launched_port);
+    make_legacy_record(&f, &unmarked, unmarked_port);
+    make_legacy_record(&f, &terminal, terminal_port);
+    f.restart();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while daemon_launched.0.try_wait().ok().flatten().is_none() {
+        assert!(
+            Instant::now() < deadline,
+            "the legacy runtime this daemon launched is stopped"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert!(
+        by_hand.0.try_wait().ok().flatten().is_none(),
+        "the same binary run without the daemon's marker is not killed"
+    );
+    assert!(
+        in_terminal_group.0.try_wait().ok().flatten().is_none(),
+        "a runtime run as a job in the caller's session is not killed"
+    );
+    for service in [&launched, &unmarked, &terminal] {
+        let record: Value = serde_json::from_slice(
+            &std::fs::read(
+                f.data
+                    .join("editor-services")
+                    .join(format!("{service}.json")),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(
+            record["internal_port"].is_null() && record["phase"] != json!("ready"),
+            "every legacy record is unusable: {record}"
+        );
+    }
+}
