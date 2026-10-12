@@ -1927,47 +1927,105 @@ fn chunked_trailers_carry_no_credential_upstream() {
     }
 }
 
-/// A stand-in for openvscode-server at the daemon's toolchain path: it records its arguments, the
-/// connection token it was given and each request's path and Cookie header; it answers /version,
-/// and anything else only when the request carries `vscode-tkn=<that token>` (403 otherwise).
-/// Returns the record file; the process records its pid there so the test can stop it.
+/// A stand-in for openvscode-server at the daemon's toolchain path, modelling the pinned server's
+/// observable contract: it listens on `--socket-path` (a unix socket) or `--host`/`--port`; reads
+/// its token from `--connection-token-file`; prints the real startup line
+/// (`Web UI available at http://localhost:<port>?tkn=<TOKEN>`; the real server prints it only on a
+/// TCP port, the stand-in also on a socket so the log redaction is exercised end to end); answers
+/// /version without a token; redirects `?tkn=<token>` with 302 and `Set-Cookie: vscode-tkn=...`;
+/// answers a request with the `vscode-tkn` cookie 200 with `Set-Cookie: vscode-tkn=<TOKEN>;
+/// Max-Age=604800; SameSite=Lax` (not HttpOnly), else 403; and on a WebSocket requires the FIRST
+/// message to be `{"type":"auth","auth":"<TOKEN>"}`, answering `{"type":"sign",...}` or the real
+/// refusal texts. It records its arguments, token, pid and each request in a JSON-lines file.
 fn install_fake_editor_runtime(home: &Path) -> PathBuf {
     let bin = home.join(".ioi/editor-toolchain/openvscode-server/bin");
     std::fs::create_dir_all(&bin).unwrap();
     let record = bin.join("runtime-record.jsonl");
     let script = r#"#!/usr/bin/python3 -I
-import http.server, json, os, sys
+import base64, hashlib, http.server, json, os, socketserver, sys, urllib.parse
 args = sys.argv[1:]
 record = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runtime-record.jsonl")
-port = int(args[args.index("--port") + 1])
+def arg(name):
+    return args[args.index(name) + 1] if name in args else None
 token = None
-if "--connection-token-file" in args:
-    with open(args[args.index("--connection-token-file") + 1]) as source:
+if arg("--connection-token-file"):
+    with open(arg("--connection-token-file")) as source:
         token = source.read().strip()
 def note(entry):
     with open(record, "a") as out:
         out.write(json.dumps(entry) + "\n")
 note({"pid": os.getpid(), "args": args, "token": token})
+port = int(arg("--port")) if arg("--port") else 3000
+print(f"Web UI available at http://localhost:{port}" + (f"?tkn={token}" if token else ""), flush=True)
+def frame(text):
+    data = text.encode()
+    return bytes([0x81, len(data)]) + data
 class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
     def log_message(self, *rest):
         pass
-    def answer(self, status, body):
+    def answer(self, status, body, extra=()):
         data = body.encode()
         self.send_response(status)
+        for name, value in extra:
+            self.send_header(name, value)
         self.send_header("Content-Type", "text/plain")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(data)
+        self.close_connection = True
     def do_GET(self):
         cookie = self.headers.get("Cookie") or ""
+        cookies = dict(c.strip().split("=", 1) for c in cookie.split(";") if "=" in c)
+        target = urllib.parse.urlsplit(self.path)
+        query = urllib.parse.parse_qs(target.query)
         note({"path": self.path, "cookie": cookie})
-        if self.path.startswith("/version"):
+        if target.path.startswith("/version"):
             return self.answer(200, "0123456789abcdef0123456789abcdef01234567")
-        if token is not None and "vscode-tkn=" + token in [c.strip() for c in cookie.split(";")]:
-            return self.answer(200, "editor-runtime-admitted")
-        return self.answer(403, "connection token required")
-http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+        if "tkn" in query:
+            if query["tkn"][0] != token:
+                return self.answer(403, "Forbidden")
+            rest = urllib.parse.urlencode([(k, v) for k, vs in query.items() if k != "tkn" for v in vs])
+            return self.answer(302, "", [("Set-Cookie", f"vscode-tkn={query['tkn'][0]}; Max-Age=604800; SameSite=Lax"), ("Location", target.path + ("?" + rest if rest else ""))])
+        if (self.headers.get("Upgrade") or "").lower() == "websocket":
+            key = self.headers.get("Sec-WebSocket-Key") or ""
+            accept = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
+            self.wfile.write(f"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n".encode())
+            self.wfile.flush()
+            head = self.rfile.read(2)
+            length = head[1] & 0x7F
+            if length == 126:
+                length = int.from_bytes(self.rfile.read(2), "big")
+            mask = self.rfile.read(4)
+            payload = bytes(b ^ mask[i % 4] for i, b in enumerate(self.rfile.read(length)))
+            try:
+                first = json.loads(payload)
+            except Exception:
+                reply = "Malformed first message"
+            else:
+                if first.get("type") != "auth":
+                    reply = "Invalid first message"
+                elif token is not None and first.get("auth") != token:
+                    reply = "Unauthorized client refused: auth mismatch"
+                else:
+                    reply = json.dumps({"type": "sign", "data": "challenge", "signedData": "signed"})
+            note({"ws_first_message": payload.decode(errors="replace"), "reply": reply})
+            self.wfile.write(frame(reply))
+            self.wfile.flush()
+            self.close_connection = True
+            return
+        if token is not None and cookies.get("vscode-tkn") == token:
+            return self.answer(200, "<!doctype html><title>workbench</title>", [("Set-Cookie", f"vscode-tkn={token}; Max-Age=604800; SameSite=Lax")])
+        return self.answer(403, "Forbidden")
+class UnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+class TcpServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+if arg("--socket-path"):
+    UnixServer(arg("--socket-path"), Handler).serve_forever()
+else:
+    TcpServer((arg("--host") or "127.0.0.1", port), Handler).serve_forever()
 "#;
     let path = bin.join("openvscode-server");
     std::fs::write(&path, script).unwrap();
@@ -1987,6 +2045,13 @@ impl FakeRuntime {
             .filter_map(|line| serde_json::from_str(line).ok())
             .collect()
     }
+
+    fn starts(&self) -> Vec<Value> {
+        self.entries()
+            .into_iter()
+            .filter(|entry| entry["args"].is_array())
+            .collect()
+    }
 }
 
 impl Drop for FakeRuntime {
@@ -1999,26 +2064,57 @@ impl Drop for FakeRuntime {
     }
 }
 
-/// The editor runtime requires a connection token that only the proxy presents: the runtime starts
-/// with a private token file (never without a token), the proxy adds the token to what it forwards,
-/// a request straight to the runtime's port without it is refused, a token the browser sends is
-/// never forwarded, and the token is in no answer, URL or file of the daemon's.
+impl Fixture {
+    /// Create an editor service for the fixture's environment; its id.
+    fn editor_service(&self) -> String {
+        let (status, body) = http(
+            self.daemon.port,
+            "POST",
+            "/v1/hypervisor/editor-services",
+            Some(&self.owner),
+            Some(&json!({ "environment_id": self.env })),
+        );
+        assert_eq!(status, 200, "editor service create: {body}");
+        json_of(&body)["editorService"]["service_id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("a service id: {body}"))
+            .to_string()
+    }
+
+    /// Stop the daemon and start a new one on the same data.
+    fn restart(&mut self) {
+        let _ = self.daemon.child.kill();
+        let _ = self.daemon.child.wait();
+        self.daemon = start_daemon(&self.data, &self.home);
+    }
+}
+
+/// A masked client text frame.
+fn masked_text_frame(text: &str) -> Vec<u8> {
+    let mask = [0x11u8, 0x22, 0x33, 0x44];
+    let payload = text.as_bytes();
+    let mut frame = vec![0x81u8];
+    if payload.len() < 126 {
+        frame.push(0x80 | payload.len() as u8);
+    } else {
+        frame.push(0x80 | 126);
+        frame.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    }
+    frame.extend_from_slice(&mask);
+    frame.extend(payload.iter().enumerate().map(|(i, b)| b ^ mask[i % 4]));
+    frame
+}
+
+/// The editor runtime listens only on a unix socket and requires its connection token: it is
+/// started with --socket-path (no TCP port) and a token file (never without a token); the token is
+/// redacted from the runtime's log and kept in no file; through the lease-authenticated proxy the
+/// workbench answers and hands the browser its token cookie (as the real server does), and the
+/// WebSocket's in-band auth with that token is answered with the server's sign message.
 #[test]
-fn the_editor_runtime_requires_a_connection_token_only_the_proxy_presents() {
+fn the_editor_runtime_listens_only_on_a_unix_socket_and_requires_its_token() {
     let f = fixture();
     let runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
-    let (status, body) = http(
-        f.daemon.port,
-        "POST",
-        "/v1/hypervisor/editor-services",
-        Some(&f.owner),
-        Some(&json!({ "environment_id": f.env })),
-    );
-    assert_eq!(status, 200, "editor service create: {body}");
-    let service_id = json_of(&body)["editorService"]["service_id"]
-        .as_str()
-        .unwrap_or_else(|| panic!("a service id: {body}"))
-        .to_string();
+    let service_id = f.editor_service();
     let (status, body) = http(
         f.daemon.port,
         "POST",
@@ -2031,9 +2127,9 @@ fn the_editor_runtime_requires_a_connection_token_only_the_proxy_presents() {
         "the editor runtime starts: {status} {body}"
     );
     let started = runtime
-        .entries()
+        .starts()
         .into_iter()
-        .find(|entry| entry["args"].is_array())
+        .next()
         .unwrap_or_else(|| panic!("the runtime recorded its start"));
     let args: Vec<String> = started["args"]
         .as_array()
@@ -2041,19 +2137,35 @@ fn the_editor_runtime_requires_a_connection_token_only_the_proxy_presents() {
         .iter()
         .filter_map(|arg| arg.as_str().map(str::to_string))
         .collect();
-    assert!(
-        !args.iter().any(|arg| arg == "--without-connection-token"),
-        "the runtime never starts without a connection token: {args:?}"
-    );
-    assert!(
-        args.iter().any(|arg| arg == "--connection-token-file"),
-        "the runtime is given its token in a file: {args:?}"
-    );
+    for absent in ["--without-connection-token", "--port", "--host"] {
+        assert!(
+            !args.iter().any(|arg| arg == absent),
+            "the runtime is not started with {absent}: {args:?}"
+        );
+    }
+    for present in ["--socket-path", "--connection-token-file"] {
+        assert!(
+            args.iter().any(|arg| arg == present),
+            "the runtime is started with {present}: {args:?}"
+        );
+    }
     let token = started["token"].as_str().unwrap_or_default().to_string();
     assert!(token.len() >= 32, "a long random token: {token:?}");
-    let internal_port: u16 = args[args.iter().position(|arg| arg == "--port").unwrap() + 1]
-        .parse()
-        .unwrap();
+    let (_, logs) = http(
+        f.daemon.port,
+        "GET",
+        &format!("/v1/hypervisor/editor-services/{service_id}/logs"),
+        Some(&f.owner),
+        None,
+    );
+    assert!(
+        logs.contains("Web UI available at") && !logs.contains(&token),
+        "the runtime's startup line reaches the log with its token redacted: {logs}"
+    );
+    assert!(
+        files_containing(&f.data, &token).is_empty(),
+        "no file under the daemon's data dir keeps the token"
+    );
 
     let (status, body) = http(
         f.daemon.port,
@@ -2081,59 +2193,121 @@ fn the_editor_runtime_requires_a_connection_token_only_the_proxy_presents() {
         status == 200 && exposed["ok"] == json!(true),
         "editor expose: {status} {body}"
     );
-    assert!(!body.contains(&token), "the expose answer carries no token");
     let addr = ProxyAddr::from_url(
         exposed["open_url"].as_str().unwrap_or_default(),
         exposed["public_proxy_port"].as_u64().unwrap_or_default() as u16,
     );
-    let (status, body) = proxy_get(
-        &addr,
-        "/?tkn=forged-query",
-        &[
-            ("x-ioi-lease", access.as_str()),
-            ("Cookie", "vscode-tkn=forged-cookie; app=keep"),
-        ],
+    let (status, head, body) = raw(
+        addr.port,
+        &format!(
+            "GET / HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nx-ioi-lease: {access}\r\n\r\n",
+            addr.authority()
+        ),
     );
     assert_eq!(
         status, 200,
-        "the proxy presents the runtime's token: {body}"
+        "the workbench answers through the proxy: {head}"
     );
+    assert!(body.contains("workbench"), "the workbench page: {body}");
+    let cookie = head
+        .lines()
+        .find_map(|line| {
+            line.to_ascii_lowercase()
+                .starts_with("set-cookie: vscode-tkn=")
+                .then(|| {
+                    line["set-cookie: ".len()..]
+                        .split(';')
+                        .next()
+                        .unwrap_or_default()
+                        .to_string()
+                })
+        })
+        .unwrap_or_else(|| panic!("the workbench hands the browser its token cookie: {head}"));
+
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    stream
+        .write_all(
+            ws_handshake(
+                &addr,
+                "/",
+                &access,
+                &format!("Connection: Upgrade\r\nCookie: {cookie}\r\n"),
+                None,
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+    let answer = read_until(&mut stream, |got| got.contains("\r\n\r\n"));
     assert!(
-        body.contains("editor-runtime-admitted") && !body.contains(&token),
-        "the answer carries no token: {body}"
+        answer.starts_with("HTTP/1.1 101"),
+        "the WebSocket switches: {answer}"
     );
-    let (status, _, body) = raw(
-        internal_port,
-        &format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{internal_port}\r\nConnection: close\r\n\r\n"),
+    stream
+        .write_all(&masked_text_frame(
+            &json!({ "type": "auth", "auth": token }).to_string(),
+        ))
+        .unwrap();
+    let reply = read_until(&mut stream, |got| {
+        got.contains("sign") || got.contains("refused")
+    });
+    assert!(
+        reply.contains("\"type\": \"sign\""),
+        "the in-band auth with the browser's token is answered with the sign message: {reply:?}"
     );
-    assert_eq!(
-        status, 403,
-        "the runtime refuses a request without its token: {body}"
-    );
-    for entry in runtime.entries() {
-        let seen = format!(
-            "{} {}",
-            entry["path"].as_str().unwrap_or_default(),
-            entry["cookie"].as_str().unwrap_or_default()
-        );
+}
+
+/// Two concurrent starts of one editor service launch ONE runtime; both answers name it ready.
+#[test]
+fn concurrent_starts_of_one_editor_service_launch_one_runtime() {
+    let f = fixture();
+    let runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let service_id = f.editor_service();
+    let port = f.daemon.port;
+    let owner = f.owner.clone();
+    let handles: Vec<_> = (0..2)
+        .map(|_| {
+            let (owner, service_id) = (owner.clone(), service_id.clone());
+            std::thread::spawn(move || {
+                http(
+                    port,
+                    "POST",
+                    &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+                    Some(&owner),
+                    Some(&json!({})),
+                )
+            })
+        })
+        .collect();
+    let answers: Vec<(u16, String)> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+    for (status, body) in &answers {
         assert!(
-            !seen.contains("forged"),
-            "a token the browser sends never reaches the runtime: {seen}"
+            *status == 200 && json_of(body)["ok"] == json!(true),
+            "each start answers ready: {status} {body}"
         );
     }
-    let (_, body) = http(
-        f.daemon.port,
-        "GET",
-        &format!("/v1/hypervisor/editor-services/{service_id}/status"),
-        Some(&f.owner),
-        None,
+    assert_eq!(
+        runtime.starts().len(),
+        1,
+        "one runtime was launched: {:?}",
+        runtime.starts()
     );
+}
+
+/// A daemon boot removes token handoff files and runtime sockets a crashed start left behind.
+#[test]
+fn boot_reconciliation_removes_stale_token_files_and_sockets() {
+    let mut f = fixture();
+    let services = f.data.join("editor-services");
+    std::fs::create_dir_all(&services).unwrap();
+    let stale_token = services.join("edsvc_stale.0123456789abcdef.connection-token");
+    std::fs::write(&stale_token, "stale-token").unwrap();
+    let stale_socket_dir = f.data.join("editor-sockets").join("0123456789abcdef");
+    std::fs::create_dir_all(&stale_socket_dir).unwrap();
+    std::fs::write(stale_socket_dir.join("s"), "").unwrap();
+    f.restart();
+    assert!(!stale_token.exists(), "the stale token file is removed");
     assert!(
-        !body.contains(&token),
-        "the service record carries no token"
-    );
-    assert!(
-        files_containing(&f.data, &token).is_empty(),
-        "no file under the daemon's data dir keeps the token"
+        !stale_socket_dir.exists(),
+        "the stale runtime socket is removed"
     );
 }
