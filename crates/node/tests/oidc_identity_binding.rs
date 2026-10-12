@@ -920,7 +920,10 @@ fn oidc_link_binds_the_principal_that_started_it() {
             &json!({ "email": "member@example.test", "password": "member-password-1", "name": "Member" }),
         ),
     );
-    assert_eq!(status, 200, "test-setup member: {body}");
+    assert!(
+        status == 200 || status == 201,
+        "test-setup member: {status} {body}"
+    );
     let member = login(&f.daemon, ("member@example.test", "member-password-1"));
     let (status, started, body) = f.start(Some(&f.owner), true);
     let started = started.unwrap_or_else(|| panic!("a started link: {status} {body}"));
