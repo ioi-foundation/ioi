@@ -23,9 +23,15 @@
 //! sent upstream; the request's own body, by `Content-Length` or chunked, is forwarded while the
 //! answer is relayed, and nothing after it is read from the client), so a later keep-alive request
 //! cannot pass unfiltered; it arrives on a new connection and is authenticated and filtered again.
-//! Only a valid WebSocket handshake that the upstream answers with 101 switches to raw frames; any
-//! other answer is relayed as plain HTTP and the connection closes. Bytes a client sends with a
-//! handshake, before the upstream's answer, are refused.
+//! Only a valid WebSocket handshake (HTTP/1.1 GET, Upgrade: websocket, an upgrade token in the
+//! combined Connection list, one 16-byte base64 Sec-WebSocket-Key, version 13) that the upstream
+//! answers with a 101 completing it (Upgrade, Connection and the matching Sec-WebSocket-Accept)
+//! switches the connection; informational answers before it (e.g. 103) are relayed. After the
+//! switch, the client's bytes reach the upstream only as valid CLIENT frames (masked, defined
+//! opcodes, RSV bits clear unless permessage-deflate was agreed); anything else, an HTTP request
+//! line included, closes the connection. Any other final answer is relayed as plain HTTP and the
+//! connection closes. Bytes a client sends with a handshake, before the upstream's answer, are
+//! refused. A chunked body's trailer section loses the same fields as the headers.
 use std::collections::HashMap;
 
 use serde_json::json;
@@ -102,8 +108,9 @@ enum BodyFraming {
 /// The opening request as the proxy forwards it upstream.
 struct Forward {
     head: String,
-    /// A valid WebSocket opening handshake: switched to raw frames only on the upstream's 101.
-    websocket: bool,
+    /// For a valid WebSocket opening handshake, the Sec-WebSocket-Accept its 101 must carry; the
+    /// connection switches only on such a 101.
+    websocket_accept: Option<String>,
     body: BodyFraming,
 }
 
@@ -163,18 +170,112 @@ fn header_values<'a>(head: &'a str, name: &str) -> Vec<&'a str> {
         .collect()
 }
 
-/// A WebSocket opening handshake (RFC 6455 section 4.1): GET with `Upgrade: websocket`, an `upgrade`
-/// token in `Connection`, a `Sec-WebSocket-Key` and a `Sec-WebSocket-Version`, and no body.
-fn is_websocket_handshake(head: &str, body: &BodyFraming) -> bool {
-    head.starts_with("GET ")
-        && matches!(body, BodyFraming::Length(0))
-        && header_value(head, "upgrade").is_some_and(|v| v.eq_ignore_ascii_case("websocket"))
-        && header_value(head, "connection").is_some_and(|v| {
-            v.split(',')
-                .any(|token| token.trim().eq_ignore_ascii_case("upgrade"))
-        })
-        && header_value(head, "sec-websocket-key").is_some_and(|v| !v.is_empty())
-        && header_value(head, "sec-websocket-version").is_some()
+/// True iff the combined list of every `name` header holds `token` (case-insensitive).
+fn header_list_has(head: &str, name: &str, token: &str) -> bool {
+    header_values(head, name)
+        .iter()
+        .flat_map(|value| value.split(','))
+        .any(|item| item.trim().eq_ignore_ascii_case(token))
+}
+
+/// SHA-1 (RFC 3174), for the WebSocket accept value only.
+fn sha1(data: &[u8]) -> [u8; 20] {
+    let mut state: [u32; 5] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
+    let mut message = data.to_vec();
+    let bit_length = (data.len() as u64).wrapping_mul(8);
+    message.push(0x80);
+    while message.len() % 64 != 56 {
+        message.push(0);
+    }
+    message.extend_from_slice(&bit_length.to_be_bytes());
+    for block in message.chunks(64) {
+        let mut words = [0u32; 80];
+        for (index, word) in block.chunks(4).enumerate() {
+            words[index] = u32::from_be_bytes([word[0], word[1], word[2], word[3]]);
+        }
+        for index in 16..80 {
+            words[index] =
+                (words[index - 3] ^ words[index - 8] ^ words[index - 14] ^ words[index - 16])
+                    .rotate_left(1);
+        }
+        let [mut a, mut b, mut c, mut d, mut e] = state;
+        for (index, word) in words.iter().enumerate() {
+            let (f, k) = match index {
+                0..=19 => ((b & c) | (!b & d), 0x5A827999),
+                20..=39 => (b ^ c ^ d, 0x6ED9EBA1),
+                40..=59 => ((b & c) | (b & d) | (c & d), 0x8F1BBCDC),
+                _ => (b ^ c ^ d, 0xCA62C1D6),
+            };
+            let next = a
+                .rotate_left(5)
+                .wrapping_add(f)
+                .wrapping_add(e)
+                .wrapping_add(k)
+                .wrapping_add(*word);
+            e = d;
+            d = c;
+            c = b.rotate_left(30);
+            b = a;
+            a = next;
+        }
+        for (value, add) in state.iter_mut().zip([a, b, c, d, e]) {
+            *value = value.wrapping_add(add);
+        }
+    }
+    let mut digest = [0u8; 20];
+    for (out, value) in digest.chunks_mut(4).zip(state) {
+        out.copy_from_slice(&value.to_be_bytes());
+    }
+    digest
+}
+
+/// The Sec-WebSocket-Accept a 101 must carry for `key` (RFC 6455 section 4.2.2).
+fn websocket_accept(key: &str) -> String {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD.encode(sha1(
+        format!("{key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11").as_bytes(),
+    ))
+}
+
+/// For a valid WebSocket opening handshake (RFC 6455 section 4.1: an HTTP/1.1 GET with no body,
+/// `Upgrade: websocket`, an `upgrade` token in the combined `Connection` list, exactly one
+/// `Sec-WebSocket-Key` decoding to 16 bytes, and version 13), the accept value its 101 must carry.
+fn websocket_accept_for(head: &str, body: &BodyFraming) -> Option<String> {
+    use base64::Engine as _;
+    let mut request_line = head.split("\r\n").next()?.split(' ');
+    let (method, _target, version) = (
+        request_line.next()?,
+        request_line.next()?,
+        request_line.next()?,
+    );
+    if method != "GET" || version != "HTTP/1.1" || request_line.next().is_some() {
+        return None;
+    }
+    let keys = header_values(head, "sec-websocket-key");
+    let valid = matches!(body, BodyFraming::Length(0))
+        && header_list_has(head, "upgrade", "websocket")
+        && header_list_has(head, "connection", "upgrade")
+        && keys.len() == 1
+        && header_values(head, "sec-websocket-version") == ["13"]
+        && base64::engine::general_purpose::STANDARD
+            .decode(keys[0])
+            .is_ok_and(|key| key.len() == 16);
+    valid.then(|| websocket_accept(keys[0]))
+}
+
+/// For an upstream 101, whether it completes the handshake whose accept value is `accept`
+/// (`Upgrade: websocket`, an `upgrade` token in `Connection`, exactly that Sec-WebSocket-Accept):
+/// Some(permessage-deflate agreed), or None.
+fn completed_switch(answer_head: &str, accept: &str) -> Option<bool> {
+    let completes = answer_head.split_whitespace().nth(1) == Some("101")
+        && header_list_has(answer_head, "upgrade", "websocket")
+        && header_list_has(answer_head, "connection", "upgrade")
+        && header_values(answer_head, "sec-websocket-accept") == [accept];
+    completes.then(|| {
+        header_values(answer_head, "sec-websocket-extensions")
+            .iter()
+            .any(|value| value.to_ascii_lowercase().contains("permessage-deflate"))
+    })
 }
 
 /// The opening request as forwarded upstream: daemon cookies, `x-ioi-lease`, `lease` query
@@ -215,7 +316,8 @@ fn forwarded_request_head(head: &str) -> Result<Forward, (&'static str, &'static
             ))
         }
     };
-    let websocket = is_websocket_handshake(head, &body);
+    let websocket_accept = websocket_accept_for(head, &body);
+    let websocket = websocket_accept.is_some();
     let mut out = format!("{method} {target} {version}\r\n");
     for line in lines.filter(|line| !line.is_empty()) {
         let Some((key, value)) = line.split_once(':') else {
@@ -250,7 +352,7 @@ fn forwarded_request_head(head: &str) -> Result<Forward, (&'static str, &'static
     out.push_str("\r\n");
     Ok(Forward {
         head: out,
-        websocket,
+        websocket_accept,
         body,
     })
 }
@@ -325,10 +427,20 @@ where
         upstream.write_all(&pending[..end + 2]).await?;
         pending.drain(..end + 2);
         if size == 0 {
-            // The trailer section, through its empty line.
+            // The trailer section, through its empty line; it loses the fields the headers lose.
             loop {
                 let end = line_end(client, &mut pending, &mut chunk).await?;
-                upstream.write_all(&pending[..end + 2]).await?;
+                let name = String::from_utf8_lossy(&pending[..end])
+                    .split_once(':')
+                    .map(|(name, _)| name.trim().to_ascii_lowercase())
+                    .unwrap_or_default();
+                let dropped = matches!(
+                    name.as_str(),
+                    "x-ioi-lease" | "cookie" | "referer" | "origin"
+                );
+                if end == 0 || !dropped {
+                    upstream.write_all(&pending[..end + 2]).await?;
+                }
                 pending.drain(..end + 2);
                 if end == 0 {
                     return Ok(());
@@ -385,12 +497,107 @@ where
     }
 }
 
-/// The upstream's answer head (and whatever arrived with it): (bytes, head length), or None.
-async fn read_answer_head(outbound: &mut TcpStream) -> Option<(Vec<u8>, usize)> {
+/// Forward the client's WebSocket frames to the upstream, each checked as a valid CLIENT frame
+/// (RFC 6455 section 5.2): RSV bits clear (RSV1 only on a message's first frame, and only when
+/// permessage-deflate was agreed), a defined opcode, the MASK bit set, a control frame final and at
+/// most 125 bytes. Anything else, an HTTP request line included, ends the stream with an error.
+/// Frame bytes are forwarded unchanged; the client closing between frames ends it cleanly.
+async fn forward_client_frames<R, W>(
+    client: &mut R,
+    upstream: &mut W,
+    rsv1_allowed: bool,
+) -> std::io::Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin,
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    let invalid =
+        |what: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, what.to_string());
+    let mut pending: Vec<u8> = Vec::new();
+    let mut chunk = [0u8; 8192];
+    loop {
+        while pending.len() < 2 {
+            let read = client.read(&mut chunk).await?;
+            if read == 0 {
+                return if pending.is_empty() {
+                    Ok(())
+                } else {
+                    Err(invalid("a truncated frame"))
+                };
+            }
+            pending.extend_from_slice(&chunk[..read]);
+        }
+        let (first, second) = (pending[0], pending[1]);
+        let (fin, rsv, opcode) = (first & 0x80 != 0, first & 0x70, first & 0x0f);
+        let length_code = u64::from(second & 0x7f);
+        if second & 0x80 == 0 {
+            return Err(invalid("an unmasked client frame"));
+        }
+        if !matches!(opcode, 0x0 | 0x1 | 0x2 | 0x8 | 0x9 | 0xA) {
+            return Err(invalid("an undefined opcode"));
+        }
+        if rsv != 0 && !(rsv1_allowed && rsv == 0x40 && matches!(opcode, 0x1 | 0x2)) {
+            return Err(invalid("RSV bits set without an agreed extension"));
+        }
+        if opcode >= 0x8 && (!fin || length_code > 125) {
+            return Err(invalid("a fragmented or oversized control frame"));
+        }
+        let extended = match length_code {
+            126 => 2,
+            127 => 8,
+            _ => 0,
+        };
+        let header_length = 2 + extended + 4;
+        while pending.len() < header_length {
+            fill(client, &mut pending, &mut chunk).await?;
+        }
+        let length = match extended {
+            0 => length_code,
+            2 => u64::from(u16::from_be_bytes([pending[2], pending[3]])),
+            _ => {
+                let mut bytes = [0u8; 8];
+                bytes.copy_from_slice(&pending[2..10]);
+                u64::from_be_bytes(bytes)
+            }
+        };
+        if length >> 63 != 0 {
+            return Err(invalid("a 64-bit length with its top bit set"));
+        }
+        upstream.write_all(&pending[..header_length]).await?;
+        pending.drain(..header_length);
+        let mut left = length;
+        while left > 0 {
+            if pending.is_empty() {
+                fill(client, &mut pending, &mut chunk).await?;
+            }
+            let now = left.min(pending.len() as u64) as usize;
+            upstream.write_all(&pending[..now]).await?;
+            pending.drain(..now);
+            left -= now as u64;
+        }
+    }
+}
+
+/// The upstream's FINAL answer head to a handshake (and whatever arrived with it): (bytes, head
+/// length), or None. An informational answer before it (1xx other than 101, e.g. 103 Early Hints)
+/// is relayed to the client and does not end the exchange.
+async fn read_final_answer(
+    outbound: &mut TcpStream,
+    inbound: &mut TcpStream,
+) -> Option<(Vec<u8>, usize)> {
     let mut answer = Vec::with_capacity(1024);
     let mut chunk = [0u8; 4096];
     loop {
         if let Some(end) = headers_end(&answer) {
+            let status = String::from_utf8_lossy(&answer[..end])
+                .split_whitespace()
+                .nth(1)
+                .and_then(|code| code.parse::<u16>().ok());
+            if status.is_some_and(|code| (100..200).contains(&code) && code != 101) {
+                inbound.write_all(&answer[..end]).await.ok()?;
+                answer.drain(..end);
+                continue;
+            }
             return Some((answer, end));
         }
         if answer.len() > 16384 {
@@ -648,7 +855,7 @@ async fn handle_conn(
         }
     };
     let read_ahead = &buf[head_len..];
-    if forward.websocket && !read_ahead.is_empty() {
+    if forward.websocket_accept.is_some() && !read_ahead.is_empty() {
         // A client sends frames only after the upstream's 101; bytes sent with the handshake are
         // never forwarded.
         let reason = "bytes sent with a WebSocket handshake are refused";
@@ -677,22 +884,41 @@ async fn handle_conn(
         "raw_connection_established",
         bound_lease,
     );
-    if forward.websocket {
-        // Raw frames only once the upstream switches protocols (101); any other answer is relayed
-        // as plain HTTP and the connection closes, so no later request passes unfiltered.
-        let Some((answer, answer_head_len)) = read_answer_head(&mut outbound).await else {
+    if let Some(accept) = forward.websocket_accept.as_deref() {
+        // The connection switches only on a 101 that completes this handshake; then the client's
+        // bytes pass only as valid client frames. Any other final answer is relayed as plain HTTP
+        // and the connection closes, so no later request passes unfiltered.
+        let Some((answer, answer_head_len)) = read_final_answer(&mut outbound, &mut inbound).await
+        else {
             let _ = inbound.shutdown().await;
             return;
         };
-        let switched = String::from_utf8_lossy(&answer[..answer_head_len])
-            .split_whitespace()
-            .nth(1)
-            == Some("101");
-        if switched {
+        let answer_head = String::from_utf8_lossy(&answer[..answer_head_len]).to_string();
+        if answer_head.split_whitespace().nth(1) == Some("101") {
+            let Some(rsv1_allowed) = completed_switch(&answer_head, accept) else {
+                let reason = "the upstream's 101 does not complete this WebSocket handshake";
+                let resp = format!("HTTP/1.1 502 Bad Gateway\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reason}", reason.len());
+                let _ = inbound.write_all(resp.as_bytes()).await;
+                let _ = inbound.shutdown().await;
+                return;
+            };
             if inbound.write_all(&answer).await.is_err() {
                 return;
             }
-            let _ = tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await;
+            let (mut client_read, mut client_write) = inbound.split();
+            let (mut upstream_read, mut upstream_write) = outbound.split();
+            {
+                let frames =
+                    forward_client_frames(&mut client_read, &mut upstream_write, rsv1_allowed);
+                let answers = tokio::io::copy(&mut upstream_read, &mut client_write);
+                tokio::pin!(frames, answers);
+                tokio::select! {
+                    _ = &mut frames => {}
+                    _ = &mut answers => {}
+                }
+            }
+            let _ = client_write.shutdown().await;
+            let _ = upstream_write.shutdown().await;
         } else {
             relay_unswitched_answer(&mut inbound, &mut outbound, &answer, answer_head_len).await;
         }
@@ -777,5 +1003,17 @@ pub(crate) async fn bind_editor_proxy(
 pub(crate) fn stop_editor_proxy(proxies: &mut HashMap<String, EditorProxy>, service_id: &str) {
     if let Some(p) = proxies.remove(service_id) {
         let _ = p.shutdown.send(());
+    }
+}
+
+#[cfg(test)]
+mod websocket_accept_tests {
+    /// RFC 6455 section 1.3's worked example.
+    #[test]
+    fn the_accept_value_is_the_rfc_example() {
+        assert_eq!(
+            super::websocket_accept("dGhlIHNhbXBsZSBub25jZQ=="),
+            "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+        );
     }
 }

@@ -8238,6 +8238,10 @@ function parseSupervisorBody(body) {
 async function handleSupervisorUnary(route, req, body) {
   const { env, method } = route;
   if (!["CreateTerminal", "ListTerminals", "CloseTerminal", "ListTerminalProfiles", "ListCapabilities"].includes(method)) return null;
+  // A terminal is created or closed only by a POST (a Connect unary call); a GET changes nothing.
+  if ((method === "CreateTerminal" || method === "CloseTerminal") && req.method !== "POST") {
+    return { status: 405, body: { code: "method_not_allowed", message: `${method} is taken only as a POST` } };
+  }
   const auth = await authorizeSupervisorReq(req, env);
   if (!auth.ok) return { status: auth.status, body: auth.body };
   const params = parseSupervisorBody(body);
