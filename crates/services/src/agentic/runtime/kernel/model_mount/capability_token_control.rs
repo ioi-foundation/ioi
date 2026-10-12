@@ -465,7 +465,6 @@ fn public_token_list(tokens: &[CapabilityTokenRecord]) -> Vec<Value> {
                 "created_at": token.created_at,
                 "allowed_scopes": token.allowed_scopes,
                 "denied_scopes": token.denied_scopes,
-                "token_hash": token.token_hash,
             })
         })
         .collect::<Vec<_>>();

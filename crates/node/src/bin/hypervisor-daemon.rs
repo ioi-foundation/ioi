@@ -6791,10 +6791,19 @@ async fn handle_receipts_list(State(st): State<Arc<DaemonState>>) -> Result<Json
     Ok(Json(json!(read_receipts(&st.data_dir))))
 }
 
-/// GET /v1/model-mount/tokens — list capability tokens (hash-only records; the
-/// raw bearer is never persisted, so `tokens ls` never leaks it).
+/// GET /v1/model-mount/tokens — the active capability tokens as an explicit metadata projection (id, audience,
+/// grant, scopes, status, created_at): never the stored hash and never any other field of the stored record.
 async fn handle_tokens_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!(read_record_dir(&st.data_dir, "capability-tokens")))
+    let listed = serde_json::from_value::<ModelMountCapabilityTokenControlRequest>(json!({
+        "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+        "operation_kind": "model_mount.capability_token.list",
+        "state_dir": st.data_dir,
+    }))
+    .ok()
+    .and_then(|req| ModelMountCore.plan_capability_token_control(&req).ok())
+    .map(|plan| plan.public_response["tokens"].clone())
+    .unwrap_or_else(|| json!([]));
+    Json(listed)
 }
 
 async fn handle_receipt_by_id(
