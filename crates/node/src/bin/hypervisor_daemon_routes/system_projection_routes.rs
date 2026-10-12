@@ -526,3 +526,131 @@ mod tests {
         );
     }
 }
+
+/// BUILD-DELTA #48: a Systems projection read is long and synchronous (one strict pass over the
+/// whole Agentgres log, under the System source locks); it must never hold an async worker that
+/// every other request, identity resolution included, needs.
+#[cfg(test)]
+mod worker_starvation_tests {
+    use std::collections::HashMap;
+    use std::time::{Duration, Instant};
+
+    use axum::extract::{Query, State};
+    use axum::http::HeaderMap;
+    use serde_json::json;
+
+    /// A signed-in principal of the `org://local` tenant: its principal, membership and session
+    /// records, and the bearer headers that present the session.
+    fn signed_in(data_dir: &str) -> HeaderMap {
+        super::super::persist_record(
+            data_dir,
+            "principals",
+            "operator",
+            &json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": "operator",
+                     "email": "operator@example.test", "name": "operator", "role": "owner",
+                     "status": "active", "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" }),
+        )
+        .unwrap();
+        super::super::lifecycle_routes::apply_membership_transition(
+            data_dir,
+            "user://operator",
+            "user://operator",
+            "org://local",
+            "organization",
+            "active",
+            0,
+            "test-operator-org-local",
+            "test membership",
+            "deployment_bootstrap",
+        )
+        .unwrap();
+        let token = "token-operator";
+        super::super::persist_record(
+            data_dir,
+            "sessions",
+            "session-operator",
+            &json!({ "session_id": "session-operator", "token_hash": super::super::sha256_hex_str(token),
+                     "principal_id": "operator", "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "expires_at": "9999-12-31T23:59:59Z" }),
+        )
+        .unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        headers
+    }
+
+    /// With ONE async worker and a projection read made honestly slow (the Agentgres log grown
+    /// through the store's own write path until one read takes at least a second), four parallel
+    /// projection reads do not delay a concurrent identity resolution (`/auth/whoami`).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn parallel_systems_projections_never_delay_identity_resolution() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let read = |state: std::sync::Arc<super::DaemonState>, headers: HeaderMap| {
+            super::handle_get(State(state), headers, Query(HashMap::new()))
+        };
+        let (status, body) = read(state.clone(), headers.clone()).await;
+        assert_eq!(
+            status,
+            axum::http::StatusCode::OK,
+            "the projection reads: {}",
+            body.0
+        );
+        // The honest load: every projection read takes one strict pass over the whole Agentgres
+        // log, so the log is grown (provider receipts, a promoted family) until one read takes
+        // at least a second. No sleep stands in for the read.
+        let mut written = 0usize;
+        let mut one_read = Duration::ZERO;
+        while one_read < Duration::from_secs(1) {
+            let target = (written * 2).max(1000);
+            assert!(
+                target <= 128_000,
+                "the load did not reach a one-second read: {written} records, {one_read:?} per read"
+            );
+            for index in written..target {
+                super::super::persist_record(
+                    &data_dir,
+                    "provider-receipts",
+                    &format!("load-{index:06}"),
+                    &json!({ "receipt_id": format!("load-{index:06}"), "kind": "load", "index": index }),
+                )
+                .unwrap();
+            }
+            written = target;
+            let started = Instant::now();
+            let _ = read(state.clone(), headers.clone()).await;
+            one_read = started.elapsed();
+        }
+        eprintln!("load: {written} records, one projection read {one_read:?}");
+        let reads: Vec<_> = (0..4)
+            .map(|_| tokio::spawn(read(state.clone(), headers.clone())))
+            .collect();
+        // Let the reads take the worker before identity is asked for.
+        std::thread::sleep(Duration::from_millis(200));
+        let started = Instant::now();
+        let whoami = tokio::spawn(super::super::lifecycle_routes::handle_auth_whoami(
+            State(state.clone()),
+            headers.clone(),
+        ));
+        let (status, _) = whoami.await.unwrap();
+        let waited = started.elapsed();
+        eprintln!(
+            "identity resolution answered after {waited:?} (one projection read {one_read:?})"
+        );
+        assert_eq!(status, axum::http::StatusCode::OK);
+        assert!(
+            waited < one_read / 2,
+            "identity resolution waited {waited:?} behind projection reads that take {one_read:?} each"
+        );
+        for read in reads {
+            let (status, _) = read.await.unwrap();
+            assert_eq!(status, axum::http::StatusCode::OK);
+        }
+    }
+}
