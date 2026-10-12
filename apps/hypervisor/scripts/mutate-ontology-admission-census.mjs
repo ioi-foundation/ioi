@@ -32,6 +32,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
 const GATE = path.join(APP, "scripts/verify-hypervisor-ontology-admission-census.mjs");
+// The gate's pinned values live in this JSON sidecar (the gate reads it); a re-derived pin is written here.
+const PINS_FILE = path.join(APP, "scripts/admission-census-pins.json");
 const MANIFEST = path.join(APP, "ontology-admission-census.mutants.v1.json");
 
 const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
@@ -66,7 +68,9 @@ const runGate = () =>
 const failLines = (stdout) => (stdout || "").split("\n").filter((l) => l.startsWith("FAIL"));
 
 function rederivePins(stdout) {
-  let src = fs.readFileSync(GATE, "utf8");
+  const pins = JSON.parse(fs.readFileSync(PINS_FILE, "utf8"));
+  // The population counts only: `unadjudicable` is deliberately not a holder searched here.
+  const holders = [pins, pins.productionWriterCalls, pins.includes, pins.compileAssembly];
   const moved = [];
   for (const line of failLines(stdout)) {
     const d = line.match(/ {2}\((.*)\)$/);
@@ -75,20 +79,20 @@ function rederivePins(stdout) {
       const m = d[1].match(re);
       if (!m) continue;
       for (const [key, val] of keys(m)) {
-        const kre = new RegExp(`(\\b${key}: )\\d+`);
-        if (kre.test(src)) {
-          src = src.replace(kre, `$1${val}`);
+        const holder = holders.find((h) => h && Object.hasOwn(h, key) && typeof h[key] === "number");
+        if (holder) {
+          holder[key] = Number(val);
           moved.push(`${key}=${val}`);
         }
       }
     }
   }
-  if (moved.length) fs.writeFileSync(GATE, src);
+  if (moved.length) fs.writeFileSync(PINS_FILE, `${JSON.stringify(pins, null, 2)}\n`);
   return moved;
 }
 
 function plant(anchor) {
-  const saved = new Map([[GATE, fs.readFileSync(GATE, "utf8")]]);
+  const saved = new Map([[GATE, fs.readFileSync(GATE, "utf8")], [PINS_FILE, fs.readFileSync(PINS_FILE, "utf8")]]);
   const created = [];
   const dirsMade = [];
   const restore = () => {

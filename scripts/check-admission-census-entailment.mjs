@@ -110,120 +110,6 @@ function rustcFileSet() {
     .sort();
 }
 
-/// Index just past the quoted string that opens at `at` (a single or double quote).
-function quotedEnd(source, at) {
-  const quote = source[at];
-  let index = at + 1;
-  while (index < source.length && source[index] !== quote) index += source[index] === "\\" ? 2 : 1;
-  return index + 1;
-}
-
-/// Index just past a comment that opens at `at`, or `at` itself when none does.
-function commentEnd(source, at) {
-  const two = source.slice(at, at + 2);
-  if (two === "//") {
-    const end = source.indexOf("\n", at);
-    return end < 0 ? source.length : end;
-  }
-  if (two === "/*") {
-    const end = source.indexOf("*/", at + 2);
-    return end < 0 ? source.length : end + 2;
-  }
-  return at;
-}
-
-/// Index just past the template literal that opens at `at` (a backtick). Each `${…}` interpolation
-/// is read as code to its own matching brace: strings, comments and nested templates inside it
-/// neither end it nor the template.
-function templateEnd(source, at) {
-  let index = at + 1;
-  while (index < source.length) {
-    const char = source[index];
-    if (char === "\\") {
-      index += 2;
-    } else if (char === "`") {
-      return index + 1;
-    } else if (char === "$" && source[index + 1] === "{") {
-      index = interpolationEnd(source, index + 2);
-    } else {
-      index += 1;
-    }
-  }
-  return source.length;
-}
-
-/// Index just past the `}` that closes an interpolation whose code starts at `at`.
-function interpolationEnd(source, at) {
-  let depth = 0;
-  let index = at;
-  while (index < source.length) {
-    const skipped = commentEnd(source, index);
-    if (skipped !== index) {
-      index = skipped;
-      continue;
-    }
-    const char = source[index];
-    if (char === '"' || char === "'") {
-      index = quotedEnd(source, index);
-    } else if (char === "`") {
-      index = templateEnd(source, index);
-    } else {
-      if (char === "{") depth += 1;
-      if (char === "}") {
-        if (depth === 0) return index + 1;
-        depth -= 1;
-      }
-      index += 1;
-    }
-  }
-  return source.length;
-}
-
-/// The CODE of the census's pinned `unadjudicable` block, from its opening brace to the MATCHING
-/// closing brace: braces inside comments, strings and template literals (their interpolations
-/// included) neither open nor close it. Comments are left out of the text returned, and a template
-/// literal is replaced by an empty one (a template is a value, never a pin), so a pin is read only
-/// from the block's own code.
-function pinnedBlockOf(source) {
-  const opener = source.indexOf("unadjudicable: {");
-  if (opener < 0) return "";
-  let at = source.indexOf("{", opener);
-  let depth = 0;
-  let code = "";
-  while (at < source.length) {
-    const skipped = commentEnd(source, at);
-    if (skipped !== at) {
-      at = skipped;
-      continue;
-    }
-    const char = source[at];
-    if (char === '"' || char === "'") {
-      const end = quotedEnd(source, at);
-      code += source.slice(at, end);
-      at = end;
-      continue;
-    }
-    if (char === "`") {
-      at = templateEnd(source, at);
-      code += "``";
-      continue;
-    }
-    code += char;
-    if (char === "{") depth += 1;
-    if (char === "}") {
-      depth -= 1;
-      if (depth === 0) return code;
-    }
-    at += 1;
-  }
-  return code;
-}
-
-/// The bucket names pinned with a count in `block`.
-function pinnedNamesOf(block) {
-  return [...new Set([...block.matchAll(/"([a-z-]+)":\s*\d+/gu)].map((match) => match[1]))].sort();
-}
-
 function runExtractor() {
   const run = spawnSync(EXTRACTOR, ["--interest", "odk-", DAEMON_ENTRY], {
     cwd: repo,
@@ -309,8 +195,9 @@ try {
   const emittable = [...new Set(
     [...verifierSource.matchAll(/bucket:\s*"([a-z-]+)"/gu)].map((match) => match[1]),
   )].sort();
-  const pinnedBlock = pinnedBlockOf(verifierSource);
-  const pinned = pinnedNamesOf(pinnedBlock);
+  // The pinned buckets are the sidecar's (checked equal to the verifier's above), never re-read from
+  // the verifier's source.
+  const pinned = Object.keys(sidecar.unadjudicable || {}).sort();
   observations.bucket_vocabulary_emittable = emittable;
   observations.bucket_vocabulary_pinned = pinned;
   const unpinned = emittable.filter((name) => !pinned.includes(name));
@@ -323,8 +210,8 @@ try {
     unemittable.length ? `pinned but unemittable: ${unemittable.join(", ")}` : `${pinned.length} pinned bucket(s), all reachable`);
   ok("and the three sharp buckets are pinned at ZERO, which is what makes the totality claim worth making: an ambiguous module, a qualifier that resolves to something unreadable, and a const-of-const cycle are each counted, and each count is none",
     ["ambiguous-module", "not-a-visible-const", "resolution-cycle"].every((name) =>
-      new RegExp(`"${name}":\\s*0`).test(pinnedBlock)),
-    pinnedBlock.replace(/\s+/gu, " ").slice(0, 200));
+      sidecar.unadjudicable?.[name] === 0),
+    JSON.stringify(sidecar.unadjudicable));
 
   // ---- the census itself, composed rather than restated ----
   if (skipComposed) {
@@ -378,22 +265,6 @@ try {
     ok("DRILL M5 — the data-include accounting detects a non-Rust file rustc read that the census does not record",
       wouldBeUnexplained.length === 1, wouldBeUnexplained.join(",") || "NOTHING DETECTED");
 
-    // M6 — a brace inside a comment does not end the pinned block early, and a name that only a
-    // comment or a later block mentions is not a pin.
-    const plantedSource = [
-      "const PINNED = {",
-      "  unadjudicable: {",
-      '    "first-bucket": 1 /* a note with a } brace and a { brace */,',
-      '    "second-bucket": 0, // a line note with a } brace',
-      '    "third-bucket": 2 /* "commented-bucket": 9 is not a pin */,',
-      "  },",
-      '  later: { "later-bucket": 7 },',
-      "};",
-    ].join("\n");
-    const plantedNames = pinnedNamesOf(pinnedBlockOf(plantedSource));
-    ok("DRILL M6 — the pinned block is read to its matching brace: a brace inside a comment does not end it, and a name only a comment or a later block mentions is not a pin",
-      plantedNames.join(",") === "first-bucket,second-bucket,third-bucket", plantedNames.join(",") || "NOTHING READ");
-
     // S1 — a pin changed in the verifier but not in the sidecar is caught by name.
     const changedPins = JSON.parse(JSON.stringify(sidecar));
     changedPins.tokenMentions += 1;
@@ -407,22 +278,6 @@ try {
     const droppedDiff = pinDifferences(sidecar, droppedPins);
     ok("DRILL S2 — a bucket pinned in the sidecar but absent from the verifier is caught, by name",
       droppedDiff.length === 1 && droppedDiff[0].startsWith("unadjudicable.resolution-cycle:"), droppedDiff.join(" · ") || "NOTHING DETECTED");
-
-    // M7 — a template literal is read as one: a nested template inside its interpolation does not end
-    // it or the block, and a quoted name inside it (a comment in an interpolation included) is not a pin.
-    const templateSource = [
-      "const PINNED = {",
-      "  unadjudicable: {",
-      "    note: `${`}`}`,",
-      '    "real-bucket": 1,',
-      '    label: `a ${ /* "comment-bucket": 9 */ "x" } b`,',
-      '    "other-bucket": 0,',
-      "  },",
-      "};",
-    ].join("\n");
-    const templateNames = pinnedNamesOf(pinnedBlockOf(templateSource));
-    ok("DRILL M7 — a template literal is read as one: a nested template in its interpolation ends neither it nor the block, and a quoted name inside it, a comment in an interpolation included, is not a pin",
-      templateNames.join(",") === "other-bucket,real-bucket", templateNames.join(",") || "NOTHING READ");
   }
 } catch (error) {
   failures += 1;
