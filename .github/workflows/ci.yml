@@ -183,6 +183,9 @@ jobs:
           targets=(
             d24_invite_accept
             env_ops_access_token
+            preview_editor_lease_tokens
+            oidc_identity_binding
+            secret_hash_compares
           )
           args=()
           for target in "${targets[@]}"; do args+=(--test "$target"); done
@@ -1914,6 +1917,10 @@ jobs:
       - name: Verify product client contract — test:product-shell-auth
         if: ${{ !cancelled() }}
         run: npm run test:product-shell-auth --workspace=@ioi/hypervisor-app
+
+      - name: Verify the product shell refuses cross-origin state changes — product-shell-cross-origin
+        if: ${{ !cancelled() }}
+        run: node --test apps/hypervisor/scripts/product-shell-cross-origin.test.mjs
 
       - name: Verify the invite page's answers — test:invite-page
         if: ${{ !cancelled() }}
