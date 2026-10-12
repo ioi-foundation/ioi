@@ -90,6 +90,20 @@ function rustcFileSet() {
     .sort();
 }
 
+/// The text of the census's pinned `unadjudicable` block, from its opening brace up to the first
+/// closing brace after it.
+function pinnedBlockOf(source) {
+  return source.slice(
+    source.indexOf("unadjudicable: {"),
+    source.indexOf("}", source.indexOf("unadjudicable: {")),
+  );
+}
+
+/// The bucket names pinned with a count in `block`.
+function pinnedNamesOf(block) {
+  return [...new Set([...block.matchAll(/"([a-z-]+)":\s*\d+/gu)].map((match) => match[1]))].sort();
+}
+
 function runExtractor() {
   const run = spawnSync(EXTRACTOR, ["--interest", "odk-", DAEMON_ENTRY], {
     cwd: repo,
@@ -168,13 +182,8 @@ try {
   const emittable = [...new Set(
     [...verifierSource.matchAll(/bucket:\s*"([a-z-]+)"/gu)].map((match) => match[1]),
   )].sort();
-  const pinnedBlock = verifierSource.slice(
-    verifierSource.indexOf("unadjudicable: {"),
-    verifierSource.indexOf("}", verifierSource.indexOf("unadjudicable: {")),
-  );
-  const pinned = [...new Set(
-    [...pinnedBlock.matchAll(/"([a-z-]+)":\s*\d+/gu)].map((match) => match[1]),
-  )].sort();
+  const pinnedBlock = pinnedBlockOf(verifierSource);
+  const pinned = pinnedNamesOf(pinnedBlock);
   observations.bucket_vocabulary_emittable = emittable;
   observations.bucket_vocabulary_pinned = pinned;
   const unpinned = emittable.filter((name) => !pinned.includes(name));
@@ -241,6 +250,22 @@ try {
     const wouldBeUnexplained = plantedOther.filter((file) => !includeArgs.has(file.split("/").pop()));
     ok("DRILL M5 — the data-include accounting detects a non-Rust file rustc read that the census does not record",
       wouldBeUnexplained.length === 1, wouldBeUnexplained.join(",") || "NOTHING DETECTED");
+
+    // M6 — a brace inside a comment does not end the pinned block early, and a name that only a
+    // comment or a later block mentions is not a pin.
+    const plantedSource = [
+      "const PINNED = {",
+      "  unadjudicable: {",
+      '    "first-bucket": 1 /* a note with a } brace and a { brace */,',
+      '    "second-bucket": 0, // a line note with a } brace',
+      '    "third-bucket": 2 /* "commented-bucket": 9 is not a pin */,',
+      "  },",
+      '  later: { "later-bucket": 7 },',
+      "};",
+    ].join("\n");
+    const plantedNames = pinnedNamesOf(pinnedBlockOf(plantedSource));
+    ok("DRILL M6 — the pinned block is read to its matching brace: a brace inside a comment does not end it, and a name only a comment or a later block mentions is not a pin",
+      plantedNames.join(",") === "first-bucket,second-bucket,third-bucket", plantedNames.join(",") || "NOTHING READ");
   }
 } catch (error) {
   failures += 1;
