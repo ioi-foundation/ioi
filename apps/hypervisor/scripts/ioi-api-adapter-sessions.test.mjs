@@ -10,12 +10,20 @@ import http from "node:http";
 
 const calls = [];
 const AT = "2026-09-27T10:00:00Z";
+// A route answer may carry its HTTP status under this key (JSON.stringify drops symbol keys).
+const STATUS = Symbol("status");
 const routes = {
   "GET /v1/hypervisor/environments/env_1": () => ({ environment: { id: "env_1", spec: {}, status: { phase: "running", ports: [{ port: 50432, protocol: "tcp" }] } } }),
-  "POST /v1/hypervisor/environments/env_1/ops-lease": () => ({ accessToken: "lease_env1", lease_id: "lease_env1", environment_id: "env_1" }),
-  "GET /v1/hypervisor/ops-lease/lease_env1": () => ({ active: true, environment_id: "env_1" }),
-  "GET /v1/hypervisor/ops-lease/lease_env2": () => ({ active: true, environment_id: "env_2" }),
-  "GET /v1/hypervisor/ops-lease/lease_expired": () => ({ active: false, environment_id: "env_1" }),
+  // The access token and the lease (grant) id are distinct values, as the daemon mints them.
+  "POST /v1/hypervisor/environments/env_1/ops-lease": () => ({ accessToken: "tok_env1", lease_id: "lease_env1", environment_id: "env_1" }),
+  // A mint answer with a lease id and NO access token: the adapter must refuse, never hand on the lease id.
+  "POST /v1/hypervisor/environments/env_untokened/ops-lease": () => ({ lease_id: "lease_untokened", environment_id: "env_untokened" }),
+  // The daemon resolves an env-ops token presented in a header, never in the URL path, and answers
+  // 401 with no environment for anything that is not an active env-ops token.
+  "GET /v1/hypervisor/ops-lease": (req) => {
+    const environment = { tok_env1: "env_1", tok_env2: "env_2" }[req.headers["x-ioi-env-ops-token"]];
+    return environment ? { active: true, environment_id: environment } : { [STATUS]: 401, active: false, environment_id: null };
+  },
   "GET /v1/hypervisor/environments/env_1/logs?kind=session": () => ({
     ok: true,
     environment_id: "env_1",
@@ -42,8 +50,9 @@ const fake = http.createServer((req, res) => {
     const key = `${req.method} ${req.url}`;
     calls.push({ key, body, headers: req.headers });
     const route = routes[key];
-    res.writeHead(route ? 200 : 404, { "content-type": "application/json" });
-    res.end(JSON.stringify(route ? route() : { code: "not_found" }));
+    const answer = route ? route(req) : { code: "not_found" };
+    res.writeHead(route ? (answer[STATUS] ?? 200) : 404, { "content-type": "application/json" });
+    res.end(JSON.stringify(answer));
   });
 });
 await new Promise((r) => fake.listen(0, "127.0.0.1", r));
@@ -202,8 +211,22 @@ test("CreateEnvironmentLogsToken mints the env-scoped ops lease (no fabricated t
   calls.length = 0;
   const out = await rpc("EnvironmentService/CreateEnvironmentLogsToken", { environmentId: "env_1" });
   assert.equal(out.status ?? 200, 200);
-  assert.deepEqual(JSON.parse(out.body), { accessToken: "lease_env1" });
+  assert.deepEqual(JSON.parse(out.body), { accessToken: "tok_env1" }, "the access token, never the lease id");
   assert.deepEqual(calls.map((c) => c.key), ["POST /v1/hypervisor/environments/env_1/ops-lease"]);
+});
+
+test("a mint answer without an access token is refused by name (503) and the lease id is never handed on as a token", async () => {
+  for (const [method, gap] of [
+    ["EnvironmentService/CreateEnvironmentLogsToken", "environment_logs_token_unissued"],
+    ["EnvironmentService/CreateEnvironmentAccessToken", "environment_access_token_unissued"],
+  ]) {
+    calls.length = 0;
+    const out = await rpc(method, { environmentId: "env_untokened" });
+    assert.equal(out.status, 503, method);
+    assert.match(messageOf(out), new RegExp(`^${gap}: `, "u"), method);
+    assert.ok(!out.body.includes("lease_untokened"), `${method}: the lease id is not returned as a token`);
+    assert.deepEqual(calls.map((c) => c.key), ["POST /v1/hypervisor/environments/env_untokened/ops-lease"], `${method}: nothing else reached the daemon`);
+  }
 });
 
 test("environmentUrls.logs points at the adapter's logs route on the gateway origin, not local://", async () => {
@@ -217,13 +240,16 @@ const logsGet = (headers) => handle(LOGS_PATH, "", headers);
 
 test("the logs GET with a valid token answers the daemon session log as text/plain, read as the caller without the bearer", async () => {
   calls.length = 0;
-  const out = await logsGet({ authorization: "Bearer lease_env1", cookie: "ioi_session=abc" });
+  const out = await logsGet({ authorization: "Bearer tok_env1", cookie: "ioi_session=abc" });
   assert.equal(out.status ?? 200, 200);
   assert.match(out.contentType, /^text\/plain/u);
   const read = calls.find((c) => c.key === "GET /v1/hypervisor/environments/env_1/logs?kind=session");
   assert.ok(read, "the daemon logs route was read");
   assert.equal(read.headers.cookie, "ioi_session=abc", "the caller's identity reached the daemon");
   assert.equal(read.headers.authorization, undefined, "the logs token is not presented to the daemon as identity");
+  const resolved = calls.find((c) => c.key === "GET /v1/hypervisor/ops-lease");
+  assert.equal(resolved?.headers["x-ioi-env-ops-token"], "tok_env1", "the token is resolved from a header");
+  assert.ok(calls.every((c) => !c.key.includes("tok_env1")), "the token never appears in a daemon URL");
   // The reference's log grammar (log-groups bundle): a section, then `[id:<section>] [<ts>] LEVEL msg`.
   const lines = out.body.trimEnd().split("\n");
   assert.equal(lines.length, 3);
@@ -252,7 +278,7 @@ test("the logs GET refuses a missing token (401) and reads nothing", async () =>
 
 test("the logs GET refuses a token bound to another environment (403) and never reads the logs", async () => {
   calls.length = 0;
-  const out = await logsGet({ authorization: "Bearer lease_env2", cookie: "ioi_session=abc" });
+  const out = await logsGet({ authorization: "Bearer tok_env2", cookie: "ioi_session=abc" });
   assert.equal(out.status, 403);
   assert.equal(codeOf(out), "permission_denied");
   assert.match(messageOf(out), /^environment_logs_token_invalid: .*different environment/u);
@@ -260,7 +286,7 @@ test("the logs GET refuses a token bound to another environment (403) and never 
 });
 
 test("the logs GET refuses an expired or unknown token (403) and never reads the logs", async () => {
-  for (const token of ["lease_expired", "lease_unknown"]) {
+  for (const token of ["tok_expired", "tok_unknown", "lease_env1"]) {
     calls.length = 0;
     const out = await logsGet({ authorization: `Bearer ${token}` });
     assert.equal(out.status, 403, token);

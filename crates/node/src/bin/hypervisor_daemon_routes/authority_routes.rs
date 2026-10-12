@@ -224,6 +224,86 @@ pub(crate) fn issue_capability_lease(
     resources: Value,
     expiry_seconds: i64,
 ) -> Value {
+    issue_capability_lease_record(data_dir, subject, action, resources, expiry_seconds, None)
+}
+
+/// Mint a capability lease whose holder presents a BEARER (the env-ops access token). The bearer
+/// is 256 bits from the OS RNG, returned once to the minter, and stored only as its SHA-256
+/// (`bearer_sha256`) in the grant record. It is distinct from the grant id and grant ref that
+/// receipts, the trail and the grants listing cite, and is not derivable from them. Returns the
+/// grant record and the bearer; no bearer when the lease could not be recorded.
+pub(crate) fn issue_bearer_capability_lease(
+    data_dir: &str,
+    subject: &str,
+    action: &str,
+    resources: Value,
+    expiry_seconds: i64,
+) -> (Value, Option<String>) {
+    use rand::RngCore;
+    let mut secret = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut secret);
+    let bearer = format!("ioi_lease_{}", hex::encode(secret));
+    let record = issue_capability_lease_record(
+        data_dir,
+        subject,
+        action,
+        resources,
+        expiry_seconds,
+        Some(bearer_sha256(&bearer)),
+    );
+    if record.get("grant_id").and_then(Value::as_str).is_some() {
+        (record, Some(bearer))
+    } else {
+        (record, None)
+    }
+}
+
+fn bearer_sha256(bearer: &str) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(bearer.as_bytes()))
+}
+
+/// Equality that reads every byte of both inputs, so its timing does not depend on where they
+/// first differ.
+fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+    let mut difference = left.len() ^ right.len();
+    for index in 0..left.len().max(right.len()) {
+        difference |= usize::from(
+            left.get(index).copied().unwrap_or_default()
+                ^ right.get(index).copied().unwrap_or_default(),
+        );
+    }
+    difference == 0
+}
+
+/// The capability lease whose stored bearer hash matches `bearer`. The presented bearer is hashed
+/// and compared in constant time against every bearer-carrying grant (no early exit). A grant id,
+/// a grant ref or a stored hash is not a bearer and matches nothing.
+pub(crate) fn capability_lease_by_bearer(data_dir: &str, bearer: &str) -> Option<Value> {
+    if bearer.is_empty() {
+        return None;
+    }
+    let presented = bearer_sha256(bearer);
+    let mut found = None;
+    for grant in read_record_dir(data_dir, "authority-grants") {
+        let Some(stored) = grant.get("bearer_sha256").and_then(Value::as_str) else {
+            continue;
+        };
+        if constant_time_eq(stored.as_bytes(), presented.as_bytes()) && found.is_none() {
+            found = Some(grant);
+        }
+    }
+    found
+}
+
+fn issue_capability_lease_record(
+    data_dir: &str,
+    subject: &str,
+    action: &str,
+    resources: Value,
+    expiry_seconds: i64,
+    bearer_digest: Option<String>,
+) -> Value {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
@@ -250,7 +330,7 @@ pub(crate) fn issue_capability_lease(
         action,
         "capability lease (editor access)",
     );
-    let record = json!({
+    let mut record = json!({
         "schema_version": "ioi.hypervisor.authority-grant.v1",
         "grant_id": grant_id, "grant_ref": grant_ref,
         "authority_provider_ref": provider, "provider": provider,
@@ -263,6 +343,9 @@ pub(crate) fn issue_capability_lease(
         "authority_receipt_refs": [receipt_ref],
         "lease_kind": "capability_lease",
     });
+    if let Some(digest) = bearer_digest {
+        record["bearer_sha256"] = json!(digest);
+    }
     // A lease that was not recorded was not issued: preflight resolves leases by reading this
     // family back, so returning the record over a discarded write hands out authority no later
     // check can see.

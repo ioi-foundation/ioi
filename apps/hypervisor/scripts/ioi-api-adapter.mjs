@@ -464,8 +464,8 @@ async function environmentLogsText(envId) {
   }
   const identity = currentDaemonHeaders();
   delete identity.authorization;
-  const read = async (path) => {
-    const res = await fetch(DAEMON + path, { headers: identity, signal: AbortSignal.timeout(8000) });
+  const read = async (path, headers = {}) => {
+    const res = await fetch(DAEMON + path, { headers: { ...identity, ...headers }, signal: AbortSignal.timeout(8000) });
     const text = await res.text();
     let payload = {};
     try { payload = text ? JSON.parse(text) : {}; } catch { payload = {}; }
@@ -473,7 +473,8 @@ async function environmentLogsText(envId) {
   };
   let lease;
   try {
-    lease = await read(`/v1/hypervisor/ops-lease/${encodeURIComponent(token)}`);
+    // The daemon resolves an env-ops token presented in a header, never in the URL path.
+    lease = await read("/v1/hypervisor/ops-lease", { "x-ioi-env-ops-token": token });
   } catch (e) {
     return unavailableRpc("environment_logs_token_unverified", `the daemon did not answer the lease read (${e.message}); no logs were read`);
   }
@@ -826,7 +827,8 @@ async function handleImpl(pathname, bodyText) {
         // EnvironmentOpsService gateway, which fails closed on revoke/expire.
         const id = envIdFromBody(body);
         const lease = await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ops-lease`);
-        return json({ accessToken: lease.accessToken || lease.lease_id });
+        if (!lease.accessToken) return unavailableRpc("environment_access_token_unissued", "the daemon answered the lease request without an access token; no token is fabricated");
+        return json({ accessToken: lease.accessToken });
       }
       case "/api/ioi.v1.EnvironmentService/CreateEnvironmentLogsToken": {
         // Sessions cut 1: the logs token is a real env-scoped capability lease (the same ops-lease
@@ -835,8 +837,8 @@ async function handleImpl(pathname, bodyText) {
         // to that environment, then reads GET /v1/hypervisor/environments/:id/logs as the caller.
         const id = envIdFromBody(body);
         const lease = await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ops-lease`);
-        const accessToken = lease.accessToken || lease.lease_id;
-        if (!accessToken) return unavailableRpc("environment_logs_token_unissued", "the daemon answered the lease request without a lease id; no token is fabricated");
+        const accessToken = lease.accessToken;
+        if (!accessToken) return unavailableRpc("environment_logs_token_unissued", "the daemon answered the lease request without an access token; no token is fabricated");
         return json({ accessToken });
       }
       case "/api/ioi.v1.EnvironmentService/MarkEnvironmentActive":

@@ -22,12 +22,16 @@ use axum::Json;
 use base64::Engine as _;
 use serde_json::{json, Value};
 
-use super::authority_routes::{capability_lease_status, issue_capability_lease};
+use super::authority_routes::{
+    capability_lease_by_bearer, issue_bearer_capability_lease, live_grant_status,
+};
 use super::DaemonState;
 
 /// `POST /v1/hypervisor/environments/:id/ops-lease` — mint a short-lived env-scoped capability lease
-/// for the environment-ops plane. `CreateEnvironmentAccessToken` (app surface) calls this; the lease
-/// id is the Bearer the env gateway validates. Fail-closed: revoke/expire kills access immediately.
+/// for the environment-ops plane. `CreateEnvironmentAccessToken` (app surface) calls this. The
+/// answer's `accessToken` is the Bearer the env gateway validates: a random secret returned only
+/// here and stored only as its hash. `lease_id` and `lease_ref` name the grant (receipts, revoke)
+/// and are not credentials. Fail-closed: revoke/expire kills access immediately.
 pub(crate) async fn handle_env_ops_lease(
     State(st): State<Arc<DaemonState>>,
     AxumPath(env_id): AxumPath<String>,
@@ -43,20 +47,23 @@ pub(crate) async fn handle_env_ops_lease(
         Ok(identity) => identity,
         Err(error) => return error.into_response(),
     };
-    let lease = issue_capability_lease(
+    let (lease, access_token) = issue_bearer_capability_lease(
         &st.data_dir,
         &identity.principal_ref,
         "environment.ops",
         json!([format!("environment:{env_id}")]),
         3600,
     );
+    let Some(access_token) = access_token else {
+        return (StatusCode::SERVICE_UNAVAILABLE, Json(lease)).into_response();
+    };
     let id = lease
         .get("grant_id")
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
     ok_json(json!({
-        "accessToken": id,
+        "accessToken": access_token,
         "lease_id": id,
         "lease_ref": lease.get("grant_ref"),
         "environment_id": env_id,
@@ -187,10 +194,7 @@ fn lease_binds_env(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
 /// A lease may drive the EnvironmentOpsService iff it names this environment in its resources AND
 /// carries the env-ops action. The action check is what stops a port or editor lease being an
 /// arbitrary-write / arbitrary-exec bearer.
-fn lease_authorizes_env_ops(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
-    let Some(v) = lease_grant(data_dir, lease_id) else {
-        return false;
-    };
+fn lease_authorizes_env_ops(data_dir: &str, v: &Value, env_id: &str) -> bool {
     let Some(scope) = super::substrate_store::read_request_scope(
         data_dir,
         super::environment_routes::ENVIRONMENT_SCOPE_KIND,
@@ -200,17 +204,13 @@ fn lease_authorizes_env_ops(data_dir: &str, lease_id: &str, env_id: &str) -> boo
     .flatten() else {
         return false;
     };
-    resources_name_env(&v, env_id)
+    resources_name_env(v, env_id)
         && v.get("action").and_then(Value::as_str) == Some(ENV_OPS_ACTION)
         && v.get("subject").and_then(Value::as_str) == Some(scope.principal_ref.as_str())
 }
 
 /// The environment a lease is bound to (from its `resources: ["environment:<env>"]`).
-fn lease_env(data_dir: &str, lease_id: &str) -> Option<String> {
-    let path = Path::new(data_dir)
-        .join("authority-grants")
-        .join(format!("{}.json", safe(lease_id)));
-    let v: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
+fn lease_env(v: &Value) -> Option<String> {
     v.get("resources")?.as_array()?.iter().find_map(|x| {
         x.as_str()
             .and_then(|s| s.strip_prefix("environment:"))
@@ -218,27 +218,57 @@ fn lease_env(data_dir: &str, lease_id: &str) -> Option<String> {
     })
 }
 
-/// `GET /v1/hypervisor/ops-lease/:token` — resolve a lease to its environment + live status. The
-/// env-ops WebSocket transport (serve layer) calls this to authenticate the `auth` frame and learn
-/// which environment the connection is bound to (the WS URL drops the env path by design).
-pub(crate) async fn handle_ops_lease_resolve(
-    State(st): State<Arc<DaemonState>>,
-    AxumPath(token): AxumPath<String>,
-) -> Json<Value> {
-    let active = capability_lease_status(&st.data_dir, &token) == "active";
-    let env = lease_env(&st.data_dir, &token);
-    Json(json!({ "active": active && env.is_some(), "environment_id": env }))
+/// The header that carries an env-ops access token to the resolve route. A token is never taken
+/// from a URL path or query.
+const ENV_OPS_TOKEN_HEADER: &str = "x-ioi-env-ops-token";
+
+/// The environment an active env-ops access token authenticates for.
+fn env_ops_token_env(data_dir: &str, token: &str) -> Option<String> {
+    let grant = capability_lease_by_bearer(data_dir, token)?;
+    let env = lease_env(&grant)?;
+    (live_grant_status(&grant) == "active" && lease_authorizes_env_ops(data_dir, &grant, &env))
+        .then_some(env)
 }
 
-/// True iff the request carries an active capability lease that AUTHORIZES ENV-OPS on this
-/// environment — active, resources name the environment, AND action is `environment.ops`. The action
-/// half is the Leg 4 fix: `lease_binds_env` alone let a port or editor lease drive `WriteFile`/`Exec`.
+/// `GET /v1/hypervisor/ops-lease` — resolve the access token in the `x-ioi-env-ops-token` header
+/// to its environment. The env-ops WebSocket transport (serve layer) calls this to authenticate the
+/// `auth` frame and learn which environment the connection is bound to (the WS URL drops the env
+/// path by design). Without an active env-ops token it answers 401 and names no environment.
+pub(crate) async fn handle_ops_lease_resolve(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Response {
+    let token = headers
+        .get(ENV_OPS_TOKEN_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .unwrap_or_default();
+    match env_ops_token_env(&st.data_dir, token) {
+        Some(env) => ok_json(json!({ "active": true, "environment_id": env })),
+        None => (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "active": false,
+                "environment_id": Value::Null,
+                "code": "unauthenticated",
+                "message": "an active env-ops access token is required in the x-ioi-env-ops-token header",
+            })),
+        )
+            .into_response(),
+    }
+}
+
+/// True iff the request's Bearer is the access token of an active capability lease that AUTHORIZES
+/// ENV-OPS on this environment — found by its stored hash (never by grant id), active, resources
+/// name the environment, AND action is `environment.ops`. The action half is the Leg 4 fix:
+/// `lease_binds_env` alone let a port or editor lease drive `WriteFile`/`Exec`.
 fn authed(data_dir: &str, env_id: &str, headers: &HeaderMap) -> bool {
     let Some(token) = bearer(headers) else {
         return false;
     };
-    capability_lease_status(data_dir, &token) == "active"
-        && lease_authorizes_env_ops(data_dir, &token, env_id)
+    capability_lease_by_bearer(data_dir, &token).is_some_and(|grant| {
+        live_grant_status(&grant) == "active" && lease_authorizes_env_ops(data_dir, &grant, env_id)
+    })
 }
 
 // ---- git helpers --------------------------------------------------------------------------------
