@@ -1,10 +1,22 @@
-//! BUILD-DELTA #36, the class sweep. Every site in crates/node and crates/services that MINTS a bearer credential
-//! (a token a caller presents to prove authority) is registered here by (file, function, prefix) with its entropy
-//! source. The scan reads source text: it fails on a mint in an unregistered function, on a second mint of a prefix
-//! in a registered function, on a mint whose statement is built from a derivation (a slice of a hash, a clock),
-//! on a registered mint whose function no longer shows its entropy source, and on a function named like a
-//! credential (token, secret, bearer, key, verifier, state, nonce, jwt) that builds a `<prefix>_{..}` value and is
-//! neither registered nor reviewed by name. It proves what the source says, not what the runtime does.
+//! BUILD-DELTA #36 — a LINT for ACCIDENTAL derivation of a bearer credential, not a proof and not a closed guard.
+//!
+//! WHAT IT CATCHES. In the non-test source of crates/node/src and crates/services/src, for a string literal that
+//! starts with a registered credential prefix (`ioi_mnt_`, `ioi_pat_`, `ioi_lease_`, `wec_`, `wbt_`, `whk_`, `idisp_`, …):
+//!   - a mint (a `format!` placeholder literal, or the prefix joined with `+`, `.to_owned()`, `push_str`, `String::from`,
+//!     `concat!`, `.join(`, or held in a const) outside a registered (file, function, nth-occurrence);
+//!   - a registered mint whose own statement does not draw from its registered source (the formatted value must come from
+//!     the RNG/uuid call inside that statement, or from a variable the same function filled from the registered RNG call
+//!     BEFORE the statement), or is built from a derivation (a slice of a hash, a clock);
+//!   - a second mint of a prefix in a registered function, a registered function or FILE that disappeared;
+//!   - a function named like a credential (token, secret, bearer, key, verifier, state, nonce, jwt) that builds a
+//!     `<prefix>_`-shaped value and is neither registered nor reviewed by name.
+//! The lexer blanks strings (incl. raw and byte strings), char literals and nested block comments before it finds
+//! function and `#[cfg(test)]` spans.
+//!
+//! WHAT IT DOES NOT CATCH (named, covered by review and by BUILD-DELTA #42's type-level guard instead): a mint built by a
+//! helper in another file; a prefix assembled by a macro (`concat!` of pieces, `stringify!`) or at run time; a credential whose
+//! prefix is not in PREFIXES; a credential minted in a function whose name holds none of the keywords and no registered prefix;
+//! entropy that is real in the source and weak at run time. A pass is the absence of the accidental shapes above, nothing more.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -14,10 +26,13 @@ struct Mint {
     function: &'static str,
     /// The literal prefix this function mints (`ioi_mnt_`), or "" for a primitive that mints without one.
     prefix: &'static str,
-    /// How many `"<prefix>…{…"` literals the function holds.
-    count: usize,
-    /// The entropy source the function body must show.
-    entropy: &'static str,
+    /// Which occurrence of the prefix in the function this entry describes (0-based, in source order).
+    nth: usize,
+    /// For a prefix mint: text the mint's own statement must contain (the RNG/uuid call, or the variable the RNG filled).
+    /// For a primitive: text the function body must contain.
+    inline: &'static str,
+    /// Text the function must contain BEFORE the statement, filling the variable `inline` names ("" when inline suffices).
+    fed_by: &'static str,
     /// Statement fragments tolerated for this mint (a one-way id of the secret, never the secret).
     tolerates: &'static [&'static str],
     note: &'static str,
@@ -27,7 +42,7 @@ const DISCOVERY_NAMES: &[&str] = &[
     "token", "secret", "bearer", "key", "verifier", "state", "nonce", "jwt",
 ];
 
-/// Concrete credential prefixes: every non-test literal that starts with one and holds a placeholder is a mint.
+/// Concrete credential prefixes.
 const PREFIXES: &[&str] = &[
     "ioi_mnt_",
     "ioi_pat_",
@@ -42,21 +57,22 @@ const PREFIXES: &[&str] = &[
 ];
 
 const MINTS: &[Mint] = &[
-    Mint { file: "node/src/bin/hypervisor-daemon.rs", function: "async_main", prefix: "idisp_", count: 1, entropy: "uuid::Uuid::new_v4()", tolerates: &[], note: "per-boot internal dispatch secret: two UUIDv4 (244 bits), process memory only" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/authority_routes.rs", function: "issue_bearer_capability_lease", prefix: "ioi_lease_", count: 1, entropy: "rand::rngs::OsRng.fill_bytes(&mut secret)", tolerates: &[], note: "env-ops capability lease bearer: 32 bytes from the OS RNG" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "handle_api_token_create", prefix: "ioi_pat_", count: 1, entropy: "uuid::Uuid::new_v4()", tolerates: &[], note: "API access tokens: two UUIDv4" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "gen_opaque", prefix: "", count: 0, entropy: "uuid::Uuid::new_v4()", tolerates: &[], note: "bootstrap, session, SCIM and invite tokens: two UUIDv4 behind one primitive" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "random_token", prefix: "", count: 0, entropy: "rand::thread_rng()", tolerates: &[], note: "OAuth state, nonce and PKCE verifier: the thread CSPRNG, seeded from the OS" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "mint_github_app_jwt", prefix: "", count: 0, entropy: "jwt_encode(", tolerates: &[], note: "GitHub App JWT: SIGNED with the App private key (RS256), not random; its secrecy is the key's" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs", function: "handle_backup_export", prefix: "", count: 0, entropy: "uuid::Uuid::new_v4()", tolerates: &[], note: "managed backup export download token: UUIDv4 (122 bits), stored as a hash" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs", function: "new_webhook_token", prefix: "whk_", count: 1, entropy: "uuid::Uuid::new_v4()", tolerates: &[], note: "automation webhook trigger token: two UUIDv4" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs", function: "handle_automation_webhook", prefix: "whk_", count: 1, entropy: "uuid::Uuid::new_v4()", tolerates: &[], note: "webhook EVENT id (whk_evt_), not a credential: a UUIDv4" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs", function: "mint_guest_effect_capability", prefix: "wec_", count: 2, entropy: "OsRng.fill_bytes(&mut random)", tolerates: &["[.."], note: "workload effect capability token (32 OS-RNG bytes) and its ID, a one-way 32-hex prefix of the token's SHA-256" },
-    Mint { file: "node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs", function: "mint_guest_governed_provider_effect_capability", prefix: "wbt_", count: 1, entropy: "OsRng.fill_bytes(&mut trigger_random)", tolerates: &[], note: "host trigger: 32 bytes from the OS RNG" },
-    Mint { file: "services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs", function: "plan_capability_token_control", prefix: "ioi_mnt_", count: 1, entropy: "OsRng.fill_bytes(&mut secret)", tolerates: &[], note: "model-mount capability token: 32 bytes from the OS RNG, id drawn separately" },
-    Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "random_url_safe_token", prefix: "", count: 0, entropy: "rand::thread_rng()", tolerates: &[], note: "Google OAuth state and PKCE verifier primitive: the thread CSPRNG" },
-    Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "login", prefix: "", count: 0, entropy: "random_url_safe_token(48)", tolerates: &[], note: "Google OAuth state (24 bytes) and PKCE code_verifier (48 bytes) come from that primitive" },
-    Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "login", prefix: "", count: 0, entropy: "random_url_safe_token(24)", tolerates: &[], note: "Google OAuth state: a 24-byte draw from that primitive" },
+    Mint { file: "node/src/bin/hypervisor-daemon.rs", function: "async_main", prefix: "idisp_", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "per-boot internal dispatch secret: two UUIDv4 (244 bits), process memory only" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/authority_routes.rs", function: "issue_bearer_capability_lease", prefix: "ioi_lease_", nth: 0, inline: "hex::encode(secret)", fed_by: "rand::rngs::OsRng.fill_bytes(&mut secret)", tolerates: &[], note: "env-ops capability lease bearer: 32 bytes from the OS RNG" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "handle_api_token_create", prefix: "ioi_pat_", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "API access tokens: two UUIDv4" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "gen_opaque", prefix: "", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "bootstrap, session, SCIM and invite tokens: two UUIDv4 behind one primitive" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "random_token", prefix: "", nth: 0, inline: "rand::thread_rng()", fed_by: "", tolerates: &[], note: "OAuth state, nonce and PKCE verifier: the thread CSPRNG, seeded from the OS" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "mint_github_app_jwt", prefix: "", nth: 0, inline: "jwt_encode(", fed_by: "", tolerates: &[], note: "GitHub App JWT: SIGNED with the App private key (RS256), not random; its secrecy is the key's" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs", function: "handle_backup_export", prefix: "", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "managed backup export download token: UUIDv4 (122 bits), stored as a hash" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs", function: "new_webhook_token", prefix: "whk_", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "automation webhook trigger token: two UUIDv4" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs", function: "handle_automation_webhook", prefix: "whk_", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "webhook EVENT id (whk_evt_), not a credential: a UUIDv4" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs", function: "mint_guest_effect_capability", prefix: "wec_", nth: 0, inline: "hex::encode(random)", fed_by: "OsRng.fill_bytes(&mut random)", tolerates: &[], note: "workload effect capability token: 32 bytes from the OS RNG" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs", function: "mint_guest_effect_capability", prefix: "wec_", nth: 1, inline: "Sha256::digest(token.as_bytes())", fed_by: "", tolerates: &["[.."], note: "workload effect capability ID, not the credential: a one-way 32-hex prefix of the token's SHA-256" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs", function: "mint_guest_governed_provider_effect_capability", prefix: "wbt_", nth: 0, inline: "hex::encode(trigger_random)", fed_by: "OsRng.fill_bytes(&mut trigger_random)", tolerates: &[], note: "host trigger: 32 bytes from the OS RNG" },
+    Mint { file: "services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs", function: "plan_capability_token_control", prefix: "ioi_mnt_", nth: 0, inline: "hex_lower(&secret)", fed_by: "OsRng.fill_bytes(&mut secret)", tolerates: &[], note: "model-mount capability token: 32 bytes from the OS RNG, id drawn separately" },
+    Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "random_url_safe_token", prefix: "", nth: 0, inline: "rand::thread_rng()", fed_by: "", tolerates: &[], note: "Google OAuth state and PKCE verifier primitive: the thread CSPRNG" },
+    Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "login", prefix: "", nth: 0, inline: "random_url_safe_token(48)", fed_by: "", tolerates: &[], note: "Google OAuth state (24 bytes) and PKCE code_verifier (48 bytes) come from that primitive" },
+    Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "login", prefix: "", nth: 0, inline: "random_url_safe_token(24)", fed_by: "", tolerates: &[], note: "Google OAuth state: a 24-byte draw from that primitive" },
 ];
 
 /// Credential-NAMED functions that build a `<prefix>_{..}` value and were reviewed: each is an identifier or key, or a
@@ -75,10 +91,10 @@ const DISCOVERY_REVIEWED: &[(&str, &str, &str)] = &[
     ("services/src/agentic/automation.rs", "monitor_workflow_id_from_keywords", "a workflow id built from keywords"),
     ("services/src/agentic/runtime/kernel/approval.rs", "approval_state_update_thread_id_for_agent_id", "a thread id"),
 ];
+
 // ---------------------------------------------------------------------------------------------------------------
-// The scanner. It reads source TEXT (std only) and reports violations; the tests below feed it the real tree and
-// planted counterexamples. Strings, chars and comments are blanked in a "code" copy so braces inside them do not
-// confuse function and test-module spans; literals are read from the original text.
+// The scanner. Std only; it reads source TEXT and reports violations. The tests feed it the real tree and planted
+// counterexamples.
 // ---------------------------------------------------------------------------------------------------------------
 
 #[derive(Clone)]
@@ -88,11 +104,19 @@ struct Func {
     end: usize,   // byte offset one past the closing brace
 }
 
-/// Same length as `text`, with the inside of every string, char literal and comment replaced by spaces (newlines kept).
-fn blank_literals(text: &str) -> String {
-    let b: Vec<u8> = text.bytes().collect();
-    let mut out: Vec<u8> = b.clone();
-    let mut i = 0;
+/// A string literal's contents: byte offsets of the text between its delimiters.
+#[derive(Clone, Copy)]
+struct Lit {
+    start: usize,
+    end: usize,
+}
+
+/// A copy of `text` of the same byte length with the inside of every string (plain, raw, byte), char literal and
+/// (nested) comment blanked to spaces, newlines kept; plus the spans of the string literals' contents.
+fn lex(text: &str) -> (String, Vec<Lit>) {
+    let b = text.as_bytes();
+    let mut out: Vec<u8> = b.to_vec();
+    let mut lits = Vec::new();
     let blank = |out: &mut Vec<u8>, from: usize, to: usize| {
         for k in from..to.min(out.len()) {
             if out[k] != b'\n' {
@@ -100,73 +124,103 @@ fn blank_literals(text: &str) -> String {
             }
         }
     };
+    let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+    let mut i = 0;
     while i < b.len() {
         let c = b[i];
-        if c == b'/' && i + 1 < b.len() && b[i + 1] == b'/' {
+        if c == b'/' && b.get(i + 1) == Some(&b'/') {
             let mut j = i;
             while j < b.len() && b[j] != b'\n' {
                 j += 1;
             }
             blank(&mut out, i, j);
             i = j;
-        } else if c == b'/' && i + 1 < b.len() && b[i + 1] == b'*' {
+        } else if c == b'/' && b.get(i + 1) == Some(&b'*') {
+            let mut depth = 1;
             let mut j = i + 2;
-            while j + 1 < b.len() && !(b[j] == b'*' && b[j + 1] == b'/') {
-                j += 1;
+            while j < b.len() && depth > 0 {
+                if b[j] == b'/' && b.get(j + 1) == Some(&b'*') {
+                    depth += 1;
+                    j += 2;
+                } else if b[j] == b'*' && b.get(j + 1) == Some(&b'/') {
+                    depth -= 1;
+                    j += 2;
+                } else {
+                    j += 1;
+                }
             }
-            blank(&mut out, i, (j + 2).min(b.len()));
-            i = j + 2;
-        } else if c == b'r'
-            && i + 1 < b.len()
-            && (b[i + 1] == b'"' || b[i + 1] == b'#')
-            && (i == 0 || !(b[i - 1].is_ascii_alphanumeric() || b[i - 1] == b'_'))
-        {
-            let mut j = i + 1;
-            let mut hashes = 0;
-            while j < b.len() && b[j] == b'#' {
-                hashes += 1;
-                j += 1;
-            }
-            if j < b.len() && b[j] == b'"' {
-                let mut k = j + 1;
-                loop {
-                    if k >= b.len() {
-                        break;
-                    }
-                    if b[k] == b'"'
-                        && (0..hashes).all(|h| k + 1 + h < b.len() && b[k + 1 + h] == b'#')
-                    {
-                        break;
-                    }
+            blank(&mut out, i, j);
+            i = j;
+        } else if (c == b'r' || (c == b'b' && b.get(i + 1) == Some(&b'r')))
+            && (i == 0 || !ident(b[i - 1]))
+            && {
+                let mut k = i + if c == b'b' { 2 } else { 1 };
+                while b.get(k) == Some(&b'#') {
                     k += 1;
                 }
-                blank(&mut out, j + 1, k);
-                i = k + 1 + hashes;
-            } else {
-                i += 1;
+                b.get(k) == Some(&b'"')
             }
+        {
+            let mut k = i + if c == b'b' { 2 } else { 1 };
+            let mut hashes = 0;
+            while b.get(k) == Some(&b'#') {
+                hashes += 1;
+                k += 1;
+            }
+            let content = k + 1;
+            let mut e = content;
+            while e < b.len() {
+                if b[e] == b'"' && (0..hashes).all(|h| b.get(e + 1 + h) == Some(&b'#')) {
+                    break;
+                }
+                e += 1;
+            }
+            lits.push(Lit {
+                start: content,
+                end: e.min(b.len()),
+            });
+            blank(&mut out, content, e);
+            i = e + 1 + hashes;
         } else if c == b'"' {
-            let mut j = i + 1;
+            let content = i + 1;
+            let mut j = content;
             while j < b.len() && b[j] != b'"' {
                 if b[j] == b'\\' {
                     j += 1;
                 }
                 j += 1;
             }
-            blank(&mut out, i + 1, j);
+            lits.push(Lit {
+                start: content,
+                end: j.min(b.len()),
+            });
+            blank(&mut out, content, j);
             i = j + 1;
         } else if c == b'\'' {
-            // a char literal (b'x', '\n', b'{') but not a lifetime ('a)
-            if i + 2 < b.len() && b[i + 1] == b'\\' {
-                let mut j = i + 2;
+            // a char literal ('x', '\n', '"', '—') but not a lifetime ('a)
+            if b.get(i + 1) == Some(&b'\\') {
+                let mut j = i + 3;
                 while j < b.len() && b[j] != b'\'' {
                     j += 1;
                 }
                 blank(&mut out, i + 1, j);
                 i = j + 1;
-            } else if i + 2 < b.len() && b[i + 2] == b'\'' {
-                blank(&mut out, i + 1, i + 2);
-                i += 3;
+            } else if let Some(&lead) = b.get(i + 1) {
+                let len = if lead < 0x80 {
+                    1
+                } else if lead >= 0xF0 {
+                    4
+                } else if lead >= 0xE0 {
+                    3
+                } else {
+                    2
+                };
+                if b.get(i + 1 + len) == Some(&b'\'') {
+                    blank(&mut out, i + 1, i + 1 + len);
+                    i += 2 + len;
+                } else {
+                    i += 1;
+                }
             } else {
                 i += 1;
             }
@@ -174,7 +228,11 @@ fn blank_literals(text: &str) -> String {
             i += 1;
         }
     }
-    String::from_utf8(out).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
+    (
+        String::from_utf8(out)
+            .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned()),
+        lits,
+    )
 }
 
 fn matching_brace(code: &[u8], open: usize) -> Option<usize> {
@@ -192,7 +250,7 @@ fn matching_brace(code: &[u8], open: usize) -> Option<usize> {
     None
 }
 
-/// Byte-offset spans of `fn` items (name, start, end) and of `#[cfg(test)]` blocks.
+/// Byte-offset spans of `fn` items and of `#[cfg(test)]` blocks, from the lexed code.
 fn spans(code: &str) -> (Vec<Func>, Vec<(usize, usize)>) {
     let bytes = code.as_bytes();
     let mut funcs = Vec::new();
@@ -211,7 +269,6 @@ fn spans(code: &str) -> (Vec<Func>, Vec<(usize, usize)>) {
         if name.is_empty() {
             continue;
         }
-        // the body opens at the first `{` before a `;` (a trait item or an extern fn has none)
         let mut k = at + 3 + name.len();
         let mut open = None;
         let mut paren = 0i32;
@@ -244,7 +301,6 @@ fn spans(code: &str) -> (Vec<Func>, Vec<(usize, usize)>) {
         s = at + 12;
         if let Some(open_rel) = code[s..].find('{') {
             let open = s + open_rel;
-            // only a `mod`/`fn`/`impl` item header sits between the attribute and its brace
             let header = &code[s..open];
             if header.len() < 200 && !header.contains(';') {
                 if let Some(end) = matching_brace(bytes, open) {
@@ -256,7 +312,7 @@ fn spans(code: &str) -> (Vec<Func>, Vec<(usize, usize)>) {
     (funcs, tests)
 }
 
-fn enclosing<'a>(funcs: &'a [Func], at: usize) -> Option<&'a Func> {
+fn enclosing(funcs: &[Func], at: usize) -> Option<&Func> {
     funcs
         .iter()
         .filter(|f| f.start <= at && at < f.end)
@@ -264,100 +320,216 @@ fn enclosing<'a>(funcs: &'a [Func], at: usize) -> Option<&'a Func> {
 }
 
 fn line_of(text: &str, at: usize) -> usize {
-    text[..at].matches('\n').count() + 1
+    text[..at.min(text.len())].matches('\n').count() + 1
 }
 
-/// Every `"<prefix>…{…"` string literal (the literal starts with the prefix and holds a placeholder), by byte offset.
-fn prefix_literals(text: &str, prefix: &str) -> Vec<usize> {
-    let needle = format!("\"{prefix}");
-    let mut out = Vec::new();
-    let mut s = 0;
-    while let Some(rel) = text[s..].find(&needle) {
-        let at = s + rel;
-        s = at + needle.len();
-        let literal_end = text[at + 1..]
-            .find('"')
-            .map(|e| at + 1 + e)
-            .unwrap_or(text.len());
-        if text[at + 1..literal_end].contains('{') {
-            out.push(at);
+/// The statement holding `at`, from the call expression holding the literal (or the previous delimiter) to its end.
+fn statement_around(code: &str, at: usize, limit_end: usize) -> (usize, usize) {
+    let bytes = code.as_bytes();
+    // start: the previous statement/field delimiter
+    let mut start = 0;
+    let mut k = at;
+    while k > 0 {
+        k -= 1;
+        if matches!(bytes[k], b';' | b'{' | b'}' | b',') {
+            start = k + 1;
+            break;
         }
     }
+    // the innermost unmatched '(' before the literal and its match bound the call; otherwise run to the ';'
+    let mut depth = 0i32;
+    let mut open = None;
+    let mut j = at;
+    while j > start {
+        j -= 1;
+        match bytes[j] {
+            b')' => depth += 1,
+            b'(' => {
+                if depth == 0 {
+                    open = Some(j);
+                    break;
+                }
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    if let Some(open) = open {
+        let mut d = 0i32;
+        for (idx, &ch) in bytes.iter().enumerate().skip(open) {
+            if idx >= limit_end {
+                break;
+            }
+            if ch == b'(' {
+                d += 1;
+            } else if ch == b')' {
+                d -= 1;
+                if d == 0 {
+                    return (start, idx + 1);
+                }
+            }
+        }
+    }
+    let end = code[at..limit_end.min(code.len())]
+        .find(';')
+        .map(|e| at + e)
+        .unwrap_or(limit_end.min(code.len()));
+    (start, end)
+}
+
+struct Candidate {
+    at: usize,
+    prefix: &'static str,
+    func: Option<Func>,
+    statement: (usize, usize),
+}
+
+/// Every literal that starts with a registered prefix and is used to BUILD a value (not to compare against one).
+fn candidates(
+    text: &str,
+    code: &str,
+    lits: &[Lit],
+    funcs: &[Func],
+    tests: &[(usize, usize)],
+) -> Vec<Candidate> {
+    let mut out = Vec::new();
+    for lit in lits {
+        let content = &text[lit.start..lit.end];
+        let Some(prefix) = PREFIXES.iter().find(|p| content.starts_with(**p)) else {
+            continue;
+        };
+        if tests.iter().any(|(a, b)| *a <= lit.start && lit.start < *b) {
+            continue;
+        }
+        let func = enclosing(funcs, lit.start).cloned();
+        let limit = func.as_ref().map(|f| f.end).unwrap_or(code.len());
+        let statement = statement_around(code, lit.start, limit);
+        let stmt_text = &text[statement.0..statement.1.min(text.len())];
+        let building = content.contains('{') || is_building(stmt_text);
+        let comparing = is_comparing(stmt_text);
+        if func.is_some() && (!building || (comparing && !content.contains('{'))) {
+            continue;
+        }
+        out.push(Candidate {
+            at: lit.start,
+            prefix,
+            func,
+            statement,
+        });
+    }
+    out.sort_by_key(|c| c.at);
     out
 }
 
-/// Literals shaped like `<word>_{…}` (a prefix followed by a placeholder): `"abc_{}"`, `"abc_evt_{}"`.
-fn shaped_prefix_literals(text: &str) -> Vec<(usize, String)> {
+/// Literals shaped like `<word>_` or `<word>_{..}` inside a function, used to BUILD a value: prefixes this lint was
+/// not told about.
+fn shaped_prefixes(
+    text: &str,
+    code: &str,
+    lits: &[Lit],
+    from: usize,
+    to: usize,
+) -> Vec<(usize, String)> {
     let mut out = Vec::new();
-    let mut s = 0;
-    while let Some(rel) = text[s..].find('"') {
-        let at = s + rel;
-        let Some(end_rel) = text[at + 1..].find('"') else {
-            break;
-        };
-        let end = at + 1 + end_rel;
-        let literal = &text[at + 1..end];
-        s = end + 1;
-        let head: String = literal
+    for lit in lits.iter().filter(|l| l.start >= from && l.end <= to) {
+        let content = &text[lit.start..lit.end];
+        let head: String = content
             .chars()
             .take_while(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '_')
             .collect();
-        if head.len() >= 3
+        if !(head.len() >= 3
             && head.len() <= 20
             && head.ends_with('_')
-            && literal[head.len()..].starts_with('{')
+            && (content.len() == head.len() || content[head.len()..].starts_with('{')))
         {
-            out.push((at, head));
+            continue;
         }
+        if !content.contains('{') {
+            let (a, z) = statement_around(code, lit.start, to);
+            let stmt = &text[a..z.min(text.len())];
+            if !is_building(stmt) || is_comparing(stmt) {
+                continue;
+            }
+        }
+        out.push((lit.start, head));
     }
     out
 }
 
-/// The statement text from `at` to the next `;` (the minted expression).
-fn statement_from(text: &str, at: usize) -> &str {
-    let end = text[at..].find(';').map(|e| at + e).unwrap_or(text.len());
-    &text[at..end]
+fn is_building(statement: &str) -> bool {
+    [
+        "+",
+        "push_str",
+        "to_owned",
+        "String::from",
+        "format!",
+        "concat!",
+        ".join(",
+        ".to_string()",
+        ".into()",
+    ]
+    .iter()
+    .any(|m| statement.contains(m))
 }
 
-/// Scan the given files. Returns one line per violation; empty means the registry is closed over these files.
+fn is_comparing(statement: &str) -> bool {
+    [
+        "starts_with",
+        "strip_prefix",
+        "matches!",
+        "==",
+        "!=",
+        ".eq(",
+        "ends_with",
+        ".contains(",
+    ]
+    .iter()
+    .any(|m| statement.contains(m))
+}
+
+/// Scan the given files. One line per violation; empty means no accidental shape inside this lint's scope.
 fn scan(files: &[(String, String)]) -> Vec<String> {
     let mut violations = Vec::new();
-    let mut counts = vec![0usize; MINTS.len()];
+    let mut found: Vec<(String, String, String, usize)> = Vec::new(); // (file, function, prefix, occurrences)
     for (rel, text) in files {
-        let code = blank_literals(text);
+        let (code, lits) = lex(text);
         let (funcs, tests) = spans(&code);
-        let in_test = |at: usize| tests.iter().any(|(a, b)| *a <= at && at < *b);
-        // 1. every concrete credential prefix mint
-        let mut occurrences: Vec<(usize, String)> = Vec::new();
-        for prefix in PREFIXES {
-            for at in prefix_literals(text, prefix) {
-                occurrences.push((at, (*prefix).to_string()));
-            }
-        }
-        // prefixes found by shape inside credential-named functions are handled in pass 2
-        occurrences.sort();
-        for (at, prefix) in occurrences {
-            if in_test(at) {
-                continue;
-            }
-            let func = enclosing(&funcs, at)
-                .map(|f| f.name.clone())
-                .unwrap_or_else(|| "<no function>".to_string());
-            let hit = MINTS
-                .iter()
-                .position(|m| m.file == rel && m.function == func && m.prefix == prefix);
-            let Some(index) = hit else {
-                violations.push(format!("{rel}:{}: `{prefix}…` is minted in `{func}`, which is not a registered minting site", line_of(text, at)));
+        // 1. every mint candidate against the registry, by (file, function, prefix, nth)
+        let mut seen: Vec<(String, String, usize)> = Vec::new();
+        for cand in candidates(text, &code, &lits, &funcs, &tests) {
+            let Some(func) = cand.func.clone() else {
+                violations.push(format!("{rel}:{}: `{}…` is held outside any function (a const or static): register the mint that uses it", line_of(text, cand.at), cand.prefix));
                 continue;
             };
-            counts[index] += 1;
-            let mint = &MINTS[index];
-            let func_span = enclosing(&funcs, at).unwrap();
-            let body = &text[func_span.start..func_span.end];
-            if !body.contains(mint.entropy) {
-                violations.push(format!("{rel}:{}: the `{prefix}…` mint in `{func}` does not show its registered entropy source {:?}", line_of(text, at), mint.entropy));
+            let nth = seen
+                .iter()
+                .filter(|(f, p, _)| *f == func.name && p == cand.prefix)
+                .count();
+            seen.push((func.name.clone(), cand.prefix.to_string(), nth));
+            let line = line_of(text, cand.at);
+            let Some(mint) = MINTS.iter().find(|m| {
+                m.file == rel && m.function == func.name && m.prefix == cand.prefix && m.nth == nth
+            }) else {
+                let known = MINTS
+                    .iter()
+                    .any(|m| m.file == rel && m.function == func.name && m.prefix == cand.prefix);
+                violations.push(if known {
+                    format!("{rel}:{line}: `{}` mints `{}…` more times than the registry says (occurrence {})", func.name, cand.prefix, nth + 1)
+                } else {
+                    format!("{rel}:{line}: `{}…` is minted in `{}`, which is not a registered minting site", cand.prefix, func.name)
+                });
+                continue;
+            };
+            let statement = &text[cand.statement.0..cand.statement.1.min(text.len())];
+            if !statement.contains(mint.inline) {
+                violations.push(format!("{rel}:{line}: the `{}…` mint in `{}` is not formed from its registered source {:?}", cand.prefix, func.name, mint.inline));
             }
-            let statement = statement_from(text, at);
+            if !mint.fed_by.is_empty() {
+                let before = &text[func.start..cand.statement.0.min(text.len()).max(func.start)];
+                if !before.contains(mint.fed_by) {
+                    violations.push(format!("{rel}:{line}: the `{}…` mint in `{}` is not preceded by its registered draw {:?}", cand.prefix, func.name, mint.fed_by));
+                }
+            }
             for forbidden in [
                 "[..",
                 "hash_json(",
@@ -369,18 +541,31 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                 "Instant::now",
             ] {
                 if statement.contains(forbidden) && !mint.tolerates.contains(&forbidden) {
-                    violations.push(format!("{rel}:{}: the `{prefix}…` mint in `{func}` is built from a derivation ({forbidden:?})", line_of(text, at)));
+                    violations.push(format!("{rel}:{line}: the `{}…` mint in `{}` is built from a derivation ({forbidden:?})", cand.prefix, func.name));
                 }
             }
         }
-        // 2. discovery: a credential-named function that builds a prefixed value must be registered or reviewed
+        for (name, prefix, _) in &seen {
+            if let Some(entry) = found
+                .iter_mut()
+                .find(|(f, n, p, _)| f == rel && n == name && p == prefix)
+            {
+                entry.3 += 1;
+            } else {
+                found.push((rel.clone(), name.clone(), prefix.clone(), 1));
+            }
+        }
+        // 2. discovery: a credential-named function that builds a prefix-shaped value is registered or reviewed by name
         for func in &funcs {
             let lower = func.name.to_lowercase();
-            if !DISCOVERY_NAMES.iter().any(|w| lower.contains(w)) || in_test(func.start) {
+            if !DISCOVERY_NAMES.iter().any(|w| lower.contains(w))
+                || tests
+                    .iter()
+                    .any(|(a, b)| *a <= func.start && func.start < *b)
+            {
                 continue;
             }
-            for (at, head) in shaped_prefix_literals(&text[func.start..func.end]) {
-                let at = func.start + at;
+            for (at, head) in shaped_prefixes(text, &code, &lits, func.start, func.end) {
                 let registered = MINTS
                     .iter()
                     .any(|m| m.file == rel && m.function == func.name && m.prefix == head);
@@ -393,11 +578,20 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
             }
         }
     }
-    for (index, mint) in MINTS.iter().enumerate() {
+    // 3. the registry against the tree: every registered file and function exists, every registered mint is found
+    let mut missing_files: Vec<&str> = Vec::new();
+    for mint in MINTS {
         let Some((rel, text)) = files.iter().find(|(rel, _)| rel == mint.file) else {
+            if !missing_files.contains(&mint.file) {
+                missing_files.push(mint.file);
+                violations.push(format!(
+                    "{}: the registered file is missing from the tree",
+                    mint.file
+                ));
+            }
             continue;
         };
-        let code = blank_literals(text);
+        let (code, _) = lex(text);
         let (funcs, _) = spans(&code);
         let Some(func) = funcs.iter().find(|f| f.name == mint.function) else {
             violations.push(format!(
@@ -407,19 +601,30 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
             continue;
         };
         if mint.prefix.is_empty() {
-            if !text[func.start..func.end].contains(mint.entropy) {
+            if !text[func.start..func.end].contains(mint.inline) {
                 violations.push(format!(
                     "{rel}: `{}` ({}) no longer shows {:?}",
-                    mint.function, mint.note, mint.entropy
+                    mint.function, mint.note, mint.inline
                 ));
             }
-        } else if counts[index] != mint.count {
-            violations.push(format!(
-                "{rel}: `{}` mints `{}…` {} time(s); the registry says {}",
-                mint.function, mint.prefix, counts[index], mint.count
-            ));
+        } else {
+            let count = found
+                .iter()
+                .find(|(f, n, p, _)| f == rel && n == mint.function && p == mint.prefix)
+                .map_or(0, |e| e.3);
+            if count <= mint.nth {
+                violations.push(format!(
+                    "{rel}: `{}` no longer mints `{}…` (occurrence {} registered, {} found)",
+                    mint.function,
+                    mint.prefix,
+                    mint.nth + 1,
+                    count
+                ));
+            }
         }
     }
+    violations.sort();
+    violations.dedup();
     violations
 }
 
@@ -692,11 +897,11 @@ fn a_google_state_that_is_no_longer_drawn_at_random_fails_the_sweep() {
 }
 
 #[test]
-fn a_function_the_lint_cannot_see_into_is_a_named_out_of_scope_shape_not_a_pass() {
-    // a mint assembled by a macro is outside this lint's scope: it is reviewed (and, later, made a type error).
-    // This test pins that the lint does not claim otherwise: the shape below passes the scan, and the header says so.
+fn a_prefix_assembled_from_pieces_is_a_named_out_of_scope_shape_not_a_pass() {
+    // A prefix split across macro pieces is OUTSIDE this lint's scope (the header names it; review and BUILD-DELTA #42
+    // cover it). This test pins that the lint does not claim to catch it, so nobody reads a pass as more than it is.
     let tree = tree_with(LIFECYCLE, |text| {
-        format!("{text}\nfn make_value() -> String {{\n    concat!(\"ioi_pat_\", \"x\").to_string()\n}}\n")
+        format!("{text}\nfn make_value() -> String {{\n    concat!(\"ioi_p\", \"at_\", \"x\").to_string()\n}}\n")
     });
     assert!(scan(&tree).is_empty());
 }
