@@ -46,7 +46,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { censusPinErrors } from "../apps/hypervisor/scripts/admission-census-pins.mjs";
+import { censusPinErrors, pinnedLeaves } from "../apps/hypervisor/scripts/admission-census-pins.mjs";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const mutation = process.argv.includes("--mutation");
@@ -64,15 +64,24 @@ const CENSUS_VERIFIER = join(
 // reads it directly instead of reading the verifier's source.
 const PINS_SIDECAR = join(repo, "apps/hypervisor/scripts/admission-census-pins.json");
 
-/// Every path at which two pin trees differ: a key only one has, or a different value.
+/// Every path at which two pin trees differ: a key only one has (even if the other holds it as
+/// undefined), or a different value.
 function pinDifferences(expected, actual, at = "") {
   const out = [];
   const keys = new Set([...Object.keys(expected ?? {}), ...Object.keys(actual ?? {})]);
+  const shown = (tree, key, side) =>
+    tree !== null && typeof tree === "object" && Object.hasOwn(tree, key)
+      ? `${side} ${JSON.stringify(tree[key])}`
+      : `absent from the ${side}`;
   for (const key of [...keys].sort()) {
     const where = at ? `${at}.${key}` : key;
+    const inWant = expected !== null && typeof expected === "object" && Object.hasOwn(expected, key);
+    const inHave = actual !== null && typeof actual === "object" && Object.hasOwn(actual, key);
     const want = expected?.[key];
     const have = actual?.[key];
-    if (want && typeof want === "object" && have && typeof have === "object") {
+    if (!inWant || !inHave) {
+      out.push(`${where}: ${shown(expected, key, "sidecar")} vs ${shown(actual, key, "verifier")}`);
+    } else if (want && typeof want === "object" && have && typeof have === "object") {
       out.push(...pinDifferences(want, have, where));
     } else if (want !== have) {
       out.push(`${where}: sidecar ${JSON.stringify(want)} vs verifier ${JSON.stringify(have)}`);
@@ -213,7 +222,7 @@ try {
     shapeErrors.length === 0, shapeErrors.join(" · ") || "every PINNED leaf present and an integer");
   if (shapeErrors.length) throw new Error("the census pins are malformed, so nothing below reads them");
   const verifierModule = await import(pathToFileURL(CENSUS_VERIFIER).href);
-  const pinDiff = pinDifferences(sidecar, verifierModule.PINNED);
+  const pinDiff = pinDifferences(pinnedLeaves(sidecar), verifierModule.PINNED);
   ok("the census verifier's pins ARE the sidecar's: every PINNED leaf it checks is the one in apps/hypervisor/scripts/admission-census-pins.json, so no PINNED leaf is restated where this check cannot read it",
     pinDiff.length === 0, pinDiff.join(" · ") || "every PINNED leaf identical");
 
