@@ -1,3 +1,4 @@
+use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::{fs, path::Path};
@@ -52,6 +53,25 @@ pub struct ModelMountCapabilityTokenControlPlan {
     pub evidence_refs: Vec<String>,
     pub control_hash: String,
     pub authority_hash: String,
+}
+
+/// Marks a token record minted from the OS RNG. Records without it were derived and are not honoured.
+const CAPABILITY_TOKEN_ENTROPY: &str = "os_rng_256_v1";
+
+fn hex_lower(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// Equality that reads every byte of both sides whatever the first difference.
+fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+    let mut difference = left.len() ^ right.len();
+    for index in 0..left.len().max(right.len()) {
+        difference |= usize::from(
+            left.get(index).copied().unwrap_or_default()
+                ^ right.get(index).copied().unwrap_or_default(),
+        );
+    }
+    difference == 0
 }
 
 #[derive(Debug, Clone)]
@@ -140,17 +160,14 @@ pub(super) fn plan_capability_token_control(
                 .into_iter()
                 .chain(string_array_field(body, "denied_scopes"))
                 .collect();
-            let create_seed = json!({
-                "operation_kind": operation_kind,
-                "body_hash": body_hash,
-                "source": source,
-                "generated_at": generated_at,
-                "authority_grant_refs": authority_grant_refs,
-                "authority_receipt_refs": authority_receipt_refs,
-            });
-            let create_hash = hash_json(&create_seed)?;
-            let minted = format!("ioi_mnt_{}", &create_hash[..32]);
-            token_id = Some(format!("capability_token:{}", &create_hash[..16]));
+            // The token is 256 bits from the OS RNG and nothing else; the public token_id is drawn
+            // separately, so the id discloses nothing of the token.
+            let mut secret = [0u8; 32];
+            OsRng.fill_bytes(&mut secret);
+            let minted = format!("ioi_mnt_{}", hex_lower(&secret));
+            let mut id_material = [0u8; 16];
+            OsRng.fill_bytes(&mut id_material);
+            token_id = Some(format!("capability_token:{}", hex_lower(&id_material)));
             minted_token_hash = Some(sha256_hex(minted.as_bytes())?);
             record_public_response = json!({
                 "object": "ioi.model_mount_capability_token",
@@ -158,6 +175,7 @@ pub(super) fn plan_capability_token_control(
                 "token_id": token_id,
                 "token_material_returned_once": true,
                 "plaintext_material_persisted": false,
+                "token_entropy": CAPABILITY_TOKEN_ENTROPY,
                 "token_hash": minted_token_hash,
                 "audience": audience,
                 "grant_id": grant_id,
@@ -188,13 +206,17 @@ pub(super) fn plan_capability_token_control(
             response_public_response = record_public_response.clone();
         }
         "model_mount.capability_token.authorize" => {
-            let token = existing_tokens
-                .iter()
-                .find(|candidate| {
-                    !candidate.revoked
-                        && Some(candidate.token_hash.as_str()) == token_hash.as_deref()
-                })
-                .ok_or(ModelMountError::CapabilityTokenUnauthorized)?;
+            // Every stored hash is compared in constant time and the scan never exits early, so the
+            // time taken says nothing about which stored token a presented value is close to.
+            let presented = token_hash.as_deref().unwrap_or_default().as_bytes();
+            let mut matched: Option<&CapabilityTokenRecord> = None;
+            for candidate in &existing_tokens {
+                let equal = constant_time_eq(candidate.token_hash.as_bytes(), presented);
+                if equal & !candidate.revoked & matched.is_none() {
+                    matched = Some(candidate);
+                }
+            }
+            let token = matched.ok_or(ModelMountError::CapabilityTokenUnauthorized)?;
             let required_scope = option_string(&request.required_scope, "required_scope")?;
             if !scope_authorized(&required_scope, &token.allowed_scopes, &token.denied_scopes) {
                 return Err(ModelMountError::CapabilityTokenUnauthorized);
@@ -297,6 +319,7 @@ pub(super) fn plan_capability_token_control(
             "authority_grant_refs": authority_grant_refs,
             "authority_receipt_refs": authority_receipt_refs,
         },
+        "token_entropy": if operation_kind == "model_mount.capability_token.create" { json!(CAPABILITY_TOKEN_ENTROPY) } else { Value::Null },
         "public_response": record_public_response,
         "receipt_refs": receipt_refs,
         "evidence_refs": evidence_refs,
@@ -384,6 +407,10 @@ fn load_capability_tokens(
         if operation != Some("model_mount.capability_token.create") {
             continue;
         }
+        // A token minted before tokens were random (derived from non-secret inputs) is not honoured.
+        if value.get("token_entropy").and_then(Value::as_str) != Some(CAPABILITY_TOKEN_ENTROPY) {
+            continue;
+        }
         let Some(token_id) = token_id else {
             continue;
         };
@@ -438,7 +465,6 @@ fn public_token_list(tokens: &[CapabilityTokenRecord]) -> Vec<Value> {
                 "created_at": token.created_at,
                 "allowed_scopes": token.allowed_scopes,
                 "denied_scopes": token.denied_scopes,
-                "token_hash": token.token_hash,
             })
         })
         .collect::<Vec<_>>();
@@ -629,6 +655,207 @@ mod tests {
             .as_str()
             .unwrap()
             .starts_with("ioi_mnt_"));
+    }
+
+    fn scratch_state() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "ioi-capability-token-test-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::SeqCst)
+        ));
+        fs::create_dir_all(dir.join("capability-tokens")).unwrap();
+        dir
+    }
+
+    fn create_in(state: &Path) -> ModelMountCapabilityTokenControlPlan {
+        let mut create = request("model_mount.capability_token.create");
+        create.state_dir = Some(state.to_string_lossy().to_string());
+        let plan = plan_capability_token_control(&create).expect("create");
+        fs::write(
+            state
+                .join("capability-tokens")
+                .join(format!("{}.json", plan.record_id.replace(':', "_"))),
+            serde_json::to_vec(&plan.record).unwrap(),
+        )
+        .unwrap();
+        plan
+    }
+
+    fn authorize_in(
+        state: &Path,
+        token: &str,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        let mut authorize = request("model_mount.capability_token.authorize");
+        authorize.state_dir = Some(state.to_string_lossy().to_string());
+        authorize.token_hash = Some(sha256_hex(token.as_bytes()).unwrap());
+        authorize.required_scope = Some("model.chat:hello".to_string());
+        plan_capability_token_control(&authorize)
+    }
+
+    #[test]
+    fn two_creates_with_identical_inputs_mint_different_tokens_and_ids() {
+        let state = scratch_state();
+        let first = create_in(&state);
+        let second = create_in(&state);
+        assert_ne!(
+            first.public_response["token"],
+            second.public_response["token"]
+        );
+        assert_ne!(
+            first.public_response["token_id"],
+            second.public_response["token_id"]
+        );
+        // And neither is the old derivation of its inputs.
+        let seed = json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "body_hash": hash_json(&request("x").body).unwrap(),
+            "source": "test.capability_token_control",
+            "generated_at": "2026-06-13T12:00:00.000Z",
+            "authority_grant_refs": ["grant://wallet/capability"],
+            "authority_receipt_refs": ["receipt://wallet/capability"],
+        });
+        let derived = format!("ioi_mnt_{}", &hash_json(&seed).unwrap()[..32]);
+        assert_ne!(first.public_response["token"].as_str().unwrap(), derived);
+    }
+
+    #[test]
+    fn the_token_is_256_random_bits_and_its_id_is_independent_of_it() {
+        let state = scratch_state();
+        let plan = create_in(&state);
+        let token = plan.public_response["token"].as_str().unwrap();
+        let hex = token.strip_prefix("ioi_mnt_").unwrap();
+        assert_eq!(hex.len(), 64);
+        let id = plan.public_response["token_id"].as_str().unwrap();
+        let id_hex = id.strip_prefix("capability_token:").unwrap();
+        assert!(!id_hex.is_empty());
+        assert!(
+            !hex.starts_with(id_hex),
+            "the public id is not a prefix of the token"
+        );
+        assert!(!hex.contains(&id_hex[..id_hex.len().min(16)]));
+    }
+
+    #[test]
+    fn only_the_exact_token_authorizes() {
+        let state = scratch_state();
+        let first = create_in(&state);
+        let second = create_in(&state);
+        for plan in [&first, &second] {
+            let token = plan.public_response["token"].as_str().unwrap();
+            let granted = authorize_in(&state, token).expect("its own token authorizes");
+            assert_eq!(granted.record["token_id"], plan.public_response["token_id"]);
+        }
+        let mut wrong = first.public_response["token"].as_str().unwrap().to_string();
+        let last = wrong.pop().unwrap();
+        wrong.push(if last == '0' { '1' } else { '0' });
+        assert_eq!(
+            authorize_in(&state, &wrong).unwrap_err(),
+            ModelMountError::CapabilityTokenUnauthorized
+        );
+    }
+
+    #[test]
+    fn a_token_minted_by_the_old_derivation_does_not_authorize() {
+        let state = scratch_state();
+        let legacy = "ioi_mnt_00112233445566778899aabbccddeeff";
+        let record = json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "rust_core_boundary": "model_mount.capability_token",
+            "token_id": "capability_token:0011223344556677",
+            "token_hash": sha256_hex(legacy.as_bytes()).unwrap(),
+            "capability_token_authority": {
+                "allowed_scopes": ["model.chat:*"], "denied_scopes": [], "audience": "a", "grant_id": "g"
+            },
+            "planned_at": "2026-06-13T12:00:00.000Z",
+        });
+        fs::write(
+            state.join("capability-tokens").join("legacy.json"),
+            serde_json::to_vec(&record).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            authorize_in(&state, legacy).unwrap_err(),
+            ModelMountError::CapabilityTokenUnauthorized
+        );
+    }
+
+    #[test]
+    fn the_list_projection_is_an_explicit_metadata_field_list() {
+        let state = scratch_state();
+        create_in(&state);
+        create_in(&state);
+        let mut list = request("model_mount.capability_token.list");
+        list.state_dir = Some(state.to_string_lossy().to_string());
+        let plan = plan_capability_token_control(&list).expect("list");
+        let tokens = plan.public_response["tokens"].as_array().expect("tokens");
+        assert_eq!(tokens.len(), 2);
+        for token in tokens {
+            let mut keys: Vec<&str> = token
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect();
+            keys.sort_unstable();
+            assert_eq!(
+                keys,
+                [
+                    "allowed_scopes",
+                    "audience",
+                    "created_at",
+                    "denied_scopes",
+                    "grant_id",
+                    "id",
+                    "object",
+                    "status",
+                    "token_id"
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn a_revoked_token_is_absent_from_the_list() {
+        let state = scratch_state();
+        let first = create_in(&state);
+        let second = create_in(&state);
+        let mut revoke = request("model_mount.capability_token.revoke");
+        revoke.state_dir = Some(state.to_string_lossy().to_string());
+        revoke.token_id = first.public_response["token_id"]
+            .as_str()
+            .map(str::to_string);
+        let plan = plan_capability_token_control(&revoke).expect("revoke");
+        fs::write(
+            state
+                .join("capability-tokens")
+                .join(format!("{}.json", plan.record_id.replace(':', "_"))),
+            serde_json::to_vec(&plan.record).unwrap(),
+        )
+        .unwrap();
+        let mut list = request("model_mount.capability_token.list");
+        list.state_dir = Some(state.to_string_lossy().to_string());
+        let listed = plan_capability_token_control(&list).expect("list");
+        let ids: Vec<&str> = listed.public_response["tokens"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|t| t["token_id"].as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            vec![second.public_response["token_id"].as_str().unwrap()]
+        );
+    }
+
+    #[test]
+    fn constant_time_eq_is_equality() {
+        assert!(constant_time_eq(b"abc", b"abc"));
+        assert!(!constant_time_eq(b"abc", b"abd"));
+        assert!(!constant_time_eq(b"abc", b"ab"));
+        assert!(!constant_time_eq(b"", b"a"));
+        assert!(constant_time_eq(b"", b""));
     }
 
     #[test]
