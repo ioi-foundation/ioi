@@ -1,22 +1,24 @@
-//! BUILD-DELTA #36 — a LINT for ACCIDENTAL derivation of a bearer credential, not a proof and not a closed guard.
+//! BUILD-DELTA #36 — a LINT that finds credential-minting sites in ordinary source shapes. It is not a proof, not a
+//! closed guard, and it does not establish that any credential is random.
 //!
-//! WHAT IT CATCHES. In the non-test source of crates/node/src and crates/services/src, for a string literal that
-//! starts with a registered credential prefix (`ioi_mnt_`, `ioi_pat_`, `ioi_lease_`, `wec_`, `wbt_`, `whk_`, `idisp_`, …):
-//!   - a mint (a `format!` placeholder literal, or the prefix joined with `+`, `.to_owned()`, `push_str`, `String::from`,
-//!     `concat!`, `.join(`, or held in a const) outside a registered (file, function, nth-occurrence);
-//!   - a registered mint whose own statement does not draw from its registered source (the formatted value must come from
-//!     the RNG/uuid call inside that statement, or from a variable the same function filled from the registered RNG call
-//!     BEFORE the statement), or is built from a derivation (a slice of a hash, a clock);
-//!   - a second mint of a prefix in a registered function, a registered function or FILE that disappeared;
-//!   - a function named like a credential (token, secret, bearer, key, verifier, state, nonce, jwt) that builds a
-//!     `<prefix>_`-shaped value and is neither registered nor reviewed by name.
-//! The lexer blanks strings (incl. raw and byte strings), char literals and nested block comments before it finds
-//! function and `#[cfg(test)]` spans.
+//! WHAT IT DOES. In the non-test source of crates/node/src and crates/services/src, it finds string literals that start
+//! with a registered credential prefix (`ioi_mnt_`, `ioi_pat_`, `ioi_lease_`, `wec_`, `wbt_`, `whk_`, `idisp_`, …) used to
+//! build a value (`format!`, `+`, `.to_owned()`, `push_str`, `String::from`, `.join(`), and functions named like a credential
+//! (token, secret, bearer, key, verifier, state, nonce, jwt) that build a `<prefix>_`-shaped value. Each must be a
+//! registered (file, function, prefix, occurrence) or be reviewed by name; a registered function or file that disappears,
+//! a second mint of a prefix, and a mint built from a hash slice or a clock fail. The lexer blanks strings (raw and byte
+//! included), char literals and nested block comments before it finds function and `#[cfg(test)]` spans.
 //!
-//! WHAT IT DOES NOT CATCH (named, covered by review and by BUILD-DELTA #42's type-level guard instead): a mint built by a
-//! helper in another file; a prefix assembled by a macro (`concat!` of pieces, `stringify!`) or at run time; a credential whose
-//! prefix is not in PREFIXES; a credential minted in a function whose name holds none of the keywords and no registered prefix;
-//! entropy that is real in the source and weak at run time. A pass is the absence of the accidental shapes above, nothing more.
+//! WHAT ITS ENTROPY CHECK IS. A HEURISTIC. It checks that a mint's own statement names its registered source (the RNG or
+//! uuid call, or a variable) and that a registered draw appears earlier in the function. It reads the text as written, so it does NOT
+//! see a commented-out draw, a buffer overwritten after the draw (`secret.fill(0)`), or a draw that is dead code. It is
+//! not evidence that a credential is random.
+//!
+//! KNOWN GAPS (covered by review, by the behavioural entropy tests of BUILD-DELTA #36d and by the type-level guard of
+//! BUILD-DELTA #42): a function-local `const` holding a registered prefix; a mint built by a helper in another file; a
+//! prefix assembled by a macro (`concat!`, `stringify!`) or at run time; a credential whose prefix is not in the list;
+//! a credential minted in a function whose name holds none of the keywords and no registered prefix; weak entropy at
+//! run time. A pass means none of the accidental shapes above was found, and nothing more.
 
 use std::fs;
 use std::path::{Path, PathBuf};
