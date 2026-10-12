@@ -186,6 +186,9 @@ jobs:
             preview_editor_lease_tokens
             oidc_identity_binding
             secret_hash_compares
+            read_only_api_tokens
+            credential_minting_sites
+            model_mount_token_entropy
           )
           args=()
           for target in "${targets[@]}"; do args+=(--test "$target"); done
