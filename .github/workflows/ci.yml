@@ -182,6 +182,7 @@ jobs:
         run: |
           targets=(
             d24_invite_accept
+            env_ops_access_token
           )
           args=()
           for target in "${targets[@]}"; do args+=(--test "$target"); done
