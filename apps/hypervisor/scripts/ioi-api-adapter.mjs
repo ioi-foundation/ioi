@@ -827,7 +827,8 @@ async function handleImpl(pathname, bodyText) {
         // EnvironmentOpsService gateway, which fails closed on revoke/expire.
         const id = envIdFromBody(body);
         const lease = await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ops-lease`);
-        return json({ accessToken: lease.accessToken || lease.lease_id });
+        if (!lease.accessToken) return unavailableRpc("environment_access_token_unissued", "the daemon answered the lease request without an access token; no token is fabricated");
+        return json({ accessToken: lease.accessToken });
       }
       case "/api/ioi.v1.EnvironmentService/CreateEnvironmentLogsToken": {
         // Sessions cut 1: the logs token is a real env-scoped capability lease (the same ops-lease
@@ -836,8 +837,8 @@ async function handleImpl(pathname, bodyText) {
         // to that environment, then reads GET /v1/hypervisor/environments/:id/logs as the caller.
         const id = envIdFromBody(body);
         const lease = await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ops-lease`);
-        const accessToken = lease.accessToken || lease.lease_id;
-        if (!accessToken) return unavailableRpc("environment_logs_token_unissued", "the daemon answered the lease request without a lease id; no token is fabricated");
+        const accessToken = lease.accessToken;
+        if (!accessToken) return unavailableRpc("environment_logs_token_unissued", "the daemon answered the lease request without an access token; no token is fabricated");
         return json({ accessToken });
       }
       case "/api/ioi.v1.EnvironmentService/MarkEnvironmentActive":

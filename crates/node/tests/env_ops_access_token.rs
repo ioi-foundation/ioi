@@ -1,7 +1,7 @@
-//! The env-ops access token is a random secret, returned once by the ops-lease mint, stored only as
-//! a hash, and distinct from the lease's grant id, which receipts and the audit trail cite. The
-//! env-ops seam accepts the token and never the grant id; the lease resolve route takes the token
-//! only in a header. Through the REAL daemon, inside `unshare -rn`, every path under one temp dir.
+//! The env-ops access token is returned once by the ops-lease mint, stored only as a hash, and
+//! distinct from the lease's grant id, which receipts and the audit trail cite. The env-ops seam
+//! accepts the token and never the grant id; the lease resolve route takes the token only in a
+//! header. Through the REAL daemon, inside `unshare -rn`, every path under one temp dir.
 
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -331,6 +331,65 @@ impl Fixture {
         );
         (status, self.workspace.join(name).exists())
     }
+
+    /// GET /v1/hypervisor/ops-lease at `path_and_query` with `headers`; (status, answer, raw body).
+    fn resolve_at(&self, path_and_query: &str, headers: &[(&str, &str)]) -> (u16, Value, String) {
+        let (status, body) = http_with(self.daemon.port, "GET", path_and_query, headers, None);
+        (status, json_of(&body), body)
+    }
+
+    /// The resolve route with `token` in the `x-ioi-env-ops-token` header.
+    fn resolve(&self, token: &str) -> (u16, Value, String) {
+        self.resolve_at(
+            "/v1/hypervisor/ops-lease",
+            &[("x-ioi-env-ops-token", token)],
+        )
+    }
+
+    /// Assert the resolve route refuses `token` (401, not active, names no environment).
+    fn assert_resolve_refuses(&self, label: &str, token: &str) {
+        let (status, answer, body) = self.resolve(token);
+        assert_eq!(status, 401, "resolve, {label}: {body}");
+        assert_ne!(answer["active"], json!(true), "resolve, {label}: {body}");
+        assert!(
+            !body.contains(&self.env),
+            "resolve, {label} names no environment: {body}"
+        );
+    }
+
+    fn revoke(&self, lease: &Lease) {
+        let (status, body) = http(
+            self.daemon.port,
+            "POST",
+            "/v1/hypervisor/authority/revoke",
+            Some(&self.owner),
+            Some(&json!({ "grant_id": lease.lease_id })),
+        );
+        assert_eq!(status, 200, "revoke: {body}");
+        assert_ne!(json_of(&body)["ok"], json!(false), "revoke: {body}");
+    }
+
+    /// Rewrite one member of the lease's stored grant record in place.
+    fn set_grant_member(&self, lease: &Lease, member: &str, value: Value) {
+        let path = self
+            .data
+            .join("authority-grants")
+            .join(format!("{}.json", lease.lease_id));
+        let mut grant: Value =
+            serde_json::from_slice(&std::fs::read(&path).expect("the lease's grant record"))
+                .expect("the grant record is JSON");
+        grant[member] = value;
+        std::fs::write(&path, serde_json::to_vec(&grant).unwrap()).expect("rewrite the grant");
+    }
+
+    /// Assert no stored file under the data dir carries the access token.
+    fn assert_token_stored_nowhere(&self, lease: &Lease, when: &str) {
+        assert_eq!(
+            files_containing(&self.data, &lease.token),
+            Vec::<PathBuf>::new(),
+            "{when}: no stored file (receipts, grants, logs) carries the access token"
+        );
+    }
 }
 
 /// A daemon with a bootstrapped owner, a second member, and one STARTED environment the owner owns.
@@ -354,11 +413,24 @@ fn fixture() -> Fixture {
         status == 200 || status == 201,
         "test-setup member: {status} {body}"
     );
+    let (env, workspace) = started_environment(&daemon, &data, &owner);
+    Fixture {
+        _dir: dir,
+        data,
+        daemon,
+        owner,
+        env,
+        workspace,
+    }
+}
+
+/// Create and start an environment the session's principal owns; returns its id and workspace.
+fn started_environment(daemon: &Daemon, data: &Path, session: &str) -> (String, PathBuf) {
     let (status, body) = http(
         daemon.port,
         "POST",
         "/v1/hypervisor/environments",
-        Some(&owner),
+        Some(session),
         Some(&json!({ "spec": {} })),
     );
     assert_eq!(status, 200, "test-setup environment: {body}");
@@ -370,7 +442,7 @@ fn fixture() -> Fixture {
         daemon.port,
         "POST",
         &format!("/v1/hypervisor/environments/{env}/start"),
-        Some(&owner),
+        Some(session),
         Some(&json!({})),
     );
     assert_eq!(status, 200, "test-setup start: {body}");
@@ -385,20 +457,14 @@ fn fixture() -> Fixture {
             .unwrap_or_else(|| panic!("a workspace root: {record}")),
     );
     assert!(workspace.is_dir(), "the workspace exists: {workspace:?}");
-    Fixture {
-        _dir: dir,
-        data,
-        daemon,
-        owner,
-        env,
-        workspace,
-    }
+    (env, workspace)
 }
 
-/// The mint returns an access token that is not the grant id, does not contain it, carries at least
-/// 128 bits (32 hex digits), differs per lease, and is stored only as its SHA-256.
+/// The mint returns an access token that is not the grant id or grant ref and does not contain the
+/// grant id, has at least 32 hex digits, differs per lease, and is stored only as its SHA-256. (That
+/// its bytes come from the OS RNG is shown by code review of the minter, not by this test.)
 #[test]
-fn env_ops_access_token_is_a_random_secret_distinct_from_the_grant_id() {
+fn env_ops_access_token_is_long_hex_unique_and_distinct_from_the_grant_id() {
     let f = fixture();
     let first = f.mint();
     let second = f.mint();
@@ -420,7 +486,7 @@ fn env_ops_access_token_is_a_random_secret_distinct_from_the_grant_id() {
         );
         assert!(
             lease.token.chars().filter(char::is_ascii_hexdigit).count() >= 32,
-            "the access token carries at least 128 bits: {}",
+            "the access token has at least 32 hex digits: {}",
             lease.token
         );
         let grant_record = std::fs::read_to_string(
@@ -477,11 +543,36 @@ fn env_ops_access_token_never_appears_in_receipts_the_trail_or_any_stored_file()
         !grants.contains(&lease.token),
         "the grant listing never carries the access token"
     );
-    assert_eq!(
-        files_containing(&f.data, &lease.token),
-        Vec::<PathBuf>::new(),
-        "no stored file (receipts, grants, logs) carries the access token"
+    f.assert_token_stored_nowhere(&lease, "after the mint");
+
+    let (status, wrote) = f.write_file(&lease.token, "scanned.txt");
+    assert!(status == 200 && wrote, "the token wrote its file: {status}");
+    let (status, _) = f.ops("ReadFile", &lease.token, &json!({ "path": "scanned.txt" }));
+    assert_eq!(status, 200, "the token read its file");
+    let (status, _, body) = f.resolve(&lease.token);
+    assert_eq!(status, 200, "the token resolves: {body}");
+    f.assert_token_stored_nowhere(&lease, "after WriteFile, ReadFile and a resolve");
+
+    f.revoke(&lease);
+    let (status, wrote) = f.write_file(&lease.token, "after-revoke.txt");
+    assert!(
+        status == 401 && !wrote,
+        "a revoked token is refused: {status}"
     );
+    f.assert_resolve_refuses("a revoked token", &lease.token);
+    let (status, trail) = http(
+        f.daemon.port,
+        "GET",
+        "/v1/hypervisor/audit/trail?limit=500",
+        Some(&f.owner),
+        None,
+    );
+    assert_eq!(status, 200, "the trail after revocation: {trail}");
+    assert!(
+        !trail.contains(&lease.token),
+        "the trail never carries the access token, after revocation either"
+    );
+    f.assert_token_stored_nowhere(&lease, "after revocation");
 }
 
 /// The env-ops seam admits the access token and refuses the grant id, the grant ref, the stored
@@ -556,11 +647,20 @@ fn ops_lease_resolve_takes_the_token_only_in_a_header() {
     assert_eq!(answer["active"], json!(true), "{body}");
     assert_eq!(answer["environment_id"], json!(f.env), "{body}");
     let grant_bearer = format!("Bearer {}", lease.lease_id);
+    let digest = sha256_hex(&lease.token);
     for (label, headers) in [
         ("no header", vec![]),
         (
             "the grant id",
             vec![("x-ioi-env-ops-token", lease.lease_id.as_str())],
+        ),
+        (
+            "the grant ref",
+            vec![("x-ioi-env-ops-token", lease.lease_ref.as_str())],
+        ),
+        (
+            "the token hash",
+            vec![("x-ioi-env-ops-token", digest.as_str())],
         ),
         (
             "the grant id as a bearer",
@@ -573,6 +673,104 @@ fn ops_lease_resolve_takes_the_token_only_in_a_header() {
         assert!(
             !body.contains(&f.env),
             "{label} learns no environment: {body}"
+        );
+    }
+}
+
+/// A token minted for one environment is refused on another environment the same owner holds.
+#[test]
+fn env_ops_token_for_one_environment_is_refused_on_another() {
+    let f = fixture();
+    let (other, other_workspace) = started_environment(&f.daemon, &f.data, &f.owner);
+    let lease = f.mint();
+    let (status, _) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/supervisor/{other}/supervisor.v1.EnvironmentOpsService/WriteFile"),
+        Some(&lease.token),
+        Some(&json!({ "path": "cross-env.txt", "content": "eA==" })),
+    );
+    assert_eq!(status, 401, "the token is refused on another environment");
+    assert!(
+        !other_workspace.join("cross-env.txt").exists(),
+        "the token wrote no file in the other environment"
+    );
+    let (status, answer, body) = f.resolve(&lease.token);
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        answer["environment_id"],
+        json!(f.env),
+        "it resolves to its own environment only"
+    );
+    let (status, wrote) = f.write_file(&lease.token, "own-env.txt");
+    assert!(
+        status == 200 && wrote,
+        "the token works on its own environment: {status}"
+    );
+}
+
+/// A token whose lease no longer carries the env-ops action, or whose lease has expired, is refused
+/// at the seam and the resolver. The stored grant record is rewritten in place: only the ops-lease
+/// minter issues bearer leases, so a bearer lease with another action has no route of its own.
+#[test]
+fn env_ops_token_is_refused_for_a_wrong_action_or_an_expired_lease() {
+    let f = fixture();
+    let lease = f.mint();
+    let (status, _, body) = f.resolve(&lease.token);
+    assert_eq!(status, 200, "control: the token resolves: {body}");
+
+    f.set_grant_member(&lease, "action", json!("environment.port"));
+    let (status, wrote) = f.write_file(&lease.token, "wrong-action.txt");
+    assert!(
+        status == 401 && !wrote,
+        "a non-ops lease's token is refused: {status}"
+    );
+    f.assert_resolve_refuses("a non-ops lease's token", &lease.token);
+
+    f.set_grant_member(&lease, "action", json!("environment.ops"));
+    let (status, wrote) = f.write_file(&lease.token, "restored-action.txt");
+    assert!(
+        status == 200 && wrote,
+        "control: the ops action admits again: {status}"
+    );
+
+    f.set_grant_member(&lease, "expires_at_unix", json!(1));
+    let (status, wrote) = f.write_file(&lease.token, "expired.txt");
+    assert!(
+        status == 401 && !wrote,
+        "an expired lease's token is refused: {status}"
+    );
+    f.assert_resolve_refuses("an expired lease's token", &lease.token);
+}
+
+/// A token presented in a query string is not a credential at the seam or the resolver.
+#[test]
+fn env_ops_token_in_a_query_string_is_refused() {
+    let f = fixture();
+    let lease = f.mint();
+    for key in ["token", "access_token", "lease", "x-ioi-env-ops-token"] {
+        let name = format!("query-{key}.txt");
+        let (status, _) = http(
+            f.daemon.port,
+            "POST",
+            &format!(
+                "/supervisor/{}/supervisor.v1.EnvironmentOpsService/WriteFile?{key}={}",
+                f.env, lease.token
+            ),
+            None,
+            Some(&json!({ "path": name, "content": "eA==" })),
+        );
+        assert_eq!(status, 401, "seam, ?{key}=: refused");
+        assert!(!f.workspace.join(&name).exists(), "seam, ?{key}=: no file");
+        let (status, answer, body) = f.resolve_at(
+            &format!("/v1/hypervisor/ops-lease?{key}={}", lease.token),
+            &[],
+        );
+        assert_eq!(status, 401, "resolve, ?{key}=: {body}");
+        assert_ne!(answer["active"], json!(true), "resolve, ?{key}=: {body}");
+        assert!(
+            !body.contains(&f.env),
+            "resolve, ?{key}= names no environment: {body}"
         );
     }
 }

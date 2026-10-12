@@ -10,13 +10,17 @@ import http from "node:http";
 
 const calls = [];
 const AT = "2026-09-27T10:00:00Z";
+// A route answer may carry its HTTP status under this key (JSON.stringify drops symbol keys).
+const STATUS = Symbol("status");
 const routes = {
   "GET /v1/hypervisor/environments/env_1": () => ({ environment: { id: "env_1", spec: {}, status: { phase: "running", ports: [{ port: 50432, protocol: "tcp" }] } } }),
-  "POST /v1/hypervisor/environments/env_1/ops-lease": () => ({ accessToken: "lease_env1", lease_id: "lease_env1", environment_id: "env_1" }),
-  // The daemon resolves an env-ops token presented in a header, never in the URL path.
+  // The access token and the lease (grant) id are distinct values, as the daemon mints them.
+  "POST /v1/hypervisor/environments/env_1/ops-lease": () => ({ accessToken: "tok_env1", lease_id: "lease_env1", environment_id: "env_1" }),
+  // The daemon resolves an env-ops token presented in a header, never in the URL path, and answers
+  // 401 with no environment for anything that is not an active env-ops token.
   "GET /v1/hypervisor/ops-lease": (req) => {
-    const environment = { lease_env1: "env_1", lease_env2: "env_2" }[req.headers["x-ioi-env-ops-token"]];
-    return environment ? { active: true, environment_id: environment } : { active: false, environment_id: null };
+    const environment = { tok_env1: "env_1", tok_env2: "env_2" }[req.headers["x-ioi-env-ops-token"]];
+    return environment ? { active: true, environment_id: environment } : { [STATUS]: 401, active: false, environment_id: null };
   },
   "GET /v1/hypervisor/environments/env_1/logs?kind=session": () => ({
     ok: true,
@@ -44,8 +48,9 @@ const fake = http.createServer((req, res) => {
     const key = `${req.method} ${req.url}`;
     calls.push({ key, body, headers: req.headers });
     const route = routes[key];
-    res.writeHead(route ? 200 : 404, { "content-type": "application/json" });
-    res.end(JSON.stringify(route ? route(req) : { code: "not_found" }));
+    const answer = route ? route(req) : { code: "not_found" };
+    res.writeHead(route ? (answer[STATUS] ?? 200) : 404, { "content-type": "application/json" });
+    res.end(JSON.stringify(answer));
   });
 });
 await new Promise((r) => fake.listen(0, "127.0.0.1", r));
@@ -204,7 +209,7 @@ test("CreateEnvironmentLogsToken mints the env-scoped ops lease (no fabricated t
   calls.length = 0;
   const out = await rpc("EnvironmentService/CreateEnvironmentLogsToken", { environmentId: "env_1" });
   assert.equal(out.status ?? 200, 200);
-  assert.deepEqual(JSON.parse(out.body), { accessToken: "lease_env1" });
+  assert.deepEqual(JSON.parse(out.body), { accessToken: "tok_env1" }, "the access token, never the lease id");
   assert.deepEqual(calls.map((c) => c.key), ["POST /v1/hypervisor/environments/env_1/ops-lease"]);
 });
 
@@ -219,7 +224,7 @@ const logsGet = (headers) => handle(LOGS_PATH, "", headers);
 
 test("the logs GET with a valid token answers the daemon session log as text/plain, read as the caller without the bearer", async () => {
   calls.length = 0;
-  const out = await logsGet({ authorization: "Bearer lease_env1", cookie: "ioi_session=abc" });
+  const out = await logsGet({ authorization: "Bearer tok_env1", cookie: "ioi_session=abc" });
   assert.equal(out.status ?? 200, 200);
   assert.match(out.contentType, /^text\/plain/u);
   const read = calls.find((c) => c.key === "GET /v1/hypervisor/environments/env_1/logs?kind=session");
@@ -227,8 +232,8 @@ test("the logs GET with a valid token answers the daemon session log as text/pla
   assert.equal(read.headers.cookie, "ioi_session=abc", "the caller's identity reached the daemon");
   assert.equal(read.headers.authorization, undefined, "the logs token is not presented to the daemon as identity");
   const resolved = calls.find((c) => c.key === "GET /v1/hypervisor/ops-lease");
-  assert.equal(resolved?.headers["x-ioi-env-ops-token"], "lease_env1", "the token is resolved from a header");
-  assert.ok(calls.every((c) => !c.key.includes("lease_env1")), "the token never appears in a daemon URL");
+  assert.equal(resolved?.headers["x-ioi-env-ops-token"], "tok_env1", "the token is resolved from a header");
+  assert.ok(calls.every((c) => !c.key.includes("tok_env1")), "the token never appears in a daemon URL");
   // The reference's log grammar (log-groups bundle): a section, then `[id:<section>] [<ts>] LEVEL msg`.
   const lines = out.body.trimEnd().split("\n");
   assert.equal(lines.length, 3);
@@ -257,7 +262,7 @@ test("the logs GET refuses a missing token (401) and reads nothing", async () =>
 
 test("the logs GET refuses a token bound to another environment (403) and never reads the logs", async () => {
   calls.length = 0;
-  const out = await logsGet({ authorization: "Bearer lease_env2", cookie: "ioi_session=abc" });
+  const out = await logsGet({ authorization: "Bearer tok_env2", cookie: "ioi_session=abc" });
   assert.equal(out.status, 403);
   assert.equal(codeOf(out), "permission_denied");
   assert.match(messageOf(out), /^environment_logs_token_invalid: .*different environment/u);
@@ -265,7 +270,7 @@ test("the logs GET refuses a token bound to another environment (403) and never 
 });
 
 test("the logs GET refuses an expired or unknown token (403) and never reads the logs", async () => {
-  for (const token of ["lease_expired", "lease_unknown"]) {
+  for (const token of ["tok_expired", "tok_unknown", "lease_env1"]) {
     calls.length = 0;
     const out = await logsGet({ authorization: `Bearer ${token}` });
     assert.equal(out.status, 403, token);
