@@ -24791,10 +24791,13 @@ pub(crate) async fn handle_organization_patch(
         ),
     )
 }
-/// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a member +
-/// issue a session. Fails closed if the invite id doesn't match the current link.
+/// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a NEW member +
+/// issue its session. Fails closed if the invite id doesn't match the current link. An email that already
+/// names a principal is never signed in here (BUILD-DELTA #24): that principal joins by an accept
+/// authenticated as itself, which records its membership and issues no session.
 pub(crate) async fn handle_org_invite_accept(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(request) = body.as_object() else {
@@ -24881,7 +24884,35 @@ pub(crate) async fn handle_org_invite_accept(
         );
     }
     let (principal, principal_created) = match find_principal_by_email(&st.data_dir, &email) {
-        Some(p) if p["status"].as_str() == Some("active") => (p, false),
+        // BUILD-DELTA #24: the invite never signs in an existing principal. It joins only by an accept
+        // authenticated as exactly that principal (not an impersonated session).
+        Some(p) if p["status"].as_str() == Some("active") => {
+            let Some(caller) = resolve_principal(&st.data_dir, &headers) else {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.org_invite_existing_principal_sign_in_required",
+                        "message": "this email already has an account: sign in as that account, then accept the invite"
+                    })),
+                );
+            };
+            let caller_is_this_principal = caller["principal_id"]
+                .as_str()
+                .is_some_and(|caller_id| p["principal_id"].as_str() == Some(caller_id))
+                && caller["is_impersonated"].as_bool() != Some(true);
+            if !caller_is_this_principal {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.org_invite_principal_mismatch",
+                        "message": "an invite is accepted for an existing account only by that account, signed in as itself"
+                    })),
+                );
+            }
+            (p, false)
+        }
         Some(_) => {
             return (
                 StatusCode::CONFLICT,
@@ -24927,6 +24958,19 @@ pub(crate) async fn handle_org_invite_accept(
         Ok(receipt) => receipt,
         Err(error) => return membership_error_response(error),
     };
+    if !principal_created {
+        // BUILD-DELTA #24: the existing principal is signed in already, as itself; the accept records its
+        // membership and issues no session.
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "joined": true,
+                "principal_id": principal_id,
+                "membership_receipt": membership_receipt
+            })),
+        );
+    }
     let (status, sess) = issue_session(&st.data_dir, principal_id, "invite");
     let mut response = sess;
     if status == StatusCode::OK {

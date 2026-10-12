@@ -456,7 +456,9 @@ const H_BASELINE = [
   "lifecycle_routes.rs::handle_github_app_conversion",
   "lifecycle_routes.rs::handle_github_app_installation",
   "lifecycle_routes.rs::handle_oidc_set",
-  "lifecycle_routes.rs::handle_org_invite_accept",
+  // "lifecycle_routes.rs::handle_org_invite_accept" — LEFT the baseline 2026-10-11 (BUILD-DELTA
+  // #24): an existing principal's accept now resolves its caller with `resolve_principal` and is
+  // admitted only as that principal; the entry is deleted rather than re-pinned.
   "lifecycle_routes.rs::handle_preference_put",
   "lifecycle_routes.rs::handle_project_create",
   "lifecycle_routes.rs::handle_runtime_host_session",
