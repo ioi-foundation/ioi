@@ -562,6 +562,16 @@ jobs:
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
 
+      # The sandbox tests must RUN, never skip: if bwrap still cannot build its sandbox (a network
+      # namespace with loopback up) on this runner, the job fails here, by name, before any crate.
+      - name: Prove bwrap can build its sandbox with loopback (else fail the job)
+        run: |
+          if ! bwrap --unshare-net --ro-bind / / --dev /dev --proc /proc true; then
+            echo "::error::bwrap could not build its sandbox with loopback on this runner; the bwrap-backed terminal and shell tests cannot run"
+            exit 1
+          fi
+          echo "bwrap sandbox with loopback: OK"
+
       # ONE STEP PER CRATE (2026-09-12). The 25 commands ran in one `set -euo pipefail` block, so
       # the first red crate aborted the block and every crate AFTER it stopped running: on
       # 2026-09-12 `ioi-networking` was red (register R-32) and the seventeen crates below it —
