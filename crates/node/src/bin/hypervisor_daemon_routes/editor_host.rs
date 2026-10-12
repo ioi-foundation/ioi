@@ -84,31 +84,41 @@ pub(crate) fn redact_secret(line: &str, secret: &str) -> String {
     line.replace(secret, "[redacted]")
 }
 
-/// Every `tkn=<value>` URL parameter in `text` with its value replaced (a runtime that listened on
-/// a TCP port printed its token that way). Returns None when nothing changed.
-pub(crate) fn redact_tkn_values(text: &str) -> Option<String> {
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
+/// Every `tkn=<value>` URL parameter in `bytes` with its value replaced (a runtime that listened on
+/// a TCP port printed its token that way). Works on bytes, so a log that is not UTF-8 is redacted
+/// too. Returns None when nothing changed.
+pub(crate) fn redact_tkn_bytes(bytes: &[u8]) -> Option<Vec<u8>> {
+    const NAME: &[u8] = b"tkn=";
+    const REDACTED: &[u8] = b"[redacted]";
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut at = 0;
     let mut changed = false;
-    while let Some(at) = rest.find("tkn=") {
-        let (head, tail) = rest.split_at(at + "tkn=".len());
-        out.push_str(head);
-        let end = tail
-            .find(|c: char| {
-                c.is_whitespace() || matches!(c, '&' | '#' | '"' | '\'' | '<' | '>' | ';' | ')')
+    while let Some(found) = bytes[at..].windows(NAME.len()).position(|w| w == NAME) {
+        let value_start = at + found + NAME.len();
+        out.extend_from_slice(&bytes[at..value_start]);
+        let value_end = bytes[value_start..]
+            .iter()
+            .position(|b| {
+                b.is_ascii_whitespace()
+                    || matches!(*b, b'&' | b'#' | b'"' | b'\'' | b'<' | b'>' | b';' | b')')
             })
-            .unwrap_or(tail.len());
-        let value = &tail[..end];
-        if value.is_empty() || value == "[redacted]" {
-            out.push_str(value);
+            .map_or(bytes.len(), |end| value_start + end);
+        let value = &bytes[value_start..value_end];
+        if value.is_empty() || value == REDACTED {
+            out.extend_from_slice(value);
         } else {
-            out.push_str("[redacted]");
+            out.extend_from_slice(REDACTED);
             changed = true;
         }
-        rest = &tail[end..];
+        at = value_end;
     }
-    out.push_str(rest);
+    out.extend_from_slice(&bytes[at..]);
     changed.then_some(out)
+}
+
+/// `redact_tkn_bytes` over text.
+pub(crate) fn redact_tkn_values(text: &str) -> Option<String> {
+    redact_tkn_bytes(text.as_bytes()).map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// A SECURITY line on the daemon's own log: a secret may have been left on disk.
@@ -299,6 +309,14 @@ fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
     v["status"]["workspace_root"].as_str().map(str::to_string)
 }
 
+/// Remove a runtime's socket directory. Returns a description of the failure, if any.
+fn remove_socket_dir(socket_dir: &Path) -> Option<String> {
+    std::fs::remove_dir_all(socket_dir)
+        .err()
+        .filter(|error| error.kind() != std::io::ErrorKind::NotFound)
+        .map(|error| format!("socket directory ({error})"))
+}
+
 /// Remove a per-launch token file and socket directory (best effort; a daemon boot removes any
 /// left behind). Returns a description of what could not be removed, if anything.
 fn remove_launch_files(token_path: &Path, socket_dir: &Path) -> Option<String> {
@@ -308,11 +326,7 @@ fn remove_launch_files(token_path: &Path, socket_dir: &Path) -> Option<String> {
             left.push(format!("token file ({error})"));
         }
     }
-    if let Err(error) = std::fs::remove_dir_all(socket_dir) {
-        if error.kind() != std::io::ErrorKind::NotFound {
-            left.push(format!("socket directory ({error})"));
-        }
-    }
+    left.extend(remove_socket_dir(socket_dir));
     (!left.is_empty()).then(|| left.join(", "))
 }
 
@@ -487,9 +501,11 @@ pub(crate) async fn start_oss_runtime(
         }
         let _ = child.kill();
         let _ = child.wait();
-        let _ = std::fs::remove_dir_all(&socket_dir);
+        let socket_left = remove_socket_dir(&socket_dir)
+            .map(|left| format!("; could not remove the {left}"))
+            .unwrap_or_default();
         security_line(&format!(
-            "service {service_id}: the token handoff file could not be removed at readiness ({error}); the runtime was stopped and the start failed"
+            "service {service_id}: the token handoff file could not be removed at readiness ({error}); the runtime was stopped and the start failed{socket_left}"
         ));
         return Err("editor_runtime_token_not_removed".to_string());
     }
@@ -561,7 +577,11 @@ pub(crate) fn stop_oss_runtime(st: &DaemonState, service_id: &str) {
         }
         let _ = rt.child.kill();
         let _ = rt.child.wait();
-        let _ = std::fs::remove_dir_all(&rt.socket_dir);
+        if let Some(left) = remove_socket_dir(&rt.socket_dir) {
+            security_line(&format!(
+                "service {service_id}: the runtime was stopped but could not remove the {left}"
+            ));
+        }
     }
 }
 
@@ -745,9 +765,16 @@ pub(crate) fn reconcile_editor_services(data_dir: &str) -> usize {
             }
         } else if name.ends_with(".log") {
             // A runtime that listened on a TCP port printed its token in a `tkn=` URL parameter.
-            let redacted = std::fs::read_to_string(e.path())
-                .ok()
-                .and_then(|text| redact_tkn_values(&text));
+            // The log is read as bytes; one that cannot be read is reported, never skipped.
+            let redacted = match std::fs::read(e.path()) {
+                Ok(bytes) => redact_tkn_bytes(&bytes),
+                Err(error) => {
+                    security_line(&format!(
+                        "the editor service log {name} could not be read to redact tkn= values ({error})"
+                    ));
+                    None
+                }
+            };
             if let Some(text) = redacted {
                 let staged = dir.join(format!("{name}.redacting"));
                 let replaced =
