@@ -783,6 +783,41 @@ mod tests {
     }
 
     #[test]
+    fn the_list_projection_is_an_explicit_metadata_field_list() {
+        let state = scratch_state();
+        create_in(&state);
+        create_in(&state);
+        let mut list = request("model_mount.capability_token.list");
+        list.state_dir = Some(state.to_string_lossy().to_string());
+        let plan = plan_capability_token_control(&list).expect("list");
+        let tokens = plan.public_response["tokens"].as_array().expect("tokens");
+        assert_eq!(tokens.len(), 2);
+        for token in tokens {
+            let mut keys: Vec<&str> = token
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect();
+            keys.sort_unstable();
+            assert_eq!(
+                keys,
+                [
+                    "allowed_scopes",
+                    "audience",
+                    "created_at",
+                    "denied_scopes",
+                    "grant_id",
+                    "id",
+                    "object",
+                    "status",
+                    "token_id"
+                ]
+            );
+        }
+    }
+
+    #[test]
     fn constant_time_eq_is_equality() {
         assert!(constant_time_eq(b"abc", b"abc"));
         assert!(!constant_time_eq(b"abc", b"abd"));

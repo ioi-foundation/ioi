@@ -232,6 +232,51 @@ fn logs_status(daemon: &Daemon, token: &str) -> u16 {
     .0
 }
 
+const LISTED_KEYS: &[&str] = &[
+    "allowed_scopes",
+    "audience",
+    "created_at",
+    "denied_scopes",
+    "grant_id",
+    "id",
+    "object",
+    "status",
+    "token_id",
+];
+
+#[test]
+fn the_token_listing_is_an_explicit_metadata_projection_without_the_hash() {
+    let (_dir, data, home) = fixture();
+    let daemon = start_daemon(&data, &home);
+    let first = create_token(&daemon, &token_body());
+    let second = create_token(&daemon, &token_body());
+    let (status, text) = http(daemon.port, "GET", "/v1/model-mount/tokens", None, None);
+    assert_eq!(status, 200, "{text}");
+    let listing = json_of(&text);
+    let items = listing.as_array().expect("the listing is an array");
+    assert_eq!(items.len(), 2, "one entry per active token: {text}");
+    for item in items {
+        let mut keys: Vec<&str> = item
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(keys, LISTED_KEYS, "the exact metadata key set: {item}");
+    }
+    for made in [&first, &second] {
+        assert!(
+            !text.contains(made["token_hash"].as_str().unwrap()),
+            "no token hash in the listing"
+        );
+        assert!(
+            !text.contains(&made["token"].as_str().unwrap()[8..24]),
+            "no part of a token in the listing"
+        );
+    }
+}
+
 fn fixture() -> (tempfile::TempDir, PathBuf, PathBuf) {
     assert_isolated_namespace();
     let dir = tempfile::tempdir().unwrap();
@@ -354,7 +399,7 @@ fn a_token_minted_by_the_old_derivation_no_longer_authorizes() {
 }
 
 #[test]
-fn expiry_is_enforced_by_token_id_and_an_unknown_presented_value_never_reaches_it() {
+fn a_token_is_refused_after_its_expiry() {
     let (_dir, data, home) = fixture();
     let daemon = start_daemon(&data, &home);
     let soon = {
