@@ -1,3 +1,4 @@
+use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::{fs, path::Path};
@@ -52,6 +53,25 @@ pub struct ModelMountCapabilityTokenControlPlan {
     pub evidence_refs: Vec<String>,
     pub control_hash: String,
     pub authority_hash: String,
+}
+
+/// Marks a token record minted from the OS RNG. Records without it were derived and are not honoured.
+const CAPABILITY_TOKEN_ENTROPY: &str = "os_rng_256_v1";
+
+fn hex_lower(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// Equality that reads every byte of both sides whatever the first difference.
+fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+    let mut difference = left.len() ^ right.len();
+    for index in 0..left.len().max(right.len()) {
+        difference |= usize::from(
+            left.get(index).copied().unwrap_or_default()
+                ^ right.get(index).copied().unwrap_or_default(),
+        );
+    }
+    difference == 0
 }
 
 #[derive(Debug, Clone)]
@@ -140,17 +160,14 @@ pub(super) fn plan_capability_token_control(
                 .into_iter()
                 .chain(string_array_field(body, "denied_scopes"))
                 .collect();
-            let create_seed = json!({
-                "operation_kind": operation_kind,
-                "body_hash": body_hash,
-                "source": source,
-                "generated_at": generated_at,
-                "authority_grant_refs": authority_grant_refs,
-                "authority_receipt_refs": authority_receipt_refs,
-            });
-            let create_hash = hash_json(&create_seed)?;
-            let minted = format!("ioi_mnt_{}", &create_hash[..32]);
-            token_id = Some(format!("capability_token:{}", &create_hash[..16]));
+            // The token is 256 bits from the OS RNG and nothing else; the public token_id is drawn
+            // separately, so the id discloses nothing of the token.
+            let mut secret = [0u8; 32];
+            OsRng.fill_bytes(&mut secret);
+            let minted = format!("ioi_mnt_{}", hex_lower(&secret));
+            let mut id_material = [0u8; 16];
+            OsRng.fill_bytes(&mut id_material);
+            token_id = Some(format!("capability_token:{}", hex_lower(&id_material)));
             minted_token_hash = Some(sha256_hex(minted.as_bytes())?);
             record_public_response = json!({
                 "object": "ioi.model_mount_capability_token",
@@ -158,6 +175,7 @@ pub(super) fn plan_capability_token_control(
                 "token_id": token_id,
                 "token_material_returned_once": true,
                 "plaintext_material_persisted": false,
+                "token_entropy": CAPABILITY_TOKEN_ENTROPY,
                 "token_hash": minted_token_hash,
                 "audience": audience,
                 "grant_id": grant_id,
@@ -188,13 +206,17 @@ pub(super) fn plan_capability_token_control(
             response_public_response = record_public_response.clone();
         }
         "model_mount.capability_token.authorize" => {
-            let token = existing_tokens
-                .iter()
-                .find(|candidate| {
-                    !candidate.revoked
-                        && Some(candidate.token_hash.as_str()) == token_hash.as_deref()
-                })
-                .ok_or(ModelMountError::CapabilityTokenUnauthorized)?;
+            // Every stored hash is compared in constant time and the scan never exits early, so the
+            // time taken says nothing about which stored token a presented value is close to.
+            let presented = token_hash.as_deref().unwrap_or_default().as_bytes();
+            let mut matched: Option<&CapabilityTokenRecord> = None;
+            for candidate in &existing_tokens {
+                let equal = constant_time_eq(candidate.token_hash.as_bytes(), presented);
+                if equal & !candidate.revoked & matched.is_none() {
+                    matched = Some(candidate);
+                }
+            }
+            let token = matched.ok_or(ModelMountError::CapabilityTokenUnauthorized)?;
             let required_scope = option_string(&request.required_scope, "required_scope")?;
             if !scope_authorized(&required_scope, &token.allowed_scopes, &token.denied_scopes) {
                 return Err(ModelMountError::CapabilityTokenUnauthorized);
@@ -297,6 +319,7 @@ pub(super) fn plan_capability_token_control(
             "authority_grant_refs": authority_grant_refs,
             "authority_receipt_refs": authority_receipt_refs,
         },
+        "token_entropy": if operation_kind == "model_mount.capability_token.create" { json!(CAPABILITY_TOKEN_ENTROPY) } else { Value::Null },
         "public_response": record_public_response,
         "receipt_refs": receipt_refs,
         "evidence_refs": evidence_refs,
@@ -382,6 +405,10 @@ fn load_capability_tokens(
             continue;
         }
         if operation != Some("model_mount.capability_token.create") {
+            continue;
+        }
+        // A token minted before tokens were random (derived from non-secret inputs) is not honoured.
+        if value.get("token_entropy").and_then(Value::as_str) != Some(CAPABILITY_TOKEN_ENTROPY) {
             continue;
         }
         let Some(token_id) = token_id else {
@@ -673,8 +700,14 @@ mod tests {
         let state = scratch_state();
         let first = create_in(&state);
         let second = create_in(&state);
-        assert_ne!(first.public_response["token"], second.public_response["token"]);
-        assert_ne!(first.public_response["token_id"], second.public_response["token_id"]);
+        assert_ne!(
+            first.public_response["token"],
+            second.public_response["token"]
+        );
+        assert_ne!(
+            first.public_response["token_id"],
+            second.public_response["token_id"]
+        );
         // And neither is the old derivation of its inputs.
         let seed = json!({
             "operation_kind": "model_mount.capability_token.create",
@@ -698,7 +731,10 @@ mod tests {
         let id = plan.public_response["token_id"].as_str().unwrap();
         let id_hex = id.strip_prefix("capability_token:").unwrap();
         assert!(!id_hex.is_empty());
-        assert!(!hex.starts_with(id_hex), "the public id is not a prefix of the token");
+        assert!(
+            !hex.starts_with(id_hex),
+            "the public id is not a prefix of the token"
+        );
         assert!(!hex.contains(&id_hex[..id_hex.len().min(16)]));
     }
 
@@ -744,6 +780,15 @@ mod tests {
             authorize_in(&state, legacy).unwrap_err(),
             ModelMountError::CapabilityTokenUnauthorized
         );
+    }
+
+    #[test]
+    fn constant_time_eq_is_equality() {
+        assert!(constant_time_eq(b"abc", b"abc"));
+        assert!(!constant_time_eq(b"abc", b"abd"));
+        assert!(!constant_time_eq(b"abc", b"ab"));
+        assert!(!constant_time_eq(b"", b"a"));
+        assert!(constant_time_eq(b"", b""));
     }
 
     #[test]

@@ -193,9 +193,14 @@ fn try_start_daemon(data_dir: &Path, home: &Path) -> Option<Daemon> {
     }
 }
 
-
 fn create_token(daemon: &Daemon, body: &Value) -> Value {
-    let (status, text) = http(daemon.port, "POST", "/v1/model-mount/tokens", None, Some(body));
+    let (status, text) = http(
+        daemon.port,
+        "POST",
+        "/v1/model-mount/tokens",
+        None,
+        Some(body),
+    );
     assert_eq!(status, 200, "token create: {text}");
     json_of(&text)
 }
@@ -217,7 +222,14 @@ fn token_body() -> Value {
 }
 
 fn logs_status(daemon: &Daemon, token: &str) -> u16 {
-    http(daemon.port, "GET", "/v1/model-mount/server/logs", Some(token), None).0
+    http(
+        daemon.port,
+        "GET",
+        "/v1/model-mount/server/logs",
+        Some(token),
+        None,
+    )
+    .0
 }
 
 fn fixture() -> (tempfile::TempDir, PathBuf, PathBuf) {
@@ -236,7 +248,10 @@ fn two_creates_with_identical_inputs_give_different_tokens_and_ids() {
     let daemon = start_daemon(&data, &home);
     let first = create_token(&daemon, &token_body());
     let second = create_token(&daemon, &token_body());
-    let (t1, t2) = (first["token"].as_str().unwrap(), second["token"].as_str().unwrap());
+    let (t1, t2) = (
+        first["token"].as_str().unwrap(),
+        second["token"].as_str().unwrap(),
+    );
     assert_ne!(t1, t2, "identical inputs must not give the same token");
     assert_ne!(first["token_id"], second["token_id"]);
     for token in [t1, t2] {
@@ -251,15 +266,34 @@ fn the_public_token_id_shares_nothing_with_the_token() {
     let (_dir, data, home) = fixture();
     let daemon = start_daemon(&data, &home);
     let made = create_token(&daemon, &token_body());
-    let token_hex = made["token"].as_str().unwrap().strip_prefix("ioi_mnt_").unwrap().to_string();
-    let id_hex = made["token_id"].as_str().unwrap().strip_prefix("capability_token:").unwrap().to_string();
+    let token_hex = made["token"]
+        .as_str()
+        .unwrap()
+        .strip_prefix("ioi_mnt_")
+        .unwrap()
+        .to_string();
+    let id_hex = made["token_id"]
+        .as_str()
+        .unwrap()
+        .strip_prefix("capability_token:")
+        .unwrap()
+        .to_string();
     assert!(!id_hex.is_empty());
-    assert!(!token_hex.starts_with(&id_hex), "the id is not a prefix of the token");
-    assert!(!token_hex.contains(&id_hex[..id_hex.len().min(16)]), "no 16-hex run of the id appears in the token");
+    assert!(
+        !token_hex.starts_with(&id_hex),
+        "the id is not a prefix of the token"
+    );
+    assert!(
+        !token_hex.contains(&id_hex[..id_hex.len().min(16)]),
+        "no 16-hex run of the id appears in the token"
+    );
     // The listing is public; it must not carry the token or a prefix of it.
     let (status, listing) = http(daemon.port, "GET", "/v1/model-mount/tokens", None, None);
     assert_eq!(status, 200);
-    assert!(!listing.contains(&token_hex[..16]), "no part of the token is in the listing");
+    assert!(
+        !listing.contains(&token_hex[..16]),
+        "no part of the token is in the listing"
+    );
 }
 
 #[test]
@@ -273,10 +307,17 @@ fn only_the_exact_token_authorizes_and_it_is_stored_only_as_a_hash() {
     let last = wrong.pop().unwrap();
     wrong.push(if last == '0' { '1' } else { '0' });
     assert_eq!(logs_status(&daemon, &wrong), 403);
-    assert_eq!(logs_status(&daemon, made["token_id"].as_str().unwrap()), 403, "the public id is not a credential");
+    assert_eq!(
+        logs_status(&daemon, made["token_id"].as_str().unwrap()),
+        403,
+        "the public id is not a credential"
+    );
     for entry in std::fs::read_dir(data.join("capability-tokens")).unwrap() {
         let text = std::fs::read_to_string(entry.unwrap().path()).unwrap();
-        assert!(!text.contains(&token), "the plaintext token is never stored");
+        assert!(
+            !text.contains(&token),
+            "the plaintext token is never stored"
+        );
     }
 }
 
@@ -305,7 +346,11 @@ fn a_token_minted_by_the_old_derivation_no_longer_authorizes() {
     });
     std::fs::write(dir.join("legacy.json"), record.to_string()).unwrap();
     let daemon = start_daemon(&data, &home);
-    assert_eq!(logs_status(&daemon, legacy_token), 403, "an upgrade invalidates derived tokens");
+    assert_eq!(
+        logs_status(&daemon, legacy_token),
+        403,
+        "an upgrade invalidates derived tokens"
+    );
 }
 
 #[test]
@@ -320,16 +365,45 @@ fn expiry_is_enforced_by_token_id_and_an_unknown_presented_value_never_reaches_i
         let rem = secs % 86_400;
         let (mut y, mut d) = (1970u64, days);
         loop {
-            let len = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 { 366 } else { 365 };
-            if d < len { break; }
+            let len = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+                366
+            } else {
+                365
+            };
+            if d < len {
+                break;
+            }
             d -= len;
             y += 1;
         }
         let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-        let months = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let months = [
+            31,
+            if leap { 29 } else { 28 },
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ];
         let mut m = 0;
-        while d >= months[m] { d -= months[m]; m += 1; }
-        format!("{y:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", m + 1, d + 1, rem / 3600, (rem % 3600) / 60, rem % 60)
+        while d >= months[m] {
+            d -= months[m];
+            m += 1;
+        }
+        format!(
+            "{y:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+            m + 1,
+            d + 1,
+            rem / 3600,
+            (rem % 3600) / 60,
+            rem % 60
+        )
     };
     let mut body = token_body();
     body["expiresAt"] = json!(soon);
@@ -337,5 +411,9 @@ fn expiry_is_enforced_by_token_id_and_an_unknown_presented_value_never_reaches_i
     let token = made["token"].as_str().unwrap().to_string();
     assert_eq!(logs_status(&daemon, &token), 200, "valid before its expiry");
     std::thread::sleep(Duration::from_secs(6));
-    assert_eq!(logs_status(&daemon, &token), 403, "refused after its expiry");
+    assert_eq!(
+        logs_status(&daemon, &token),
+        403,
+        "refused after its expiry"
+    );
 }

@@ -5535,19 +5535,6 @@ fn authorize(st: &DaemonState, headers: &HeaderMap, required_scope: &str) -> Res
         ));
     };
     let token_hash = sha256_hex_str(&token);
-    if let Some(expiry) = st
-        .token_expiry
-        .lock()
-        .ok()
-        .and_then(|map| map.get(&token_hash).copied())
-    {
-        if expiry != 0 && expiry <= now_unix_secs() {
-            return Err(AppError(
-                StatusCode::FORBIDDEN,
-                "capability token expired".to_string(),
-            ));
-        }
-    }
     let req: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
         "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
         "operation_kind": "model_mount.capability_token.authorize",
@@ -5556,10 +5543,26 @@ fn authorize(st: &DaemonState, headers: &HeaderMap, required_scope: &str) -> Res
         "required_scope": required_scope,
     }))
     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    ModelMountCore
+    let plan = ModelMountCore
         .plan_capability_token_control(&req)
-        .map(|_| ())
-        .map_err(|error| AppError(StatusCode::FORBIDDEN, debug_string(error)))
+        .map_err(|error| AppError(StatusCode::FORBIDDEN, debug_string(error)))?;
+    // Expiry is looked up by the token_id of the token the kernel authorized (compared in constant
+    // time), never by a value the caller presented.
+    let authorized_id = plan.record["token_id"].as_str().unwrap_or_default();
+    if let Some(expiry) = st
+        .token_expiry
+        .lock()
+        .ok()
+        .and_then(|map| map.get(authorized_id).copied())
+    {
+        if expiry != 0 && expiry <= now_unix_secs() {
+            return Err(AppError(
+                StatusCode::FORBIDDEN,
+                "capability token expired".to_string(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// ADR 0053 § 2 / M13.9 — a RUN-SCOPED model-mount capability token for a session execution
@@ -5617,13 +5620,9 @@ pub(crate) fn mint_run_scoped_model_token(
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    if let Some(token_hash) = plan
-        .public_response
-        .get("token_hash")
-        .and_then(|v| v.as_str())
-    {
+    if !token_id.is_empty() {
         if let Ok(mut map) = st.token_expiry.lock() {
-            map.insert(token_hash.to_string(), expires_at);
+            map.insert(token_id.clone(), expires_at);
         }
     }
     Ok((token, token_id))
@@ -5679,9 +5678,9 @@ async fn handle_token_create(
         &plan.record,
     )
     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    if let Some(token_hash) = plan
+    if let Some(token_id) = plan
         .public_response
-        .get("token_hash")
+        .get("token_id")
         .and_then(|v| v.as_str())
     {
         let expiry = body
@@ -5690,7 +5689,7 @@ async fn handle_token_create(
             .and_then(parse_expiry_secs)
             .unwrap_or(0);
         if let Ok(mut map) = st.token_expiry.lock() {
-            map.insert(token_hash.to_string(), expiry);
+            map.insert(token_id.to_string(), expiry);
         }
     }
     // The e2e uses both `token` (bearer) and `id` (revocation); map token_id -> id.
