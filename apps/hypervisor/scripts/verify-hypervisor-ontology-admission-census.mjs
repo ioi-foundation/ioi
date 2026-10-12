@@ -133,6 +133,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { readCensusPins } from "./admission-census-pins.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // NO ENV OVERRIDE. A merge-blocking gate that can be re-pointed at another tree by an environment
@@ -290,7 +291,7 @@ const RECORDED_TEST_WRITES = {
 // admission-census-pins.json, a sidecar the admission-census entailment check also reads directly
 // (and checks equal to PINNED). The notes beside each key below are its history; a re-pin edits the
 // sidecar.
-const PINS = JSON.parse(fs.readFileSync(path.join(HERE, "admission-census-pins.json"), "utf8"));
+const PINS = readCensusPins(path.join(HERE, "admission-census-pins.json"));
 export const PINNED = {
   // M04.2 re-derivation (2026-08-25): automation_contract_routes.rs adds one reachable module,
   // 717 source tokens, one shared-writer call whose family is the store helper's runtime

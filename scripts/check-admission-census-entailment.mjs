@@ -41,10 +41,12 @@
 // BLOCKED, never silently green: without a current dep-info file this check exits 0 with verdict
 // BLOCKED and no PASS lines, because a check that cannot run has not passed.
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { censusPinErrors } from "../apps/hypervisor/scripts/admission-census-pins.mjs";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const mutation = process.argv.includes("--mutation");
@@ -77,6 +79,25 @@ function pinDifferences(expected, actual, at = "") {
     }
   }
   return out;
+}
+
+/// Load a copy of the census verifier beside `pins`: why it refused them, or null if it loaded.
+async function verifierLoadRefusal(pins) {
+  const dir = mkdtempSync(join(tmpdir(), "census-pins-"));
+  try {
+    const scripts = dirname(CENSUS_VERIFIER);
+    mkdirSync(join(dir, "lib"));
+    copyFileSync(CENSUS_VERIFIER, join(dir, "verifier.mjs"));
+    copyFileSync(join(scripts, "lib/verifier-census.mjs"), join(dir, "lib/verifier-census.mjs"));
+    copyFileSync(join(scripts, "admission-census-pins.mjs"), join(dir, "admission-census-pins.mjs"));
+    writeFileSync(join(dir, "admission-census-pins.json"), JSON.stringify(pins));
+    await import(pathToFileURL(join(dir, "verifier.mjs")).href);
+    return null;
+  } catch (error) {
+    return String(error?.message || error);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 const results = [];
@@ -184,11 +205,17 @@ try {
       : `${rustcOther.length} data file(s), each recorded: ${rustcOther.map((f) => f.split("/").pop()).join(", ")}`);
 
   // ---- THE PINS HAVE ONE HOME: the sidecar the census verifier imports ----
+  // Its structure is checked before any use, in every mode: every PINNED leaf present as a
+  // non-negative integer, and history only under its declared key.
   const sidecar = JSON.parse(readFileSync(PINS_SIDECAR, "utf8"));
+  const shapeErrors = censusPinErrors(sidecar);
+  ok("the sidecar's structure is complete before anything reads it: every PINNED leaf is present as a non-negative integer, and history appears only under its declared key",
+    shapeErrors.length === 0, shapeErrors.join(" · ") || "every PINNED leaf present and an integer");
+  if (shapeErrors.length) throw new Error("the census pins are malformed, so nothing below reads them");
   const verifierModule = await import(pathToFileURL(CENSUS_VERIFIER).href);
   const pinDiff = pinDifferences(sidecar, verifierModule.PINNED);
-  ok("the census verifier's pins ARE the sidecar's: every value it checks is the one in apps/hypervisor/scripts/admission-census-pins.json, so no pin is restated where this check cannot read it",
-    pinDiff.length === 0, pinDiff.join(" · ") || "every pin identical");
+  ok("the census verifier's pins ARE the sidecar's: every PINNED leaf it checks is the one in apps/hypervisor/scripts/admission-census-pins.json, so no PINNED leaf is restated where this check cannot read it",
+    pinDiff.length === 0, pinDiff.join(" · ") || "every PINNED leaf identical");
 
   // ---- RESIDUAL 2: the bucket vocabulary is closed in both directions ----
   const verifierSource = readFileSync(CENSUS_VERIFIER, "utf8");
@@ -278,6 +305,41 @@ try {
     const droppedDiff = pinDifferences(sidecar, droppedPins);
     ok("DRILL S2 — a bucket pinned in the sidecar but absent from the verifier is caught, by name",
       droppedDiff.length === 1 && droppedDiff[0].startsWith("unadjudicable.resolution-cycle:"), droppedDiff.join(" · ") || "NOTHING DETECTED");
+
+    // S3 — a sidecar missing a PINNED leaf is refused by name.
+    const withoutLeaf = JSON.parse(JSON.stringify(sidecar));
+    delete withoutLeaf.productionFsCalls;
+    const missingErrors = censusPinErrors(withoutLeaf);
+    ok("DRILL S3 — a sidecar missing a PINNED leaf is refused, by name",
+      missingErrors.length === 1 && missingErrors[0].startsWith("productionFsCalls:"), missingErrors.join(" · ") || "NOTHING DETECTED");
+
+    // S4 — a PINNED leaf that is not an integer is refused by name.
+    const wrongType = JSON.parse(JSON.stringify(sidecar));
+    wrongType.productionFsCalls = String(wrongType.productionFsCalls);
+    const typeErrors = censusPinErrors(wrongType);
+    ok("DRILL S4 — a PINNED leaf that is not an integer is refused, by name",
+      typeErrors.length === 1 && typeErrors[0].startsWith("productionFsCalls:"), typeErrors.join(" · ") || "NOTHING DETECTED");
+
+    // S5 — history only under its declared key.
+    const misplaced = JSON.parse(JSON.stringify(sidecar));
+    misplaced.unadjudicable.history = ["a re-pin note"];
+    const misplacedErrors = censusPinErrors(misplaced);
+    const declaredErrors = censusPinErrors({ ...JSON.parse(JSON.stringify(sidecar)), history: ["a re-pin note"] });
+    ok("DRILL S5 — history is accepted only under its declared key: beside the bucket pins it is refused by name, at the top level it is accepted",
+      misplacedErrors.length === 1 && misplacedErrors[0].startsWith("unadjudicable.history:") && declaredErrors.length === 0,
+      `misplaced: ${misplacedErrors.join(" · ") || "NOTHING DETECTED"} · declared: ${declaredErrors.join(" · ") || "accepted"}`);
+
+    // S6 — the census verifier itself refuses a malformed sidecar when it loads, and loads the real one.
+    const malformedRefusal = await verifierLoadRefusal(withoutLeaf);
+    const realRefusal = await verifierLoadRefusal(sidecar);
+    ok("DRILL S6 — the census verifier refuses a sidecar missing a PINNED leaf when it loads it, and loads the real sidecar",
+      /productionFsCalls/u.test(malformedRefusal ?? "") && realRefusal === null,
+      `malformed: ${malformedRefusal ?? "LOADED"} · real: ${realRefusal ?? "loaded"}`);
+
+    // S7 — a key one side lacks is a difference even when the other side holds undefined.
+    const absentDiff = pinDifferences({ tokenMentions: 1 }, { tokenMentions: 1, productionFsCalls: undefined });
+    ok("DRILL S7 — a PINNED leaf absent from the sidecar is a difference even when the verifier holds it as undefined",
+      absentDiff.length === 1 && absentDiff[0].startsWith("productionFsCalls:"), absentDiff.join(" · ") || "NOTHING DETECTED");
   }
 } catch (error) {
   failures += 1;
