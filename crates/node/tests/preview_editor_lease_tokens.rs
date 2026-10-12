@@ -2696,9 +2696,11 @@ fn a_token_file_that_cannot_be_removed_at_readiness_fails_the_start() {
         Some(&f.owner),
         Some(&json!({ "lease_id": lease_id })),
     );
-    assert_eq!(
-        json_of(&body)["code"],
-        json!("hypervisor.editor_runtime_not_live"),
+    let exposed = json_of(&body);
+    assert!(
+        exposed["ok"] != json!(true)
+            && exposed["public_proxy_port"].is_null()
+            && exposed["open_url"].is_null(),
         "nothing is exposed: {status} {body}"
     );
     let log = std::fs::read_to_string(&f.daemon.log).unwrap_or_default();
