@@ -148,8 +148,13 @@ function stubTier() {
 }
 const PROPOSAL_REFUSAL = { status: 403, body: { ok: false, code: "provider_operation_proposal_ref_required", message: "a live provider effect requires an opaque daemon-issued operation_proposal_ref", receipt_ref: "agentgres://provider-receipt/prc_stub_proposal" } };
 const admitted = (n) => ({ status: 200, body: { ok: true, outcome: "ok", receipt_ref: `agentgres://provider-receipt/prc_stub_ok_${n}`, capability_lease: { lease_id: `lease_stub_${n}`, grant_ref: `wallet.network://grant/approval/stub_${n}`, state: "exhausted", remaining_calls: 0 }, evidence: { deployment: { deployment_ref: `akash-deployment://akdep_stub_${n}`, dseq: `simdseq_stub_${n}`, execution_mode: "simulated_control_plane" }, live_provisioning_not_run: true } } });
-const ATTACH = { editor_service_ref: "environment_service:editor_svc_stub", access_lease_ref: "wallet.network://grant/agr_editor_stub", session_ref: "session:stub", environment_ref: "env-approval-card-fixture" };
-const GRANTS = [{ grant_id: "agr_editor_stub", grant_ref: "wallet.network://grant/agr_editor_stub", subject: "user://operator", action: EDITOR_ACCESS_ACTION, resources: ["environment:env-approval-card-fixture", "editor_service:svc_stub"], status: "active" }];
+// The editor attaches with its access lease's ACCESS TOKEN (the secret the minter returned once); the
+// grant listing carries only that token's SHA-256. The relay keeps and re-states the lease's grant ref,
+// never the token.
+const ATTACH_TOKEN = `ioi_lease_${"e".repeat(64)}`;
+const ATTACH = { editor_service_ref: "environment_service:editor_svc_stub", access_token: ATTACH_TOKEN, session_ref: "session:stub", environment_ref: "env-approval-card-fixture" };
+const GRANTS = [{ grant_id: "agr_editor_stub", grant_ref: "wallet.network://grant/agr_editor_stub", bearer_sha256: crypto.createHash("sha256").update(ATTACH_TOKEN, "utf8").digest("hex"), subject: "user://operator", action: EDITOR_ACCESS_ACTION, resources: ["environment:env-approval-card-fixture", "editor_service:svc_stub"], status: "active" }];
+const KEPT = { editor_service_ref: ATTACH.editor_service_ref, access_lease_ref: GRANTS[0].grant_ref, session_ref: ATTACH.session_ref, environment_ref: ATTACH.environment_ref };
 
 export async function relayLeg(fixtureChallenge) {
   const f = [];
@@ -162,6 +167,13 @@ export async function relayLeg(fixtureChallenge) {
     ["wrong_action", [{ ...GRANTS[0], action: "provider.create" }], ATTACH, "editor_attach_lease_wrong_action"],
     ["foreign_service", [{ ...GRANTS[0], resources: ["environment:env-approval-card-fixture", "editor_service:svc_other"] }], ATTACH, "editor_attach_lease_foreign_service"],
     ["missing_refs", GRANTS, { editor_service_ref: "" }, "editor_attach_refs_required"],
+    // A listed value is never a credential: the grant ref without a token, and the grant id, the grant
+    // ref, a suffix of the ref or the stored hash presented as the token, are all refused.
+    ["listed_ref_without_token", GRANTS, { editor_service_ref: ATTACH.editor_service_ref, access_lease_ref: GRANTS[0].grant_ref, session_ref: ATTACH.session_ref, environment_ref: ATTACH.environment_ref }, "editor_attach_refs_required"],
+    ["token_is_the_grant_id", GRANTS, { ...ATTACH, access_token: GRANTS[0].grant_id }, "editor_attach_lease_unknown"],
+    ["token_is_the_grant_ref", GRANTS, { ...ATTACH, access_token: GRANTS[0].grant_ref }, "editor_attach_lease_unknown"],
+    ["token_is_a_ref_suffix", GRANTS, { ...ATTACH, access_token: "grant/agr_editor_stub" }, "editor_attach_lease_unknown"],
+    ["token_is_the_stored_hash", GRANTS, { ...ATTACH, access_token: GRANTS[0].bearer_sha256 }, "editor_attach_lease_unknown"],
   ]) {
     const t = stubTransport([{ status: 501, body: structuredClone(fixtureChallenge) }]);
     const r = await relayEditorEffect({ body, attach, grants, daemonHeaders: operator, transport: t.transport });
@@ -175,6 +187,8 @@ export async function relayLeg(fixtureChallenge) {
   const relayed = await relayEditorEffect({ body: { ...body, wallet_approval_grant: { approver_sig: GRANT_MARKER } }, attach: ATTACH, grants: GRANTS, daemonHeaders: operator, transport: t1.transport, serveBase: "http://127.0.0.1:4173" });
   const run = getRun(relayed.run_id);
   if (!(relayed.ok && relayed.status === 202 && relayed.parked === true && relayed.byte_derived === true && relayed.relayed === true && relayed.notification)) f.push(`relay_reply:${JSON.stringify(relayed).slice(0, 120)}`);
+  // A relay that admitted nothing has no run to compare: report it rather than read an absent record.
+  if (!run) { f.push(`relay_not_admitted:${relayed.error?.code ?? relayed.status}`); return { findings: f, runs_driven: 0, notification_members: [] }; }
   if (!(t1.calls.length === 1 && t1.calls[0].path === PROVIDER_OPS_PATH && t1.calls[0].headers.cookie === operator.cookie && !("wallet_approval_grant" in (t1.calls[0].payload ?? {})))) f.push("relay_transport_not_user_identity_or_grant_forwarded");
   const t2 = stubTransport([{ status: 501, body: structuredClone(fixtureChallenge) }]);
   const viaApp = await submitProviderOperation({ body, daemonHeaders: operator, transport: t2.transport });
@@ -183,12 +197,13 @@ export async function relayLeg(fixtureChallenge) {
   if (parity.length) f.push(`park_differs_from_app_lane:${parity.join("/")}`);
   if (run?.pendingApproval?.kind !== PROVIDER_OPERATION_KIND || stable(run?.pendingApproval?.challenge) !== stable(fixtureChallenge)) f.push("relay_park_not_whole_challenge");
   if (JSON.stringify(runRecord(run)).includes(GRANT_MARKER)) f.push("relay_record_carries_grant");
-  if (stable(run?.relayedFrom) !== stable({ ...ATTACH })) f.push("relay_refs_not_kept");
+  if (stable(run?.relayedFrom) !== stable(KEPT)) f.push("relay_refs_not_kept");
+  if (JSON.stringify(runRecord(run)).includes(ATTACH_TOKEN) || JSON.stringify(relayed).includes(ATTACH_TOKEN)) f.push("relay_record_or_reply_carries_the_access_token");
   // 3. the notification grammar
   const n = relayed.notification;
   const grammar = verifyNotificationGrammar(n, fixtureChallenge, { runId: run?.id });
   if (grammar.length) f.push(`notification_grammar:${grammar.join("/")}`);
-  if (!(n?.source_adapter?.adapter_kind === ADAPTER_KIND && n?.source_adapter?.editor_service_ref === ATTACH.editor_service_ref && n?.source_adapter?.access_lease_ref === ATTACH.access_lease_ref)) f.push("notification_source_adapter");
+  if (!(n?.source_adapter?.adapter_kind === ADAPTER_KIND && n?.source_adapter?.editor_service_ref === ATTACH.editor_service_ref && n?.source_adapter?.access_lease_ref === KEPT.access_lease_ref)) f.push("notification_source_adapter");
   if (!(n?.decision?.approve_url === `http://127.0.0.1:4173/__ioi/runs/${encodeURIComponent(run.id)}/approve` && n?.decision?.card_url === "http://127.0.0.1:4173/work/sessions")) f.push("notification_links");
   if (stable(run?.editorNotification) !== stable(n)) f.push("notification_not_on_run");
   const smuggled = { ...n, facets: [{ key: "deposit_usd", raw: "1.0" }] };
@@ -382,7 +397,7 @@ async function mutation() {
     const g = verifyNotificationGrammar(m, fixture.challenge, { runId: "pop_x" });
     plant(label, g.includes(code), g[0]);
   }
-  const a = verifyAttach({ editor_service_ref: ATTACH.editor_service_ref, access_lease_ref: ATTACH.access_lease_ref, session_ref: null, environment_ref: ATTACH.environment_ref }, [{ ...GRANTS[0], status: "expired" }]);
+  const a = verifyAttach({ editor_service_ref: ATTACH.editor_service_ref, access_token: ATTACH.access_token, session_ref: null, environment_ref: ATTACH.environment_ref }, [{ ...GRANTS[0], status: "expired" }]);
   plant("an expired attach lease accepted", a.ok === false && a.code === "editor_attach_lease_expired", a.code);
   const sources = { relay: fs.readFileSync(RELAY, "utf8"), runs: fs.readFileSync(RUNS, "utf8"), serve: fs.readFileSync(SERVE, "utf8"), extension: fs.readFileSync(path.join(EXTENSION_DIR, "extension.js"), "utf8") };
   f = sourceFindings({ ...sources, relay: `${sources.relay}\nimport { mintLocalApproverGrant } from "./wallet-authority.mjs";\n` });
@@ -448,17 +463,20 @@ async function laneLegs() {
       const serviceId = svc.body?.editorService?.service_id ?? "";
       const lease = await jd(DAEMON, "/v1/hypervisor/editor-access-leases", { method: "POST", body: JSON.stringify({ environment_id: envId, service_id: serviceId }) });
       const leaseRef = lease.body?.lease_ref ?? lease.body?.lease?.lease_ref ?? lease.body?.grant_ref ?? "";
+      const accessToken = lease.body?.access_token ?? "";
       const grants = (await jd(DAEMON, "/v1/hypervisor/authority/grants")).body?.grants ?? [];
-      return { envId, serviceId, leaseRef, grants, statuses: [env.status, svc.status, lease.status], attach: { editor_service_ref: `environment_service:editor_${serviceId}`, access_lease_ref: leaseRef, session_ref: null, environment_ref: environmentRef } };
+      return { envId, serviceId, leaseRef, accessToken, grants, statuses: [env.status, svc.status, lease.status], attach: { editor_service_ref: `environment_service:editor_${serviceId}`, access_token: accessToken, session_ref: null, environment_ref: environmentRef } };
     };
     // ---- RELAY-PARK: the live deployment_intent effect relayed from the attached editor ----------------------
     const prep = await prepareProviderAccount({ daemonUrl: DAEMON, cookie, tag: `relay-${Date.now().toString(36)}` });
     const at = await attachFor(prep.body.environment_ref);
-    if (!(at.envId && at.serviceId && at.leaseRef)) fp.push(`attach_tuple:${at.statuses.join("/")}:${at.leaseRef}`);
+    if (!(at.envId && at.serviceId && at.leaseRef && at.accessToken)) fp.push(`attach_tuple:${at.statuses.join("/")}:${at.leaseRef}`);
     const attachOk = verifyAttach(at.attach, at.grants);
     if (!attachOk.ok) fp.push(`attach_verify:${attachOk.code}`);
-    const foreign = await jd(SERVE_URL, "/__ioi/editor-relay/provider-ops", { method: "POST", body: JSON.stringify({ body: prep.body, attach: { ...at.attach, access_lease_ref: "wallet.network://grant/agr_does_not_exist" } }) });
+    const foreign = await jd(SERVE_URL, "/__ioi/editor-relay/provider-ops", { method: "POST", body: JSON.stringify({ body: prep.body, attach: { ...at.attach, access_token: `ioi_lease_${"0".repeat(64)}` } }) });
     if (!(foreign.status === 403 && foreign.body?.error?.code === "editor_attach_lease_unknown")) fp.push(`foreign_attach:${foreign.status}:${foreign.body?.error?.code}`);
+    const listed = await jd(SERVE_URL, "/__ioi/editor-relay/provider-ops", { method: "POST", body: JSON.stringify({ body: prep.body, attach: { ...at.attach, access_token: at.leaseRef } }) });
+    if (!(listed.status === 403 && listed.body?.error?.code === "editor_attach_lease_unknown")) fp.push(`listed_ref_attach:${listed.status}:${listed.body?.error?.code}`);
     const relayed = await jd(SERVE_URL, "/__ioi/editor-relay/provider-ops", { method: "POST", body: JSON.stringify({ body: prep.body, attach: at.attach }) });
     const runId = relayed.body?.run_id ?? "";
     if (!(relayed.status === 202 && relayed.body?.parked === true && relayed.body?.byte_derived === true && relayed.body?.relayed === true && runId)) fp.push(`relay:${relayed.status}:${JSON.stringify(relayed.body).slice(0, 160)}`);
@@ -480,7 +498,8 @@ async function laneLegs() {
     const receipts = (await jd(DAEMON, "/v1/hypervisor/provider-receipts")).body?.receipts ?? [];
     const outcomes = receipts.filter((r) => r.environment_ref === prep.body.environment_ref).map((r) => r.outcome);
     if (!(outcomes.includes("authority_missing") && outcomes.includes("proposal_not_admitted"))) fp.push(`receipts:${outcomes.join(",")}`);
-    out.park = { run_id: runId, audience: pending.audience, attach: at.attach, receipts: outcomes, refusal: final.error, notification_members: Object.keys(notification ?? {}).sort() };
+    if (JSON.stringify(parked).includes(at.accessToken)) fp.push("record_carries_the_access_token");
+    out.park = { run_id: runId, audience: pending.audience, attach: { ...at.attach, access_token: "[not recorded]" }, receipts: outcomes, refusal: final.error, notification_members: Object.keys(notification ?? {}).sort() };
     // ---- RELAY-PARITY: the same simulator-mode create through the relay and through the App lane -------------
     // One engaged Akash candidate source per daemon, and a refresh SUPERSEDES the previous quote batch: the
     // two operations run sequentially on the same account — the relay's first, settled, then a fresh
