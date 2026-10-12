@@ -90,13 +90,44 @@ function rustcFileSet() {
     .sort();
 }
 
-/// The text of the census's pinned `unadjudicable` block, from its opening brace up to the first
-/// closing brace after it.
+/// The CODE of the census's pinned `unadjudicable` block, from its opening brace to the MATCHING
+/// closing brace: braces inside comments and strings neither open nor close it, and comments are
+/// left out of the text returned, so a pin is read only from code.
 function pinnedBlockOf(source) {
-  return source.slice(
-    source.indexOf("unadjudicable: {"),
-    source.indexOf("}", source.indexOf("unadjudicable: {")),
-  );
+  const opener = source.indexOf("unadjudicable: {");
+  if (opener < 0) return "";
+  let at = source.indexOf("{", opener);
+  let depth = 0;
+  let code = "";
+  while (at < source.length) {
+    const two = source.slice(at, at + 2);
+    if (two === "//") {
+      const end = source.indexOf("\n", at);
+      at = end < 0 ? source.length : end;
+      continue;
+    }
+    if (two === "/*") {
+      const end = source.indexOf("*/", at + 2);
+      at = end < 0 ? source.length : end + 2;
+      continue;
+    }
+    const char = source[at];
+    if (char === '"' || char === "'" || char === "`") {
+      let end = at + 1;
+      while (end < source.length && source[end] !== char) end += source[end] === "\\" ? 2 : 1;
+      code += source.slice(at, end + 1);
+      at = end + 1;
+      continue;
+    }
+    code += char;
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return code;
+    }
+    at += 1;
+  }
+  return code;
 }
 
 /// The bucket names pinned with a count in `block`.
