@@ -61,6 +61,8 @@ const PREFIXES: &[&str] = &[
 const MINTS: &[Mint] = &[
     Mint { file: "node/src/bin/hypervisor-daemon.rs", function: "async_main", prefix: "idisp_", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "per-boot internal dispatch secret: two UUIDv4 (244 bits), process memory only" },
     Mint { file: "node/src/bin/hypervisor_daemon_routes/authority_routes.rs", function: "issue_bearer_capability_lease", prefix: "ioi_lease_", nth: 0, inline: "hex::encode(secret)", fed_by: "rand::rngs::OsRng.fill_bytes(&mut secret)", tolerates: &[], note: "env-ops capability lease bearer: 32 bytes from the OS RNG" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/editor_host.rs", function: "start_oss_runtime", prefix: "", nth: 0, inline: "rand::rngs::OsRng.fill_bytes(&mut secret);", fed_by: "", tolerates: &[], note: "editor runtime connection token (BUILD-DELTA #31(c)): its draw, 32 bytes from the OS RNG; no prefix and no credential keyword, so only this entry sees it" },
+    Mint { file: "node/src/bin/hypervisor_daemon_routes/editor_host.rs", function: "start_oss_runtime", prefix: "", nth: 0, inline: "(hex::encode(secret), hex::encode(nonce))", fed_by: "", tolerates: &[], note: "editor runtime connection token: its building statement, the hex of that draw" },
     Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "handle_api_token_create", prefix: "ioi_pat_", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "API access tokens: two UUIDv4" },
     Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "gen_opaque", prefix: "", nth: 0, inline: "uuid::Uuid::new_v4()", fed_by: "", tolerates: &[], note: "bootstrap, session, SCIM and invite tokens: two UUIDv4 behind one primitive" },
     Mint { file: "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", function: "random_token", prefix: "", nth: 0, inline: "rand::thread_rng()", fed_by: "", tolerates: &[], note: "OAuth state, nonce and PKCE verifier: the thread CSPRNG, seeded from the OS" },
@@ -620,10 +622,14 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
     // 3. the registry against the tree: every registered file and function exists, every registered mint is found,
     // and every reviewed non-mint is still built where it was reviewed
     for non_mint in REVIEWED_NON_MINTS {
-        if files.iter().any(|(rel, _)| rel == non_mint.file)
-            && !non_mints_built
-                .iter()
-                .any(|(f, n)| f == non_mint.file && n == non_mint.function)
+        if !files.iter().any(|(rel, _)| rel == non_mint.file) {
+            violations.push(format!(
+                "{}: the reviewed non-mint `{}`'s file is missing from the tree: remove it",
+                non_mint.file, non_mint.function
+            ));
+        } else if !non_mints_built
+            .iter()
+            .any(|(f, n)| f == non_mint.file && n == non_mint.function)
         {
             violations.push(format!(
                 "{}: the reviewed non-mint `{}` no longer builds `{}…` by {:?} ({}): remove it",
