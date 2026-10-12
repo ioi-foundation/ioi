@@ -418,6 +418,7 @@ fn upstream() -> Upstream {
 struct Fixture {
     _dir: tempfile::TempDir,
     data: PathBuf,
+    home: PathBuf,
     daemon: Daemon,
     owner: String,
     member: String,
@@ -534,6 +535,7 @@ fn fixture() -> Fixture {
     Fixture {
         _dir: dir,
         data,
+        home,
         daemon,
         owner,
         member,
@@ -1923,4 +1925,215 @@ fn chunked_trailers_carry_no_credential_upstream() {
             "no credential or site name in the trailers upstream: {body:?}"
         );
     }
+}
+
+/// A stand-in for openvscode-server at the daemon's toolchain path: it records its arguments, the
+/// connection token it was given and each request's path and Cookie header; it answers /version,
+/// and anything else only when the request carries `vscode-tkn=<that token>` (403 otherwise).
+/// Returns the record file; the process records its pid there so the test can stop it.
+fn install_fake_editor_runtime(home: &Path) -> PathBuf {
+    let bin = home.join(".ioi/editor-toolchain/openvscode-server/bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let record = bin.join("runtime-record.jsonl");
+    let script = r#"#!/usr/bin/python3 -I
+import http.server, json, os, sys
+args = sys.argv[1:]
+record = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runtime-record.jsonl")
+port = int(args[args.index("--port") + 1])
+token = None
+if "--connection-token-file" in args:
+    with open(args[args.index("--connection-token-file") + 1]) as source:
+        token = source.read().strip()
+def note(entry):
+    with open(record, "a") as out:
+        out.write(json.dumps(entry) + "\n")
+note({"pid": os.getpid(), "args": args, "token": token})
+class Handler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *rest):
+        pass
+    def answer(self, status, body):
+        data = body.encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(data)
+    def do_GET(self):
+        cookie = self.headers.get("Cookie") or ""
+        note({"path": self.path, "cookie": cookie})
+        if self.path.startswith("/version"):
+            return self.answer(200, "0123456789abcdef0123456789abcdef01234567")
+        if token is not None and "vscode-tkn=" + token in [c.strip() for c in cookie.split(";")]:
+            return self.answer(200, "editor-runtime-admitted")
+        return self.answer(403, "connection token required")
+http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+"#;
+    let path = bin.join("openvscode-server");
+    std::fs::write(&path, script).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    record
+}
+
+/// Stops the stand-in runtime (its own process group) when the test ends.
+struct FakeRuntime(PathBuf);
+
+impl FakeRuntime {
+    fn entries(&self) -> Vec<Value> {
+        std::fs::read_to_string(&self.0)
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    }
+}
+
+impl Drop for FakeRuntime {
+    fn drop(&mut self) {
+        for entry in self.entries() {
+            if let Some(pid) = entry["pid"].as_i64() {
+                let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
+            }
+        }
+    }
+}
+
+/// The editor runtime requires a connection token that only the proxy presents: the runtime starts
+/// with a private token file (never without a token), the proxy adds the token to what it forwards,
+/// a request straight to the runtime's port without it is refused, a token the browser sends is
+/// never forwarded, and the token is in no answer, URL or file of the daemon's.
+#[test]
+fn the_editor_runtime_requires_a_connection_token_only_the_proxy_presents() {
+    let f = fixture();
+    let runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/editor-services",
+        Some(&f.owner),
+        Some(&json!({ "environment_id": f.env })),
+    );
+    assert_eq!(status, 200, "editor service create: {body}");
+    let service_id = json_of(&body)["editorService"]["service_id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("a service id: {body}"))
+        .to_string();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+        Some(&f.owner),
+        Some(&json!({})),
+    );
+    assert!(
+        status == 200 && json_of(&body)["ok"] == json!(true),
+        "the editor runtime starts: {status} {body}"
+    );
+    let started = runtime
+        .entries()
+        .into_iter()
+        .find(|entry| entry["args"].is_array())
+        .unwrap_or_else(|| panic!("the runtime recorded its start"));
+    let args: Vec<String> = started["args"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|arg| arg.as_str().map(str::to_string))
+        .collect();
+    assert!(
+        !args.iter().any(|arg| arg == "--without-connection-token"),
+        "the runtime never starts without a connection token: {args:?}"
+    );
+    assert!(
+        args.iter().any(|arg| arg == "--connection-token-file"),
+        "the runtime is given its token in a file: {args:?}"
+    );
+    let token = started["token"].as_str().unwrap_or_default().to_string();
+    assert!(token.len() >= 32, "a long random token: {token:?}");
+    let internal_port: u16 = args[args.iter().position(|arg| arg == "--port").unwrap() + 1]
+        .parse()
+        .unwrap();
+
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/editor-access-leases",
+        Some(&f.owner),
+        Some(&json!({ "environment_id": f.env, "service_id": service_id })),
+    );
+    assert_eq!(status, 200, "editor lease: {body}");
+    let lease = json_of(&body);
+    let access = lease["access_token"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let lease_id = lease["lease_id"].as_str().unwrap_or_default().to_string();
+    let (status, body) = http(
+        f.daemon.port,
+        "POST",
+        &format!("/v1/hypervisor/editor-services/{service_id}/expose"),
+        Some(&f.owner),
+        Some(&json!({ "lease_id": lease_id })),
+    );
+    let exposed = json_of(&body);
+    assert!(
+        status == 200 && exposed["ok"] == json!(true),
+        "editor expose: {status} {body}"
+    );
+    assert!(!body.contains(&token), "the expose answer carries no token");
+    let addr = ProxyAddr::from_url(
+        exposed["open_url"].as_str().unwrap_or_default(),
+        exposed["public_proxy_port"].as_u64().unwrap_or_default() as u16,
+    );
+    let (status, body) = proxy_get(
+        &addr,
+        "/?tkn=forged-query",
+        &[
+            ("x-ioi-lease", access.as_str()),
+            ("Cookie", "vscode-tkn=forged-cookie; app=keep"),
+        ],
+    );
+    assert_eq!(
+        status, 200,
+        "the proxy presents the runtime's token: {body}"
+    );
+    assert!(
+        body.contains("editor-runtime-admitted") && !body.contains(&token),
+        "the answer carries no token: {body}"
+    );
+    let (status, _, body) = raw(
+        internal_port,
+        &format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{internal_port}\r\nConnection: close\r\n\r\n"),
+    );
+    assert_eq!(
+        status, 403,
+        "the runtime refuses a request without its token: {body}"
+    );
+    for entry in runtime.entries() {
+        let seen = format!(
+            "{} {}",
+            entry["path"].as_str().unwrap_or_default(),
+            entry["cookie"].as_str().unwrap_or_default()
+        );
+        assert!(
+            !seen.contains("forged"),
+            "a token the browser sends never reaches the runtime: {seen}"
+        );
+    }
+    let (_, body) = http(
+        f.daemon.port,
+        "GET",
+        &format!("/v1/hypervisor/editor-services/{service_id}/status"),
+        Some(&f.owner),
+        None,
+    );
+    assert!(
+        !body.contains(&token),
+        "the service record carries no token"
+    );
+    assert!(
+        files_containing(&f.data, &token).is_empty(),
+        "no file under the daemon's data dir keeps the token"
+    );
 }
