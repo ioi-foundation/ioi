@@ -528,9 +528,10 @@ const ALL_METHODS: &[&str] = &[
     "GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE", "TRACE", "CONNECT", "PURGE",
 ];
 
-/// Methods with no handler on any route: a router answers them without reaching a handler. A read-only token's answer
-/// must then equal the full token's (proving no handler ran for either) and is printed as NO-HANDLER, never as admitted.
-const NO_HANDLER_METHODS: &[&str] = &["TRACE", "CONNECT", "PURGE"];
+/// Methods the HTTP parser may refuse before any route or guard runs (CONNECT needs an authority-form target): a read-only
+/// token's answer must then equal the full token's (proving no handler ran for either) and is printed NO-HANDLER. TRACE and
+/// PURGE are NOT here: the guard answers them before routing, so a read-only token must get its 403 like any unlisted request.
+const NO_HANDLER_METHODS: &[&str] = &["CONNECT"];
 const NO_HANDLER_STATUSES: &[u16] = &[0, 400, 404, 405, 501]; // 0: the connection was closed by the parser
 
 /// The ONLY case allowed to be excluded as vacuous (its full-token control is also 403 because the principal does not exist).
