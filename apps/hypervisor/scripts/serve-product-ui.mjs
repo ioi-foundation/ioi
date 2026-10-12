@@ -11655,6 +11655,7 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/fallthrough/reset") {
+      if (req.method !== "POST") { res.writeHead(405, { Allow: "POST", "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, code: "method_not_allowed" })); return; }
       fallthrough.clear();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
@@ -11783,6 +11784,7 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname.startsWith("/__ioi/login/sso/") && pathname !== "/__ioi/login/sso/callback") {
+      if (req.method !== "POST") return answerGetWithPostForm(req, res, "Continue to single sign-on");
       const configId = decodeURIComponent(pathname.slice("/__ioi/login/sso/".length).split("/")[0]);
       const redirectUri = `${publicBase(req)}${SSO_CALLBACK_PATH}`;
       try {
@@ -11843,6 +11845,7 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/logout") {
+      if (req.method !== "POST") return answerGetWithPostForm(req, res, "Sign out");
       try { await daemonFetch(`/v1/hypervisor/auth/logout`, { method: "POST", headers: { Cookie: req.headers.cookie || "" } }); } catch { /* best-effort */ }
       res.writeHead(302, { "Set-Cookie": "ioi_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0", Location: "/__ioi/login" });
       res.end();
@@ -12011,7 +12014,9 @@ async function handleEstateRequest(req, res, body) {
     // code we exchange (daemon seals the App key) → redirect to install; installed ← captures the
     // installation_id. The page chrome is intentionally minimal + dark.
     if (pathname === "/__ioi/github-app/start") {
+      if (req.method !== "POST") return answerGetWithPostForm(req, res, "Create your GitHub App");
       const qp = new URL(req.url, "http://x").searchParams;
+      const flowState = githubAppFlowState();
       const owner = qp.get("owner") || ""; // omit for a USER account (e.g. teamioitest)
       let page;
       try {
@@ -12021,7 +12026,7 @@ async function handleEstateRequest(req, res, body) {
         page = githubAppShell("Create your GitHub App", `
           <p>Hypervisor doesn't own a GitHub App — you'll create one in <b>your own</b> account. GitHub will show you exactly what it can access (Contents + Pull requests), then hand the key straight to your daemon. Nothing is shared with us.</p>
           <p class="muted"><b>Outbound repository access only.</b> This localhost manifest does not register a webhook or subscribe to provider events. Pull-request and check state must not be treated as live until signed provider-event ingestion is configured.</p>
-          <form id="gh" action="${esc(d.create_url)}" method="post">
+          <form id="gh" action="${esc(withGithubAppState(d.create_url, flowState))}" method="post">
             <input type="hidden" name="manifest" value="${esc(JSON.stringify(d.manifest))}">
             <button type="submit" class="btn">Create GitHub App on GitHub →</button>
           </form>
@@ -12030,12 +12035,13 @@ async function handleEstateRequest(req, res, body) {
       } catch (e) {
         page = githubAppShell("Couldn't start", `<p class="muted">Daemon unavailable: ${CX_ESC(String(e?.message || e))}</p>`);
       }
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "Set-Cookie": githubAppStateCookie(flowState) });
       res.end(page);
       return;
     }
     if (pathname === "/__ioi/github-app/callback") {
       const qp = new URL(req.url, "http://x").searchParams;
+      if (!githubAppStateMatches(req, qp.get("state"))) return answerGithubAppStateRefusal(res);
       const code = qp.get("code") || "";
       let page;
       try {
@@ -12044,9 +12050,9 @@ async function handleEstateRequest(req, res, body) {
         if (d.ok && d.install_url) {
           page = githubAppShell("GitHub App created ✓", `
             <p>Your App <b>${d.app_slug}</b> was created in <b>@${d.connected_login}</b> and its key is sealed in your daemon. One more step: install it on the repositories it may act on.</p>
-            <a class="btn" href="${d.install_url}">Install the App →</a>
+            <a class="btn" href="${CX_ESC(withGithubAppState(d.install_url, qp.get("state")))}">Install the App →</a>
             <p class="muted">Redirecting you to install…</p>
-            <script>setTimeout(function(){location.href=${JSON.stringify(d.install_url)}}, 1500)</script>`);
+            <script>setTimeout(function(){location.href=${JSON.stringify(withGithubAppState(d.install_url, qp.get("state")))}}, 1500)</script>`);
         } else {
           page = githubAppShell("Couldn't create the App", `<p class="muted">${d.message || d.reason || "conversion failed"}</p>`);
         }
@@ -12059,6 +12065,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/github-app/installed") {
       const qp = new URL(req.url, "http://x").searchParams;
+      if (!githubAppStateMatches(req, qp.get("state"))) return answerGithubAppStateRefusal(res);
       const installation_id = qp.get("installation_id") || "";
       let page;
       try {
@@ -12078,6 +12085,7 @@ async function handleEstateRequest(req, res, body) {
     // connect/:id → ask the daemon for the provider authorize URL (PKCE) and 302 the browser there;
     // oauth/callback ← the provider redirects back, we hand the code to the daemon to seal tokens.
     if (pathname.startsWith("/__ioi/integrations/connect/")) {
+      if (req.method !== "POST") return answerGetWithPostForm(req, res, "Connect this integration");
       const cid = decodeURIComponent(pathname.slice("/__ioi/integrations/connect/".length).split("/")[0]);
       const redirect_uri = `${publicBase(req)}/__ioi/integrations/oauth/callback`;
       const start = () => daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri }) }).then((r) => r.json());
@@ -18093,6 +18101,7 @@ async function handleEstateRequest(req, res, body) {
     // (/__ioi/lease), which sets the proxy's HttpOnly cookie. The token never appears in a URL.
     // Fail-closed with an honest page if the runtime isn't provisioned.
     if (pathname === "/__ioi/editor/open") {
+      if (req.method !== "POST") return answerGetWithPostForm(req, res, "Open the editor");
       const envId = new URLSearchParams((req.url || "").split("?")[1] || "").get("environmentId");
       if (!envId) { res.writeHead(400, { "Content-Type": "text/plain" }); res.end("missing environmentId"); return; }
       const dj = async (m, p, b) => {
@@ -18167,7 +18176,7 @@ async function handleEstateRequest(req, res, body) {
     if (pathname.startsWith("/api/")) {
       let handled = null;
       try {
-        handled = await adapter.handle(pathname, body.toString("utf8"), req.headers);
+        handled = await adapter.handle(pathname, body.toString("utf8"), req.headers, req.method);
       } catch (e) {
         console.error("[ioi-api-adapter]", e);
       }
@@ -18208,6 +18217,50 @@ async function handleEstateRequest(req, res, body) {
       }
     }
     proxyToProductUi(req, res, body);
+}
+
+// A state change the shell's own pages start with a link or window.open (a GET) is never made by the
+// GET. SameSite=Lax sends the session cookie on a cross-site top-level GET, so the GET is answered
+// with a form that POSTs to the same address, submitted at once only when the browser reports the
+// navigation came from this shell's own origin (Sec-Fetch-Site, which a page cannot set); the effect
+// runs on the POST, which the cross-origin check admits only from this origin. The page is never
+// framed.
+function answerGetWithPostForm(req, res, title) {
+  const sameOrigin = String(req.headers["sec-fetch-site"] || "") === "same-origin";
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Frame-Options": "DENY", "Content-Security-Policy": "frame-ancestors 'none'", "Referrer-Policy": "no-referrer" });
+  res.end(`<!doctype html><meta charset="utf-8"><title>${CX_ESC(title)}</title><body style="font:15px system-ui;background:#0d0f14;color:#e6e9ef;padding:3rem"><form id="continue" method="post" action="${CX_ESC(req.url || "/")}"><p>${CX_ESC(title)}</p><button type="submit">Continue</button></form>${sameOrigin ? `<script>document.getElementById("continue").submit()</script>` : ""}</body>`);
+}
+
+// The GitHub App flow's state: a random value the shell's own start (a same-origin POST) sets in an
+// HttpOnly cookie and hands to GitHub, which returns it to the callbacks. A callback acts only when the
+// returned state equals the cookie, so a link to a callback carrying someone else's code or
+// installation changes nothing.
+const GITHUB_APP_STATE_COOKIE = "ioi_github_app_state";
+function githubAppFlowState() {
+  return crypto.randomBytes(32).toString("hex");
+}
+function githubAppStateCookie(state) {
+  return `${GITHUB_APP_STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/__ioi/github-app/; Max-Age=3600`;
+}
+function withGithubAppState(url, state) {
+  if (!url || !state) return url || "";
+  try {
+    const target = new URL(String(url));
+    target.searchParams.set("state", String(state));
+    return target.href;
+  } catch {
+    return String(url);
+  }
+}
+function githubAppStateMatches(req, returned) {
+  const cookie = String(req.headers.cookie || "").split(";").map((part) => part.trim()).find((part) => part.startsWith(`${GITHUB_APP_STATE_COOKIE}=`));
+  const expected = Buffer.from(cookie ? cookie.slice(GITHUB_APP_STATE_COOKIE.length + 1) : "", "utf8");
+  const presented = Buffer.from(String(returned || ""), "utf8");
+  return expected.length === 64 && presented.length === expected.length && crypto.timingSafeEqual(expected, presented);
+}
+function answerGithubAppStateRefusal(res) {
+  res.writeHead(403, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+  res.end(githubAppShell("Start again from Hypervisor", `<p class="muted">This GitHub App step did not come from a connection this browser started, so nothing was changed. Start the connection again from Hypervisor.</p>`));
 }
 
 // ---- Cut A — env-ops streaming transport: JSON-RPC 2.0 over WebSocket ----------------------------

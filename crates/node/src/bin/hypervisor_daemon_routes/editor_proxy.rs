@@ -15,13 +15,17 @@
 //! owner's cookies there and proxied content cannot make same-site requests to the UI. A request
 //! naming any other host is refused (421), so content is never served on the UI's site.
 //!
-//! FORWARDING. The upstream (agent-run code for a port preview) never sees a daemon session or a
-//! lease credential: a request carrying the daemon session cookie (`ioi_session`) is refused and
-//! never forwarded, and every forwarded request has lease cookies, `x-ioi-lease` and a `lease`
-//! query parameter removed. Plain HTTP is ONE request per upstream connection
-//! (`Connection: close` is sent upstream and nothing more is read from the client), so a later
-//! keep-alive request cannot pass unfiltered; it arrives on a new connection and is authenticated
-//! and filtered again. A WebSocket upgrade forwards its filtered handshake, then the frames.
+//! FORWARDING. The upstream (agent-run code for a port preview) never sees a daemon session, a
+//! lease credential or the site the browser came from: a request carrying the daemon session cookie
+//! (`ioi_session`) is refused and never forwarded, and every forwarded request has lease cookies,
+//! `x-ioi-lease`, a `lease` query parameter (its name compared after percent-decoding), `Referer`
+//! and `Origin` removed. Plain HTTP is ONE request per upstream connection (`Connection: close` is
+//! sent upstream; the request's own body, by `Content-Length` or chunked, is forwarded while the
+//! answer is relayed, and nothing after it is read from the client), so a later keep-alive request
+//! cannot pass unfiltered; it arrives on a new connection and is authenticated and filtered again.
+//! Only a valid WebSocket handshake that the upstream answers with 101 switches to raw frames; any
+//! other answer is relayed as plain HTTP and the connection closes. Bytes a client sends with a
+//! handshake, before the upstream's answer, are refused.
 use std::collections::HashMap;
 
 use serde_json::json;
@@ -87,24 +91,57 @@ fn carries_session_cookie(head: &str) -> bool {
     })
 }
 
-/// The opening request as forwarded upstream: daemon cookies, `x-ioi-lease` and `lease` query
-/// parameters removed; for plain HTTP, `Connection: close`. Returns the head, whether it is a
-/// WebSocket upgrade, and its body length; Err for a request whose body length is not a single
-/// Content-Length (chunked or conflicting), which the proxy refuses rather than forwards.
-fn forwarded_request_head(head: &str) -> Result<(String, bool, usize), &'static str> {
-    let mut lines = head.split("\r\n");
-    let request_line = lines.next().unwrap_or_default();
-    let mut parts = request_line.splitn(3, ' ');
-    let (method, target, version) = (
-        parts.next().unwrap_or_default(),
-        parts.next().unwrap_or_default(),
-        parts.next().unwrap_or_default(),
-    );
-    let target = match target.split_once('?') {
+/// How a forwarded request's body is delimited.
+enum BodyFraming {
+    /// Exactly this many bytes (`Content-Length`, or none).
+    Length(usize),
+    /// `Transfer-Encoding: chunked`: chunk by chunk, through the last chunk and the trailer.
+    Chunked,
+}
+
+/// The opening request as the proxy forwards it upstream.
+struct Forward {
+    head: String,
+    /// A valid WebSocket opening handshake: switched to raw frames only on the upstream's 101.
+    websocket: bool,
+    body: BodyFraming,
+}
+
+/// Decode `application/x-www-form-urlencoded` text: `+` is a space and `%XX` a byte.
+fn percent_decoded(text: &str) -> String {
+    let bytes = text.replace('+', " ").into_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        let hex = (bytes[index] == b'%')
+            .then(|| bytes.get(index + 1..index + 3))
+            .flatten()
+            .and_then(|pair| std::str::from_utf8(pair).ok())
+            .and_then(|pair| u8::from_str_radix(pair, 16).ok());
+        match hex {
+            Some(byte) => {
+                out.push(byte);
+                index += 3;
+            }
+            None => {
+                out.push(bytes[index]);
+                index += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// The request target without any query parameter NAMED `lease`, the name compared after
+/// percent-decoding (so `%6cease` is `lease` too).
+fn without_lease_query(target: &str) -> String {
+    match target.split_once('?') {
         Some((path, query)) => {
             let kept: Vec<&str> = query
                 .split('&')
-                .filter(|pair| pair.split('=').next() != Some("lease"))
+                .filter(|pair| {
+                    percent_decoded(pair.split('=').next().unwrap_or_default()) != "lease"
+                })
                 .collect();
             if kept.is_empty() {
                 path.to_string()
@@ -113,26 +150,72 @@ fn forwarded_request_head(head: &str) -> Result<(String, bool, usize), &'static 
             }
         }
         None => target.to_string(),
-    };
-    let upgrade =
-        header_value(head, "upgrade").is_some_and(|v| v.eq_ignore_ascii_case("websocket"));
-    if header_value(head, "transfer-encoding").is_some() {
-        return Err("a request body must carry a single Content-Length through this proxy");
     }
-    let lengths: Vec<&str> = head
-        .lines()
+}
+
+/// Every value of a request header (case-insensitive name), in order.
+fn header_values<'a>(head: &'a str, name: &str) -> Vec<&'a str> {
+    head.lines()
         .skip(1)
         .filter_map(|line| line.split_once(':'))
-        .filter(|(key, _)| key.trim().eq_ignore_ascii_case("content-length"))
+        .filter(|(key, _)| key.trim().eq_ignore_ascii_case(name))
         .map(|(_, value)| value.trim())
-        .collect();
-    let body_len = match lengths.as_slice() {
-        [] => 0,
-        [one] => one
-            .parse::<usize>()
-            .map_err(|_| "an invalid Content-Length")?,
-        _ => return Err("conflicting Content-Length headers"),
+        .collect()
+}
+
+/// A WebSocket opening handshake (RFC 6455 section 4.1): GET with `Upgrade: websocket`, an `upgrade`
+/// token in `Connection`, a `Sec-WebSocket-Key` and a `Sec-WebSocket-Version`, and no body.
+fn is_websocket_handshake(head: &str, body: &BodyFraming) -> bool {
+    head.starts_with("GET ")
+        && matches!(body, BodyFraming::Length(0))
+        && header_value(head, "upgrade").is_some_and(|v| v.eq_ignore_ascii_case("websocket"))
+        && header_value(head, "connection").is_some_and(|v| {
+            v.split(',')
+                .any(|token| token.trim().eq_ignore_ascii_case("upgrade"))
+        })
+        && header_value(head, "sec-websocket-key").is_some_and(|v| !v.is_empty())
+        && header_value(head, "sec-websocket-version").is_some()
+}
+
+/// The opening request as forwarded upstream: daemon cookies, `x-ioi-lease`, `lease` query
+/// parameters, `Referer` and `Origin` removed; for anything but a WebSocket handshake, the
+/// connection headers replaced by `Connection: close`. Err (a status line and a reason) for a body
+/// whose framing the proxy does not forward: conflicting lengths, a transfer coding other than
+/// chunked, or both `Transfer-Encoding` and `Content-Length`.
+fn forwarded_request_head(head: &str) -> Result<Forward, (&'static str, &'static str)> {
+    let mut lines = head.split("\r\n");
+    let request_line = lines.next().unwrap_or_default();
+    let mut parts = request_line.splitn(3, ' ');
+    let (method, target, version) = (
+        parts.next().unwrap_or_default(),
+        parts.next().unwrap_or_default(),
+        parts.next().unwrap_or_default(),
+    );
+    let target = without_lease_query(target);
+    let codings = header_values(head, "transfer-encoding");
+    let lengths = header_values(head, "content-length");
+    let body = match (codings.as_slice(), lengths.as_slice()) {
+        ([], []) => BodyFraming::Length(0),
+        ([], [one]) => BodyFraming::Length(
+            one.parse::<usize>()
+                .map_err(|_| ("400 Bad Request", "an invalid Content-Length"))?,
+        ),
+        ([], _) => return Err(("400 Bad Request", "conflicting Content-Length headers")),
+        ([coding], []) if coding.eq_ignore_ascii_case("chunked") => BodyFraming::Chunked,
+        ([_], []) => {
+            return Err((
+                "501 Not Implemented",
+                "a transfer coding other than chunked",
+            ))
+        }
+        _ => {
+            return Err((
+                "400 Bad Request",
+                "a body framed by several transfer codings, or by both Transfer-Encoding and Content-Length",
+            ))
+        }
     };
+    let websocket = is_websocket_handshake(head, &body);
     let mut out = format!("{method} {target} {version}\r\n");
     for line in lines.filter(|line| !line.is_empty()) {
         let Some((key, value)) = line.split_once(':') else {
@@ -140,8 +223,8 @@ fn forwarded_request_head(head: &str) -> Result<(String, bool, usize), &'static 
         };
         let key_lower = key.trim().to_ascii_lowercase();
         match key_lower.as_str() {
-            "x-ioi-lease" => continue,
-            "connection" | "keep-alive" | "proxy-connection" if !upgrade => continue,
+            "x-ioi-lease" | "referer" | "origin" => continue,
+            "connection" | "keep-alive" | "proxy-connection" | "upgrade" if !websocket => continue,
             "cookie" => {
                 let kept: Vec<&str> = value
                     .split(';')
@@ -161,11 +244,229 @@ fn forwarded_request_head(head: &str) -> Result<(String, bool, usize), &'static 
         out.push_str(line);
         out.push_str("\r\n");
     }
-    if !upgrade {
+    if !websocket {
         out.push_str("Connection: close\r\n");
     }
     out.push_str("\r\n");
-    Ok((out, upgrade, body_len))
+    Ok(Forward {
+        head: out,
+        websocket,
+        body,
+    })
+}
+
+/// Read more of `client` into `pending`; the client closing first is an error.
+async fn fill<R>(client: &mut R, pending: &mut Vec<u8>, chunk: &mut [u8]) -> std::io::Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    let read = client.read(chunk).await?;
+    if read == 0 {
+        return Err(std::io::ErrorKind::UnexpectedEof.into());
+    }
+    pending.extend_from_slice(&chunk[..read]);
+    Ok(())
+}
+
+/// The index of the CRLF ending the first line in `pending`, reading more as needed; a line longer
+/// than 4 KiB is refused.
+async fn line_end<R>(
+    client: &mut R,
+    pending: &mut Vec<u8>,
+    chunk: &mut [u8],
+) -> std::io::Result<usize>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    loop {
+        if let Some(at) = pending.windows(2).position(|w| w == b"\r\n") {
+            return Ok(at);
+        }
+        if pending.len() > 4096 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "a chunked-body line longer than 4 KiB",
+            ));
+        }
+        fill(client, pending, chunk).await?;
+    }
+}
+
+/// Forward a chunked body as received, chunk by chunk, through its last chunk and trailer, and
+/// nothing after it. A malformed chunk ends the forwarding with an error.
+async fn forward_chunked<R, W>(
+    client: &mut R,
+    upstream: &mut W,
+    mut pending: Vec<u8>,
+) -> std::io::Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin,
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    let invalid =
+        |what: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, what.to_string());
+    let mut chunk = [0u8; 8192];
+    loop {
+        let end = line_end(client, &mut pending, &mut chunk).await?;
+        let size_text = std::str::from_utf8(&pending[..end])
+            .map_err(|_| invalid("a chunk size that is not text"))?
+            .split(';')
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if size_text.is_empty()
+            || size_text.len() > 16
+            || !size_text.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(invalid("a chunk size that is not hexadecimal"));
+        }
+        let size = usize::from_str_radix(&size_text, 16).map_err(|_| invalid("a chunk size"))?;
+        upstream.write_all(&pending[..end + 2]).await?;
+        pending.drain(..end + 2);
+        if size == 0 {
+            // The trailer section, through its empty line.
+            loop {
+                let end = line_end(client, &mut pending, &mut chunk).await?;
+                upstream.write_all(&pending[..end + 2]).await?;
+                pending.drain(..end + 2);
+                if end == 0 {
+                    return Ok(());
+                }
+            }
+        }
+        let mut left = size;
+        while left > 0 {
+            if pending.is_empty() {
+                fill(client, &mut pending, &mut chunk).await?;
+            }
+            let now = left.min(pending.len());
+            upstream.write_all(&pending[..now]).await?;
+            pending.drain(..now);
+            left -= now;
+        }
+        while pending.len() < 2 {
+            fill(client, &mut pending, &mut chunk).await?;
+        }
+        if &pending[..2] != b"\r\n" {
+            return Err(invalid("a chunk not ended by CRLF"));
+        }
+        upstream.write_all(b"\r\n").await?;
+        pending.drain(..2);
+    }
+}
+
+/// Forward exactly this request's body (`in_hand` is what was read past its head) and nothing more:
+/// bytes the client sends after the body never reach the upstream.
+async fn forward_body<R, W>(
+    client: &mut R,
+    upstream: &mut W,
+    in_hand: &[u8],
+    body: &BodyFraming,
+) -> std::io::Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin,
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    match body {
+        BodyFraming::Length(length) => {
+            let now = in_hand.len().min(*length);
+            upstream.write_all(&in_hand[..now]).await?;
+            let remaining = (*length - now) as u64;
+            if remaining > 0 {
+                let copied = tokio::io::copy(&mut (&mut *client).take(remaining), upstream).await?;
+                if copied < remaining {
+                    return Err(std::io::ErrorKind::UnexpectedEof.into());
+                }
+            }
+            Ok(())
+        }
+        BodyFraming::Chunked => forward_chunked(client, upstream, in_hand.to_vec()).await,
+    }
+}
+
+/// The upstream's answer head (and whatever arrived with it): (bytes, head length), or None.
+async fn read_answer_head(outbound: &mut TcpStream) -> Option<(Vec<u8>, usize)> {
+    let mut answer = Vec::with_capacity(1024);
+    let mut chunk = [0u8; 4096];
+    loop {
+        if let Some(end) = headers_end(&answer) {
+            return Some((answer, end));
+        }
+        if answer.len() > 16384 {
+            return None;
+        }
+        match outbound.read(&mut chunk).await {
+            Ok(0) | Err(_) => return None,
+            Ok(read) => answer.extend_from_slice(&chunk[..read]),
+        }
+    }
+}
+
+/// Relay an upstream's answer to a handshake it did not switch (anything but 101) as plain HTTP:
+/// its connection headers replaced by `Connection: close`, its body by `Content-Length` (else until
+/// the upstream closes, at most 30 seconds), then the client connection closes. Nothing more is read
+/// from the client.
+async fn relay_unswitched_answer(
+    inbound: &mut TcpStream,
+    outbound: &mut TcpStream,
+    answer: &[u8],
+    head_len: usize,
+) {
+    let head = String::from_utf8_lossy(&answer[..head_len]).to_string();
+    let mut lines = head.split("\r\n");
+    let status_line = lines.next().unwrap_or_default();
+    let status = status_line
+        .split_whitespace()
+        .nth(1)
+        .and_then(|code| code.parse::<u16>().ok());
+    let mut length = matches!(status, Some(100..=199) | Some(204) | Some(304)).then_some(0u64);
+    let mut out = format!("{status_line}\r\n");
+    for line in lines.filter(|line| !line.is_empty()) {
+        let key = line
+            .split_once(':')
+            .map(|(key, _)| key.trim().to_ascii_lowercase())
+            .unwrap_or_default();
+        if matches!(key.as_str(), "connection" | "keep-alive" | "upgrade") {
+            continue;
+        }
+        if key == "content-length" {
+            length = length.or_else(|| {
+                line.split_once(':')
+                    .and_then(|(_, value)| value.trim().parse::<u64>().ok())
+            });
+        }
+        out.push_str(line);
+        out.push_str("\r\n");
+    }
+    out.push_str("Connection: close\r\n\r\n");
+    if inbound.write_all(out.as_bytes()).await.is_err() {
+        return;
+    }
+    let early = &answer[head_len..];
+    match length {
+        Some(length) => {
+            let now = (early.len() as u64).min(length) as usize;
+            if inbound.write_all(&early[..now]).await.is_err() {
+                return;
+            }
+            let remaining = length - now as u64;
+            if remaining > 0 {
+                let _ = tokio::io::copy(&mut (&mut *outbound).take(remaining), inbound).await;
+            }
+        }
+        None => {
+            if inbound.write_all(early).await.is_err() {
+                return;
+            }
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_secs(30),
+                tokio::io::copy(outbound, inbound),
+            )
+            .await;
+        }
+    }
+    let _ = inbound.shutdown().await;
 }
 
 fn headers_end(buf: &[u8]) -> Option<usize> {
@@ -205,29 +506,7 @@ fn presented_lease_token(head: &str, public_port: u16) -> Option<String> {
 pub(crate) fn form_field(body: &str, field: &str) -> Option<String> {
     body.split('&').find_map(|pair| {
         let (name, value) = pair.split_once('=')?;
-        (name == field).then(|| {
-            let bytes = value.replace('+', " ").into_bytes();
-            let mut out = Vec::with_capacity(bytes.len());
-            let mut index = 0;
-            while index < bytes.len() {
-                let hex = (bytes[index] == b'%')
-                    .then(|| bytes.get(index + 1..index + 3))
-                    .flatten()
-                    .and_then(|pair| std::str::from_utf8(pair).ok())
-                    .and_then(|pair| u8::from_str_radix(pair, 16).ok());
-                match hex {
-                    Some(byte) => {
-                        out.push(byte);
-                        index += 3;
-                    }
-                    None => {
-                        out.push(bytes[index]);
-                        index += 1;
-                    }
-                }
-            }
-            String::from_utf8_lossy(&out).into_owned()
-        })
+        (name == field).then(|| percent_decoded(value))
     })
 }
 
@@ -320,6 +599,15 @@ async fn handle_conn(
             .await;
         return;
     }
+    // The daemon session cookie is host-only on the UI's host, so a browser never sends it here; a
+    // request that carries it anyway (the lease exchange included) is refused and never forwarded.
+    if carries_session_cookie(&head) {
+        proxy_event(data_dir, service_id, "session_cookie_refused", bound_lease);
+        let body = "Hypervisor preview/editor proxy: a request carrying the daemon session cookie is refused.";
+        let resp = format!("HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body);
+        let _ = inbound.write_all(resp.as_bytes()).await;
+        return;
+    }
     if head.starts_with("POST /__ioi/lease ") {
         answer_lease_exchange(
             &mut inbound,
@@ -331,15 +619,6 @@ async fn handle_conn(
             data_dir,
         )
         .await;
-        return;
-    }
-    // The daemon session cookie is host-only on the UI's host, so a browser never sends it here; a
-    // request that carries it anyway is refused and never forwarded.
-    if carries_session_cookie(&head) {
-        proxy_event(data_dir, service_id, "session_cookie_refused", bound_lease);
-        let body = "Hypervisor preview/editor proxy: a request carrying the daemon session cookie is refused.";
-        let resp = format!("HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body);
-        let _ = inbound.write_all(resp.as_bytes()).await;
         return;
     }
     // Auth model for this loopback, per-service public port: every opening request carries the
@@ -360,14 +639,23 @@ async fn handle_conn(
         "authentication_succeeded",
         bound_lease,
     );
-    let (forwarded_head, upgrade, body_len) = match forwarded_request_head(&head) {
-        Ok(shape) => shape,
-        Err(reason) => {
-            let resp = format!("HTTP/1.1 411 Length Required\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reason}", reason.len());
+    let forward = match forwarded_request_head(&head) {
+        Ok(forward) => forward,
+        Err((status, reason)) => {
+            let resp = format!("HTTP/1.1 {status}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reason}", reason.len());
             let _ = inbound.write_all(resp.as_bytes()).await;
             return;
         }
     };
+    let read_ahead = &buf[head_len..];
+    if forward.websocket && !read_ahead.is_empty() {
+        // A client sends frames only after the upstream's 101; bytes sent with the handshake are
+        // never forwarded.
+        let reason = "bytes sent with a WebSocket handshake are refused";
+        let resp = format!("HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reason}", reason.len());
+        let _ = inbound.write_all(resp.as_bytes()).await;
+        return;
+    }
     let Ok(mut outbound) = TcpStream::connect(("127.0.0.1", internal_port)).await else {
         proxy_event(
             data_dir,
@@ -380,7 +668,7 @@ async fn handle_conn(
             .await;
         return;
     };
-    if outbound.write_all(forwarded_head.as_bytes()).await.is_err() {
+    if outbound.write_all(forward.head.as_bytes()).await.is_err() {
         return;
     }
     proxy_event(
@@ -389,29 +677,54 @@ async fn handle_conn(
         "raw_connection_established",
         bound_lease,
     );
-    let read_ahead = &buf[head_len..];
-    if upgrade {
-        // The WebSocket handshake is filtered above; frames carry no headers.
-        if outbound.write_all(read_ahead).await.is_err() {
+    if forward.websocket {
+        // Raw frames only once the upstream switches protocols (101); any other answer is relayed
+        // as plain HTTP and the connection closes, so no later request passes unfiltered.
+        let Some((answer, answer_head_len)) = read_answer_head(&mut outbound).await else {
+            let _ = inbound.shutdown().await;
             return;
-        }
-        let _ = tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await;
-    } else {
-        // One request per upstream connection: forward exactly this request's body, then relay
-        // the answer. Nothing further from the client reaches this upstream connection.
-        let in_hand = read_ahead.len().min(body_len);
-        if outbound.write_all(&read_ahead[..in_hand]).await.is_err() {
-            return;
-        }
-        let remaining = (body_len - in_hand) as u64;
-        if remaining > 0 {
-            let mut body = (&mut inbound).take(remaining);
-            if tokio::io::copy(&mut body, &mut outbound).await.is_err() {
+        };
+        let switched = String::from_utf8_lossy(&answer[..answer_head_len])
+            .split_whitespace()
+            .nth(1)
+            == Some("101");
+        if switched {
+            if inbound.write_all(&answer).await.is_err() {
                 return;
             }
+            let _ = tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await;
+        } else {
+            relay_unswitched_answer(&mut inbound, &mut outbound, &answer, answer_head_len).await;
         }
-        let _ = tokio::io::copy(&mut outbound, &mut inbound).await;
-        let _ = inbound.shutdown().await;
+    } else {
+        // One request per upstream connection: exactly this request's body is forwarded while the
+        // answer is relayed (an interim `100 Continue` reaches a client waiting for it); nothing
+        // after the body reaches this upstream connection.
+        let (mut client_read, mut client_write) = inbound.split();
+        {
+            let (mut upstream_read, mut upstream_write) = outbound.split();
+            let body = forward_body(
+                &mut client_read,
+                &mut upstream_write,
+                read_ahead,
+                &forward.body,
+            );
+            let answer = tokio::io::copy(&mut upstream_read, &mut client_write);
+            tokio::pin!(body, answer);
+            let mut forwarding = true;
+            loop {
+                tokio::select! {
+                    sent = &mut body, if forwarding => {
+                        forwarding = false;
+                        if sent.is_err() {
+                            break;
+                        }
+                    }
+                    _ = &mut answer => break,
+                }
+            }
+        }
+        let _ = client_write.shutdown().await;
     }
     proxy_event(data_dir, service_id, "client_disconnected", bound_lease);
 }

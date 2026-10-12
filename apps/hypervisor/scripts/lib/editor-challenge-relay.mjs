@@ -32,10 +32,9 @@ export function attachRefs(input) {
   return refs.editor_service_ref && refs.access_token && refs.environment_ref ? refs : null;
 }
 
-/** True iff `stored` (a grant's `bearer_sha256`, hex) is the SHA-256 of `token`, compared in constant time. */
-function bearerMatches(stored, token) {
+/** True iff `stored` (a grant's `bearer_sha256`, hex) is `presented` (a token's SHA-256 digest), compared in constant time. */
+function bearerMatches(stored, presented) {
   if (typeof stored !== "string" || !/^[0-9a-f]{64}$/u.test(stored)) return false;
-  const presented = crypto.createHash("sha256").update(token, "utf8").digest();
   return crypto.timingSafeEqual(Buffer.from(stored, "hex"), presented);
 }
 
@@ -47,7 +46,14 @@ function bearerMatches(stored, token) {
 export function verifyAttach(refs, grants) {
   const list = Array.isArray(grants) ? grants : [];
   const serviceId = refs.editor_service_ref.replace(/^environment_service:editor_/u, "");
-  const match = list.find((g) => bearerMatches(g?.bearer_sha256, refs.access_token));
+  // The same work wherever the lease sits: the token is hashed once and every candidate's stored
+  // hash is compared, with no early exit at the match.
+  const presented = crypto.createHash("sha256").update(refs.access_token, "utf8").digest();
+  let match = null;
+  for (const g of list) {
+    const hit = bearerMatches(g?.bearer_sha256, presented);
+    if (hit && match === null) match = g;
+  }
   if (!match) return { ok: false, code: "editor_attach_lease_unknown" };
   const status = String(match.status ?? match.state ?? "");
   if (status !== "active") return { ok: false, code: `editor_attach_lease_${status || "inactive"}` };
