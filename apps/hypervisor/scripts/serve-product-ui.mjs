@@ -18068,8 +18068,10 @@ async function handleEstateRequest(req, res, body) {
     }
     // WS-5: editor "Open in VS Code Browser". The product-ui bundle opens the editor's urlTemplate;
     // we point vscode-browser at this endpoint, which drives the proven daemon editor chain
-    // (create service → lease → start openvscode-server → expose lease-auth proxy) and 302s to
-    // the live editor URL. Fail-closed with an honest page if the runtime isn't provisioned.
+    // (create service → lease → start openvscode-server → expose lease-auth proxy), then hands the
+    // browser to the editor proxy by POSTing the lease's access token to the proxy's exchange
+    // (/__ioi/lease), which sets the proxy's HttpOnly cookie. The token never appears in a URL.
+    // Fail-closed with an honest page if the runtime isn't provisioned.
     if (pathname === "/__ioi/editor/open") {
       const envId = new URLSearchParams((req.url || "").split("?")[1] || "").get("environmentId");
       if (!envId) { res.writeHead(400, { "Content-Type": "text/plain" }); res.end("missing environmentId"); return; }
@@ -18088,12 +18090,16 @@ async function handleEstateRequest(req, res, body) {
         const lease = await dj("POST", "/v1/hypervisor/editor-access-leases", { environment_id: envId, service_id: serviceId, session_id: `editor:${envId}` });
         const leaseId = lease.body.lease_id;
         const leaseRef = lease.body.lease_ref || lease.body.capability_lease_ref;
+        const accessToken = lease.body.access_token;
+        if (!accessToken) return fail(lease.body.message || "the editor lease returned no access token");
         const start = await dj("POST", `/v1/hypervisor/editor-services/${encodeURIComponent(serviceId)}/start`, { access_lease_ref: leaseRef, session_ref: `editor:${envId}` });
         if (!start.body.ok) return fail(start.body.reason || "editor service did not reach ready");
         const expose = await dj("POST", `/v1/hypervisor/editor-services/${encodeURIComponent(serviceId)}/expose`, { lease_id: leaseId });
         if (!expose.body.ok || !expose.body.open_url) return fail(expose.body.reason || "editor proxy bind failed");
-        res.writeHead(302, { Location: expose.body.open_url });
-        res.end();
+        const esc = (v) => String(v).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+        const exchange = new URL("/__ioi/lease", expose.body.open_url).href;
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+        res.end(`<!doctype html><meta charset=utf-8><title>Opening the editor</title><body style="font:15px system-ui;background:#0d0f14;color:#e6e9ef;padding:3rem"><form method="post" action="${esc(exchange)}"><input type="hidden" name="token" value="${esc(accessToken)}"><button type="submit">Open the editor</button></form><script>document.forms[0].submit()</script></body>`);
       } catch (e) {
         fail(e.message);
       }

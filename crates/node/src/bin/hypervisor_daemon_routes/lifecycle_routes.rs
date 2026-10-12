@@ -11367,11 +11367,13 @@ async fn start_preview_server(
     let port = listener.local_addr()?.port();
     let app = axum::Router::new()
         .route("/", axum::routing::get(serve_preview_root))
+        .route("/__ioi/lease", axum::routing::post(preview_lease_exchange))
         .route("/*preview_path", axum::routing::get(serve_preview_path))
         .with_state(PreviewState {
             workspace_root,
             data_dir,
             capability_lease_ref,
+            port,
         });
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     // Graceful shutdown so a revoke/teardown deterministically closes the socket:
@@ -11390,25 +11392,65 @@ async fn start_preview_server(
 struct PreviewState {
     workspace_root: String,
     data_dir: String,
+    /// The grant id of the preview lease this listener is bound to.
     capability_lease_ref: String,
+    port: u16,
 }
 
-fn preview_request_authorized(
-    state: &PreviewState,
-    query: &std::collections::HashMap<String, String>,
-) -> bool {
-    query.get("lease").map(String::as_str) == Some(state.capability_lease_ref.as_str())
-        && super::authority_routes::capability_lease_status(
+/// The listener admits only its lease's access token: the `x-ioi-lease` header, else its lease
+/// cookie (set by `POST /__ioi/lease`). A token in the query string is not a credential.
+fn preview_request_authorized(state: &PreviewState, headers: &HeaderMap) -> bool {
+    let cookie_prefix = format!("{}=", super::editor_proxy::lease_cookie_name(state.port));
+    let token = headers
+        .get("x-ioi-lease")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.trim().to_string())
+        .or_else(|| {
+            headers
+                .get_all(header::COOKIE)
+                .iter()
+                .filter_map(|value| value.to_str().ok())
+                .flat_map(|value| value.split(';'))
+                .find_map(|part| part.trim().strip_prefix(cookie_prefix.as_str()))
+                .map(str::to_string)
+        });
+    token.is_some_and(|token| {
+        super::authority_routes::bearer_admits_lease(
             &state.data_dir,
             &state.capability_lease_ref,
-        ) == "active"
+            &token,
+        )
+    })
 }
 
-async fn serve_preview_root(
-    State(state): State<PreviewState>,
-    Query(query): Query<std::collections::HashMap<String, String>>,
-) -> Response {
-    if !preview_request_authorized(&state, &query) {
+/// `POST /__ioi/lease` (form field `token`): the browser exchange. A valid token for this
+/// listener's lease is answered 303 to `/` with the listener's HttpOnly, SameSite=Lax cookie.
+async fn preview_lease_exchange(State(state): State<PreviewState>, body: String) -> Response {
+    let token = super::editor_proxy::form_field(&body, "token").unwrap_or_default();
+    if !super::authority_routes::bearer_admits_lease(
+        &state.data_dir,
+        &state.capability_lease_ref,
+        &token,
+    ) {
+        return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
+    }
+    let cookie = format!(
+        "{}={token}; HttpOnly; SameSite=Lax; Path=/",
+        super::editor_proxy::lease_cookie_name(state.port)
+    );
+    (
+        StatusCode::SEE_OTHER,
+        [
+            (header::LOCATION, "/".to_string()),
+            (header::SET_COOKIE, cookie),
+            (header::CACHE_CONTROL, "no-store".to_string()),
+        ],
+    )
+        .into_response()
+}
+
+async fn serve_preview_root(State(state): State<PreviewState>, headers: HeaderMap) -> Response {
+    if !preview_request_authorized(&state, &headers) {
         return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
     }
     serve_preview_file(&state.workspace_root, "index.html")
@@ -11416,10 +11458,10 @@ async fn serve_preview_root(
 
 async fn serve_preview_path(
     State(state): State<PreviewState>,
-    Query(query): Query<std::collections::HashMap<String, String>>,
+    headers: HeaderMap,
     AxumPath(rel): AxumPath<String>,
 ) -> Response {
-    if !preview_request_authorized(&state, &query) {
+    if !preview_request_authorized(&state, &headers) {
         return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
     }
     serve_preview_file(&state.workspace_root, &rel)
@@ -11624,7 +11666,8 @@ async fn open_session_preview_port(
     )
     .await
     .ok()?;
-    let url = format!("http://127.0.0.1:{port}/?lease={capability_lease_ref}");
+    // The URL names the listener only; it carries no credential.
+    let url = format!("http://127.0.0.1:{port}/");
     // Replace any prior listener for this session (signal the old one to shut down;
     // the new listener binds a fresh port, so we don't need to await the old close).
     if let Ok(mut servers) = st.preview_servers.lock() {

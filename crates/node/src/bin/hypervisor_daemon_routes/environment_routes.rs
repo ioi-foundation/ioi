@@ -1742,13 +1742,18 @@ pub(crate) async fn handle_env_port_expose(
         }
     };
     let listening = port_listening(u64::from(target_port));
-    let lease = super::authority_routes::issue_capability_lease(
+    let (lease, access_token) = super::authority_routes::issue_bearer_capability_lease(
         &st.data_dir,
         &identity.principal_ref,
         "environment.port",
         json!([format!("environment:{id}"), format!("port:{port}")]),
         3600,
     );
+    let Some(access_token) = access_token else {
+        return Ok(Json(
+            json!({ "ok": false, "reason": "the preview lease could not be recorded and is not in force", "lease": lease }),
+        ));
+    };
     let lease_id = lease
         .get("grant_id")
         .and_then(|v| v.as_str())
@@ -1775,7 +1780,9 @@ pub(crate) async fn handle_env_port_expose(
         }
     };
     st.editor_proxies.lock().unwrap().insert(service_key, proxy);
-    let url = format!("http://127.0.0.1:{public_port}/?lease={lease_id}");
+    // The URL names the proxy only. The browser presents the lease's access token by header, or
+    // exchanges it once (POST /__ioi/lease) for the proxy's HttpOnly cookie.
+    let url = format!("http://127.0.0.1:{public_port}/");
     let mut ports = env["status"]["ports"]
         .as_array()
         .cloned()
@@ -1806,8 +1813,8 @@ pub(crate) async fn handle_env_port_expose(
     persist_env(&st.data_dir, &env)?;
     Ok(Json(
         json!({ "ok": true, "environment_id": id, "port": port, "url": url,
-        "accessToken": lease_id, "public_proxy_port": public_port, "listening": listening,
-        "fail_closed_on_revoke": true }),
+        "accessToken": access_token, "lease_id": lease_id, "public_proxy_port": public_port,
+        "listening": listening, "fail_closed_on_revoke": true }),
     ))
 }
 

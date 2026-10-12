@@ -23,7 +23,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 
-use super::authority_routes::{capability_lease_status, issue_capability_lease};
+use super::authority_routes::{capability_lease_status, issue_bearer_capability_lease};
 use super::{iso_now, persist_record, read_record_dir, AppError, DaemonState};
 
 fn nanos() -> u128 {
@@ -653,8 +653,8 @@ pub(crate) async fn handle_editor_service_expose(
         Json(json!({
             "ok": true, "service_id": service_id,
             "public_proxy_port": public_port,
-            "open_url": format!("http://127.0.0.1:{public_port}/?lease={lease_id}"),
-            "auth_mode": "first_message_session_token", "lease_id": lease_id
+            "open_url": format!("http://127.0.0.1:{public_port}/"),
+            "auth_mode": "lease_header_or_exchanged_cookie", "lease_id": lease_id
         })),
     ))
 }
@@ -807,7 +807,7 @@ pub(crate) async fn handle_editor_service_open_url(
     };
     Ok(Json(json!({
         "ok": true, "service_id": service_id,
-        "open_url": format!("http://127.0.0.1:{p}/?lease={lease}"),
+        "open_url": format!("http://127.0.0.1:{p}/"),
         "lease_ref": lease, "websocket_only": true,
         "note": "route through the browser-IDE shell URL; the raw WS-only target is not a plain preview",
     })))
@@ -894,7 +894,7 @@ pub(crate) async fn handle_editor_access_lease_create(
         format!("environment:{env}"),
         format!("editor_service:{service}")
     ]);
-    let grant = issue_capability_lease(
+    let (grant, access_token) = issue_bearer_capability_lease(
         &st.data_dir,
         &subject,
         "environment.editor.open",
@@ -930,6 +930,9 @@ pub(crate) async fn handle_editor_access_lease_create(
             "capability_lease_ref": lease_ref,
             "lease_ref": lease_ref,
             "lease_id": lease_id,
+            // The editor proxy's credential, returned only here: present it as `x-ioi-lease`, or
+            // exchange it once (POST /__ioi/lease on the proxy) for the proxy's HttpOnly cookie.
+            "access_token": access_token,
             "session_ref": subject, "environment_id": env, "service_id": service,
             "expires_at_unix": grant.get("expires_at_unix"),
             "revoke_route": format!("/v1/hypervisor/editor-access-leases/{lease_id}/revoke"),
