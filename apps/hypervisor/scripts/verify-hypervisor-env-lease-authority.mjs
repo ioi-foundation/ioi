@@ -317,7 +317,9 @@ async function run() {
     let editorTok = null;
     if (ownerAuth.authorization) {
       const em = await jd(`${D}/v1/hypervisor/editor-access-leases`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env, service_id: "eds_x" }) });
-      editorTok = em.j?.lease_id ?? em.j?.grant?.grant_id;
+      // The editor lease's ACCESS TOKEN (a bearer the env-ops seam can find by its hash), so the refusal
+      // below is the action check, not a failed token lookup.
+      editorTok = em.j?.access_token ?? null;
     }
     const editorMarker = `editor-lease-write-${safeId}.txt`;
     const wfEditor = editorTok ? await jd(opsUrl(D, env, "WriteFile"), { method: "POST", headers: { authorization: `Bearer ${editorTok}` }, body: JSON.stringify({ path: editorMarker, content: B64("x") }) }) : { status: "no-lease" };

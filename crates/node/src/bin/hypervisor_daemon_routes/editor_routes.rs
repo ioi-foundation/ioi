@@ -930,8 +930,8 @@ pub(crate) async fn handle_editor_access_lease_create(
             "capability_lease_ref": lease_ref,
             "lease_ref": lease_ref,
             "lease_id": lease_id,
-            // The editor proxy's credential, returned only here: present it as `x-ioi-lease`, or
-            // exchange it once (POST /__ioi/lease on the proxy) for the proxy's HttpOnly cookie.
+            // The editor proxy's credential, returned only here: present it as `x-ioi-lease`, or hand
+            // it to the proxy's browser handoff (POST /__ioi/lease), which sets its HttpOnly cookie.
             "access_token": access_token,
             "session_ref": subject, "environment_id": env, "service_id": service,
             "expires_at_unix": grant.get("expires_at_unix"),

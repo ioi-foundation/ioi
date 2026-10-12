@@ -2,13 +2,13 @@
 //!
 //! Security infrastructure, not UI plumbing (Locked Decision 5). The OSS runtime listens on a
 //! PRIVATE internal port; the daemon never hands out that raw port. This proxy binds a public port
-//! per editor service, authenticates the OPENING request against the capability lease (first-
-//! message/query token -> principal), and only then forwards the raw connection (HTTP + the WS
-//! upgrade) to the internal target. Expiry/revoke fail CLOSED on new connections (existing ones get
-//! reconnect grace). The proxy is bound to one lease (its grant id) and admits only that lease's
-//! access token, presented in the `x-ioi-lease` header or in the cookie this proxy's own exchange
-//! (`POST /__ioi/lease`) sets; never from a URL. The token is checked by its hash in constant time
-//! (`authority_routes::bearer_admits_lease`).
+//! per editor service, authenticates the OPENING request against the capability lease, and only
+//! then forwards the raw connection (HTTP + the WS upgrade) to the internal target. Expiry/revoke
+//! fail CLOSED on new connections (existing ones get reconnect grace). The proxy is bound to one
+//! lease (its grant id) and admits only that lease's access token, presented in the `x-ioi-lease`
+//! header or in the cookie this proxy's own browser handoff (`POST /__ioi/lease`) sets; never from
+//! a URL. The handoff is not single-use: it answers any POST carrying the live lease's token. The
+//! token is checked by its hash in constant time (`authority_routes::bearer_admits_lease`).
 use std::collections::HashMap;
 
 use serde_json::json;

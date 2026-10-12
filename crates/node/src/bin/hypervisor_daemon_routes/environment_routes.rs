@@ -1781,7 +1781,7 @@ pub(crate) async fn handle_env_port_expose(
     };
     st.editor_proxies.lock().unwrap().insert(service_key, proxy);
     // The URL names the proxy only. The browser presents the lease's access token by header, or
-    // exchanges it once (POST /__ioi/lease) for the proxy's HttpOnly cookie.
+    // hands it to the proxy's browser handoff (POST /__ioi/lease), which sets its HttpOnly cookie.
     let url = format!("http://127.0.0.1:{public_port}/");
     let mut ports = env["status"]["ports"]
         .as_array()
