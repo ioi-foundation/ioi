@@ -20,6 +20,9 @@ struct Site {
 
 /// (anchor, fragment): a derivation fragment tolerated in that site's window because the derived value is a
 /// one-way id of the secret, never the secret.
+/// (anchor, n): the registered site is the n-th (0-based) line holding the anchor, where an earlier line holds it too.
+const OCCURRENCE: &[(&str, usize)] = &[("\"wec_{}\",", 1)];
+
 const DERIVATION_ALLOWED: &[(&str, &str)] = &[("\"wec_{}\",", "[..32]")];
 
 const SITES: &[Site] = &[
@@ -129,7 +132,15 @@ fn every_registered_minting_site_shows_its_entropy_source_and_no_derivation() {
         let lines: Vec<&str> = text.lines().collect();
         let at = lines
             .iter()
-            .position(|line| line.contains(site.anchor))
+            .enumerate()
+            .filter(|(_, line)| line.contains(site.anchor))
+            .map(|(index, _)| index)
+            .nth(
+                OCCURRENCE
+                    .iter()
+                    .find(|(anchor, _)| *anchor == site.anchor)
+                    .map_or(0, |(_, nth)| *nth),
+            )
             .unwrap_or_else(|| {
                 panic!(
                     "{}: anchor {:?} not found ({})",
