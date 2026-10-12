@@ -99,7 +99,8 @@ async function jd(url, { method = "GET", headers = {}, body } = {}) {
 }
 
 // A stand-in for the pinned openvscode-server (the sandbox cannot install it), as the daemon's
-// toolchain under `toolchain`: it listens on the private socket the daemon names and admits only the
+// toolchain under `toolchain`: it listens ONLY on the private socket the daemon names (a launch
+// without --socket-path exits, so a TCP launch can never pass as live) and admits only the
 // connection token the daemon handed it, as the real server does. Each start records its pid.
 const installEditorRuntimeStandIn = (toolchain) => {
   const bin = path.join(toolchain, "openvscode-server", "bin");
@@ -122,7 +123,8 @@ const installEditorRuntimeStandIn = (toolchain) => {
     '  response.writeHead(403, { "content-type": "text/plain" }); response.end("Forbidden");',
     "});",
     'const socketPath = arg("--socket-path");',
-    'if (socketPath) server.listen(socketPath); else server.listen(Number(arg("--port") || 3000), arg("--host") || "127.0.0.1");',
+    'if (!socketPath) { console.error("this runtime listens only on --socket-path"); process.exit(2); }',
+    "server.listen(socketPath);",
     "",
   ].join("\n");
   fs.writeFileSync(path.join(bin, "openvscode-server"), script, { mode: 0o755 });
@@ -424,6 +426,26 @@ async function run() {
         ok("the editor-service fixture is the PRODUCT PATH — created and started through its own routes; the daemon launched its runtime and the record is `ready`, exactly what the auth gate sees in production",
           productShape && started.status === 200 && started.j?.ok === true && rec.phase === "ready",
           `schema=${rec.schema_version} env=${rec.environment_id} start=${started.status}/${started.j?.ok} phase=${rec.phase}`);
+
+        // A record merely ADVANCED to `ready` with an internal TCP port, and no runtime this daemon
+        // started, is never exposed, even with a matching editor lease: no proxy, no port.
+        const unstarted = await jd(`${D}/v1/hypervisor/editor-services`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env }) });
+        const unstartedId = unstarted.j?.editorService?.service_id ?? unstarted.j?.service?.service_id ?? unstarted.j?.service_id;
+        const unstartedPath = unstartedId ? path.join(dataDir, "editor-services", `${unstartedId}.json`) : null;
+        let notLive = { status: "no-service", j: {} };
+        if (unstartedPath && fs.existsSync(unstartedPath)) {
+          const advanced = JSON.parse(fs.readFileSync(unstartedPath, "utf8"));
+          advanced.phase = "ready";
+          advanced.internal_port = 59999;
+          fs.writeFileSync(unstartedPath, JSON.stringify(advanced));
+          const unstartedEal = await jd(`${D}/v1/hypervisor/editor-access-leases`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env, service_id: unstartedId }) });
+          const unstartedTok = unstartedEal.j?.lease_id ?? unstartedEal.j?.grant?.grant_id;
+          notLive = unstartedTok ? await jd(`${D}/v1/hypervisor/editor-services/${unstartedId}/expose`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ lease_id: unstartedTok }) }) : { status: "no-lease", j: {} };
+        }
+        ok("a record advanced to `ready` with a TCP port but no live runtime of this daemon is NOT exposed, even with a matching editor lease (409 hypervisor.editor_runtime_not_live, no proxy port)",
+          notLive.status === 409 && notLive.j?.ok === false && notLive.j?.code === "hypervisor.editor_runtime_not_live"
+            && notLive.j?.public_proxy_port === null && !notLive.j?.open_url,
+          `status=${notLive.status} code=${notLive.j?.code} proxy_port=${notLive.j?.public_proxy_port}`);
 
         const editEal = await jd(`${D}/v1/hypervisor/editor-access-leases`, { method: "POST", headers: ownerAuth, body: JSON.stringify({ environment_id: env, service_id: svcId }) });
         const editTok = editEal.j?.lease_id ?? editEal.j?.grant?.grant_id;
