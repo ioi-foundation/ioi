@@ -24791,11 +24791,41 @@ pub(crate) async fn handle_organization_patch(
         ),
     )
 }
+/// The one credential a request presents: its `ioi_session` cookie or its bearer, or both when they are the
+/// same token. Two session cookies, two bearers, or a cookie and a different bearer are ambiguous (`Err`).
+fn single_presented_credential(headers: &HeaderMap) -> Result<Option<String>, ()> {
+    let mut cookies = Vec::new();
+    for cookie in headers.get_all("cookie") {
+        let Ok(cookie) = cookie.to_str() else {
+            continue;
+        };
+        for part in cookie.split(';') {
+            if let Some(token) = part.trim().strip_prefix("ioi_session=") {
+                cookies.push(token.to_string());
+            }
+        }
+    }
+    let mut bearers: Vec<String> = headers
+        .get_all(header::AUTHORIZATION)
+        .iter()
+        .filter_map(|value| value.to_str().ok()?.strip_prefix("Bearer "))
+        .map(|token| token.trim().to_string())
+        .collect();
+    if cookies.len() > 1 || bearers.len() > 1 {
+        return Err(());
+    }
+    match (cookies.pop(), bearers.pop()) {
+        (Some(cookie), Some(bearer)) if cookie != bearer => Err(()),
+        (Some(cookie), _) => Ok(Some(cookie)),
+        (None, bearer) => Ok(bearer),
+    }
+}
+
 /// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a NEW member +
 /// issue its session. Fails closed if the invite id doesn't match the current link. An email that already
 /// names a principal is never signed in here (BUILD-DELTA #24): that principal joins by an accept
-/// authenticated as itself (its own session or API token, not impersonated), which records its
-/// membership and issues no session.
+/// authenticated as itself by one credential (its own session or API token; not impersonated, not
+/// route-scoped), which records its membership and issues no session.
 pub(crate) async fn handle_org_invite_accept(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -24876,10 +24906,32 @@ pub(crate) async fn handle_org_invite_accept(
     }
     let (principal, principal_created) = match find_principal_by_email(&st.data_dir, &email) {
         // BUILD-DELTA #24: the invite never signs in an existing principal. It joins only by an accept
-        // authenticated as exactly that principal: its own session or API token, never an impersonated
-        // session, and a route-scoped session only where its scope admits this route.
+        // authenticated as exactly that principal, by ONE credential: its own session or API token. An
+        // impersonated session and a route-scoped session are refused, whatever the scope lists.
         Some(p) if p["status"].as_str() == Some("active") => {
-            let Some(caller) = resolve_principal(&st.data_dir, &headers) else {
+            let Ok(credential) = single_presented_credential(&headers) else {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.ambiguous_request_identity",
+                        "message": "the request presents more than one credential; present exactly one"
+                    })),
+                );
+            };
+            // The identity and the session check below both read exactly this one credential.
+            let presented = credential.and_then(|token| {
+                let mut only = HeaderMap::new();
+                only.insert(
+                    header::AUTHORIZATION,
+                    format!("Bearer {token}").parse().ok()?,
+                );
+                Some(only)
+            });
+            let Some(caller) = presented
+                .as_ref()
+                .and_then(|only| resolve_principal(&st.data_dir, only))
+            else {
                 return (
                     StatusCode::UNAUTHORIZED,
                     Json(json!({
@@ -24912,13 +24964,21 @@ pub(crate) async fn handle_org_invite_accept(
                     })),
                 );
             }
-            if !session_allows_route(&st.data_dir, &headers, "/v1/hypervisor/org-invite/accept") {
+            let route_scoped = presented
+                .as_ref()
+                .and_then(|only| presented_session_record(&st.data_dir, only))
+                .is_some_and(|session| {
+                    session.get("allowed_route_prefixes").is_some()
+                        || session.get("allowed_exact_routes").is_some()
+                        || session.get("allowed_route_patterns").is_some()
+                });
+            if route_scoped {
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({
                         "ok": false,
-                        "code": "hypervisor.auth_session_route_scope_denied",
-                        "message": "this short-lived session is not scoped to the requested daemon route"
+                        "code": "hypervisor.org_invite_scoped_session_refused",
+                        "message": "a route-scoped session does not accept an invite: sign in as yourself"
                     })),
                 );
             }

@@ -8455,15 +8455,18 @@ ${error ? `<div class="err">${String(error).replace(/[<>]/g, "")}</div>` : ""}
 </form></main></body></html>`;
 }
 
-// Owned invite-acceptance surface: a new email creates a member account; a signed-in account joins as itself
-// (`signedIn` = { email, org }), with no password field.
-function inviteShell(inviteId, error, signedIn = null) {
+// Owned invite-acceptance surface. `view.mode`: "create" (signed out: a new email creates a member account),
+// "join" (signed in as { email, org }: joins as itself, no password field), or "neutral" (who is asking could
+// not be confirmed: no form at all, never the create-account form).
+function inviteShell(inviteId, error, view = { mode: "create" }) {
   const safe = String(inviteId).replace(/[^A-Za-z0-9_-]/g, "");
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  const form = signedIn
-    ? `<h1>Join ${esc(signedIn.org || "the organization")} as ${esc(signedIn.email)}</h1><div class="sub">You've been invited. Not you? <a href="/__ioi/logout">Sign out</a></div>
-<input type="hidden" name="email" value="${esc(signedIn.email)}">
+  const form = view.mode === "join"
+    ? `<h1>Join ${esc(view.org || "the organization")} as ${esc(view.email)}</h1><div class="sub">You've been invited. Not you? <a href="/__ioi/logout">Sign out</a></div>
+<input type="hidden" name="email" value="${esc(view.email)}">
 <button type="submit">Join</button>`
+    : view.mode === "neutral"
+    ? `<h1>Join the organization</h1><div class="sub">You've been invited. <a href="/__ioi/invite/${safe}">Reload</a></div>`
     : `<h1>Join the organization</h1><div class="sub">You've been invited. Create your account.</div>
 <label>Full name</label><input name="name" autocomplete="name" autofocus placeholder="Your name">
 <label>Email</label><input name="email" type="email" autocomplete="email" placeholder="you@org.com">
@@ -11810,20 +11813,34 @@ async function handleEstateRequest(req, res, body) {
       const inviteId = decodeURIComponent(pathname.slice("/__ioi/invite/".length).split("/")[0]);
       const signIn = `<a href="/__ioi/login?next=${encodeURIComponent(`/__ioi/invite/${inviteId}`)}">Sign in</a>`;
       const impersonated = `An impersonated session can't accept an invite. ${signIn} as yourself.`;
-      const signedInAs = async () => {
+      const failed = "Couldn't complete joining. Try again.";
+      const isObject = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+      // Who is asking. No session on the request: signed out. A session: the daemon says who it is, or that it
+      // is not signed in. Anything else (a failed or unexpected answer) is "neutral": no form, never the
+      // create-account form shown to someone who may be signed in.
+      const hasSession = /(?:^|;)\s*ioi_session=[^;\s]/.test(String(req.headers.cookie || "")) || Boolean(req.headers.authorization);
+      const viewer = async () => {
+        if (!hasSession) return { mode: "create" };
         try {
-          const w = await (await daemonFetch(`/v1/hypervisor/auth/whoami`)).json();
-          if (w?.authenticated !== true || !w.principal?.email) return null;
-          const o = await daemonFetch(`/v1/hypervisor/organization`).then((r) => r.json()).catch(() => ({}));
-          return { email: w.principal.email, org: o?.organization?.display_name || "", impersonated: w.principal.is_impersonated === true };
-        } catch { return null; }
+          const r = await daemonFetch(`/v1/hypervisor/auth/whoami`);
+          const w = await r.json().catch(() => null);
+          if (isObject(w) && w.authenticated === true && isObject(w.principal) && typeof w.principal.email === "string") {
+            const o = await daemonFetch(`/v1/hypervisor/organization`).then((x) => x.json()).catch(() => null);
+            const org = isObject(o) && isObject(o.organization) && typeof o.organization.display_name === "string" ? o.organization.display_name : "";
+            return { mode: "join", email: w.principal.email, org, impersonated: w.principal.is_impersonated === true };
+          }
+          if (isObject(w) && (r.status === 401 || w.authenticated === false)) return { mode: "create" };
+        } catch { /* the daemon could not say */ }
+        return { mode: "neutral" };
       };
       if (req.method === "POST") {
         const form = new URLSearchParams(body.toString("utf8"));
         try {
           const r = await daemonFetch(`/v1/hypervisor/org-invite/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invite_id: inviteId, email: form.get("email") || "", name: form.get("name") || "", password: form.get("password") || "" }) });
-          const d = await r.json().catch(() => ({}));
-          if (r.ok && d.ok && d.session_token) {
+          // An answer that is not a JSON object is unexpected: it reads as a failed join, not as a refusal.
+          const raw = await r.json().catch(() => null);
+          const d = isObject(raw) ? raw : {};
+          if (r.ok && d.ok && typeof d.session_token === "string" && d.session_token) {
             res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
             res.end();
             return;
@@ -11840,7 +11857,8 @@ async function handleEstateRequest(req, res, body) {
             "hypervisor.org_invite_existing_principal_sign_in_required": `This email already has an account. ${signIn} first, then open the invite again to join.`,
             "hypervisor.org_invite_principal_mismatch": `This email belongs to another account. ${signIn} as that account, then open the invite again to join.`,
             "hypervisor.org_invite_impersonated_session_refused": impersonated,
-            "hypervisor.auth_session_route_scope_denied": `This session can't accept an invite. ${signIn} as yourself.`,
+            "hypervisor.org_invite_scoped_session_refused": `This session can't accept an invite. ${signIn} as yourself.`,
+            "hypervisor.ambiguous_request_identity": `This request carries more than one sign-in. <a href="/__ioi/logout">Sign out</a>, then sign in and open the invite again.`,
             "hypervisor.org_invite_principal_inactive": "This account is inactive.",
             password_too_short: "Password must be at least 8 characters.",
             "email is required": "Enter your email.",
@@ -11849,18 +11867,19 @@ async function handleEstateRequest(req, res, body) {
             "hypervisor.org_invite_issuer_no_longer_authorized": invalid,
           };
           const known = (key) => (typeof key === "string" && Object.hasOwn(messages, key) ? messages[key] : null);
-          const message = known(d.code) || known(d.reason) || "Couldn't complete joining. Try again.";
+          const message = known(d.code) || known(d.reason) || failed;
           res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(inviteShell(inviteId, message, await signedInAs()));
-        } catch (e) {
+          res.end(inviteShell(inviteId, message, await viewer()));
+        } catch {
+          // The daemon could not be reached or answered mid-way: a true, neutral failure, no form for a session.
           res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(inviteShell(inviteId, `Invite service unavailable: ${e.message}`));
+          res.end(inviteShell(inviteId, failed, { mode: hasSession ? "neutral" : "create" }));
         }
         return;
       }
-      const signedIn = await signedInAs();
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(inviteShell(inviteId, signedIn?.impersonated ? impersonated : "", signedIn));
+      const view = await viewer();
+      res.writeHead(view.mode === "neutral" ? 503 : 200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(inviteShell(inviteId, view.mode === "neutral" ? failed : view.impersonated ? impersonated : "", view));
       return;
     }
     if (pathname === "/__ioi/logout") {

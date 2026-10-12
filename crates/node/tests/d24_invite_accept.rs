@@ -74,6 +74,21 @@ fn http(
     token: Option<&str>,
     body: Option<&Value>,
 ) -> (u16, String) {
+    let auth: Vec<String> = token
+        .map(|token| format!("Authorization: Bearer {token}"))
+        .into_iter()
+        .collect();
+    http_with(port, method, path, &auth, body)
+}
+
+/// The same request with the caller's own header lines (e.g. Cookie, Authorization).
+fn http_with(
+    port: u16,
+    method: &str,
+    path: &str,
+    header_lines: &[String],
+    body: Option<&Value>,
+) -> (u16, String) {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect to the daemon");
     stream
         .set_read_timeout(Some(Duration::from_secs(120)))
@@ -83,8 +98,8 @@ fn http(
         "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
         payload.len()
     );
-    if let Some(token) = token {
-        request.push_str(&format!("Authorization: Bearer {token}\r\n"));
+    for line in header_lines {
+        request.push_str(&format!("{line}\r\n"));
     }
     request.push_str("\r\n");
     request.push_str(&payload);
@@ -277,6 +292,49 @@ fn stored_sessions(data_dir: &Path) -> usize {
                 .count()
         })
         .unwrap_or(0)
+}
+
+/// Opens and reads of the daemon's principals directory and its records, counted by inotify: every principal
+/// lookup reads that directory, then each record in it.
+struct PrincipalReads(i32);
+
+impl PrincipalReads {
+    fn watch(dir: &Path) -> Self {
+        use std::os::unix::ffi::OsStrExt;
+        let fd = unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) };
+        assert!(fd >= 0, "inotify_init1");
+        let path = std::ffi::CString::new(dir.as_os_str().as_bytes()).unwrap();
+        let watch =
+            unsafe { libc::inotify_add_watch(fd, path.as_ptr(), libc::IN_OPEN | libc::IN_ACCESS) };
+        assert!(watch >= 0, "inotify_add_watch {}", dir.display());
+        Self(fd)
+    }
+
+    /// Events since the last call (the queue is drained).
+    fn take(&self) -> usize {
+        let mut events = 0;
+        let mut buf = vec![0u8; 64 * 1024];
+        loop {
+            let n = unsafe { libc::read(self.0, buf.as_mut_ptr().cast(), buf.len()) };
+            if n <= 0 {
+                return events;
+            }
+            let mut at = 0usize;
+            while at < n as usize {
+                let event: libc::inotify_event = unsafe {
+                    std::ptr::read_unaligned(buf.as_ptr().add(at).cast::<libc::inotify_event>())
+                };
+                events += 1;
+                at += std::mem::size_of::<libc::inotify_event>() + event.len as usize;
+            }
+        }
+    }
+}
+
+impl Drop for PrincipalReads {
+    fn drop(&mut self) {
+        unsafe { libc::close(self.0) };
+    }
 }
 
 /// How many accounts the daemon has stored.
@@ -542,10 +600,11 @@ fn d24_an_impersonated_session_does_not_accept_for_its_subject() {
     assert_eq!(stored_sessions(&f.data), before, "no session was stored");
 }
 
-/// A route-scoped session (the portal exchange's, not impersonated) for the owner does not accept the owner's
-/// invite: its scope does not admit the route. Refused, typed, with no session.
+/// A route-scoped session (the portal exchange's, not impersonated) for the owner never accepts the owner's
+/// invite, whatever its scope lists: refused, typed, with no session, before and after its stored scope is
+/// widened to name the accept route.
 #[test]
-fn d24_a_route_scoped_session_does_not_accept_outside_its_scope() {
+fn d24_a_route_scoped_session_is_refused_whatever_its_scope() {
     let f = fixture_env(&PORTAL_ENV);
     let owner = whoami(&f.daemon, &f.owner);
     let owner_id = owner["principal_id"].as_str().unwrap();
@@ -554,18 +613,136 @@ fn d24_a_route_scoped_session_does_not_accept_outside_its_scope() {
     assert_eq!(resolved["principal_id"], json!(owner_id), "{resolved}");
     assert!(resolved.get("is_impersonated").is_none(), "{resolved}");
     let before = stored_sessions(&f.data);
-    let (status, answer) = accept(
-        &f.daemon,
-        Some(&session),
-        &json!({ "invite_id": f.invite, "email": OWNER.0 }),
-    );
-    assert_eq!(status, 403, "{answer}");
+    for widened in [false, true] {
+        if widened {
+            widen_portal_session_scope(&f.data);
+        }
+        let (status, answer) = accept(
+            &f.daemon,
+            Some(&session),
+            &json!({ "invite_id": f.invite, "email": OWNER.0 }),
+        );
+        assert_eq!(status, 403, "widened {widened}: {answer}");
+        assert_eq!(
+            json_of(&answer)["code"],
+            json!("hypervisor.org_invite_scoped_session_refused"),
+            "widened {widened}: {answer}"
+        );
+        assert!(
+            session_token_of(&answer).is_none(),
+            "widened {widened}: no session: {answer}"
+        );
+    }
+    assert_eq!(stored_sessions(&f.data), before, "no session was stored");
+}
+
+/// Rewrite the stored portal-exchange session so its scope names the accept route (exactly and by prefix).
+fn widen_portal_session_scope(data_dir: &Path) {
+    let mut widened = 0;
+    for entry in std::fs::read_dir(data_dir.join("sessions")).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_none_or(|e| e != "json") {
+            continue;
+        }
+        let mut session: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        if session["source"] != json!("portal_exchange") {
+            continue;
+        }
+        session["allowed_exact_routes"]
+            .as_array_mut()
+            .expect("a scoped session lists exact routes")
+            .push(json!("/v1/hypervisor/org-invite/accept"));
+        session["allowed_route_prefixes"] = json!(["/v1/hypervisor/"]);
+        std::fs::write(&path, serde_json::to_vec_pretty(&session).unwrap()).unwrap();
+        widened += 1;
+    }
     assert_eq!(
-        json_of(&answer)["code"],
-        json!("hypervisor.auth_session_route_scope_denied"),
-        "{answer}"
+        widened, 1,
+        "exactly one portal-exchange session was widened"
     );
-    assert!(session_token_of(&answer).is_none(), "no session: {answer}");
+}
+
+/// A request presenting more than one credential is refused, typed (400), with no session and no join: two
+/// session cookies in either order (in one Cookie header or two), or a cookie and a different bearer. A cookie
+/// and the SAME bearer is one credential: it joins.
+#[test]
+fn d24_an_ambiguous_credential_is_refused() {
+    let f = fixture_env(&PORTAL_ENV);
+    let owner_id = whoami(&f.daemon, &f.owner)["principal_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let scoped = portal_session(&f.daemon, &owner_id, None);
+    let member = login(&f.daemon, MEMBER);
+    let before = stored_sessions(&f.data);
+    let ambiguous: Vec<(&str, Vec<String>)> = vec![
+        (
+            "member then scoped",
+            vec![format!(
+                "Cookie: ioi_session={member}; ioi_session={scoped}"
+            )],
+        ),
+        (
+            "scoped then member",
+            vec![format!(
+                "Cookie: ioi_session={scoped}; ioi_session={member}"
+            )],
+        ),
+        (
+            "two Cookie headers",
+            vec![
+                format!("Cookie: ioi_session={member}"),
+                format!("Cookie: ioi_session={scoped}"),
+            ],
+        ),
+        (
+            "cookie and a different bearer",
+            vec![
+                format!("Cookie: ioi_session={member}"),
+                format!("Authorization: Bearer {scoped}"),
+            ],
+        ),
+        (
+            "two bearers",
+            vec![
+                format!("Authorization: Bearer {member}"),
+                format!("Authorization: Bearer {scoped}"),
+            ],
+        ),
+    ];
+    for (case, lines) in &ambiguous {
+        for email in [OWNER.0, MEMBER.0] {
+            let (status, answer) = http_with(
+                f.daemon.port,
+                "POST",
+                "/v1/hypervisor/org-invite/accept",
+                lines,
+                Some(&json!({ "invite_id": f.invite, "email": email })),
+            );
+            assert_eq!(status, 400, "{case} {email}: {answer}");
+            assert_eq!(
+                json_of(&answer)["code"],
+                json!("hypervisor.ambiguous_request_identity"),
+                "{case} {email}: {answer}"
+            );
+            assert!(
+                session_token_of(&answer).is_none(),
+                "{case} {email}: no session: {answer}"
+            );
+        }
+    }
+    let (status, answer) = http_with(
+        f.daemon.port,
+        "POST",
+        "/v1/hypervisor/org-invite/accept",
+        &[
+            format!("Cookie: ioi_session={member}"),
+            format!("Authorization: Bearer {member}"),
+        ],
+        Some(&json!({ "invite_id": f.invite, "email": MEMBER.0 })),
+    );
+    assert_eq!(status, 200, "the same token as cookie and bearer: {answer}");
+    assert_eq!(json_of(&answer)["joined"], json!(true), "{answer}");
     assert_eq!(stored_sessions(&f.data), before, "no session was stored");
 }
 
@@ -700,7 +877,9 @@ fn d24_an_inactive_account_is_refused() {
 /// refusal (not the account's), and a new email makes no account. No session either way.
 #[test]
 fn d24_a_rotated_or_invalid_invite_is_refused_before_any_lookup() {
-    let f = fixture();
+    // The background completer pass is slowed so that the principal-read counter below sees only this test's
+    // requests.
+    let f = fixture_env(&[("IOI_HYPERVISOR_GOVERNED_REPLAY_INTERVAL_MS", "300000")]);
     let (status, body) = http(
         f.daemon.port,
         "POST",
@@ -716,6 +895,12 @@ fn d24_a_rotated_or_invalid_invite_is_refused_before_any_lookup() {
     );
     let sessions = stored_sessions(&f.data);
     let principals = stored_principals(&f.data);
+    assert!(
+        principals >= 3,
+        "the counter sees the stored accounts ({principals})"
+    );
+    let reads = PrincipalReads::watch(&f.data.join("principals"));
+    reads.take();
     for invite in [f.invite.as_str(), "inv_not_an_invite"] {
         for email in [OWNER.0, "rotated@example.test"] {
             let (status, answer) = accept(
@@ -729,8 +914,28 @@ fn d24_a_rotated_or_invalid_invite_is_refused_before_any_lookup() {
                 json!("invalid_or_expired_invite"),
                 "{invite} {email}: {answer}"
             );
+            assert_eq!(
+                reads.take(),
+                0,
+                "{invite} {email}: no account was read before the invite was refused"
+            );
         }
     }
+    // The counter's own control: with the CURRENT invite, the same existing email is looked up (then refused).
+    let current = json_of(&body)["invite"]["invite_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let (status, answer) = accept(
+        &f.daemon,
+        None,
+        &json!({ "invite_id": current, "email": OWNER.0 }),
+    );
+    assert_eq!(status, 401, "{answer}");
+    assert!(
+        reads.take() > 0,
+        "the counter sees a principal lookup: {answer}"
+    );
     assert_eq!(stored_sessions(&f.data), sessions, "no session was stored");
     assert_eq!(
         stored_principals(&f.data),
