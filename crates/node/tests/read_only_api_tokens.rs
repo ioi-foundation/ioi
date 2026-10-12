@@ -547,6 +547,7 @@ fn call(f: &Fixture, token: &str, method: &str, path: &str, body: Option<&Value>
 fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
     let f = fixture();
     let (read_only, _) = f.mint(true);
+    let (full, _) = f.mint(false);
     let mut paths: Vec<&str> = READ_ONLY_ALLOWLIST.iter().map(|(_, path)| *path).collect();
     paths.extend(
         READS_THAT_WRITE_OR_ARE_UNPROVEN
@@ -556,12 +557,26 @@ fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
     paths.sort_unstable();
     paths.dedup();
     let mut admitted: Vec<(String, String)> = Vec::new();
+    let mut vacuous: Vec<String> = Vec::new();
     for path in &paths {
         for method in ALL_METHODS {
             let body =
                 (*method != "GET" && *method != "HEAD" && *method != "OPTIONS").then(|| json!({}));
             let (status, answer) = call(&f, &read_only, method, path, body.as_ref());
-            if !is_read_only_refusal(status, &answer) {
+            // A HEAD or OPTIONS answer has no body to carry the refusal code, so it is read from the status:
+            // the read-only token's 403 where a full token's answer is not a 403.
+            let refused = if *method == "HEAD" || *method == "OPTIONS" {
+                let (full_status, _) = call(&f, &full, method, path, body.as_ref());
+                if full_status == 403 {
+                    // The full token is refused here too, so this case cannot show the guard acted: named, not silent.
+                    vacuous.push(format!("{method} {path} (a full token also gets 403)"));
+                    continue;
+                }
+                status == 403
+            } else {
+                is_read_only_refusal(status, &answer)
+            };
+            if !refused {
                 admitted.push((method.to_string(), path.to_string()));
             }
         }
@@ -572,6 +587,17 @@ fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
         .collect();
     admitted.sort();
     expected.sort();
+    for case in &vacuous {
+        println!("  EXCLUDED-VACUOUS {case}");
+    }
+    for (method, path) in READ_ONLY_ALLOWLIST {
+        assert!(
+            !vacuous
+                .iter()
+                .any(|v| v.starts_with(&format!("{method} {path} "))),
+            "a listed route's control answer must not be vacuous: {method} {path}"
+        );
+    }
     assert_eq!(
         admitted, expected,
         "the admitted (method, path) set is exactly the allowlist"
