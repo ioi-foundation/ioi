@@ -4291,7 +4291,7 @@ async fn async_main() -> anyhow::Result<()> {
             post(supervisor_routes::handle_env_ops_lease),
         )
         .route(
-            "/v1/hypervisor/ops-lease/:token",
+            "/v1/hypervisor/ops-lease",
             get(supervisor_routes::handle_ops_lease_resolve),
         )
         .route(

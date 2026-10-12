@@ -464,8 +464,8 @@ async function environmentLogsText(envId) {
   }
   const identity = currentDaemonHeaders();
   delete identity.authorization;
-  const read = async (path) => {
-    const res = await fetch(DAEMON + path, { headers: identity, signal: AbortSignal.timeout(8000) });
+  const read = async (path, headers = {}) => {
+    const res = await fetch(DAEMON + path, { headers: { ...identity, ...headers }, signal: AbortSignal.timeout(8000) });
     const text = await res.text();
     let payload = {};
     try { payload = text ? JSON.parse(text) : {}; } catch { payload = {}; }
@@ -473,7 +473,8 @@ async function environmentLogsText(envId) {
   };
   let lease;
   try {
-    lease = await read(`/v1/hypervisor/ops-lease/${encodeURIComponent(token)}`);
+    // The daemon resolves an env-ops token presented in a header, never in the URL path.
+    lease = await read("/v1/hypervisor/ops-lease", { "x-ioi-env-ops-token": token });
   } catch (e) {
     return unavailableRpc("environment_logs_token_unverified", `the daemon did not answer the lease read (${e.message}); no logs were read`);
   }

@@ -8206,7 +8206,7 @@ async function authorizeSupervisorReq(req, env) {
   const auth = String(req.headers["authorization"] || "");
   const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
   if (!token) return { ok: false, status: 401, body: { code: "unauthenticated", message: "missing env-ops lease" } };
-  const lease = await djson("GET", `/v1/hypervisor/ops-lease/${encodeURIComponent(token)}`);
+  const lease = await resolveOpsLease(token);
   if (!lease.body?.active || lease.body?.environment_id !== env) {
     return { ok: false, status: 401, body: { code: "unauthenticated", message: "invalid or expired env-ops lease" } };
   }
@@ -18205,6 +18205,13 @@ async function djson(method, path, body, token, req) {
   return { status: r.status, body: j };
 }
 
+// The daemon resolves an env-ops access token presented in a header, never in the URL path.
+async function resolveOpsLease(token) {
+  const r = await daemonFetch("/v1/hypervisor/ops-lease", { method: "GET", headers: { "x-ioi-env-ops-token": token } });
+  const t = await r.text(); let j = {}; try { j = t ? JSON.parse(t) : {}; } catch { j = {}; }
+  return { status: r.status, body: j };
+}
+
 function handleSupervisorWs(ws, upgradeReq = null) {
   let env = null;
   let token = null;
@@ -18221,7 +18228,7 @@ function handleSupervisorWs(ws, upgradeReq = null) {
     try {
       if (method === "auth") {
         token = params?.token || "";
-        const res = await djson("GET", `/v1/hypervisor/ops-lease/${encodeURIComponent(token)}`);
+        const res = await resolveOpsLease(token);
         if (res.body?.active && res.body?.environment_id) { env = res.body.environment_id; ok(id, {}); }
         else err(id, C.Unauthenticated, "invalid or expired env-ops lease");
         return;
