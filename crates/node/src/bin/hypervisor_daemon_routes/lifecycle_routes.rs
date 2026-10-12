@@ -20422,12 +20422,24 @@ pub(crate) async fn handle_api_token_list(
     let tokens: Vec<Value> = read_record_dir(&st.data_dir, "api-tokens")
         .into_iter()
         .filter(|token| token["user_id"].as_str() == Some(actor_id))
-        .map(|mut t| {
-            // defense in depth: strip the hash from any list projection
-            if let Some(obj) = t.as_object_mut() {
-                obj.remove("token_hash");
+        .map(|token| {
+            // An explicit metadata projection: these fields and no others (never the hash, the owner id or
+            // any field a later record version adds).
+            let mut listed = serde_json::Map::new();
+            for key in [
+                "token_id",
+                "description",
+                "read_only",
+                "created_at",
+                "expires_at",
+                "last_used_at",
+            ] {
+                listed.insert(
+                    key.to_string(),
+                    token.get(key).cloned().unwrap_or(Value::Null),
+                );
             }
-            t
+            Value::Object(listed)
         })
         .collect();
     (
@@ -21591,9 +21603,17 @@ pub(crate) fn resolve_principal_and_session(
             if let Some(uid) = rec["user_id"].as_str() {
                 if let Some(p) = find_principal(data_dir, uid) {
                     if p["status"].as_str() == Some("active") {
-                        return principal_public_with_memberships(data_dir, p)
-                            .ok()
-                            .map(|principal| (principal, None));
+                        // BUILD-DELTA #30: a read-only token's identity says so; the auth gate
+                        // refuses it on every state change.
+                        let read_only = rec["read_only"].as_bool() == Some(true);
+                        return principal_public_with_memberships(data_dir, p).ok().map(
+                            |mut principal| {
+                                if read_only {
+                                    principal["api_token_read_only"] = json!(true);
+                                }
+                                (principal, None)
+                            },
+                        );
                     }
                 }
             }
@@ -22811,6 +22831,75 @@ fn control_plane_mutation_requires_principal(
 const CAPABILITY_AUTHENTICATED_MUTATIONS: &[&str] =
     &["/v1/hypervisor/workload-effect-capabilities/consume"];
 
+/// BUILD-DELTA #30: the ONLY requests a read-only API token is admitted on, by exact method and exact path.
+/// Default deny: any other request carrying a read-only token is refused, whatever its method, because in
+/// this daemon a GET can write (lazy seeding, recovery on read, an invite minted by a read, a submitted
+/// transaction). A route is listed only when its handler and the helpers it calls were read for writes and
+/// the no-write harness (crates/node/tests/read_only_api_tokens.rs) shows a read-only call leaves the data
+/// directory byte-identical. Not listed, on purpose: auth/whoami (the identity bootstrap can write) and
+/// product-surface-projections (durable compilation) until each is proven.
+const READ_ONLY_TOKEN_ROUTES: &[(&str, &str)] = &[
+    ("GET", "/healthz"),
+    ("GET", "/readyz"),
+    ("GET", "/v1/hypervisor/api-tokens"),
+    ("POST", "/v1/hypervisor/collections/query"),
+    ("POST", "/v1/hypervisor/odk/object-instance-search"),
+    ("POST", "/v1/hypervisor/authority/evaluate"),
+    ("POST", "/v1/hypervisor/provider-ladder/resolve"),
+    ("POST", "/v1/mcp/gateway-requirements/resolve"),
+];
+
+/// True iff the request presents a READ-ONLY API token as ANY of its credentials (the bearer or a
+/// session-cookie value: a route that resolves its own caller may read either) and is not on the allowlist.
+fn read_only_token_refused(
+    data_dir: &str,
+    method: &axum::http::Method,
+    path: &str,
+    headers: &HeaderMap,
+) -> bool {
+    // Method and path are both exact: HEAD and OPTIONS are not read as GET, so a listed GET path does not
+    // admit them.
+    let method_name = method.as_str();
+    if READ_ONLY_TOKEN_ROUTES
+        .iter()
+        .any(|(allowed_method, allowed_path)| {
+            *allowed_method == method_name && *allowed_path == path
+        })
+    {
+        return false;
+    }
+    let mut presented: Vec<String> = headers
+        .get_all(header::AUTHORIZATION)
+        .iter()
+        .filter_map(|value| value.to_str().ok()?.strip_prefix("Bearer "))
+        .map(|token| token.trim().to_string())
+        .collect();
+    for cookie in headers.get_all("cookie") {
+        let Ok(cookie) = cookie.to_str() else {
+            continue;
+        };
+        presented.extend(
+            cookie
+                .split(';')
+                .filter_map(|part| part.trim().strip_prefix("ioi_session="))
+                .map(str::to_string),
+        );
+    }
+    if presented.is_empty() {
+        return false;
+    }
+    let read_only_tokens: Vec<Value> = read_record_dir(data_dir, "api-tokens")
+        .into_iter()
+        .filter(|record| record["read_only"].as_bool() == Some(true))
+        .collect();
+    presented.iter().any(|token| {
+        let hash = sha256_hex_str(token);
+        read_only_tokens
+            .iter()
+            .any(|record| stored_hash_matches(record["token_hash"].as_str(), &hash))
+    })
+}
+
 /// The gate's refusal for a request, if any: a session scoped away from the route (403), an
 /// unauthenticated request where enforcement applies (401), and an anonymous control-plane
 /// mutation on loopback (401). The daemon's own dispatches cross with the per-boot internal
@@ -22821,6 +22910,21 @@ fn auth_gate_refusal(
     path: &str,
     headers: &HeaderMap,
 ) -> Option<(StatusCode, Value)> {
+    // BUILD-DELTA #30: a read-only API token is admitted only on READ_ONLY_TOKEN_ROUTES. Checked before the exemption list, so
+    // a gate-exempt route that resolves its own caller (e.g. the org-invite accept) is covered too.
+    if read_only_token_refused(&st.data_dir, method, path, headers) {
+        let message = "this API token is read-only: it may call only the routes verified to read and change nothing";
+        return Some((
+            StatusCode::FORBIDDEN,
+            json!({
+                "ok": false,
+                "code": "hypervisor.auth_token_read_only",
+                "reason": "hypervisor.auth_token_read_only",
+                "error": { "code": "hypervisor.auth_token_read_only", "message": message },
+                "message": message,
+            }),
+        ));
+    }
     let exempt = auth_gate_exempt_path(path)
         || (*method == axum::http::Method::GET && path == "/v1/hypervisor/sso-configurations");
     if exempt {
