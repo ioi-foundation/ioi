@@ -179,6 +179,20 @@ export async function relayLeg(fixtureChallenge) {
     const r = await relayEditorEffect({ body, attach, grants, daemonHeaders: operator, transport: t.transport });
     if (!(r.ok === false && r.error?.code === code && t.calls.length === 0)) f.push(`attach_${label}:${r.error?.code}:${t.calls.length}`);
   }
+  // The lookup does the same work wherever the lease sits: every candidate's stored hash is read and
+  // compared, whether the match is the first grant or the last.
+  for (const at of [0, 4]) {
+    let reads = 0;
+    const candidates = Array.from({ length: 5 }, (_, index) => {
+      const grant = index === at ? { ...GRANTS[0] } : { ...GRANTS[0], grant_id: `agr_other_${index}`, grant_ref: `wallet.network://grant/agr_other_${index}`, bearer_sha256: "0".repeat(64) };
+      const stored = grant.bearer_sha256;
+      delete grant.bearer_sha256;
+      Object.defineProperty(grant, "bearer_sha256", { enumerable: true, get() { reads += 1; return stored; } });
+      return grant;
+    });
+    const verdict = verifyAttach(ATTACH, candidates);
+    if (!(verdict.ok === true && reads === candidates.length)) f.push(`attach_lookup_work_at_${at}:${verdict.ok}:${reads}`);
+  }
   const tEnv = stubTransport([{ status: 501, body: structuredClone(fixtureChallenge) }]);
   const rEnv = await relayEditorEffect({ body: { ...body, environment_ref: "env-other" }, attach: ATTACH, grants: GRANTS, daemonHeaders: operator, transport: tEnv.transport });
   if (!(rEnv.ok === false && rEnv.error?.code === "editor_attach_environment_mismatch" && tEnv.calls.length === 0)) f.push(`attach_environment:${rEnv.error?.code}`);

@@ -277,24 +277,30 @@ fn files_containing(root: &Path, needle: &str) -> Vec<PathBuf> {
 }
 
 /// A loopback HTTP service standing in for the environment's preview target and for the editor
-/// runtime: answers every request with MARKER and records each request head it received. It keeps a
-/// connection open for further requests unless a request asks for `Connection: close`.
+/// runtime: answers every request with MARKER and records each request head it received (and its
+/// body, in `bodies`). It answers `Expect: 100-continue` with an interim 100 before reading the body,
+/// reads a chunked body to its last chunk, and keeps a connection open for further requests unless a
+/// request asks for `Connection: close`.
 struct Upstream {
     port: u16,
     seen: Arc<Mutex<Vec<String>>>,
+    bodies: Arc<Mutex<Vec<Vec<u8>>>>,
 }
 
 fn upstream() -> Upstream {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind the upstream");
     let port = listener.local_addr().unwrap().port();
     let seen = Arc::new(Mutex::new(Vec::new()));
+    let bodies = Arc::new(Mutex::new(Vec::new()));
     let record = seen.clone();
+    let record_bodies = bodies.clone();
     std::thread::spawn(move || {
         for stream in listener.incoming() {
             let Ok(mut stream) = stream else {
                 continue;
             };
             let record = record.clone();
+            let record_bodies = record_bodies.clone();
             std::thread::spawn(move || {
                 let _ = stream.set_read_timeout(Some(Duration::from_secs(10)));
                 let mut pending: Vec<u8> = Vec::new();
@@ -315,19 +321,35 @@ fn upstream() -> Upstream {
                     let head = String::from_utf8_lossy(&pending[..head_end]).to_string();
                     pending.drain(..head_end);
                     let lower = head.to_ascii_lowercase();
-                    let body_len = lower
-                        .lines()
-                        .find_map(|line| line.strip_prefix("content-length:"))
-                        .and_then(|value| value.trim().parse::<usize>().ok())
-                        .unwrap_or(0);
+                    if lower.contains("\r\nexpect: 100-continue") {
+                        let _ = stream.write_all(b"HTTP/1.1 100 Continue\r\n\r\n");
+                    }
+                    let body_len = if lower.contains("\r\ntransfer-encoding: chunked") {
+                        loop {
+                            if let Some(at) = pending.windows(5).position(|w| w == b"0\r\n\r\n") {
+                                break at + 5;
+                            }
+                            match stream.read(&mut chunk) {
+                                Ok(0) | Err(_) => return,
+                                Ok(n) => pending.extend_from_slice(&chunk[..n]),
+                            }
+                        }
+                    } else {
+                        lower
+                            .lines()
+                            .find_map(|line| line.strip_prefix("content-length:"))
+                            .and_then(|value| value.trim().parse::<usize>().ok())
+                            .unwrap_or(0)
+                    };
                     while pending.len() < body_len {
                         match stream.read(&mut chunk) {
                             Ok(0) | Err(_) => return,
                             Ok(n) => pending.extend_from_slice(&chunk[..n]),
                         }
                     }
-                    pending.drain(..body_len);
+                    let body: Vec<u8> = pending.drain(..body_len).collect();
                     record.lock().unwrap().push(head);
+                    record_bodies.lock().unwrap().push(body);
                     let close = lower.contains("\r\nconnection: close");
                     let _ = stream.write_all(
                         format!(
@@ -344,7 +366,7 @@ fn upstream() -> Upstream {
             });
         }
     });
-    Upstream { port, seen }
+    Upstream { port, seen, bodies }
 }
 
 struct Fixture {
@@ -1306,5 +1328,303 @@ fn a_cross_origin_state_change_with_the_owner_session_is_refused() {
             Some(&json!({ "spec": {} })),
         );
         assert_eq!(status, 200, "{label} is admitted: {body}");
+    }
+}
+
+/// No request head the upstream recorded carries the lease token, a lease cookie, the lease header
+/// or a lease query parameter.
+fn assert_upstream_saw_no_lease_credential(f: &Fixture, preview: &Preview, label: &str) {
+    for head in f.upstream.seen.lock().unwrap().iter() {
+        let lower = head.to_ascii_lowercase();
+        let request_line = lower.lines().next().unwrap_or_default().to_string();
+        assert!(
+            !head.contains(&preview.token),
+            "{label}: the upstream never sees the lease token: {head}"
+        );
+        assert!(
+            !lower.contains("ioi_lease_"),
+            "{label}: no lease cookie upstream: {head}"
+        );
+        assert!(
+            !lower.contains("x-ioi-lease"),
+            "{label}: no lease header upstream: {head}"
+        );
+        assert!(
+            !request_line.contains("lease="),
+            "{label}: no lease query upstream: {request_line}"
+        );
+    }
+}
+
+/// Write `request` on a new connection to the proxy and read until the proxy closes it.
+fn send_and_drain(addr: &ProxyAddr, request: &str) -> String {
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(20)))
+        .unwrap();
+    stream.write_all(request.as_bytes()).unwrap();
+    let mut answer = Vec::new();
+    let _ = stream.read_to_end(&mut answer);
+    String::from_utf8_lossy(&answer).to_string()
+}
+
+/// An `Upgrade: websocket` request the upstream does not switch keeps HTTP framing: with no valid
+/// WebSocket handshake, or with a handshake the upstream answers with anything but 101, a later
+/// request on the same client connection never reaches the upstream unfiltered; neither do bytes
+/// sent along with a handshake.
+#[test]
+fn an_unswitched_upgrade_keeps_http_framing_and_filtering() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let token = preview.token.as_str();
+    let credentialed = |path: &str| {
+        format!(
+            "GET {path}?lease={token} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nx-ioi-lease: {token}\r\nCookie: ioi_lease_{}={token}\r\n\r\n",
+            addr.authority(),
+            preview.public_port
+        )
+    };
+    let upgrade = |connection: &str, handshake: bool| {
+        let mut request = format!(
+            "GET /ws HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: {connection}\r\nx-ioi-lease: {token}\r\n",
+            addr.authority()
+        );
+        if handshake {
+            request.push_str(
+                "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n",
+            );
+        }
+        request.push_str("\r\n");
+        request
+    };
+    let (first, _) = two_requests_on_one_connection(
+        &addr,
+        &upgrade("keep-alive", false),
+        &credentialed("/after-an-upgrade-header"),
+    );
+    assert!(
+        first.starts_with("HTTP/1.1 200") && first.contains(MARKER),
+        "a request with an Upgrade header and no handshake is answered as plain HTTP: {first}"
+    );
+    assert_upstream_saw_no_lease_credential(&f, &preview, "after an Upgrade header");
+    let (first, _) = two_requests_on_one_connection(
+        &addr,
+        &upgrade("Upgrade", true),
+        &credentialed("/after-a-refused-upgrade"),
+    );
+    assert!(
+        first.starts_with("HTTP/1.1 200"),
+        "the upstream's answer other than 101 is relayed: {first}"
+    );
+    assert_upstream_saw_no_lease_credential(&f, &preview, "after a refused upgrade");
+    let _ = send_and_drain(
+        &addr,
+        &format!(
+            "{}{}",
+            upgrade("Upgrade", true),
+            credentialed("/pipelined-with-a-handshake")
+        ),
+    );
+    std::thread::sleep(Duration::from_millis(500));
+    assert_upstream_saw_no_lease_credential(&f, &preview, "bytes sent with a handshake");
+}
+
+/// The proxy removes a `lease` query parameter whose name is percent-encoded, as a URL decoder reads
+/// it; the application's own parameters survive.
+#[test]
+fn a_percent_encoded_lease_parameter_is_removed() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let token = preview.token.as_str();
+    let before = f.upstream.seen.lock().unwrap().len();
+    let (status, body) = proxy_get(
+        &addr,
+        &format!("/?%6cease={token}&%6C%65%61%73%65={token}&keep=1"),
+        &[("x-ioi-lease", token)],
+    );
+    assert_eq!(status, 200, "the request is admitted: {body}");
+    let seen = f.upstream.seen.lock().unwrap()[before..].to_vec();
+    assert_eq!(seen.len(), 1, "one request reached the upstream: {seen:?}");
+    let request_line = seen[0].lines().next().unwrap_or_default();
+    assert!(
+        !seen[0].contains(token),
+        "an encoded lease parameter never reaches the upstream: {request_line}"
+    );
+    assert!(
+        request_line.contains("keep=1"),
+        "the application's own query survives: {request_line}"
+    );
+}
+
+/// The lease exchange refuses a request carrying the owner's session cookie, as every other request
+/// on the proxy is refused, and sets no cookie.
+#[test]
+fn the_lease_exchange_refuses_a_request_carrying_the_owner_session() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let form = format!("token={}", preview.token);
+    let (status, head, _) = raw(
+        addr.port,
+        &format!(
+            "POST /__ioi/lease HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nCookie: ioi_session={}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{form}",
+            addr.authority(),
+            f.owner,
+            form.len()
+        ),
+    );
+    assert_eq!(
+        status, 403,
+        "an exchange carrying ioi_session is refused: {head}"
+    );
+    assert!(
+        !head.to_ascii_lowercase().contains("set-cookie"),
+        "it sets no cookie: {head}"
+    );
+}
+
+/// A chunked request body is forwarded once, intact, and nothing the client sends after it reaches
+/// the upstream on that connection.
+#[test]
+fn a_chunked_request_body_is_forwarded_and_nothing_after_it() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let token = preview.token.as_str();
+    let before = f.upstream.seen.lock().unwrap().len();
+    let chunked_body = "4\r\nwiki\r\n5\r\npedia\r\n0\r\n\r\n";
+    let answer = send_and_drain(
+        &addr,
+        &format!(
+            "POST /upload HTTP/1.1\r\nHost: {authority}\r\nConnection: keep-alive\r\nx-ioi-lease: {token}\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n{chunked_body}GET /after-the-body?lease={token} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\nx-ioi-lease: {token}\r\n\r\n",
+            authority = addr.authority()
+        ),
+    );
+    assert!(
+        answer.starts_with("HTTP/1.1 200") && answer.contains(MARKER),
+        "the chunked request is forwarded and answered: {answer}"
+    );
+    std::thread::sleep(Duration::from_millis(500));
+    let seen = f.upstream.seen.lock().unwrap()[before..].to_vec();
+    let bodies = f.upstream.bodies.lock().unwrap()[before..].to_vec();
+    assert_eq!(
+        seen.len(),
+        1,
+        "only the chunked request reached the upstream: {seen:?}"
+    );
+    assert!(
+        seen[0].starts_with("POST /upload "),
+        "the chunked request: {}",
+        seen[0]
+    );
+    assert_eq!(
+        bodies[0],
+        chunked_body.as_bytes(),
+        "its chunked body arrived intact"
+    );
+    assert_upstream_saw_no_lease_credential(&f, &preview, "after a chunked body");
+}
+
+/// A client that waits for `100 Continue` before sending its body receives the upstream's interim
+/// answer, then sends the body and receives the final answer.
+#[test]
+fn an_expect_100_continue_request_gets_the_interim_answer_before_its_body() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let token = preview.token.as_str();
+    let mut stream = TcpStream::connect(("127.0.0.1", addr.port)).expect("connect to the proxy");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
+    stream
+        .write_all(
+            format!(
+                "POST /upload HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nx-ioi-lease: {token}\r\nContent-Type: text/plain\r\nContent-Length: 5\r\nExpect: 100-continue\r\n\r\n",
+                addr.authority()
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+    let mut interim = Vec::new();
+    let mut chunk = [0u8; 1024];
+    while !interim.windows(4).any(|w| w == b"\r\n\r\n") {
+        match stream.read(&mut chunk) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => interim.extend_from_slice(&chunk[..n]),
+        }
+    }
+    let interim = String::from_utf8_lossy(&interim).to_string();
+    assert!(
+        interim.starts_with("HTTP/1.1 100"),
+        "the interim 100 reaches the client before it sends the body: {interim:?}"
+    );
+    stream.write_all(b"hello").unwrap();
+    let mut rest = Vec::new();
+    let _ = stream.read_to_end(&mut rest);
+    let rest = String::from_utf8_lossy(&rest).to_string();
+    assert!(
+        format!("{interim}{rest}").contains("HTTP/1.1 200") && rest.contains(MARKER),
+        "the final answer follows the body: {rest}"
+    );
+    assert_eq!(
+        f.upstream
+            .bodies
+            .lock()
+            .unwrap()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
+        b"hello".to_vec(),
+        "the body reached the upstream"
+    );
+}
+
+/// The proxy forwards neither `Referer` nor `Origin`, on a plain request or a WebSocket handshake:
+/// the site the owner followed a link from never reaches the environment's service.
+#[test]
+fn the_upstream_never_sees_the_referer_or_origin() {
+    let f = fixture();
+    let preview = f.expose();
+    let addr = preview.addr();
+    let token = preview.token.as_str();
+    let ui_site = "h-0123456789abcdef.localhost";
+    let before = f.upstream.seen.lock().unwrap().len();
+    let (status, body) = proxy_get(
+        &addr,
+        "/page",
+        &[
+            ("x-ioi-lease", token),
+            ("Referer", &format!("http://{ui_site}:4173/work/sessions")),
+            ("Origin", &format!("http://{ui_site}:4173")),
+        ],
+    );
+    assert_eq!(status, 200, "the request is admitted: {body}");
+    let _ = send_and_drain(
+        &addr,
+        &format!(
+            "GET /ws HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nx-ioi-lease: {token}\r\nOrigin: http://{ui_site}:4173\r\nReferer: http://{ui_site}:4173/\r\n\r\n",
+            addr.authority()
+        ),
+    );
+    std::thread::sleep(Duration::from_millis(500));
+    let seen = f.upstream.seen.lock().unwrap()[before..].to_vec();
+    assert_eq!(
+        seen.len(),
+        2,
+        "both requests reached the upstream: {seen:?}"
+    );
+    for head in &seen {
+        let lower = head.to_ascii_lowercase();
+        assert!(
+            !lower.contains("\r\nreferer:") && !lower.contains("\r\norigin:"),
+            "no Referer or Origin upstream: {head}"
+        );
+        assert!(
+            !head.contains(ui_site),
+            "the UI's site never reaches the upstream: {head}"
+        );
     }
 }

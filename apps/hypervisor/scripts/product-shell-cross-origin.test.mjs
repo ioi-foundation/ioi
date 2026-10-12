@@ -170,3 +170,117 @@ test("the session cookie is host-only on the shell's host, and a cross-origin si
     daemon.close();
   }
 });
+
+test("a cross-site GET changes nothing: each state-changing shell route acts only on a same-origin POST", async () => {
+  const calls = [];
+  // A local-development daemon (the posture in which the shell serves its internal surfaces) that
+  // records every call and answers each with an empty JSON object.
+  const daemon = http.createServer((req, res) => {
+    calls.push(`${req.method} ${req.url}`);
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(req.url.startsWith("/v1/hypervisor/auth/policy") ? JSON.stringify({ ok: true, deployment_auth_posture: "local_development" }) : "{}");
+    });
+  });
+  await new Promise((resolve) => daemon.listen(0, "127.0.0.1", resolve));
+  const [port, productPort] = await Promise.all([freePort(), freePort()]);
+  const child = spawn(process.execPath, [path.join(here, "serve-product-ui.mjs")], {
+    cwd: root,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      PRODUCT_UI_PORT: String(productPort),
+      IOI_HYPERVISOR_DAEMON_URL: `http://127.0.0.1:${daemon.address().port}`,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk; });
+  child.stderr.on("data", (chunk) => { output += chunk; });
+  const shell = `http://127.0.0.1:${port}`;
+  const owner = "ioi_session=ioi_sess_owner_stub";
+  const writes = () => calls.filter((call) => !call.startsWith("GET "));
+  // A top-level navigation from another site: the browser sends the owner's SameSite=Lax cookie, no
+  // Origin, and Sec-Fetch-Site: cross-site. Every state change it would cause is collected and named.
+  const navigate = (target, extra = {}) =>
+    fetch(`${shell}${target}`, {
+      redirect: "manual",
+      headers: { cookie: owner, "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate", "sec-fetch-dest": "document", ...extra },
+    });
+  const ownPost = (target, extra = {}) =>
+    fetch(`${shell}${target}`, {
+      method: "POST",
+      redirect: "manual",
+      headers: { cookie: owner, origin: shell, "sec-fetch-site": "same-origin", "content-type": "application/x-www-form-urlencoded", ...extra },
+      body: "",
+    });
+  try {
+    await waitFor(`${shell}/__ioi/product-ui-identity`, child);
+    const changed = [];
+    for (const target of [
+      "/api/ioi.v1.EnvironmentService/CreateEnvironment",
+      "/api/ioi/exec",
+      "/__ioi/editor/open?environmentId=env-1",
+      "/__ioi/logout",
+      "/__ioi/login/sso/sso-1",
+      "/__ioi/github-app/start",
+      "/__ioi/github-app/callback?code=attacker-code",
+      "/__ioi/github-app/installed?installation_id=42",
+      "/__ioi/integrations/connect/conn-1",
+    ]) {
+      calls.length = 0;
+      const response = await navigate(target);
+      await response.text();
+      const cleared = /ioi_session=;/u.test(response.headers.get("set-cookie") || "");
+      if (writes().length || cleared) changed.push(`${target} (${response.status}): ${writes().join(", ")}${cleared ? " and the session cookie cleared" : ""}`);
+    }
+    const reset = await navigate("/__ioi/fallthrough/reset");
+    const resetBody = await reset.text();
+    if (/"ok":\s*true/u.test(resetBody)) changed.push(`/__ioi/fallthrough/reset (${reset.status}): the tracker was reset`);
+    assert.deepEqual(changed, [], `a cross-site GET reaches no daemon write and resets nothing:\n${changed.join("\n")}`);
+
+    // The shell's own pages: a same-origin navigation is answered with a form that POSTs (the GET
+    // itself changes nothing), and the same-origin POST acts.
+    calls.length = 0;
+    const page = await navigate("/__ioi/editor/open?environmentId=env-1", { "sec-fetch-site": "same-origin" });
+    const html = await page.text();
+    assert.match(html, /<form[^>]*method="post"/iu, `a same-origin GET is answered with a form that POSTs (${page.status})`);
+    assert.deepEqual(writes(), [], "the same-origin GET itself changes nothing");
+    calls.length = 0;
+    await (await ownPost("/__ioi/editor/open?environmentId=env-1")).text();
+    assert.ok(calls.some((call) => call.startsWith("POST /v1/hypervisor/editor-services")), `the same-origin POST opens the editor (${calls.join(", ")})`);
+    calls.length = 0;
+    const out = await ownPost("/__ioi/logout");
+    await out.text();
+    assert.ok(calls.includes("POST /v1/hypervisor/auth/logout"), `the same-origin POST signs out (${calls.join(", ")})`);
+    assert.match(out.headers.get("set-cookie") || "", /^ioi_session=;/u, "and clears the session cookie");
+    calls.length = 0;
+    const rpc = await fetch(`${shell}/api/ioi.v1.EnvironmentService/CreateEnvironment`, {
+      method: "POST",
+      headers: { cookie: owner, origin: shell, "sec-fetch-site": "same-origin", "content-type": "application/json" },
+      body: JSON.stringify({ spec: {} }),
+    });
+    await rpc.text();
+    assert.ok(writes().length > 0, `an RPC POST from the shell still reaches the daemon (${calls.join(", ")})`);
+
+    // The GitHub App callbacks act only with the state the shell's own start set.
+    const start = await ownPost("/__ioi/github-app/start");
+    await start.text();
+    const state = /ioi_github_app_state=([^;]+)/u.exec(start.headers.get("set-cookie") || "")?.[1];
+    assert.ok(state, `the start sets the flow's state cookie (${start.headers.get("set-cookie")})`);
+    calls.length = 0;
+    const wrong = await navigate(`/__ioi/github-app/callback?code=c&state=${state}x`, { cookie: `${owner}; ioi_github_app_state=${state}` });
+    await wrong.text();
+    assert.deepEqual(writes(), [], "a callback with another state reaches no daemon write");
+    calls.length = 0;
+    const back = await navigate(`/__ioi/github-app/callback?code=c&state=${state}`, { cookie: `${owner}; ioi_github_app_state=${state}` });
+    await back.text();
+    assert.ok(calls.includes("POST /v1/hypervisor/scm-connect/github-app/conversion"), `the callback with the start's state converts (${calls.join(", ")})`);
+  } catch (error) {
+    throw new Error(`${error.message}\nproduct shell output:\n${output.slice(-8_000)}`);
+  } finally {
+    await stop(child);
+    daemon.close();
+  }
+});
