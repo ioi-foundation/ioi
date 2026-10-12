@@ -56,6 +56,7 @@ const MINTS: &[Mint] = &[
     Mint { file: "services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs", function: "plan_capability_token_control", prefix: "ioi_mnt_", count: 1, entropy: "OsRng.fill_bytes(&mut secret)", tolerates: &[], note: "model-mount capability token: 32 bytes from the OS RNG, id drawn separately" },
     Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "random_url_safe_token", prefix: "", count: 0, entropy: "rand::thread_rng()", tolerates: &[], note: "Google OAuth state and PKCE verifier primitive: the thread CSPRNG" },
     Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "login", prefix: "", count: 0, entropy: "random_url_safe_token(48)", tolerates: &[], note: "Google OAuth state (24 bytes) and PKCE code_verifier (48 bytes) come from that primitive" },
+    Mint { file: "services/src/agentic/runtime/connectors/google_auth.rs", function: "login", prefix: "", count: 0, entropy: "random_url_safe_token(24)", tolerates: &[], note: "Google OAuth state: a 24-byte draw from that primitive" },
 ];
 
 /// Credential-NAMED functions that build a `<prefix>_{..}` value and were reviewed: each is an identifier or key, or a
@@ -561,6 +562,141 @@ fn a_registered_minting_function_that_disappears_fails_the_sweep() {
 fn a_mint_inside_a_test_module_is_not_a_production_mint() {
     let tree = tree_with(AUTH, |text| {
         format!("{text}\n#[cfg(test)]\nmod planted {{\n    fn bearer() -> String {{\n        format!(\"ioi_pat_{{}}\", 1)\n    }}\n}}\n")
+    });
+    assert!(scan(&tree).is_empty());
+}
+
+// ---- plants for the shapes the scan was extended to cover (each must fail the scan) ---------------------------
+
+const GOOGLE: &str = "services/src/agentic/runtime/connectors/google_auth.rs";
+const LIFECYCLE: &str = "node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs";
+
+#[test]
+fn a_prefix_joined_by_to_owned_and_plus_fails_the_sweep() {
+    let tree = tree_with(AUTH, |text| {
+        format!("{text}\nfn make_value(tail: &str) -> String {{\n    \"ioi_pat_\".to_owned() + tail\n}}\n")
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations.iter().any(|v| v.contains("make_value")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_prefix_built_with_push_str_fails_the_sweep() {
+    let tree = tree_with(AUTH, |text| {
+        format!("{text}\nfn make_value(tail: &str) -> String {{\n    let mut out = String::new();\n    out.push_str(\"whk_\");\n    out.push_str(tail);\n    out\n}}\n")
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations.iter().any(|v| v.contains("make_value")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_prefix_held_in_a_const_and_used_in_format_fails_the_sweep() {
+    let tree = tree_with(AUTH, |text| {
+        format!("{text}\nconst MINT_PREFIX: &str = \"wec_\";\nfn make_value(n: u64) -> String {{\n    format!(\"{{MINT_PREFIX}}{{n}}\")\n}}\n")
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations.iter().any(|v| v.contains("wec_")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_registered_mint_fed_by_something_other_than_the_registered_source_fails_the_sweep() {
+    // the function still holds the registered OsRng draw elsewhere, but the formatted value no longer comes from it
+    let tree = tree_with(KERNEL, |text| {
+        text.replacen(
+            "let minted = format!(\"ioi_mnt_{}\", hex_lower(&secret));",
+            "let minted = format!(\"ioi_mnt_{}\", hex_lower(&id_material));",
+            1,
+        )
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations.iter().any(|v| v.contains("ioi_mnt_")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_nested_block_comment_cannot_hide_a_following_credential_function() {
+    let tree = tree_with(AUTH, |text| {
+        format!("{text}\n/* outer /* inner */ \" still a comment */\nfn leak_secret_token() -> String {{\n    format!(\"zzk_{{}}\", 1)\n}}\n")
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations.iter().any(|v| v.contains("leak_secret_token")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_raw_byte_string_cannot_hide_a_following_credential_function() {
+    let tree = tree_with(AUTH, |text| {
+        format!("{text}\nconst RAW: &[u8] = br#\"}} \" fn \"#;\nfn leak_secret_token() -> String {{\n    format!(\"zzk_{{}}\", 2)\n}}\n")
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations.iter().any(|v| v.contains("leak_secret_token")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_quote_character_literal_cannot_hide_a_following_credential_function() {
+    let tree = tree_with(AUTH, |text| {
+        format!("{text}\nfn quote() -> char {{\n    '\"'\n}}\nfn leak_secret_token() -> String {{\n    format!(\"zzk_{{}}\", 3)\n}}\n")
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations.iter().any(|v| v.contains("leak_secret_token")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_registered_file_that_is_missing_fails_the_sweep() {
+    let mut tree = real_tree();
+    tree.retain(|(rel, _)| rel != ORCH);
+    let violations = scan(&tree);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("orchestration_routes.rs") && v.contains("missing")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_google_state_that_is_no_longer_drawn_at_random_fails_the_sweep() {
+    let tree = tree_with(GOOGLE, |text| {
+        text.replacen(
+            "let state = random_url_safe_token(24);",
+            "let state = String::from(\"fixed-state\");",
+            1,
+        )
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("random_url_safe_token(24)")),
+        "{violations:?}"
+    );
+}
+
+#[test]
+fn a_function_the_lint_cannot_see_into_is_a_named_out_of_scope_shape_not_a_pass() {
+    // a mint assembled by a macro is outside this lint's scope: it is reviewed (and, later, made a type error).
+    // This test pins that the lint does not claim otherwise: the shape below passes the scan, and the header says so.
+    let tree = tree_with(LIFECYCLE, |text| {
+        format!("{text}\nfn make_value() -> String {{\n    concat!(\"ioi_pat_\", \"x\").to_string()\n}}\n")
     });
     assert!(scan(&tree).is_empty());
 }
