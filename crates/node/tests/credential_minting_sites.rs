@@ -740,6 +740,63 @@ const ORCH: &str = "node/src/bin/hypervisor_daemon_routes/orchestration_routes.r
 const AUTH: &str = "node/src/bin/hypervisor_daemon_routes/authority_routes.rs";
 
 const PROXY: &str = "node/src/bin/hypervisor_daemon_routes/editor_proxy.rs";
+const EDITOR_HOST: &str = "node/src/bin/hypervisor_daemon_routes/editor_host.rs";
+
+/// The editor runtime's connection token (BUILD-DELTA #31(c)) carries no prefix and its function no credential
+/// keyword, so only the registry can see it: its 32-byte OS-random draw replaced by a constant, or its building
+/// statement replaced by a constant, is a violation at that site.
+#[test]
+fn an_editor_connection_token_built_from_a_constant_fails_the_sweep() {
+    let drawn_constant = tree_with(EDITOR_HOST, |text| {
+        let planted = text.replacen(
+            "        rand::rngs::OsRng.fill_bytes(&mut secret);\n",
+            "        secret = [0u8; 32];\n",
+            1,
+        );
+        assert_ne!(planted, text, "the planted draw edit applies");
+        planted
+    });
+    let violations = scan(&drawn_constant);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("editor_host.rs") && v.contains("start_oss_runtime")),
+        "the draw replaced by a constant is caught at its site: {violations:?}"
+    );
+    let built_constant = tree_with(EDITOR_HOST, |text| {
+        let planted = text.replacen(
+            "        (hex::encode(secret), hex::encode(nonce))\n",
+            "        (\"0\".repeat(64), hex::encode(nonce))\n",
+            1,
+        );
+        assert_ne!(planted, text, "the planted building edit applies");
+        planted
+    });
+    let violations = scan(&built_constant);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("editor_host.rs") && v.contains("start_oss_runtime")),
+        "the token built from a constant is caught at its site: {violations:?}"
+    );
+}
+
+/// A reviewed non-mint whose file is missing from the tree is a violation, as a registered mint's missing file is:
+/// its exemption never goes stale silently.
+#[test]
+fn a_reviewed_non_mint_whose_file_is_missing_fails_the_sweep() {
+    let tree: Vec<(String, String)> = real_tree()
+        .into_iter()
+        .filter(|(rel, _)| rel != PROXY)
+        .collect();
+    let violations = scan(&tree);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("editor_proxy.rs") && v.contains("missing")),
+        "a missing reviewed non-mint file is caught: {violations:?}"
+    );
+}
 
 /// A reviewed non-mint is accepted only where and as it was reviewed: the same `ioi_lease_` cookie-name shape in
 /// another function, a second one inside the reviewed function, and an RNG-built `ioi_lease_` value in place of the

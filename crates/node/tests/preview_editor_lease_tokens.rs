@@ -2108,6 +2108,43 @@ fn masked_text_frame(text: &str) -> Vec<u8> {
     frame
 }
 
+/// Each runtime start draws its own connection token: two starts get two different tokens, each 32 bytes in hex and
+/// never all zero, so a token built from a constant fails here.
+#[test]
+fn two_editor_runtime_starts_get_different_nonzero_tokens() {
+    let f = fixture();
+    let runtime = FakeRuntime(install_fake_editor_runtime(&f.home));
+    for _ in 0..2 {
+        let service_id = f.editor_service();
+        let (status, body) = http(
+            f.daemon.port,
+            "POST",
+            &format!("/v1/hypervisor/editor-services/{service_id}/start"),
+            Some(&f.owner),
+            Some(&json!({})),
+        );
+        assert!(
+            status == 200 && json_of(&body)["ok"] == json!(true),
+            "the editor runtime starts: {status} {body}"
+        );
+    }
+    let tokens: Vec<String> = runtime
+        .starts()
+        .iter()
+        .map(|start| start["token"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert_eq!(tokens.len(), 2, "two runtimes started: {tokens:?}");
+    for token in &tokens {
+        assert!(
+            token.len() == 64
+                && token.bytes().all(|b| b.is_ascii_hexdigit())
+                && token.bytes().any(|b| b != b'0'),
+            "a 32-byte random token in hex, never all zero: {token:?}"
+        );
+    }
+    assert_ne!(tokens[0], tokens[1], "each start draws its own token");
+}
+
 /// The editor runtime listens only on a unix socket and requires its connection token: it is
 /// started with --socket-path (no TCP port) and a token file (never without a token); the token is
 /// redacted from the runtime's log and kept in no file; through the lease-authenticated proxy the
@@ -2153,7 +2190,12 @@ fn the_editor_runtime_listens_only_on_a_unix_socket_and_requires_its_token() {
         );
     }
     let token = started["token"].as_str().unwrap_or_default().to_string();
-    assert!(token.len() >= 32, "a long random token: {token:?}");
+    assert!(
+        token.len() == 64
+            && token.bytes().all(|b| b.is_ascii_hexdigit())
+            && token.bytes().any(|b| b != b'0'),
+        "a 32-byte random token in hex, never all zero: {token:?}"
+    );
     let (_, logs) = http(
         f.daemon.port,
         "GET",
