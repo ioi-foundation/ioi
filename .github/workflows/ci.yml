@@ -546,6 +546,19 @@ jobs:
       - name: Disk headroom after cache restore
         run: df -h / | tail -1
 
+      # UNPRIVILEGED USER NAMESPACES (2026-10-12). ubuntu-latest's AppArmor restricts unprivileged
+      # user namespaces, so bwrap cannot configure loopback inside the sandbox it creates ("bwrap:
+      # loopback: Failed RTM_NEWADDR: Operation not permitted"), and the nine bwrap-backed tests
+      # (six ioi-drivers terminal tests, three ioi-services shell tests) fail on the runner while
+      # passing on a host without that restriction. The restriction is lifted for this job's
+      # runner, exactly as the security regression step lifts it before `unshare -rn`. Runner
+      # configuration only; no product code or test changes.
+      - name: Allow unprivileged user namespaces (bwrap sandbox tests)
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
       # ONE STEP PER CRATE (2026-09-12). The 25 commands ran in one `set -euo pipefail` block, so
       # the first red crate aborted the block and every crate AFTER it stopped running: on
       # 2026-09-12 `ioi-networking` was red (register R-32) and the seventeen crates below it —
