@@ -23717,9 +23717,31 @@ pub(crate) async fn handle_sso_delete(
 /// POST /v1/hypervisor/auth/oidc/start — begin SSO login (build the PKCE authorize URL).
 pub(crate) async fn handle_auth_oidc_start(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let cfg_id = body.get("config_id").and_then(Value::as_str).unwrap_or("");
+    // `link: true` starts a LINK of the signed-in principal to its IdP subject (the only way an
+    // existing principal can later sign in with SSO); it needs an authenticated principal.
+    let link_principal = if body.get("link").and_then(Value::as_bool) == Some(true) {
+        match resolve_principal(&st.data_dir, &headers)
+            .and_then(|p| p["principal_id"].as_str().map(str::to_string))
+        {
+            Some(principal_id) => Some(principal_id),
+            None => {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({
+                        "ok": false,
+                        "code": "hypervisor.sso_link_requires_principal",
+                        "message": "linking an SSO identity requires a signed-in principal"
+                    })),
+                )
+            }
+        }
+    } else {
+        None
+    };
     let Some(cfg) = read_record_dir(&st.data_dir, "sso-configurations")
         .into_iter()
         .find(|c| c["sso_id"].as_str() == Some(cfg_id))
@@ -23755,7 +23777,11 @@ pub(crate) async fn handle_auth_oidc_start(
             Json(json!({ "ok": false, "reason": "failed to seal pkce verifier" })),
         );
     };
-    let pending = json!({ "state": state, "flow": "login", "sso_id": cfg_id, "sealed_verifier": sv, "nonce": nonce, "redirect_uri": redirect_uri, "created_at": iso_now() });
+    let mut pending = json!({ "state": state, "flow": "login", "sso_id": cfg_id, "sealed_verifier": sv, "nonce": nonce, "redirect_uri": redirect_uri, "created_at": iso_now() });
+    if let Some(principal_id) = link_principal {
+        pending["flow"] = json!("link");
+        pending["principal_id"] = json!(principal_id);
+    }
     if let Err(error) = persist_record_durable(&st.data_dir, "oauth-pending", &state, &pending) {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -23776,8 +23802,21 @@ pub(crate) async fn handle_auth_oidc_start(
     )
 }
 
-/// POST /v1/hypervisor/auth/oidc/callback — finish SSO login: exchange code → userinfo → provision
-/// principal (emailDomain auto-join) → issue a session.
+/// How long a started SSO sign-in or link stays redeemable.
+const OIDC_PENDING_TTL_SECONDS: i64 = 600;
+
+/// The record family binding an IdP (issuer, subject) to the principal it signs in.
+const SSO_SUBJECT_LINKS: &str = "sso-subject-links";
+
+fn sso_subject_link_id(issuer: &str, subject: &str) -> String {
+    format!("ssl_{}", short_hash(&format!("{issuer}\n{subject}")))
+}
+
+/// POST /v1/hypervisor/auth/oidc/callback — finish an SSO sign-in or link. The identity is the
+/// verified id_token's (issuer, subject): a linked subject signs in its principal; an unlinked one
+/// with a verified email provisions a NEW principal (emailDomain auto-join) bound to that subject;
+/// an unlinked subject whose email names an existing principal signs no one in. A link flow binds
+/// the subject to the principal that started it.
 pub(crate) async fn handle_auth_oidc_callback(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
@@ -23786,13 +23825,36 @@ pub(crate) async fn handle_auth_oidc_callback(
     let code = body.get("code").and_then(Value::as_str).unwrap_or("");
     let Some(pending) = read_record_dir(&st.data_dir, "oauth-pending")
         .into_iter()
-        .find(|p| p["state"].as_str() == Some(state) && p["flow"].as_str() == Some("login"))
+        .find(|p| {
+            p["state"].as_str() == Some(state)
+                && matches!(p["flow"].as_str(), Some("login") | Some("link"))
+        })
     else {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "ok": false, "reason": "unknown or expired state" })),
         );
     };
+    let started = pending["created_at"].as_str().and_then(super::epoch_of);
+    let now = super::epoch_of(&iso_now()).unwrap_or(0);
+    if started.is_none_or(|started| now - started > OIDC_PENDING_TTL_SECONDS) {
+        // CLASSIFIED: an expired state is refused whether or not its removal lands.
+        let _ = remove_record(&st.data_dir, "oauth-pending", state);
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.sso_login_state_expired",
+                "message": format!("the sign-in expired ({OIDC_PENDING_TTL_SECONDS} s); start again")
+            })),
+        );
+    }
+    let link_principal = (pending["flow"].as_str() == Some("link")).then(|| {
+        pending["principal_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
+    });
     let sso_id = pending["sso_id"].as_str().unwrap_or("").to_string();
     let redirect_uri = pending["redirect_uri"].as_str().unwrap_or("").to_string();
     let Some(verifier) = pending["sealed_verifier"].as_str().and_then(open_scm_token) else {
@@ -23837,7 +23899,7 @@ pub(crate) async fn handle_auth_oidc_callback(
         .and_then(open_scm_token)
         .unwrap_or_default();
     let nonce = pending["nonce"].as_str().unwrap_or("").to_string();
-    let (_a, token_ep, userinfo_ep, jwks_uri) = match oidc_discover(issuer).await {
+    let (_a, token_ep, _userinfo_ep, jwks_uri) = match oidc_discover(issuer).await {
         Ok(x) => x,
         Err(e) => {
             return (
@@ -23864,59 +23926,112 @@ pub(crate) async fn handle_auth_oidc_callback(
             )
         }
     };
-    let access = tokens["access_token"].as_str().unwrap_or("").to_string();
-    // Identity comes from the cryptographically VERIFIED id_token (RS256 vs the IdP JWKS, iss/aud/exp
-    // + nonce). userinfo is only a fallback for non-conformant IdPs that omit an id_token.
+    // Identity comes ONLY from the cryptographically VERIFIED id_token (RS256 vs the IdP JWKS,
+    // iss/aud/exp + nonce). A token response without one signs no one in: userinfo is unsigned.
     let id_token = tokens["id_token"].as_str().unwrap_or("");
-    let (email, name) = if !id_token.is_empty() {
-        let claims = match verify_oidc_id_token(id_token, &jwks_uri, issuer, &client_id, &nonce)
-            .await
-        {
-            Ok(c) => c,
-            Err(e) => {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(
-                        json!({ "ok": false, "reason": format!("id_token verification failed: {e}") }),
-                    ),
-                )
-            }
-        };
-        let em = claims["email"].as_str().unwrap_or("").trim().to_lowercase();
-        let nm = claims["name"]
-            .as_str()
-            .or_else(|| claims["preferred_username"].as_str())
-            .unwrap_or(em.as_str())
-            .to_string();
-        (em, nm)
-    } else {
-        let info = match oidc_userinfo(&userinfo_ep, &access).await {
-            Ok(x) => x,
-            Err(e) => {
-                return (
-                    StatusCode::BAD_GATEWAY,
-                    Json(
-                        json!({ "ok": false, "reason": format!("no id_token and userinfo failed: {e}") }),
-                    ),
-                )
-            }
-        };
-        let em = info["email"].as_str().unwrap_or("").trim().to_lowercase();
-        let nm = info["name"]
-            .as_str()
-            .or_else(|| info["preferred_username"].as_str())
-            .unwrap_or(em.as_str())
-            .to_string();
-        (em, nm)
+    if id_token.is_empty() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.sso_id_token_required",
+                "message": "the IdP returned no id_token; SSO sign-in requires a signed id_token"
+            })),
+        );
+    }
+    let claims = match verify_oidc_id_token(id_token, &jwks_uri, issuer, &client_id, &nonce).await {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(
+                    json!({ "ok": false, "reason": format!("id_token verification failed: {e}") }),
+                ),
+            )
+        }
     };
-    if email.is_empty() {
+    let subject = claims["sub"].as_str().unwrap_or("").trim().to_string();
+    if subject.is_empty() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "ok": false, "code": "hypervisor.sso_subject_required" })),
+        );
+    }
+    let link_id = sso_subject_link_id(issuer.trim_end_matches('/'), &subject);
+    let linked = read_record_dir(&st.data_dir, SSO_SUBJECT_LINKS)
+        .into_iter()
+        .find(|link| link["link_id"].as_str() == Some(link_id.as_str()));
+    if let Some(principal_id) = link_principal {
+        // LINK FLOW: bind this subject to the principal that started the link while signed in.
+        if let Some(existing) = linked.as_ref() {
+            if existing["principal_id"].as_str() != Some(principal_id.as_str()) {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(json!({ "ok": false, "code": "hypervisor.sso_subject_linked_elsewhere" })),
+                );
+            }
+        }
+        if !find_principal(&st.data_dir, &principal_id)
+            .is_some_and(|p| p["status"].as_str() == Some("active"))
+        {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({ "ok": false, "code": "hypervisor.sso_principal_inactive" })),
+            );
+        }
+        let link = json!({
+            "schema_version": "ioi.hypervisor.sso-subject-link.v1", "link_id": link_id,
+            "sso_id": sso_id, "issuer": issuer.trim_end_matches('/'), "subject": subject,
+            "principal_id": principal_id, "linked_by": "authenticated_link", "linked_at": iso_now(),
+        });
+        if let Err(error) = persist_record_durable(&st.data_dir, SSO_SUBJECT_LINKS, &link_id, &link)
+        {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(
+                    json!({ "ok": false, "code": "hypervisor.sso_link_persistence_failed", "message": format!("{error:?}") }),
+                ),
+            );
+        }
+        if !remove_record(&st.data_dir, "oauth-pending", state) {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "code": "oauth_pending_consume_failed" })),
+            );
+        }
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": true, "linked": true, "sso_id": sso_id, "principal_id": principal_id }),
+            ),
+        );
+    }
+    let email = claims["email"].as_str().unwrap_or("").trim().to_lowercase();
+    let name = claims["name"]
+        .as_str()
+        .or_else(|| claims["preferred_username"].as_str())
+        .unwrap_or(email.as_str())
+        .to_string();
+    let email_verified = matches!(claims["email_verified"], Value::Bool(true))
+        || claims["email_verified"].as_str() == Some("true");
+    if linked.is_none() && !email_verified {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.sso_email_unverified",
+                "message": "the IdP did not mark this email verified; it cannot provision a principal"
+            })),
+        );
+    }
+    if linked.is_none() && email.is_empty() {
         return (
             StatusCode::BAD_GATEWAY,
             Json(json!({ "ok": false, "reason": "no email claim from IdP" })),
         );
     }
     let domain = cfg["email_domain"].as_str().unwrap_or("");
-    if !domain.is_empty() && !email.ends_with(&format!("@{domain}")) {
+    if linked.is_none() && !domain.is_empty() && !email.ends_with(&format!("@{domain}")) {
         return (
             StatusCode::FORBIDDEN,
             Json(
@@ -23924,15 +24039,31 @@ pub(crate) async fn handle_auth_oidc_callback(
             ),
         );
     }
-    let (principal, principal_created) = match find_principal_by_email(&st.data_dir, &email) {
-        Some(p) if p["status"].as_str() == Some("active") => (p, false),
-        Some(_) => {
+    let by_link = linked
+        .as_ref()
+        .and_then(|link| link["principal_id"].as_str())
+        .and_then(|principal_id| find_principal(&st.data_dir, principal_id));
+    let (principal, principal_created) = match (linked.is_some(), by_link) {
+        (true, Some(p)) if p["status"].as_str() == Some("active") => (p, false),
+        (true, _) => {
             return (
                 StatusCode::FORBIDDEN,
                 Json(json!({ "ok": false, "code": "hypervisor.sso_principal_inactive" })),
             )
         }
-        None => {
+        (false, _) if find_principal_by_email(&st.data_dir, &email).is_some() => {
+            // An existing principal is signed in by SSO ONLY through a link it created while
+            // signed in; an email claim alone never selects it.
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.sso_link_required",
+                    "message": "this SSO identity is not linked to a principal; sign in and link it first"
+                })),
+            );
+        }
+        (false, _) => {
             let pid = format!("usr_{}", short_hash(&format!("sso:{sso_id}:{email}")));
             let p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email, "name": name, "role": "member", "status": "active", "source": format!("sso:{sso_id}"), "created_at": iso_now(), "updated_at": iso_now() });
             if let Err(error) = persist_record_durable(&st.data_dir, "principals", &pid, &p) {
@@ -23961,6 +24092,24 @@ pub(crate) async fn handle_auth_oidc_callback(
         Ok(receipt) => receipt,
         Err(error) => return membership_error_response(error),
     };
+    if principal_created {
+        // The new principal is bound to the subject that provisioned it; later sign-ins resolve
+        // it by this link, never by the email claim.
+        let link = json!({
+            "schema_version": "ioi.hypervisor.sso-subject-link.v1", "link_id": link_id,
+            "sso_id": sso_id, "issuer": issuer.trim_end_matches('/'), "subject": subject,
+            "principal_id": principal_id, "linked_by": "sso_provisioning", "linked_at": iso_now(),
+        });
+        if let Err(error) = persist_record_durable(&st.data_dir, SSO_SUBJECT_LINKS, &link_id, &link)
+        {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(
+                    json!({ "ok": false, "code": "hypervisor.sso_link_persistence_failed", "message": format!("{error:?}") }),
+                ),
+            );
+        }
+    }
     // W1.2 / MEF-GAP-008 (security) — consume the single-use login artifact before issuing the
     // session; a discarded removal leaves the PKCE verifier + nonce replayable. Fail closed.
     if !remove_record(&st.data_dir, "oauth-pending", state) {

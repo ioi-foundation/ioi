@@ -11789,8 +11789,14 @@ async function handleEstateRequest(req, res, body) {
           res.end();
           return;
         }
+        // A completed LINK (started while signed in) issues no session: the signed-in one stays.
+        if (r.ok && d.ok && d.linked) {
+          res.writeHead(302, { Location: "/ai" });
+          res.end();
+          return;
+        }
         res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(loginShell(`SSO login failed: ${d.reason || "unknown"}`));
+        res.end(loginShell(`SSO login failed: ${d.reason || d.code || "unknown"}`));
       } catch (e) {
         res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
         res.end(loginShell(`SSO callback error: ${e.message}`));
