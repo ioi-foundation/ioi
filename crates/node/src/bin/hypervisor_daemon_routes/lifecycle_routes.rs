@@ -23808,15 +23808,415 @@ const OIDC_PENDING_TTL_SECONDS: i64 = 600;
 /// The record family binding an IdP (issuer, subject) to the principal it signs in.
 const SSO_SUBJECT_LINKS: &str = "sso-subject-links";
 
-fn sso_subject_link_id(issuer: &str, subject: &str) -> String {
-    format!("ssl_{}", short_hash(&format!("{issuer}\n{subject}")))
+/// SSO provisioning intents, written FIRST by a provisioning and keyed by its exact (issuer,
+/// subject); removed once its binding exists. An intent whose identity has NO binding is
+/// UNFINISHED: it reserves its email, and only a sign-in by its own identity completes it.
+const SSO_PROVISIONING_INTENTS: &str = "sso-provisioning-intents";
+
+/// One admission for every SSO identity change in this daemon: the binding and intent reads, the
+/// email-uniqueness check, and the intent, principal, membership and binding writes run under it,
+/// so two callbacks never interleave them. (In-process: one daemon serves a data dir.)
+static SSO_IDENTITY_ADMISSION: Mutex<()> = Mutex::new(());
+
+/// The key of an IdP identity: SHA-256 of the JCS form of `[issuer, subject]`, an unambiguous
+/// preimage of the exact pair.
+fn sso_subject_key(issuer: &str, subject: &str) -> Option<String> {
+    let preimage = serde_jcs::to_vec(&[issuer, subject]).ok()?;
+    String::from_utf8(preimage)
+        .ok()
+        .map(|text| sha256_hex_str(&text))
+}
+
+/// The principal an SSO provisioning of `key` creates: derived from the identity, never the email.
+fn sso_provisioned_principal_id(key: &str) -> String {
+    format!(
+        "usr_{}",
+        &sha256_hex_str(&format!("sso-principal\n{key}"))[..32]
+    )
+}
+
+/// The record `<family>/<prefix>_<key>.json` for the exact (issuer, subject): Ok(None) when there is
+/// none; Err when it cannot be read or names another pair (never accepted, fail closed).
+fn sso_identity_record(
+    data_dir: &str,
+    family: &str,
+    prefix: &str,
+    key: &str,
+    issuer: &str,
+    subject: &str,
+) -> Result<Option<Value>, String> {
+    let path = Path::new(data_dir)
+        .join(family)
+        .join(format!("{prefix}_{key}.json"));
+    let bytes = match fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("{family} record unreadable ({error})")),
+    };
+    let record: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("{family} record is not JSON ({error})"))?;
+    if record["issuer"].as_str() != Some(issuer) || record["subject"].as_str() != Some(subject) {
+        return Err(format!(
+            "{family} record under this key names another identity"
+        ));
+    }
+    Ok(Some(record))
+}
+
+/// True iff an UNFINISHED intent of another identity (its key has no binding) carries `email`.
+fn sso_email_reserved_by_another_identity(data_dir: &str, email: &str, key: &str) -> bool {
+    read_record_dir(data_dir, SSO_PROVISIONING_INTENTS)
+        .into_iter()
+        .filter(|intent| intent["email"].as_str() == Some(email))
+        .filter_map(|intent| intent["key"].as_str().map(String::from))
+        .any(|other| {
+            other != key
+                && !Path::new(data_dir)
+                    .join(SSO_SUBJECT_LINKS)
+                    .join(format!("ssl_{other}.json"))
+                    .exists()
+        })
+}
+
+/// TEST FAULT POINT, inert unless IOI_TEST_SSO_FAIL_AT names `step`: it FAILS that step before its
+/// write and never skips or passes a check. The daemon warns at startup when it is set.
+fn sso_test_fault(step: &str) -> Result<(), String> {
+    if std::env::var("IOI_TEST_SSO_FAIL_AT").ok().as_deref() == Some(step) {
+        return Err(format!("test fault point IOI_TEST_SSO_FAIL_AT={step}"));
+    }
+    Ok(())
+}
+
+/// Claim the single-use pending state of a callback: exactly one caller removes it, durably.
+/// Ok(true): this callback owns it; Ok(false): it was already spent; Err: unknown.
+fn claim_oauth_pending(data_dir: &str, state: &str) -> Result<bool, String> {
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, "oauth-pending") {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error.to_string()),
+    };
+    match super::durable_fs::unlink_durable_at(&directory, format!("{state}.json"), "oauth-pending")
+    {
+        Ok(super::durable_fs::UnlinkOutcome::Durable) => Ok(true),
+        Ok(super::durable_fs::UnlinkOutcome::Absent) => Ok(false),
+        Ok(other) => Err(format!("{other:?}")),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+/// Create a record that must not exist yet (an SSO binding, intent or provisioned principal): the
+/// no-clobber commit never replaces one (an identical record already there is accepted).
+fn persist_sso_record_new(
+    data_dir: &str,
+    family: &str,
+    id: &str,
+    record: &Value,
+) -> Result<(), String> {
+    super::durable_fs::persist_receipt_no_clobber(data_dir, family, id, record)
+        .map_err(|failure| format!("{failure:?}"))
+}
+
+/// What an admitted SSO callback yields.
+enum SsoAdmitted {
+    /// A link flow bound the identity to the principal that started it.
+    Linked(String),
+    /// A sign-in: the principal and its membership receipt.
+    SignIn(Value, Value),
+}
+
+/// The inputs of one SSO identity admission (all verified before the state was claimed).
+struct SsoAdmission<'a> {
+    key: &'a str,
+    issuer: &'a str,
+    subject: &'a str,
+    sso_id: &'a str,
+    sso_issuer_ref: &'a str,
+    link_principal: Option<&'a str>,
+    email: &'a str,
+    name: &'a str,
+}
+
+/// An answer after the state was claimed: the state is spent, so the caller starts again.
+fn sso_spent(status: StatusCode, code: &str, detail: &str) -> (StatusCode, Value) {
+    (
+        status,
+        json!({
+            "ok": false,
+            "code": code,
+            "message": format!("{detail}. This sign-in's state is spent: start again (a provisioning is completed by the same SSO identity's next sign-in)")
+        }),
+    )
+}
+
+const SSO_LINK_REQUIRED_MESSAGE: &str = "this SSO identity is not linked to an account, and its email belongs to an existing account: sign in to that account another way (or have an organization administrator set a password for it), then link this SSO identity while signed in";
+
+/// The identity changes of an SSO callback, run under SSO_IDENTITY_ADMISSION (no awaits).
+fn admit_sso_identity(
+    data_dir: &str,
+    input: &SsoAdmission<'_>,
+) -> Result<SsoAdmitted, (StatusCode, Value)> {
+    let integrity = |detail: String| {
+        sso_spent(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "hypervisor.sso_identity_record_invalid",
+            &detail,
+        )
+    };
+    let binding = sso_identity_record(
+        data_dir,
+        SSO_SUBJECT_LINKS,
+        "ssl",
+        input.key,
+        input.issuer,
+        input.subject,
+    )
+    .map_err(integrity)?;
+    let binding_id = format!("ssl_{}", input.key);
+    let new_binding = |principal_id: &str, linked_by: &str| {
+        json!({
+            "schema_version": "ioi.hypervisor.sso-subject-link.v2", "link_id": binding_id,
+            "key": input.key, "sso_id": input.sso_id, "issuer": input.issuer,
+            "subject": input.subject, "principal_id": principal_id, "linked_by": linked_by,
+            "linked_at": iso_now(),
+        })
+    };
+    let write_binding = |principal_id: &str, linked_by: &str| -> Result<(), (StatusCode, Value)> {
+        sso_test_fault("binding").map_err(|detail| {
+            sso_spent(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "hypervisor.sso_link_persistence_failed",
+                &detail,
+            )
+        })?;
+        match persist_sso_record_new(
+            data_dir,
+            SSO_SUBJECT_LINKS,
+            &binding_id,
+            &new_binding(principal_id, linked_by),
+        ) {
+            Ok(()) => Ok(()),
+            Err(detail) => match sso_identity_record(
+                data_dir,
+                SSO_SUBJECT_LINKS,
+                "ssl",
+                input.key,
+                input.issuer,
+                input.subject,
+            ) {
+                // Created meanwhile for the same principal: the binding stands.
+                Ok(Some(existing)) if existing["principal_id"].as_str() == Some(principal_id) => {
+                    Ok(())
+                }
+                _ => Err(sso_spent(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "hypervisor.sso_link_persistence_failed",
+                    &detail,
+                )),
+            },
+        }
+    };
+    let intent = sso_identity_record(
+        data_dir,
+        SSO_PROVISIONING_INTENTS,
+        "spi",
+        input.key,
+        input.issuer,
+        input.subject,
+    )
+    .map_err(integrity)?;
+
+    if let Some(principal_id) = input.link_principal {
+        // LINK FLOW: bind this identity to the principal that started the link while signed in.
+        if let Some(existing) = binding.as_ref() {
+            if existing["principal_id"].as_str() != Some(principal_id) {
+                return Err((
+                    StatusCode::CONFLICT,
+                    json!({ "ok": false, "code": "hypervisor.sso_subject_linked_elsewhere" }),
+                ));
+            }
+            return Ok(SsoAdmitted::Linked(principal_id.to_string()));
+        }
+        if intent.is_some() {
+            return Err((
+                StatusCode::CONFLICT,
+                json!({
+                    "ok": false,
+                    "code": "hypervisor.sso_subject_provisioning_unfinished",
+                    "message": "this SSO identity has an unfinished provisioning: sign in with SSO to complete it"
+                }),
+            ));
+        }
+        if !find_principal(data_dir, principal_id)
+            .is_some_and(|p| p["status"].as_str() == Some("active"))
+        {
+            return Err((
+                StatusCode::FORBIDDEN,
+                json!({ "ok": false, "code": "hypervisor.sso_principal_inactive" }),
+            ));
+        }
+        write_binding(principal_id, "authenticated_link")?;
+        return Ok(SsoAdmitted::Linked(principal_id.to_string()));
+    }
+
+    let membership = |principal: &Value, principal_id: &str| {
+        // The provisioning is resumable (its intent), so a membership failure leaves the principal
+        // for the next sign-in of the same identity rather than deactivating it.
+        ensure_provisioned_org_membership(
+            data_dir,
+            input.sso_issuer_ref,
+            principal,
+            false,
+            "sso_auto_join",
+            &format!("sso-auto-join:{}:{principal_id}", input.sso_id),
+            "accepted verified identity from configured organization SSO",
+        )
+        .map_err(|(status, code, message)| sso_spent(status, code, &message))
+    };
+    if let Some(existing) = binding.as_ref() {
+        let principal = existing["principal_id"]
+            .as_str()
+            .and_then(|principal_id| find_principal(data_dir, principal_id))
+            .filter(|p| p["status"].as_str() == Some("active"))
+            .ok_or_else(|| {
+                (
+                    StatusCode::FORBIDDEN,
+                    json!({ "ok": false, "code": "hypervisor.sso_principal_inactive" }),
+                )
+            })?;
+        let principal_id = principal["principal_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let receipt = membership(&principal, &principal_id)?;
+        return Ok(SsoAdmitted::SignIn(principal, receipt));
+    }
+
+    // PROVISIONING (fresh, or resumed from this identity's own unfinished intent).
+    let intent = match intent {
+        Some(intent) => intent,
+        None => {
+            if find_principal_by_email(data_dir, input.email).is_some() {
+                // An existing principal is signed in by SSO ONLY through a link it created while
+                // signed in; an email claim alone never selects it.
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    json!({ "ok": false, "code": "hypervisor.sso_link_required", "message": SSO_LINK_REQUIRED_MESSAGE }),
+                ));
+            }
+            if sso_email_reserved_by_another_identity(data_dir, input.email, input.key) {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    json!({
+                        "ok": false,
+                        "code": "hypervisor.sso_email_reserved",
+                        "message": "another SSO identity's unfinished provisioning holds this email"
+                    }),
+                ));
+            }
+            let intent = json!({
+                "schema_version": "ioi.hypervisor.sso-provisioning-intent.v1", "key": input.key,
+                "issuer": input.issuer, "subject": input.subject, "sso_id": input.sso_id,
+                "principal_id": sso_provisioned_principal_id(input.key), "email": input.email,
+                "name": input.name, "created_at": iso_now(),
+            });
+            sso_test_fault("intent")
+                .and_then(|()| {
+                    persist_sso_record_new(
+                        data_dir,
+                        SSO_PROVISIONING_INTENTS,
+                        &format!("spi_{}", input.key),
+                        &intent,
+                    )
+                })
+                .map_err(|detail| {
+                    sso_spent(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "hypervisor.sso_provisioning_intent_persistence_failed",
+                        &detail,
+                    )
+                })?;
+            intent
+        }
+    };
+    let principal_id = intent["principal_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let email = intent["email"].as_str().unwrap_or_default().to_string();
+    if principal_id.is_empty() || email.is_empty() {
+        return Err(integrity(
+            "the provisioning intent names no principal or email".to_string(),
+        ));
+    }
+    let principal = match find_principal(data_dir, &principal_id) {
+        Some(existing) => {
+            if existing["sso_provisioning_key"].as_str() != Some(input.key) {
+                return Err(integrity(
+                    "the intent's principal id belongs to another principal".to_string(),
+                ));
+            }
+            if existing["status"].as_str() != Some("active") {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    json!({ "ok": false, "code": "hypervisor.sso_principal_inactive" }),
+                ));
+            }
+            existing
+        }
+        None => {
+            if find_principal_by_email(data_dir, &email).is_some() {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    json!({ "ok": false, "code": "hypervisor.sso_link_required", "message": SSO_LINK_REQUIRED_MESSAGE }),
+                ));
+            }
+            let now = iso_now();
+            let principal = json!({
+                "schema_version": "ioi.hypervisor.principal.v1", "principal_id": principal_id,
+                "email": email, "name": intent["name"].as_str().unwrap_or(email.as_str()),
+                "role": "member", "status": "active", "source": format!("sso:{}", input.sso_id),
+                "sso_provisioning_key": input.key, "created_at": now, "updated_at": now,
+            });
+            sso_test_fault("principal")
+                .and_then(|()| {
+                    persist_sso_record_new(data_dir, "principals", &principal_id, &principal)
+                })
+                .map_err(|detail| {
+                    sso_spent(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "hypervisor.sso_principal_persistence_failed",
+                        &detail,
+                    )
+                })?;
+            principal
+        }
+    };
+    sso_test_fault("membership").map_err(|detail| {
+        sso_spent(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "hypervisor.membership_registry_unavailable",
+            &detail,
+        )
+    })?;
+    let receipt = membership(&principal, &principal_id)?;
+    // The new principal is bound to the identity that provisioned it; later sign-ins resolve it by
+    // this binding, never by the email claim.
+    write_binding(&principal_id, "sso_provisioning")?;
+    // CLASSIFIED: a leftover intent whose identity is bound is inert (the binding is read first).
+    let _ = remove_record(
+        data_dir,
+        SSO_PROVISIONING_INTENTS,
+        &format!("spi_{}", input.key),
+    );
+    Ok(SsoAdmitted::SignIn(principal, receipt))
 }
 
 /// POST /v1/hypervisor/auth/oidc/callback — finish an SSO sign-in or link. The identity is the
-/// verified id_token's (issuer, subject): a linked subject signs in its principal; an unlinked one
-/// with a verified email provisions a NEW principal (emailDomain auto-join) bound to that subject;
-/// an unlinked subject whose email names an existing principal signs no one in. A link flow binds
-/// the subject to the principal that started it.
+/// verified id_token's EXACT (issuer, subject) pair: a bound pair signs in its principal; an unbound
+/// one with a verified email provisions a NEW principal (emailDomain auto-join) bound to that pair;
+/// an unbound pair whose email names an existing principal signs no one in. A link flow binds the
+/// pair to the principal that started it. Every check that changes nothing runs first; then the
+/// single-use state is CLAIMED, and only then do identities change, under one admission lock.
 pub(crate) async fn handle_auth_oidc_callback(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
@@ -23950,181 +24350,137 @@ pub(crate) async fn handle_auth_oidc_callback(
             )
         }
     };
-    let subject = claims["sub"].as_str().unwrap_or("").trim().to_string();
+    // The identity is the EXACT (issuer, subject) pair. `verified_issuer` is exactly the value
+    // verify_oidc_id_token compared `iss` against (it validates against
+    // `issuer.trim_end_matches('/')`); the subject is used as signed, never trimmed.
+    let verified_issuer = issuer.trim_end_matches('/');
+    let subject = claims["sub"].as_str().unwrap_or("").to_string();
     if subject.is_empty() {
         return (
             StatusCode::UNAUTHORIZED,
             Json(json!({ "ok": false, "code": "hypervisor.sso_subject_required" })),
         );
     }
-    let link_id = sso_subject_link_id(issuer.trim_end_matches('/'), &subject);
-    let linked = read_record_dir(&st.data_dir, SSO_SUBJECT_LINKS)
-        .into_iter()
-        .find(|link| link["link_id"].as_str() == Some(link_id.as_str()));
-    if let Some(principal_id) = link_principal {
-        // LINK FLOW: bind this subject to the principal that started the link while signed in.
-        if let Some(existing) = linked.as_ref() {
-            if existing["principal_id"].as_str() != Some(principal_id.as_str()) {
-                return (
-                    StatusCode::CONFLICT,
-                    Json(json!({ "ok": false, "code": "hypervisor.sso_subject_linked_elsewhere" })),
-                );
-            }
-        }
-        if !find_principal(&st.data_dir, &principal_id)
-            .is_some_and(|p| p["status"].as_str() == Some("active"))
-        {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(json!({ "ok": false, "code": "hypervisor.sso_principal_inactive" })),
-            );
-        }
-        let link = json!({
-            "schema_version": "ioi.hypervisor.sso-subject-link.v1", "link_id": link_id,
-            "sso_id": sso_id, "issuer": issuer.trim_end_matches('/'), "subject": subject,
-            "principal_id": principal_id, "linked_by": "authenticated_link", "linked_at": iso_now(),
-        });
-        if let Err(error) = persist_record_durable(&st.data_dir, SSO_SUBJECT_LINKS, &link_id, &link)
-        {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(
-                    json!({ "ok": false, "code": "hypervisor.sso_link_persistence_failed", "message": format!("{error:?}") }),
-                ),
-            );
-        }
-        if !remove_record(&st.data_dir, "oauth-pending", state) {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "ok": false, "code": "oauth_pending_consume_failed" })),
-            );
-        }
+    let Some(key) = sso_subject_key(verified_issuer, &subject) else {
         return (
-            StatusCode::OK,
-            Json(
-                json!({ "ok": true, "linked": true, "sso_id": sso_id, "principal_id": principal_id }),
-            ),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "code": "hypervisor.sso_identity_key_failed" })),
         );
-    }
+    };
+    // Checks that change nothing, before the claim. An unbound identity with no unfinished
+    // provisioning of its own can only provision: its email must be verified (the JSON boolean
+    // true), present, and inside the configured domain.
+    let unbound_and_new = link_principal.is_none() && {
+        let bound = sso_identity_record(
+            &st.data_dir,
+            SSO_SUBJECT_LINKS,
+            "ssl",
+            &key,
+            verified_issuer,
+            &subject,
+        );
+        let intent = sso_identity_record(
+            &st.data_dir,
+            SSO_PROVISIONING_INTENTS,
+            "spi",
+            &key,
+            verified_issuer,
+            &subject,
+        );
+        matches!((bound, intent), (Ok(None), Ok(None)))
+    };
     let email = claims["email"].as_str().unwrap_or("").trim().to_lowercase();
     let name = claims["name"]
         .as_str()
         .or_else(|| claims["preferred_username"].as_str())
         .unwrap_or(email.as_str())
         .to_string();
-    let email_verified = matches!(claims["email_verified"], Value::Bool(true))
-        || claims["email_verified"].as_str() == Some("true");
-    if linked.is_none() && !email_verified {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(json!({
-                "ok": false,
-                "code": "hypervisor.sso_email_unverified",
-                "message": "the IdP did not mark this email verified; it cannot provision a principal"
-            })),
-        );
-    }
-    if linked.is_none() && email.is_empty() {
-        return (
-            StatusCode::BAD_GATEWAY,
-            Json(json!({ "ok": false, "reason": "no email claim from IdP" })),
-        );
-    }
-    let domain = cfg["email_domain"].as_str().unwrap_or("");
-    if linked.is_none() && !domain.is_empty() && !email.ends_with(&format!("@{domain}")) {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(
-                json!({ "ok": false, "reason": "email domain not allowed for this SSO connection" }),
-            ),
-        );
-    }
-    let by_link = linked
-        .as_ref()
-        .and_then(|link| link["principal_id"].as_str())
-        .and_then(|principal_id| find_principal(&st.data_dir, principal_id));
-    let (principal, principal_created) = match (linked.is_some(), by_link) {
-        (true, Some(p)) if p["status"].as_str() == Some("active") => (p, false),
-        (true, _) => {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(json!({ "ok": false, "code": "hypervisor.sso_principal_inactive" })),
-            )
-        }
-        (false, _) if find_principal_by_email(&st.data_dir, &email).is_some() => {
-            // An existing principal is signed in by SSO ONLY through a link it created while
-            // signed in; an email claim alone never selects it.
+    if unbound_and_new {
+        if !matches!(claims["email_verified"], Value::Bool(true)) {
             return (
                 StatusCode::FORBIDDEN,
                 Json(json!({
                     "ok": false,
-                    "code": "hypervisor.sso_link_required",
-                    "message": "this SSO identity is not linked to a principal; sign in and link it first"
+                    "code": "hypervisor.sso_email_unverified",
+                    "message": "the IdP did not mark this email verified; it cannot provision a principal"
                 })),
             );
         }
-        (false, _) => {
-            let pid = format!("usr_{}", short_hash(&format!("sso:{sso_id}:{email}")));
-            let p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email, "name": name, "role": "member", "status": "active", "source": format!("sso:{sso_id}"), "created_at": iso_now(), "updated_at": iso_now() });
-            if let Err(error) = persist_record_durable(&st.data_dir, "principals", &pid, &p) {
-                return (
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    Json(json!({
-                        "ok": false,
-                        "code": "hypervisor.sso_principal_persistence_failed",
-                        "message": format!("{error:?}")
-                    })),
-                );
-            }
-            (p, true)
-        }
-    };
-    let principal_id = principal["principal_id"].as_str().unwrap_or_default();
-    let membership_receipt = match ensure_provisioned_org_membership(
-        &st.data_dir,
-        &sso_issuer_ref,
-        &principal,
-        principal_created,
-        "sso_auto_join",
-        &format!("sso-auto-join:{sso_id}:{principal_id}"),
-        "accepted verified identity from configured organization SSO",
-    ) {
-        Ok(receipt) => receipt,
-        Err(error) => return membership_error_response(error),
-    };
-    if principal_created {
-        // The new principal is bound to the subject that provisioned it; later sign-ins resolve
-        // it by this link, never by the email claim.
-        let link = json!({
-            "schema_version": "ioi.hypervisor.sso-subject-link.v1", "link_id": link_id,
-            "sso_id": sso_id, "issuer": issuer.trim_end_matches('/'), "subject": subject,
-            "principal_id": principal_id, "linked_by": "sso_provisioning", "linked_at": iso_now(),
-        });
-        if let Err(error) = persist_record_durable(&st.data_dir, SSO_SUBJECT_LINKS, &link_id, &link)
-        {
+        if email.is_empty() {
             return (
-                StatusCode::SERVICE_UNAVAILABLE,
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": "no email claim from IdP" })),
+            );
+        }
+        let domain = cfg["email_domain"].as_str().unwrap_or("");
+        if !domain.is_empty() && !email.ends_with(&format!("@{domain}")) {
+            return (
+                StatusCode::FORBIDDEN,
                 Json(
-                    json!({ "ok": false, "code": "hypervisor.sso_link_persistence_failed", "message": format!("{error:?}") }),
+                    json!({ "ok": false, "reason": "email domain not allowed for this SSO connection" }),
                 ),
             );
         }
     }
-    // W1.2 / MEF-GAP-008 (security) — consume the single-use login artifact before issuing the
-    // session; a discarded removal leaves the PKCE verifier + nonce replayable. Fail closed.
-    if !remove_record(&st.data_dir, "oauth-pending", state) {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "code": "oauth_pending_consume_failed",
-                "message": "the single-use login state could not be consumed — no session issued; restart sign-in" })),
-        );
+    // CLAIM the single-use state before any identity changes: exactly one callback proceeds.
+    match claim_oauth_pending(&st.data_dir, state) {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.sso_state_already_used",
+                    "message": "this sign-in was already used; start again"
+                })),
+            )
+        }
+        Err(detail) => {
+            let (status, body) = sso_spent(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "hypervisor.sso_state_claim_failed",
+                &format!("the single-use sign-in state could not be claimed ({detail})"),
+            );
+            return (status, Json(body));
+        }
     }
-    let (status, sess) = issue_session(&st.data_dir, principal_id, &format!("sso:{sso_id}"));
-    let mut response = sess;
-    if status == StatusCode::OK {
-        response["membership_receipt"] = membership_receipt;
+    let admitted = {
+        let _admission = SSO_IDENTITY_ADMISSION
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        admit_sso_identity(
+            &st.data_dir,
+            &SsoAdmission {
+                key: &key,
+                issuer: verified_issuer,
+                subject: &subject,
+                sso_id: &sso_id,
+                sso_issuer_ref: &sso_issuer_ref,
+                link_principal: link_principal.as_deref(),
+                email: &email,
+                name: &name,
+            },
+        )
+    };
+    match admitted {
+        Ok(SsoAdmitted::Linked(principal_id)) => (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": true, "linked": true, "sso_id": sso_id, "principal_id": principal_id }),
+            ),
+        ),
+        Ok(SsoAdmitted::SignIn(principal, membership_receipt)) => {
+            let principal_id = principal["principal_id"].as_str().unwrap_or_default();
+            let (status, sess) =
+                issue_session(&st.data_dir, principal_id, &format!("sso:{sso_id}"));
+            let mut response = sess;
+            if status == StatusCode::OK {
+                response["membership_receipt"] = membership_receipt;
+            }
+            (status, Json(response))
+        }
+        Err((status, body)) => (status, Json(body)),
     }
-    (status, Json(response))
 }
 
 // ---- SCIM 2.0 provisioning (multi-user IdP, Phase 3) ----------------------------------------

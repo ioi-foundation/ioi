@@ -11796,7 +11796,7 @@ async function handleEstateRequest(req, res, body) {
           return;
         }
         res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(loginShell(`SSO login failed: ${d.reason || d.code || "unknown"}`));
+        res.end(loginShell(`SSO login failed: ${CX_ESC(d.message || d.reason || d.code || "unknown")}`));
       } catch (e) {
         res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
         res.end(loginShell(`SSO callback error: ${e.message}`));
