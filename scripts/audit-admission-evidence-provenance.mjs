@@ -238,7 +238,7 @@ const SEAM_FILES = new Set(["lifecycle_routes.rs", "portal_session_exchange_rout
 // handler — its baseline entry leaves because it resolves identity first, not because its write
 // moved out of the census's sight.
 const IDENTITY =
-  /\b(set_caller|resolve_request_identity|request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope|authorize_environment_owner|authorize_environment_owner_identity)\s*\(/gu;
+  /\b(set_caller|resolve_request_identity|request_identity|session_request_write_owner|load_owned_session_record_for_write|require_write_caller|require_authenticated_org_admin|require_authenticated_principal|require_authenticated_admin|resolve_governance_reviewer|prepare_approval_patch_identity|resolve_principal|resolve_principal_and_session|bind_request_resource_scope|authorize_scope|require_route_caller|authorize_route_owner|authorize_route_owner_for_headers|authorize_session_route_binding|authorize_request_resource_scope|authorize_environment_owner|authorize_environment_owner_identity)\s*\(/gu;
 const RECORD_READ =
   /\b(load|load_record|read_record_dir|find_by_key|read_owner_scoped_head|read_owner_scoped_history)\s*\(/gu;
 // Helper write seams: named persist_*/save_*/*_write wrappers in the daemon route

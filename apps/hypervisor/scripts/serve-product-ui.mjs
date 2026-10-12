@@ -11829,7 +11829,8 @@ async function handleEstateRequest(req, res, body) {
             const org = isObject(o) && isObject(o.organization) && typeof o.organization.display_name === "string" ? o.organization.display_name : "";
             return { mode: "join", email: w.principal.email, org, impersonated: w.principal.is_impersonated === true };
           }
-          if (isObject(w) && (r.status === 401 || w.authenticated === false)) return { mode: "create" };
+          // Account creation is offered only on a successful (2xx), well-formed answer that says signed out.
+          if (r.ok && isObject(w) && w.authenticated === false) return { mode: "create" };
         } catch { /* the daemon could not say */ }
         return { mode: "neutral" };
       };
@@ -11840,13 +11841,13 @@ async function handleEstateRequest(req, res, body) {
           // An answer that is not a JSON object is unexpected: it reads as a failed join, not as a refusal.
           const raw = await r.json().catch(() => null);
           const d = isObject(raw) ? raw : {};
-          if (r.ok && d.ok && typeof d.session_token === "string" && d.session_token) {
+          if (r.ok && d.ok === true && typeof d.session_token === "string" && d.session_token) {
             res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
             res.end();
             return;
           }
           // An existing account joins signed in as itself: the daemon records the membership, no new session.
-          if (r.ok && d.ok && d.joined) {
+          if (r.ok && d.ok === true && d.joined === true) {
             res.writeHead(302, { Location: "/ai" });
             res.end();
             return;

@@ -21203,6 +21203,13 @@ fn issue_bootstrap_token(data_dir: &str) -> Result<String, String> {
     Ok(token)
 }
 
+/// A session minted with any route constraint is route-scoped.
+fn session_record_is_route_scoped(session: &Value) -> bool {
+    session.get("allowed_route_prefixes").is_some()
+        || session.get("allowed_exact_routes").is_some()
+        || session.get("allowed_route_patterns").is_some()
+}
+
 fn presented_session_record(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
     let mut tokens = Vec::new();
     if let Some(cookie) = headers.get("cookie").and_then(|value| value.to_str().ok()) {
@@ -21336,6 +21343,16 @@ pub(crate) fn resolve_acting_principal_ref(
 }
 
 pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
+    resolve_principal_and_session(data_dir, headers).map(|(principal, _)| principal)
+}
+
+/// The principal a request resolves to AND the session record that resolved it (`None` for an API token),
+/// from ONE read of the sessions: a caller that must judge the session (its scope, its impersonation) judges
+/// this record, never a second lookup of the same token that could answer differently (an expiry between).
+pub(crate) fn resolve_principal_and_session(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Option<(Value, Option<Value>)> {
     // 1) session cookie
     let mut session_tok: Option<String> = None;
     if let Some(cookie) = headers.get("cookie").and_then(|c| c.to_str().ok()) {
@@ -21356,7 +21373,7 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
     // The portal exchange records `tenant_ref` on the session at mint; without returning it here
     // the scope is admitted once and never enforced, so a session minted for one tenant resolves
     // a principal carrying every tenant it belongs to.
-    let try_session = |tok: &str| -> Option<(Value, Option<String>, Option<String>)> {
+    let try_session = |tok: &str| -> Option<(Value, Option<String>, Option<String>, Value)> {
         let h = sha256_hex_str(tok);
         let now = iso_now();
         read_record_dir(data_dir, "sessions")
@@ -21374,7 +21391,7 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
                 s["principal_id"]
                     .as_str()
                     .and_then(|pid| find_principal(data_dir, pid))
-                    .map(|principal| (principal, scope, actor))
+                    .map(|principal| (principal, scope, actor, s.clone()))
             })
     };
 
@@ -21413,26 +21430,28 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
         Some(principal)
     };
     if let Some(tok) = &session_tok {
-        if let Some((p, scope, actor)) = try_session(tok) {
+        if let Some((p, scope, actor, session)) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
                 return attribute_actor(
                     principal_public_with_memberships(data_dir, p)
                         .ok()
                         .and_then(|principal| narrow_to_session_tenant(principal, scope)),
                     actor,
-                );
+                )
+                .map(|principal| (principal, Some(session)));
             }
         }
     }
     if let Some(tok) = &bearer {
-        if let Some((p, scope, actor)) = try_session(tok) {
+        if let Some((p, scope, actor, session)) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
                 return attribute_actor(
                     principal_public_with_memberships(data_dir, p)
                         .ok()
                         .and_then(|principal| narrow_to_session_tenant(principal, scope)),
                     actor,
-                );
+                )
+                .map(|principal| (principal, Some(session)));
             }
         }
         // API access token: match the stored hash → its user_id → principal
@@ -21450,7 +21469,9 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
             if let Some(uid) = rec["user_id"].as_str() {
                 if let Some(p) = find_principal(data_dir, uid) {
                     if p["status"].as_str() == Some("active") {
-                        return principal_public_with_memberships(data_dir, p).ok();
+                        return principal_public_with_memberships(data_dir, p)
+                            .ok()
+                            .map(|principal| (principal, None));
                     }
                 }
             }
@@ -22503,6 +22524,53 @@ mod principal_tenant_membership_tests {
             resolve_principal(data_dir, &headers).is_none(),
             "a session whose admitted tenant membership is gone must fail closed"
         );
+    }
+
+    /// BUILD-DELTA #24 FIX-5 — the principal and the session that resolved it come from ONE read, so
+    /// the route-scope judgement is made on that very record (a second lookup of the same token could
+    /// answer differently, e.g. after an expiry between the two reads, and skip the refusal).
+    #[test]
+    fn the_resolved_session_record_is_the_one_the_scope_check_reads() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+        let bearer = |token: &str| {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                header::AUTHORIZATION,
+                format!("Bearer {token}").parse().unwrap(),
+            );
+            headers
+        };
+
+        let (status, scoped) = issue_portal_exchange_session(
+            data_dir,
+            OPERATOR_ID,
+            "https://portal.test",
+            "https://daemon.test",
+            "org://local",
+            "consumption://fix5",
+            None,
+        );
+        assert_eq!(status, StatusCode::OK);
+        let token = scoped["session_token"].as_str().unwrap();
+        let (_, session) = resolve_principal_and_session(data_dir, &bearer(token))
+            .expect("the scoped session resolves");
+        let session = session.expect("a session resolution returns the session record");
+        assert_eq!(
+            session["token_hash"].as_str(),
+            Some(sha256_hex_str(token).as_str()),
+            "the returned record is the one this token resolved"
+        );
+        assert!(session_record_is_route_scoped(&session));
+
+        let (status, plain) = issue_session(data_dir, OPERATOR_ID, "login");
+        assert_eq!(status, StatusCode::OK);
+        let (_, plain_session) = resolve_principal_and_session(
+            data_dir,
+            &bearer(plain["session_token"].as_str().unwrap()),
+        )
+        .expect("the plain session resolves");
+        assert!(!session_record_is_route_scoped(&plain_session.unwrap()));
     }
 
     /// W1.1 / DEF-IDENT-3 — an impersonated session resolves to the SUBJECT and must carry the
@@ -24928,9 +24996,9 @@ pub(crate) async fn handle_org_invite_accept(
                 );
                 Some(only)
             });
-            let Some(caller) = presented
+            let Some((caller, resolved_session)) = presented
                 .as_ref()
-                .and_then(|only| resolve_principal(&st.data_dir, only))
+                .and_then(|only| resolve_principal_and_session(&st.data_dir, only))
             else {
                 return (
                     StatusCode::UNAUTHORIZED,
@@ -24964,15 +25032,11 @@ pub(crate) async fn handle_org_invite_accept(
                     })),
                 );
             }
-            let route_scoped = presented
+            // The scope is judged on the record that resolved the identity: no second read of the session.
+            if resolved_session
                 .as_ref()
-                .and_then(|only| presented_session_record(&st.data_dir, only))
-                .is_some_and(|session| {
-                    session.get("allowed_route_prefixes").is_some()
-                        || session.get("allowed_exact_routes").is_some()
-                        || session.get("allowed_route_patterns").is_some()
-                });
-            if route_scoped {
+                .is_some_and(session_record_is_route_scoped)
+            {
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({
