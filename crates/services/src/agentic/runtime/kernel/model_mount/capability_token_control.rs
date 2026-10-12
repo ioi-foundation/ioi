@@ -631,6 +631,121 @@ mod tests {
             .starts_with("ioi_mnt_"));
     }
 
+    fn scratch_state() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "ioi-capability-token-test-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::SeqCst)
+        ));
+        fs::create_dir_all(dir.join("capability-tokens")).unwrap();
+        dir
+    }
+
+    fn create_in(state: &Path) -> ModelMountCapabilityTokenControlPlan {
+        let mut create = request("model_mount.capability_token.create");
+        create.state_dir = Some(state.to_string_lossy().to_string());
+        let plan = plan_capability_token_control(&create).expect("create");
+        fs::write(
+            state
+                .join("capability-tokens")
+                .join(format!("{}.json", plan.record_id.replace(':', "_"))),
+            serde_json::to_vec(&plan.record).unwrap(),
+        )
+        .unwrap();
+        plan
+    }
+
+    fn authorize_in(
+        state: &Path,
+        token: &str,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        let mut authorize = request("model_mount.capability_token.authorize");
+        authorize.state_dir = Some(state.to_string_lossy().to_string());
+        authorize.token_hash = Some(sha256_hex(token.as_bytes()).unwrap());
+        authorize.required_scope = Some("model.chat:hello".to_string());
+        plan_capability_token_control(&authorize)
+    }
+
+    #[test]
+    fn two_creates_with_identical_inputs_mint_different_tokens_and_ids() {
+        let state = scratch_state();
+        let first = create_in(&state);
+        let second = create_in(&state);
+        assert_ne!(first.public_response["token"], second.public_response["token"]);
+        assert_ne!(first.public_response["token_id"], second.public_response["token_id"]);
+        // And neither is the old derivation of its inputs.
+        let seed = json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "body_hash": hash_json(&request("x").body).unwrap(),
+            "source": "test.capability_token_control",
+            "generated_at": "2026-06-13T12:00:00.000Z",
+            "authority_grant_refs": ["grant://wallet/capability"],
+            "authority_receipt_refs": ["receipt://wallet/capability"],
+        });
+        let derived = format!("ioi_mnt_{}", &hash_json(&seed).unwrap()[..32]);
+        assert_ne!(first.public_response["token"].as_str().unwrap(), derived);
+    }
+
+    #[test]
+    fn the_token_is_256_random_bits_and_its_id_is_independent_of_it() {
+        let state = scratch_state();
+        let plan = create_in(&state);
+        let token = plan.public_response["token"].as_str().unwrap();
+        let hex = token.strip_prefix("ioi_mnt_").unwrap();
+        assert_eq!(hex.len(), 64);
+        let id = plan.public_response["token_id"].as_str().unwrap();
+        let id_hex = id.strip_prefix("capability_token:").unwrap();
+        assert!(!id_hex.is_empty());
+        assert!(!hex.starts_with(id_hex), "the public id is not a prefix of the token");
+        assert!(!hex.contains(&id_hex[..id_hex.len().min(16)]));
+    }
+
+    #[test]
+    fn only_the_exact_token_authorizes() {
+        let state = scratch_state();
+        let first = create_in(&state);
+        let second = create_in(&state);
+        for plan in [&first, &second] {
+            let token = plan.public_response["token"].as_str().unwrap();
+            let granted = authorize_in(&state, token).expect("its own token authorizes");
+            assert_eq!(granted.record["token_id"], plan.public_response["token_id"]);
+        }
+        let mut wrong = first.public_response["token"].as_str().unwrap().to_string();
+        let last = wrong.pop().unwrap();
+        wrong.push(if last == '0' { '1' } else { '0' });
+        assert_eq!(
+            authorize_in(&state, &wrong).unwrap_err(),
+            ModelMountError::CapabilityTokenUnauthorized
+        );
+    }
+
+    #[test]
+    fn a_token_minted_by_the_old_derivation_does_not_authorize() {
+        let state = scratch_state();
+        let legacy = "ioi_mnt_00112233445566778899aabbccddeeff";
+        let record = json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "rust_core_boundary": "model_mount.capability_token",
+            "token_id": "capability_token:0011223344556677",
+            "token_hash": sha256_hex(legacy.as_bytes()).unwrap(),
+            "capability_token_authority": {
+                "allowed_scopes": ["model.chat:*"], "denied_scopes": [], "audience": "a", "grant_id": "g"
+            },
+            "planned_at": "2026-06-13T12:00:00.000Z",
+        });
+        fs::write(
+            state.join("capability-tokens").join("legacy.json"),
+            serde_json::to_vec(&record).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            authorize_in(&state, legacy).unwrap_err(),
+            ModelMountError::CapabilityTokenUnauthorized
+        );
+    }
+
     #[test]
     fn rust_core_rejects_capability_token_control_without_state_dir() {
         let mut invalid = request("model_mount.capability_token.create");
