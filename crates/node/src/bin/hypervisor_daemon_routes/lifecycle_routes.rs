@@ -20307,12 +20307,24 @@ pub(crate) async fn handle_api_token_list(
     let tokens: Vec<Value> = read_record_dir(&st.data_dir, "api-tokens")
         .into_iter()
         .filter(|token| token["user_id"].as_str() == Some(actor_id))
-        .map(|mut t| {
-            // defense in depth: strip the hash from any list projection
-            if let Some(obj) = t.as_object_mut() {
-                obj.remove("token_hash");
+        .map(|token| {
+            // An explicit metadata projection: these fields and no others (never the hash, the owner id or
+            // any field a later record version adds).
+            let mut listed = serde_json::Map::new();
+            for key in [
+                "token_id",
+                "description",
+                "read_only",
+                "created_at",
+                "expires_at",
+                "last_used_at",
+            ] {
+                listed.insert(
+                    key.to_string(),
+                    token.get(key).cloned().unwrap_or(Value::Null),
+                );
             }
-            t
+            Value::Object(listed)
         })
         .collect();
     (
@@ -22638,7 +22650,7 @@ fn control_plane_mutation_requires_principal(
 const CAPABILITY_AUTHENTICATED_MUTATIONS: &[&str] =
     &["/v1/hypervisor/workload-effect-capabilities/consume"];
 
-/// BUILD-DELTA #30: the ONLY requests a read-only API token is admitted on, by method and exact path (HEAD is GET).
+/// BUILD-DELTA #30: the ONLY requests a read-only API token is admitted on, by exact method and exact path.
 /// Default deny: any other request carrying a read-only token is refused, whatever its method, because in
 /// this daemon a GET can write (lazy seeding, recovery on read, an invite minted by a read, a submitted
 /// transaction). A route is listed only when its handler and the helpers it calls were read for writes and
@@ -22664,11 +22676,9 @@ fn read_only_token_refused(
     path: &str,
     headers: &HeaderMap,
 ) -> bool {
-    let method_name = if *method == axum::http::Method::HEAD {
-        "GET"
-    } else {
-        method.as_str()
-    };
+    // Method and path are both exact: HEAD and OPTIONS are not read as GET, so a listed GET path does not
+    // admit them.
+    let method_name = method.as_str();
     if READ_ONLY_TOKEN_ROUTES
         .iter()
         .any(|(allowed_method, allowed_path)| {
