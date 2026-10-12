@@ -3,6 +3,11 @@
 //! bootstrap token, the automation webhook token, session tokens (both lookups and logout), API
 //! access tokens and SCIM tokens. A source read of the production code (test modules excluded),
 //! because the property is how the compare is written, not what it answers.
+//!
+//! The daemon-wide scan reads every source of the daemon binary (crates/node/src/bin), the key
+//! store it verifies passwords with (crates/crypto/src) and the model-mount capability tokens
+//! (crates/services/src/agentic/runtime/kernel/model_mount): no credential a caller presents is
+//! compared with plain == or != there, except the reviewed non-credential compares it lists.
 
 use std::path::Path;
 
@@ -179,4 +184,445 @@ fn every_presented_secret_hash_is_compared_in_constant_time() {
         lifecycle.contains("super::authority_routes::constant_time_eq("),
         "stored_hash_matches compares through authority_routes::constant_time_eq"
     );
+}
+
+// ---- The daemon-wide scan ------------------------------------------------------------------------
+
+/// Where the wide scan reads: every source file of the daemon binary and its route modules
+/// (crates/node/src/bin), the key store the daemon verifies passwords with (crates/crypto/src), and
+/// the model-mount capability tokens the daemon authenticates model-mount calls with
+/// (crates/services/src/agentic/runtime/kernel/model_mount).
+const SCANNED_DIRS: &[&str] = &[
+    "crates/node/src/bin",
+    "crates/crypto/src",
+    "crates/services/src/agentic/runtime/kernel/model_mount",
+];
+
+/// The names that make a compare a CREDENTIAL compare.
+const CREDENTIAL_NAMES: &[&str] = &[
+    "token_hash",
+    "sha256_hex_str(",
+    "webhook_token_hash",
+    "invite_id",
+    "Some(state)",
+    "bearer",
+    "secret",
+    "password_hash",
+    "connection_token",
+    "access_token",
+    "api_key",
+    "csrf",
+];
+
+/// Why a listed plain compare is not a presented-credential compare.
+#[derive(Clone, Copy)]
+enum Review {
+    /// Reviewed: not a compare of a credential the caller presents against a stored one.
+    NotACredential(&'static str),
+    /// Introduced by another set of the same master batch; absent on this set's own base.
+    OtherSet(&'static str),
+    /// A known open finding owned elsewhere; this entry is removed when it is fixed.
+    Open(&'static str),
+}
+
+/// The reviewed plain compares (file suffix, the compare's text, review). Every other credential
+/// compare written with == or != fails the scan.
+const REVIEWED: &[(&str, &str, Review)] = &[
+    (
+        "ioi_intelligence_routes.rs",
+        "sensitivity == \"secret\"",
+        Review::NotACredential("a sensitivity label"),
+    ),
+    (
+        "k8s_candidate_source.rs",
+        "== \"insecure_dev\"",
+        Review::NotACredential("a CA-mode setting beside an outbound bearer"),
+    ),
+    (
+        "lifecycle_routes.rs",
+        "s[\"secret_id\"].as_str() == Some(secret_id.as_str())",
+        Review::NotACredential("a secret's public record id"),
+    ),
+    (
+        "lifecycle_routes.rs",
+        "s[\"secret_id\"].as_str() == Some(id.as_str())",
+        Review::NotACredential("a secret's public record id"),
+    ),
+    (
+        "lifecycle_routes.rs",
+        "b[\"id\"].as_str() == Some(\"bootstrap\")",
+        Review::NotACredential(
+            "selects the bootstrap record by its fixed id; its token hash is compared in constant time",
+        ),
+    ),
+    (
+        "lifecycle_routes.rs",
+        "if cookie != bearer",
+        Review::OtherSet(
+            "BUILD-DELTA #24: two values the same request presents must be one credential; no stored secret",
+        ),
+    ),
+    (
+        "orchestration_routes.rs",
+        ".map(str::to_string) == prior_hash",
+        Review::NotACredential("the webhook rotation re-reads the hash it just wrote"),
+    ),
+    (
+        "orchestration_routes.rs",
+        "!= Some(token_hash.as_str())",
+        Review::NotACredential("the webhook rotation re-reads the hash it just wrote"),
+    ),
+    (
+        "storage_backend_routes.rs",
+        "c[\"connector_id\"].as_str() == Some(text(account, \"account_id\"))",
+        Review::NotACredential("a connector's public id"),
+    ),
+    (
+        "capability_token_control.rs",
+        "Some(candidate.token_hash.as_str()) == token_hash.as_deref()",
+        Review::Open("BUILD-DELTA #36 (B1-D24) replaces the model-mount capability token"),
+    ),
+];
+
+/// Two byte-aligned views of a source text: `structure` blanks comments and every string, raw
+/// string, byte string and char literal; `code` blanks comments only. Newlines are kept.
+fn views(text: &str) -> (Vec<u8>, Vec<u8>) {
+    let b = text.as_bytes();
+    let mut structure = b.to_vec();
+    let mut code = b.to_vec();
+    fn blank(v: &mut [u8], from: usize, to: usize) {
+        for byte in v.iter_mut().take(to).skip(from) {
+            if *byte != b'\n' {
+                *byte = b' ';
+            }
+        }
+    }
+    let mut i = 0;
+    while i < b.len() {
+        let after_ident = i > 0 && (b[i - 1].is_ascii_alphanumeric() || b[i - 1] == b'_');
+        if b[i..].starts_with(b"//") {
+            let end = b[i..]
+                .iter()
+                .position(|c| *c == b'\n')
+                .map_or(b.len(), |p| i + p);
+            blank(&mut structure, i, end);
+            blank(&mut code, i, end);
+            i = end;
+            continue;
+        }
+        if b[i..].starts_with(b"/*") {
+            let (mut depth, mut j) = (0usize, i);
+            while j < b.len() {
+                if b[j..].starts_with(b"/*") {
+                    depth += 1;
+                    j += 2;
+                } else if b[j..].starts_with(b"*/") {
+                    depth -= 1;
+                    j += 2;
+                    if depth == 0 {
+                        break;
+                    }
+                } else {
+                    j += 1;
+                }
+            }
+            blank(&mut structure, i, j);
+            blank(&mut code, i, j);
+            i = j;
+            continue;
+        }
+        let raw_open = match (after_ident, b[i], b.get(i + 1)) {
+            (false, b'r', Some(b'"' | b'#')) => Some(i + 1),
+            (false, b'b', Some(b'r')) => Some(i + 2),
+            _ => None,
+        };
+        if let Some(mut j) = raw_open {
+            let mut hashes = 0;
+            while b.get(j) == Some(&b'#') {
+                hashes += 1;
+                j += 1;
+            }
+            if b.get(j) == Some(&b'"') {
+                let closing: Vec<u8> = std::iter::once(b'"')
+                    .chain(std::iter::repeat(b'#').take(hashes))
+                    .collect();
+                let mut k = j + 1;
+                while k < b.len() && !b[k..].starts_with(&closing) {
+                    k += 1;
+                }
+                let end = (k + closing.len()).min(b.len());
+                blank(&mut structure, i, end);
+                i = end;
+                continue;
+            }
+        }
+        let string_open = match (after_ident, b[i], b.get(i + 1)) {
+            (_, b'"', _) => Some(i + 1),
+            (false, b'b', Some(b'"')) => Some(i + 2),
+            _ => None,
+        };
+        if let Some(mut j) = string_open {
+            while j < b.len() && b[j] != b'"' {
+                if b[j] == b'\\' {
+                    j += 1;
+                }
+                j += 1;
+            }
+            let end = (j + 1).min(b.len());
+            blank(&mut structure, i, end);
+            i = end;
+            continue;
+        }
+        if b[i] == b'\'' {
+            let rest = &text[i + 1..];
+            let mut chars = rest.chars();
+            let length = match chars.next() {
+                Some('\\') => rest[1..].find('\'').filter(|p| *p <= 10).map(|p| p + 3),
+                Some(first) if chars.next() == Some('\'') => Some(first.len_utf8() + 2),
+                _ => None,
+            };
+            if let Some(length) = length {
+                blank(&mut structure, i, i + length);
+                i += length;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    (structure, code)
+}
+
+/// Remove every `#[cfg(test)]` item (through its `;`, or its block's matching `}`) from both views.
+fn without_test_items(structure: &mut [u8], code: &mut [u8]) {
+    let mut from = 0;
+    while let Some(found) = find(structure, b"#[cfg(test)]", from) {
+        let mut end = structure.len();
+        let mut depth = 0i64;
+        let mut k = found + b"#[cfg(test)]".len();
+        while k < structure.len() {
+            match structure[k] {
+                b'(' | b'[' => depth += 1,
+                b')' | b']' => depth -= 1,
+                b';' if depth == 0 => {
+                    end = k + 1;
+                    break;
+                }
+                b'{' if depth == 0 => {
+                    let mut braces = 0i64;
+                    while k < structure.len() {
+                        match structure[k] {
+                            b'{' => braces += 1,
+                            b'}' => {
+                                braces -= 1;
+                                if braces == 0 {
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                        k += 1;
+                    }
+                    end = (k + 1).min(structure.len());
+                    break;
+                }
+                _ => {}
+            }
+            k += 1;
+        }
+        for index in found..end {
+            if structure[index] != b'\n' {
+                structure[index] = b' ';
+                code[index] = b' ';
+            }
+        }
+        from = end;
+    }
+}
+
+fn find(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
+    haystack
+        .get(from..)?
+        .windows(needle.len())
+        .position(|window| window == needle)
+        .map(|p| p + from)
+}
+
+/// The credential compares written with == or != in one file: each statement-sized chunk (split at
+/// `;`, `{` and `}` outside literals and comments) is split again at `&&` and `||`, and a piece is
+/// a credential compare when it holds == or != (outside literals) and names a credential.
+fn plain_credential_compares(text: &str) -> Vec<(usize, String)> {
+    let (mut structure, mut code) = views(text);
+    without_test_items(&mut structure, &mut code);
+    let mut found = Vec::new();
+    let mut start = 0;
+    for end in 0..=structure.len() {
+        if end < structure.len() && !matches!(structure[end], b';' | b'{' | b'}') {
+            continue;
+        }
+        let mut piece_start = start;
+        let mut k = start;
+        while k <= end {
+            let boundary = k == end
+                || (k + 1 < end
+                    && (structure[k..].starts_with(b"&&") || structure[k..].starts_with(b"||")));
+            if boundary {
+                let piece_structure = &structure[piece_start..k];
+                let piece_code = String::from_utf8_lossy(&code[piece_start..k])
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let compares = find(piece_structure, b"==", 0).is_some()
+                    || find(piece_structure, b"!=", 0).is_some();
+                if compares
+                    && CREDENTIAL_NAMES
+                        .iter()
+                        .any(|name| piece_code.contains(name))
+                {
+                    let line = text[..piece_start].matches('\n').count() + 1;
+                    found.push((line, piece_code));
+                }
+                piece_start = k + 2;
+                k += 2;
+                continue;
+            }
+            k += 1;
+        }
+        start = end + 1;
+    }
+    found
+}
+
+fn rust_files(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .unwrap_or_else(|e| panic!("read {dir:?}: {e}"))
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    entries.sort();
+    for path in entries {
+        if path.is_dir() {
+            rust_files(&path, out);
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            out.push(path);
+        }
+    }
+}
+
+/// Daemon-wide: no credential a caller presents (a token or its hash, an invite id, an OAuth state,
+/// a bearer, a secret, a password hash, a connection token, an access token, an API key) is compared
+/// with plain == or != anywhere the daemon authenticates; each plain compare that names one is a
+/// reviewed non-credential compare (listed with its reason), and every listed entry still exists
+/// (an entry from another set of the batch may be absent on this set's own base). The scanner reads
+/// production code only and is checked to reach the authenticating handlers.
+#[test]
+fn no_presented_credential_is_compared_with_plain_equality_anywhere_the_daemon_authenticates() {
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let mut files = Vec::new();
+    for dir in SCANNED_DIRS {
+        rust_files(&workspace.join(dir), &mut files);
+    }
+    assert!(
+        files.len() > 100,
+        "the scan reads the daemon's sources ({} files)",
+        files.len()
+    );
+    let mut unreviewed = Vec::new();
+    let mut used = vec![false; REVIEWED.len()];
+    let mut reached = Vec::new();
+    for path in &files {
+        let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+        let display = path
+            .strip_prefix(&workspace)
+            .unwrap_or(path)
+            .display()
+            .to_string();
+        let (mut structure, mut code) = views(&text);
+        without_test_items(&mut structure, &mut code);
+        let production = String::from_utf8_lossy(&code);
+        for handler in [
+            "fn handle_auth_oidc_callback(",
+            "fn handle_org_invite_accept(",
+            "fn open_ceremony_by_state(",
+            "fn handle_automation_webhook(",
+        ] {
+            if production.contains(handler) {
+                reached.push(handler);
+            }
+        }
+        for (line, compare) in plain_credential_compares(&text) {
+            match REVIEWED
+                .iter()
+                .position(|(file, needle, _)| display.ends_with(file) && compare.contains(needle))
+            {
+                Some(index) => used[index] = true,
+                None => unreviewed.push(format!("{display}:{line}: {compare}")),
+            }
+        }
+    }
+    for handler in [
+        "fn handle_auth_oidc_callback(",
+        "fn handle_org_invite_accept(",
+        "fn open_ceremony_by_state(",
+        "fn handle_automation_webhook(",
+    ] {
+        assert!(reached.contains(&handler), "the scan reaches `{handler}`");
+    }
+    assert!(
+        unreviewed.is_empty(),
+        "credential compares written with == / != (they stop at the first differing byte):\n{}",
+        unreviewed.join("\n")
+    );
+    let stale: Vec<String> = REVIEWED
+        .iter()
+        .zip(&used)
+        .filter(|((_, _, review), used)| !**used && !matches!(review, Review::OtherSet(_)))
+        .map(|((file, needle, _), _)| format!("{file}: {needle}"))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "reviewed entries that no longer exist (remove them):\n{}",
+        stale.join("\n")
+    );
+    let _ = REVIEWED
+        .iter()
+        .map(|(_, _, review)| match review {
+            Review::NotACredential(why) | Review::OtherSet(why) | Review::Open(why) => why.len(),
+        })
+        .sum::<usize>();
+}
+
+/// The shared compare reads every byte of both inputs: the length difference enters the
+/// accumulator, the loop runs over the longer input with no exit, and the accumulator is tested
+/// only after the loop.
+#[test]
+fn the_shared_constant_time_compare_reads_every_byte() {
+    let text = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/bin/hypervisor_daemon_routes/authority_routes.rs"),
+    )
+    .expect("read authority_routes.rs");
+    let start = text
+        .find("pub(crate) fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {")
+        .expect("the shared constant-time compare");
+    let body = &text[start..block_end(&text, start + text[start..].find('{').unwrap())];
+    for needed in [
+        "let mut difference = left.len() ^ right.len();",
+        "for index in 0..left.len().max(right.len())",
+        "difference |=",
+    ] {
+        assert!(body.contains(needed), "the compare has `{needed}`:\n{body}");
+    }
+    assert!(
+        body.trim_end()
+            .trim_end_matches('}')
+            .trim_end()
+            .ends_with("difference == 0"),
+        "the accumulator is tested only at the end:\n{body}"
+    );
+    for forbidden in ["return", "break", "?;"] {
+        assert!(
+            !body.contains(forbidden),
+            "no early exit (`{forbidden}`):\n{body}"
+        );
+    }
 }
