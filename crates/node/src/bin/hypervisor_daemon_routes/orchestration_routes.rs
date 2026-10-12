@@ -1605,7 +1605,13 @@ pub(crate) async fn handle_automation_webhook(
         .get("webhook_token_hash")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    if want.is_empty() || token.is_empty() || sha256_hex_str(&token) != want {
+    if want.is_empty()
+        || token.is_empty()
+        || !super::authority_routes::constant_time_eq(
+            sha256_hex_str(&token).as_bytes(),
+            want.as_bytes(),
+        )
+    {
         return reject(StatusCode::UNAUTHORIZED, "invalid_token");
     }
     // Policy checks: kill switch, project exists, payload size, concurrency.

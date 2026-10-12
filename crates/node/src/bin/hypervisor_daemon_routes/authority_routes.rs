@@ -265,7 +265,7 @@ fn bearer_sha256(bearer: &str) -> String {
 
 /// Equality that reads every byte of both inputs, so its timing does not depend on where they
 /// first differ.
-fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+pub(crate) fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     let mut difference = left.len() ^ right.len();
     for index in 0..left.len().max(right.len()) {
         difference |= usize::from(

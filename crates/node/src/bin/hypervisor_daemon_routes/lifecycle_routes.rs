@@ -21183,6 +21183,13 @@ pub(crate) fn startup_auth_notice(data_dir: &str) -> Result<(), String> {
     }
     Ok(())
 }
+/// True iff `stored` is the SHA-256 hex a presented secret hashed to (`presented_hash`), compared in
+/// constant time (every byte of both is read, whatever the first difference).
+fn stored_hash_matches(stored: Option<&str>, presented_hash: &str) -> bool {
+    stored.is_some_and(|stored| {
+        super::authority_routes::constant_time_eq(stored.as_bytes(), presented_hash.as_bytes())
+    })
+}
 /// Issue the one-time bootstrap token and persist only its hash. The token is rotated on every
 /// unauthenticated daemon boot so a lost host-log value never requires editing principal bytes.
 fn issue_bootstrap_token(data_dir: &str) -> Result<String, String> {
@@ -21231,7 +21238,7 @@ fn presented_session_record(data_dir: &str, headers: &HeaderMap) -> Option<Value
         read_record_dir(data_dir, "sessions")
             .into_iter()
             .find(|session| {
-                session["token_hash"].as_str() == Some(hash.as_str())
+                stored_hash_matches(session["token_hash"].as_str(), &hash)
                     && session["expires_at"]
                         .as_str()
                         .is_some_and(|expires_at| expires_at > now.as_str())
@@ -21362,7 +21369,7 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
         read_record_dir(data_dir, "sessions")
             .into_iter()
             .find(|s| {
-                s["token_hash"].as_str() == Some(h.as_str())
+                stored_hash_matches(s["token_hash"].as_str(), &h)
                     && s["expires_at"]
                         .as_str()
                         .map(|e| e > now.as_str())
@@ -21441,7 +21448,7 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
         if let Some(rec) = read_record_dir(data_dir, "api-tokens")
             .into_iter()
             .find(|t| {
-                t["token_hash"].as_str() == Some(h.as_str())
+                stored_hash_matches(t["token_hash"].as_str(), &h)
                     && t["expires_at"]
                         .as_str()
                         .is_some_and(|expires_at| expires_at > now.as_str())
@@ -23018,7 +23025,7 @@ pub(crate) async fn handle_auth_logout(
         let h = sha256_hex_str(&tok);
         if let Some(s) = read_record_dir(&st.data_dir, "sessions")
             .into_iter()
-            .find(|s| s["token_hash"].as_str() == Some(h.as_str()))
+            .find(|s| stored_hash_matches(s["token_hash"].as_str(), &h))
         {
             if let Some(sid) = s["session_id"].as_str() {
                 // W1.2 / MEF-GAP-008 (security) — the session was FOUND, so a false return means
@@ -23153,7 +23160,10 @@ pub(crate) async fn handle_auth_bootstrap(
         .find(|b| b["id"].as_str() == Some("bootstrap"))
         .and_then(|b| b["token_hash"].as_str().map(String::from))
         .unwrap_or_default();
-    if token.is_empty() || expected_hash.is_empty() || sha256_hex_str(token) != expected_hash {
+    if token.is_empty()
+        || expected_hash.is_empty()
+        || !stored_hash_matches(Some(expected_hash.as_str()), &sha256_hex_str(token))
+    {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "ok": false, "reason": "invalid_bootstrap_token" })),
@@ -24006,7 +24016,7 @@ fn resolve_scim_configuration(data_dir: &str, headers: &HeaderMap) -> Option<Val
     read_record_dir(data_dir, "scim-configurations")
         .into_iter()
         .find(|configuration| {
-            configuration["token_hash"].as_str() == Some(h.as_str())
+            stored_hash_matches(configuration["token_hash"].as_str(), &h)
                 && configuration["enabled"].as_bool() == Some(true)
         })
 }
