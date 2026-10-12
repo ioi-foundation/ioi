@@ -277,11 +277,6 @@ const REVIEWED: &[(&str, &str, Review)] = &[
         "c[\"connector_id\"].as_str() == Some(text(account, \"account_id\"))",
         Review::NotACredential("a connector's public id"),
     ),
-    (
-        "capability_token_control.rs",
-        "Some(candidate.token_hash.as_str()) == token_hash.as_deref()",
-        Review::Open("BUILD-DELTA #36 (B1-D24) replaces the model-mount capability token"),
-    ),
 ];
 
 /// Two byte-aligned views of a source text: `structure` blanks comments and every string, raw
