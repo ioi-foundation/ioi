@@ -276,6 +276,13 @@ pub(crate) fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     difference == 0
 }
 
+/// A presented plaintext credential (an invite id, an OAuth state) against the stored one, read in
+/// constant time; an empty presented value or an absent stored one never matches.
+pub(crate) fn presented_secret_matches(stored: Option<&str>, presented: &str) -> bool {
+    !presented.is_empty()
+        && stored.is_some_and(|stored| constant_time_eq(stored.as_bytes(), presented.as_bytes()))
+}
+
 /// The capability lease whose stored bearer hash matches `bearer`. The presented bearer is hashed
 /// and compared in constant time against every bearer-carrying grant (no early exit). A grant id,
 /// a grant ref or a stored hash is not a bearer and matches nothing.

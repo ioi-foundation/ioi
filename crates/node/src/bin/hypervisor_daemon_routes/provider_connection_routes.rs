@@ -776,7 +776,9 @@ fn open_ceremony_by_state(
     let caller = require_write_caller(&st.data_dir, headers, body)?;
     let Some(index) = read_record_dir(&st.data_dir, CEREMONY_STATES)
         .into_iter()
-        .find(|entry| entry["state"].as_str() == Some(state))
+        .find(|entry| {
+            super::authority_routes::presented_secret_matches(entry["state"].as_str(), state)
+        })
     else {
         return Err(bad(
             StatusCode::NOT_FOUND,

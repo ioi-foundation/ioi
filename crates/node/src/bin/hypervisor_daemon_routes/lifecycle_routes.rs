@@ -23796,7 +23796,10 @@ pub(crate) async fn handle_auth_oidc_callback(
     let code = body.get("code").and_then(Value::as_str).unwrap_or("");
     let Some(pending) = read_record_dir(&st.data_dir, "oauth-pending")
         .into_iter()
-        .find(|p| p["state"].as_str() == Some(state) && p["flow"].as_str() == Some("login"))
+        .find(|p| {
+            super::authority_routes::presented_secret_matches(p["state"].as_str(), state)
+                && p["flow"].as_str() == Some("login")
+        })
     else {
         return (
             StatusCode::BAD_REQUEST,
@@ -24834,7 +24837,7 @@ pub(crate) async fn handle_org_invite_accept(
             Json(json!({ "ok": false, "reason": "invalid_or_expired_invite" })),
         );
     };
-    if invite_id.is_empty() || invite["invite_id"].as_str() != Some(invite_id) {
+    if !super::authority_routes::presented_secret_matches(invite["invite_id"].as_str(), invite_id) {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "ok": false, "reason": "invalid_or_expired_invite" })),
