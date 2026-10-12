@@ -1,9 +1,10 @@
-//! A read-only API token is enforced as read-only: the identity it resolves carries the flag, and
-//! every state-changing request it carries (any method but GET, HEAD and OPTIONS) is refused with
-//! `hypervisor.auth_token_read_only` before any handler runs, on gate-exempt routes too and
-//! whether the token arrives as the bearer or as the session cookie, except the reviewed POST-shaped
-//! reads, which answer it exactly as they answer a full token. A full token still writes. Through
-//! the REAL daemon, inside `unshare -rn`, every path under one temp dir.
+//! A read-only API token is enforced as read-only by DEFAULT DENY: it is admitted only on an explicit list of
+//! routes verified write-free (any method), and every other request it carries is refused with
+//! `hypervisor.auth_token_read_only` before any handler runs, on gate-exempt routes too and whether the
+//! token arrives as the bearer or as the session cookie. The listed routes answer it exactly as they
+//! answer a full token, and a NO-WRITE harness shows a read-only call on each leaves the data directory
+//! byte-identical. A full token still writes. Through the REAL daemon, inside `unshare -rn`, every path
+//! under one temp dir.
 
 use serde_json::{json, Value};
 use std::io::{Read, Write};
@@ -389,9 +390,10 @@ fn a_read_only_token_is_refused_on_every_state_change() {
     );
 }
 
-/// A read-only token still reads, and the identity it resolves says it is read-only.
+/// A read-only token reads on the listed routes. Its identity route is not listed (the identity bootstrap
+/// can write), so it is refused by name there, and a full token's answer is unchanged.
 #[test]
-fn a_read_only_token_reads_and_its_identity_carries_the_flag() {
+fn a_read_only_token_reads_on_the_listed_routes_only() {
     let f = fixture();
     let (read_only, read_only_id) = f.mint(true);
     let (status, body) = http(
@@ -401,7 +403,7 @@ fn a_read_only_token_reads_and_its_identity_carries_the_flag() {
         Some(&read_only),
         None,
     );
-    assert_eq!(status, 200, "a read: {body}");
+    assert_eq!(status, 200, "a listed read: {body}");
     assert!(body.contains(&read_only_id), "the listing answers: {body}");
     let (status, body) = http(
         f.daemon.port,
@@ -410,30 +412,22 @@ fn a_read_only_token_reads_and_its_identity_carries_the_flag() {
         Some(&read_only),
         None,
     );
-    let answer = json_of(&body);
-    assert_eq!(status, 200, "whoami: {body}");
-    assert_eq!(
-        answer["authenticated"],
-        json!(true),
-        "the token resolves: {body}"
-    );
-    assert_eq!(
-        answer["principal"]["api_token_read_only"],
-        json!(true),
-        "the resolved identity carries the read-only flag: {body}"
+    assert!(
+        is_read_only_refusal(status, &body),
+        "an unlisted read is refused by name: {status} {body}"
     );
     let (full, _) = f.mint(false);
-    let (_, body) = http(
+    let (status, body) = http(
         f.daemon.port,
         "GET",
         "/v1/hypervisor/auth/whoami",
         Some(&full),
         None,
     );
+    assert_eq!(status, 200, "a full token reads whoami: {body}");
     assert_ne!(
         json_of(&body)["principal"]["api_token_read_only"],
-        json!(true),
-        "a full token's identity is not read-only: {body}"
+        json!(true)
     );
 }
 
@@ -492,5 +486,141 @@ fn a_full_token_still_writes() {
     assert!(
         (200..300).contains(&status),
         "a full token revokes: {status} {body}"
+    );
+}
+
+/// Every route a read-only token may call, any method: each verified write-free (handler and helpers read no
+/// writer) and each proved by the no-write harness below. A route joins this list only with that proof.
+const READ_ONLY_ALLOWLIST: &[(&str, &str)] = &[
+    ("GET", "/healthz"),
+    ("GET", "/readyz"),
+    ("GET", "/v1/hypervisor/api-tokens"),
+    ("POST", "/v1/hypervisor/collections/query"),
+    ("POST", "/v1/hypervisor/odk/object-instance-search"),
+    ("POST", "/v1/hypervisor/authority/evaluate"),
+    ("POST", "/v1/hypervisor/provider-ladder/resolve"),
+    ("POST", "/v1/mcp/gateway-requirements/resolve"),
+];
+
+/// Reads and read-shaped requests that WRITE (BUILD-DELTA #38's class) or are not proven write-free: a
+/// read-only token is refused on every one, as it is on a route that does not exist.
+const READS_THAT_WRITE_OR_ARE_UNPROVEN: &[(&str, &str)] = &[
+    ("GET", "/v1/hypervisor/org-invite"),
+    ("GET", "/v1/hypervisor/auth/whoami"),
+    ("GET", "/v1/hypervisor/principals"),
+    ("GET", "/v1/hypervisor/organization"),
+    ("GET", "/v1/hypervisor/environment-classes"),
+    ("GET", "/v1/hypervisor/model-routes"),
+    ("GET", "/v1/hypervisor/harness-profiles"),
+    ("GET", "/v1/hypervisor/sessions"),
+    ("GET", "/v1/hypervisor/notifications"),
+    ("GET", "/v1/hypervisor/work-projection"),
+    ("GET", "/v1/hypervisor/download-intents/intent-x/content"),
+    ("GET", "/v1/hypervisor/backup-exports/token-x"),
+    (
+        "GET",
+        "/v1/hypervisor/auth/device-held-principals/principal-x/binding-state",
+    ),
+    ("POST", "/v1/hypervisor/product-surface-projections"),
+    ("GET", "/v1/hypervisor/no-such-route-at-all"),
+];
+
+fn candidates() -> Vec<(&'static str, &'static str)> {
+    READ_ONLY_ALLOWLIST
+        .iter()
+        .chain(READS_THAT_WRITE_OR_ARE_UNPROVEN.iter())
+        .copied()
+        .collect()
+}
+
+fn call(f: &Fixture, token: &str, (method, path): (&str, &str)) -> (u16, String) {
+    let body = (method == "POST").then(|| json!({}));
+    http(f.daemon.port, method, path, Some(token), body.as_ref())
+}
+
+/// Default deny: the set of routes a read-only token is admitted on is EXACTLY the allowlist.
+#[test]
+fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
+    let f = fixture();
+    let (read_only, _) = f.mint(true);
+    let admitted: Vec<(&str, &str)> = candidates()
+        .into_iter()
+        .filter(|route| {
+            let (status, body) = call(&f, &read_only, *route);
+            !is_read_only_refusal(status, &body)
+        })
+        .collect();
+    let mut expected: Vec<(&str, &str)> = READ_ONLY_ALLOWLIST.to_vec();
+    let mut got = admitted.clone();
+    expected.sort();
+    got.sort();
+    assert_eq!(got, expected, "the admitted set is exactly the allowlist");
+}
+
+/// Everything under the data directory except the daemon's own log and scratch, path -> bytes.
+fn snapshot(data: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
+    fn walk(root: &Path, dir: &Path, out: &mut std::collections::BTreeMap<String, Vec<u8>>) {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            let rel = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            if rel == "daemon.log" || rel == "tmp" || rel.starts_with("tmp/") {
+                continue;
+            }
+            if path.is_dir() {
+                walk(root, &path, out);
+            } else if let Ok(bytes) = std::fs::read(&path) {
+                out.insert(rel, bytes);
+            }
+        }
+    }
+    let mut out = std::collections::BTreeMap::new();
+    walk(data, data, &mut out);
+    out
+}
+
+/// The NO-WRITE harness: for each allowlisted route, a read-only call leaves the data directory
+/// byte-identical (paths that change on their own while the daemon idles are measured first and excluded).
+/// Outbound calls are not observable here (the namespace has no route out); the allowlisted handlers
+/// were read for them, and none issues one.
+#[test]
+fn a_read_only_call_on_an_allowlisted_route_changes_nothing() {
+    let f = fixture();
+    let (read_only, _) = f.mint(true);
+    let data = f._dir.path().join("data");
+    let idle_a = snapshot(&data);
+    std::thread::sleep(Duration::from_millis(600));
+    let idle_b = snapshot(&data);
+    let noise: std::collections::BTreeSet<String> = idle_a
+        .keys()
+        .chain(idle_b.keys())
+        .filter(|path| idle_a.get(*path) != idle_b.get(*path))
+        .cloned()
+        .collect();
+    let mut changed = Vec::new();
+    for route in READ_ONLY_ALLOWLIST {
+        let before = snapshot(&data);
+        let (status, body) = call(&f, &read_only, *route);
+        assert!(
+            !is_read_only_refusal(status, &body),
+            "{route:?} is admitted: {status} {body}"
+        );
+        let after = snapshot(&data);
+        let touched: Vec<&String> = before
+            .keys()
+            .chain(after.keys())
+            .filter(|path| before.get(*path) != after.get(*path) && !noise.contains(*path))
+            .collect();
+        if !touched.is_empty() {
+            changed.push(format!("{route:?} -> {status}: {touched:?}"));
+        }
+    }
+    assert!(
+        changed.is_empty(),
+        "a read-only call wrote under the data directory:\n{}",
+        changed.join("\n")
     );
 }
