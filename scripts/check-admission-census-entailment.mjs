@@ -44,7 +44,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const mutation = process.argv.includes("--mutation");
@@ -58,6 +58,26 @@ const CENSUS_VERIFIER = join(
   repo,
   "apps/hypervisor/scripts/verify-hypervisor-ontology-admission-census.mjs",
 );
+// The census's pinned values have ONE home, a JSON sidecar the census verifier imports; this check
+// reads it directly instead of reading the verifier's source.
+const PINS_SIDECAR = join(repo, "apps/hypervisor/scripts/admission-census-pins.json");
+
+/// Every path at which two pin trees differ: a key only one has, or a different value.
+function pinDifferences(expected, actual, at = "") {
+  const out = [];
+  const keys = new Set([...Object.keys(expected ?? {}), ...Object.keys(actual ?? {})]);
+  for (const key of [...keys].sort()) {
+    const where = at ? `${at}.${key}` : key;
+    const want = expected?.[key];
+    const have = actual?.[key];
+    if (want && typeof want === "object" && have && typeof have === "object") {
+      out.push(...pinDifferences(want, have, where));
+    } else if (want !== have) {
+      out.push(`${where}: sidecar ${JSON.stringify(want)} vs verifier ${JSON.stringify(have)}`);
+    }
+  }
+  return out;
+}
 
 const results = [];
 const observations = {};
@@ -277,6 +297,13 @@ try {
       ? `unexplained by the census: ${unexplained.join(", ") || "none"} · recorded but not read: ${unread.join(", ") || "none"}`
       : `${rustcOther.length} data file(s), each recorded: ${rustcOther.map((f) => f.split("/").pop()).join(", ")}`);
 
+  // ---- THE PINS HAVE ONE HOME: the sidecar the census verifier imports ----
+  const sidecar = JSON.parse(readFileSync(PINS_SIDECAR, "utf8"));
+  const verifierModule = await import(pathToFileURL(CENSUS_VERIFIER).href);
+  const pinDiff = pinDifferences(sidecar, verifierModule.PINNED);
+  ok("the census verifier's pins ARE the sidecar's: every value it checks is the one in apps/hypervisor/scripts/admission-census-pins.json, so no pin is restated where this check cannot read it",
+    pinDiff.length === 0, pinDiff.join(" · ") || "every pin identical");
+
   // ---- RESIDUAL 2: the bucket vocabulary is closed in both directions ----
   const verifierSource = readFileSync(CENSUS_VERIFIER, "utf8");
   const emittable = [...new Set(
@@ -366,6 +393,20 @@ try {
     const plantedNames = pinnedNamesOf(pinnedBlockOf(plantedSource));
     ok("DRILL M6 — the pinned block is read to its matching brace: a brace inside a comment does not end it, and a name only a comment or a later block mentions is not a pin",
       plantedNames.join(",") === "first-bucket,second-bucket,third-bucket", plantedNames.join(",") || "NOTHING READ");
+
+    // S1 — a pin changed in the verifier but not in the sidecar is caught by name.
+    const changedPins = JSON.parse(JSON.stringify(sidecar));
+    changedPins.tokenMentions += 1;
+    const changedDiff = pinDifferences(sidecar, changedPins);
+    ok("DRILL S1 — a pin changed in the verifier but not in the sidecar is caught, by name",
+      changedDiff.length === 1 && changedDiff[0].startsWith("tokenMentions:"), changedDiff.join(" · ") || "NOTHING DETECTED");
+
+    // S2 — a bucket the sidecar pins but the verifier does not is caught by name.
+    const droppedPins = JSON.parse(JSON.stringify(sidecar));
+    delete droppedPins.unadjudicable["resolution-cycle"];
+    const droppedDiff = pinDifferences(sidecar, droppedPins);
+    ok("DRILL S2 — a bucket pinned in the sidecar but absent from the verifier is caught, by name",
+      droppedDiff.length === 1 && droppedDiff[0].startsWith("unadjudicable.resolution-cycle:"), droppedDiff.join(" · ") || "NOTHING DETECTED");
 
     // M7 — a template literal is read as one: a nested template inside its interpolation does not end
     // it or the block, and a quoted name inside it (a comment in an interpolation included) is not a pin.
