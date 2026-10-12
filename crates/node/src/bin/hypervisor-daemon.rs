@@ -777,6 +777,19 @@ async fn async_main() -> anyhow::Result<()> {
         .or_else(|| std::env::var("HOME").ok())
         .unwrap_or_default();
 
+    // A test fault variable (IOI_TEST_*) exists only for fault verifiers; a daemon started with
+    // one says so in its log.
+    let mut test_fault_variables: Vec<String> = std::env::vars_os()
+        .filter_map(|(name, _)| name.into_string().ok())
+        .filter(|name| name.starts_with("IOI_TEST_"))
+        .collect();
+    if !test_fault_variables.is_empty() {
+        test_fault_variables.sort();
+        eprintln!(
+            "hypervisor-daemon WARNING: test fault variables are set ({}); they exist only for fault verifiers and must never be set in a deployment",
+            test_fault_variables.join(", ")
+        );
+    }
     // Auth fail-safe and fresh-local zero-to-idle path: issue a hash-at-rest one-boot operator
     // bootstrap token to the host log. Loopback itself never becomes an administrator credential.
     lifecycle_routes::startup_auth_notice(&data_dir)

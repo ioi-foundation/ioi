@@ -96,3 +96,39 @@ test("the product shell serves the owned artifact and fails closed when identity
     await stop(child);
   }
 });
+
+test("an SSO sign-in the daemon refuses shows the daemon's own message, which names the recovery", async () => {
+  const http = await import("node:http");
+  const message = "this SSO identity is not linked to an account <yet>; sign in another way (or ask an administrator to set a password), then link it";
+  const daemon = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(req.url === "/v1/hypervisor/auth/oidc/callback" ? 403 : 200, { "content-type": "application/json" });
+      res.end(req.url === "/v1/hypervisor/auth/oidc/callback" ? JSON.stringify({ ok: false, code: "hypervisor.sso_link_required", message }) : "{}");
+    });
+  });
+  await new Promise((resolve) => daemon.listen(0, "127.0.0.1", resolve));
+  const [port, productPort] = await Promise.all([freePort(), freePort()]);
+  const child = spawn(process.execPath, [path.join(here, "serve-product-ui.mjs")], {
+    cwd: root,
+    env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(productPort), IOI_HYPERVISOR_DAEMON_URL: `http://127.0.0.1:${daemon.address().port}` },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk; });
+  child.stderr.on("data", (chunk) => { output += chunk; });
+  try {
+    await waitFor(`http://127.0.0.1:${port}/__ioi/product-ui-identity`, child);
+    const response = await fetch(`http://127.0.0.1:${port}/__ioi/login/sso/callback?code=c&state=s`, { redirect: "manual" });
+    const body = await response.text();
+    assert.equal(response.status, 401, "the sign-in is refused");
+    assert.equal(response.headers.get("set-cookie"), null, "no session cookie");
+    assert.ok(body.includes("ask an administrator to set a password"), `the page shows the daemon's message: ${body.slice(-600)}`);
+    assert.ok(body.includes("&lt;yet&gt;") && !body.includes("<yet>"), "escaped as text");
+  } catch (error) {
+    throw new Error(`${error.message}\nproduct shell output:\n${output.slice(-8_000)}`);
+  } finally {
+    await stop(child);
+    daemon.close();
+  }
+});

@@ -431,7 +431,9 @@ const H_BASELINE = [
   "lifecycle_routes.rs::handle_auth_bootstrap",
   "lifecycle_routes.rs::handle_auth_logout",
   "lifecycle_routes.rs::handle_auth_oidc_callback",
-  "lifecycle_routes.rs::handle_auth_oidc_start",
+  // "lifecycle_routes.rs::handle_auth_oidc_start" — LEFT the baseline 2026-10-12 (BUILD-DELTA
+  // #25): a link start (`{"link": true}`) resolves its caller with `resolve_principal` and records
+  // the link for that principal only; the entry is deleted rather than re-pinned.
   "lifecycle_routes.rs::handle_budget_reconcile",
   "lifecycle_routes.rs::handle_compact",
   "lifecycle_routes.rs::handle_connector_bind_credential",
