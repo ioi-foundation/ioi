@@ -26,7 +26,9 @@ sees it". False: `POST /v1/hypervisor/environments/:id/ops-lease` is registered 
 **Two, and it is the larger one.** Revision 3 FILED a dependency on
 `ioi.hypervisor.authority-grant.v1`, claiming "the grant schema has no principal ref" and that
 adding one is "the highest blast-radius change in the estate". **That is false, and the estate
-already does exactly the opposite under a named invariant.** `issue_capability_lease` takes
+already does exactly the opposite under a named invariant.** `issue_capability_lease` (as of this
+revision; since 2026-10-12 every capability lease is minted by `issue_bearer_capability_lease`,
+which takes and records the same `subject`) takes
 `subject` as a parameter (`authority_routes.rs:195-240`) and writes it to the grant record at
 `:232`. `handle_editor_access_lease_create` (`editor_routes.rs:724`) resolves it SERVER-SIDE to a
 principal:
@@ -318,7 +320,7 @@ proxy's tokenless path missed.
 
 **Revision 4 — CITATION-AUDITED before landing.** An independent audit of ~70 load-bearing
 citations found the two headline reversals SOUND (the ops-lease minter is inside `/v1/` at
-`hypervisor-daemon.rs:3348`; `issue_capability_lease` carries a `subject` and INV-37 resolves a
+`hypervisor-daemon.rs:3348`; `issue_capability_lease` (as of this revision) carries a `subject` and INV-37 resolves a
 principal into it) and every behavioural claim reproducing, and four citation errors, all
 corrected here: the INV-37 quote block is `editor_routes.rs:730-732` not `:733-735`; the
 `POST /backups` handler is `:4048` not `:3583` (a line inside the shared `capture_workspace`

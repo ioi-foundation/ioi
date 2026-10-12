@@ -3,7 +3,7 @@
 //!
 //! Locked decisions enforced here:
 //! - editor access leases are capability leases issued through the EXISTING authority grant
-//!   machinery (`authority_routes::issue_capability_lease`) — no parallel SessionAccessLease.
+//!   machinery (`authority_routes::issue_bearer_capability_lease`) — no parallel SessionAccessLease.
 //! - one proven browser target (vscode-browser / oss_openvscode); others stay declared.
 //! - the daemon owns truth; provider/runtime IDs are evidence only.
 //!
@@ -936,9 +936,9 @@ pub(crate) async fn handle_editor_access_lease_create(
         resources,
         expiry,
     );
-    // issue_capability_lease refuses internally by returning an error envelope (e.g. the lease did
-    // not durably commit). Propagate that typed refusal instead of reporting a live lease with
-    // empty refs and status "active".
+    // issue_bearer_capability_lease refuses internally by returning an error envelope (e.g. the
+    // lease did not durably commit). Propagate that typed refusal instead of reporting a live lease
+    // with empty refs and status "active".
     if let Some(error) = grant.get("error") {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,

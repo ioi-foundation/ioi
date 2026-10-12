@@ -213,25 +213,13 @@ const LOCAL_ALLOWED: &[&str] = &[
 ];
 
 /// Mint a capability lease as a real authority grant (the SAME grant/revoke/expiry/receipt
-/// machinery — Locked Decision 1: no parallel SessionAccessLease). Returns the grant record; its
-/// `grant_ref` IS the `capability_lease_ref`. Used by the editor access-lease surface (effect
-/// `environment.editor.open`) so editor access is lease-bound, revocable, expiring, receipt-backed
-/// — revocable via POST /v1/hypervisor/authority/revoke and visible in /authority/grants.
-pub(crate) fn issue_capability_lease(
-    data_dir: &str,
-    subject: &str,
-    action: &str,
-    resources: Value,
-    expiry_seconds: i64,
-) -> Value {
-    issue_capability_lease_record(data_dir, subject, action, resources, expiry_seconds, None)
-}
-
-/// Mint a capability lease whose holder presents a BEARER (the env-ops access token). The bearer
-/// is 256 bits from the OS RNG, returned once to the minter, and stored only as its SHA-256
-/// (`bearer_sha256`) in the grant record. It is distinct from the grant id and grant ref that
-/// receipts, the trail and the grants listing cite, and is not derivable from them. Returns the
-/// grant record and the bearer; no bearer when the lease could not be recorded.
+/// machinery — Locked Decision 1: no parallel SessionAccessLease; its `grant_ref` IS the
+/// `capability_lease_ref`, revocable via POST /v1/hypervisor/authority/revoke and visible in
+/// /authority/grants) whose holder presents a BEARER (its access token). The bearer is 256 bits
+/// from the OS RNG, returned once to the minter, and stored only as its SHA-256 (`bearer_sha256`)
+/// in the grant record. It is distinct from the grant id and grant ref that receipts, the trail and
+/// the grants listing cite, and is not derivable from them. Returns the grant record and the
+/// bearer; no bearer when the lease could not be recorded.
 pub(crate) fn issue_bearer_capability_lease(
     data_dir: &str,
     subject: &str,
