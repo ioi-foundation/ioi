@@ -74,6 +74,18 @@ fn http_with(
     headers: &[(&str, &str)],
     body: Option<&Value>,
 ) -> (u16, String) {
+    let (status, _, body) = http_answer(port, method, path, headers, body);
+    (status, body)
+}
+
+/// The same request, also returning the response head (status line and headers, names as sent).
+fn http_answer(
+    port: u16,
+    method: &str,
+    path: &str,
+    headers: &[(&str, &str)],
+    body: Option<&Value>,
+) -> (u16, String, String) {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect to the daemon");
     stream
         .set_read_timeout(Some(Duration::from_secs(120)))
@@ -103,12 +115,23 @@ fn http_with(
         .contains("transfer-encoding: chunked");
     (
         status,
+        head.to_string(),
         if chunked {
             dechunk(body)
         } else {
             body.to_string()
         },
     )
+}
+
+/// One response header's value, by case-insensitive name.
+fn header_value(head: &str, name: &str) -> Option<String> {
+    head.lines().skip(1).find_map(|line| {
+        let (key, value) = line.split_once(':')?;
+        key.trim()
+            .eq_ignore_ascii_case(name)
+            .then(|| value.trim().to_string())
+    })
 }
 
 /// The same request with an optional `Authorization: Bearer` token.
@@ -535,6 +558,7 @@ const NO_HANDLER_METHODS: &[&str] = &["CONNECT"];
 const NO_HANDLER_STATUSES: &[u16] = &[0, 400, 404, 405, 501]; // 0: the connection was closed by the parser
 
 /// The ONLY case allowed to be excluded as vacuous (its full-token control is also 403 because the principal does not exist).
+/// Even there the read-only answer must be the GUARD's (its exact answer headers), so a guard that admitted it is caught.
 const PERMITTED_VACUOUS: &[(&str, &str)] = &[(
     "HEAD",
     "/v1/hypervisor/auth/device-held-principals/principal-x/binding-state",
@@ -554,6 +578,24 @@ fn call(f: &Fixture, token: &str, method: &str, path: &str, body: Option<&Value>
     http(f.daemon.port, method, path, Some(token), body)
 }
 
+/// The same call, also returning the response head.
+fn call_answer(
+    f: &Fixture,
+    token: &str,
+    method: &str,
+    path: &str,
+    body: Option<&Value>,
+) -> (u16, String, String) {
+    let bearer = format!("Bearer {token}");
+    http_answer(
+        f.daemon.port,
+        method,
+        path,
+        &[("Authorization", bearer.as_str())],
+        body,
+    )
+}
+
 /// Default deny, method AND path exact: across every method on every listed path and every unlisted candidate, the
 /// requests a read-only token is admitted on are exactly the listed (method, path) pairs. HEAD and OPTIONS on a
 /// listed GET path are refused: nothing is normalised to another method.
@@ -570,15 +612,40 @@ fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
     );
     paths.sort_unstable();
     paths.dedup();
+    // The guard's own refusal, identified by its typed code: a read-only GET on a route that does not exist. A HEAD answer
+    // has no body, so a HEAD or OPTIONS refusal is the guard's only if it carries the guard's exact answer headers (status,
+    // content type, and the content length of its constant body); a handler's 403 has its own body and length.
+    let (guard_status, guard_head, guard_body) = call_answer(
+        &f,
+        &read_only,
+        "GET",
+        "/v1/hypervisor/no-such-route-at-all",
+        None,
+    );
+    assert!(
+        is_read_only_refusal(guard_status, &guard_body),
+        "the guard's own typed refusal: {guard_status} {guard_body}"
+    );
+    let guard_type = header_value(&guard_head, "content-type");
+    let guard_length = header_value(&guard_head, "content-length");
+    assert_eq!(
+        guard_length,
+        Some(guard_body.len().to_string()),
+        "the guard's refusal states its own length"
+    );
+    let by_guard = |status: u16, head: &str| {
+        status == 403
+            && header_value(head, "content-type") == guard_type
+            && header_value(head, "content-length") == guard_length
+    };
     let mut admitted: Vec<(String, String)> = Vec::new();
     let mut vacuous: Vec<(String, String)> = Vec::new();
     for path in &paths {
         for method in ALL_METHODS {
             let body =
                 (*method != "GET" && *method != "HEAD" && *method != "OPTIONS").then(|| json!({}));
-            let (status, answer) = call(&f, &read_only, method, path, body.as_ref());
-            // A HEAD or OPTIONS answer has no body to carry the refusal code, so it is read from the status:
-            // the read-only token's 403 where a full token's answer is not a 403.
+            let (status, head, answer) = call_answer(&f, &read_only, method, path, body.as_ref());
+            // A HEAD or OPTIONS answer is read by the guard's exact answer headers (above), never by the status alone.
             let refused = if NO_HANDLER_METHODS.contains(method) {
                 let (full_status, _) = call(&f, &full, method, path, body.as_ref());
                 if status == 403 {
@@ -592,15 +659,24 @@ fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
                     false
                 }
             } else if *method == "HEAD" || *method == "OPTIONS" {
-                let (full_status, _) = call(&f, &full, method, path, body.as_ref());
+                let (full_status, full_head, _) =
+                    call_answer(&f, &full, method, path, body.as_ref());
                 if full_status == 403 {
-                    // The full token is refused here too, so this case cannot show the guard acted: named, not silent.
-                    // The read-only token's own answer must still be 403 before the case is excluded.
-                    assert_eq!(status, 403, "{method} {path}: a read-only token must be refused even where the control is vacuous");
+                    // The full token is refused here too, so the STATUS cannot show the guard acted: named, not silent.
+                    // The read-only answer must still be the GUARD's (its exact answer headers), and the full token's 403
+                    // must not look like the guard's, before the case is excluded.
+                    assert!(
+                        by_guard(status, &head),
+                        "{method} {path}: a read-only token must be refused even where the control is vacuous, by the guard (content-length {guard_length:?}), not by a handler: {status} {head}"
+                    );
+                    assert!(
+                        !by_guard(full_status, &full_head),
+                        "{method} {path}: the full token's refusal carries the guard's headers, so this case cannot tell the guard from a handler"
+                    );
                     vacuous.push((method.to_string(), path.to_string()));
                     continue;
                 }
-                status == 403
+                by_guard(status, &head)
             } else {
                 is_read_only_refusal(status, &answer)
             };
