@@ -7109,6 +7109,7 @@ dependencies = [
  "native-tls",
  "parity-scale-codec",
  "parking_lot",
+ "proc-macro2",
  "rand 0.8.5",
  "rcgen 0.13.2",
  "regex",

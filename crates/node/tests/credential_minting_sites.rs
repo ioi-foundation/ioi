@@ -6,29 +6,33 @@
 //! build a value (`format!`, `+`, `.to_owned()`, `push_str`, `String::from`, `.join(`), and functions named like a credential
 //! (token, secret, bearer, key, verifier, state, nonce, jwt) that build a `<prefix>_`-shaped value. Each must be a
 //! registered (file, function, prefix, occurrence) or be reviewed by name; a registered function or file that disappears,
-//! a second mint of a prefix, and a mint built from a hash slice or a clock fail. The lexer blanks strings (raw and byte
-//! included), char literals and nested block comments before it finds function and `#[cfg(test)]` spans.
+//! a second mint of a prefix, and a mint built from a hash slice or a clock fail. It reads every file as TOKENS, through
+//! the tokenizer proc macros use (`proc_macro2`): comments are dropped and every literal (string, raw string, byte
+//! string, C string, char, byte char) is one opaque token; functions, their bodies and `#[cfg(test)]` items are found in
+//! the token tree, and every registered fragment is matched as a token sequence. The scanner section names the API
+//! discovery can build on (a function-local `const` is visible in a function's token range).
 //!
 //! WHAT IT GUARANTEES: AN INVENTORY. Every mint site it knows is named (file, function, prefix, occurrence, or a
-//! primitive's exact draw and building text), and removing or replacing a registered draw's text at its site is flagged:
-//! a primitive entry and a prefixed mint's registered draw (`fed_by`) are matched against the LEXED code, comments and
-//! string literals blanked by the same lexer that finds the function, so a commented-out draw is a removed draw. It does
-//! NOT prove that the draw executes or that its output reaches the credential: a draw in a dead branch, a decoy copy
-//! beside a constant, and a buffer overwritten after the draw (`secret.fill(0)`) all pass this lint BY DESIGN
-//! (`a_dead_branch_or_decoy_draw_is_a_documented_lint_limit` pins that). The EXECUTION property is guaranteed
-//! BEHAVIOURALLY: the editor connection token by preview_editor_lease_tokens.rs
-//! `two_editor_runtime_starts_get_different_nonzero_tokens`, every site by BUILD-DELTA #36d's 256-draw entropy tests
-//! (the editor host is #36d-e), and at the type level by BUILD-DELTA #42. It is not evidence that a credential is
-//! random.
+//! primitive's exact draw and building code), and removing or replacing a registered draw at its site is flagged: a
+//! primitive entry and a prefixed mint's registered draw (`fed_by`) are matched as token sequences in the function
+//! body's tokens, where no comment and no literal content can satisfy them, so a commented-out draw, or a copy of it in
+//! any literal, is a removed draw. It does NOT prove that the draw executes or that its output reaches the credential: a
+//! draw in a dead branch, a decoy copy beside a constant, and a buffer overwritten after the draw (`secret.fill(0)`) all
+//! pass this lint BY DESIGN (`a_dead_branch_or_decoy_draw_is_a_documented_lint_limit` pins that). The EXECUTION
+//! property is guarded BEHAVIOURALLY. NOW: the editor connection token, by preview_editor_lease_tokens.rs
+//! `two_editor_runtime_starts_get_different_nonzero_tokens`. PLANNED (deferred, not yet in the tree): every site by
+//! BUILD-DELTA #36d's 256-draw entropy tests (the editor host is #36d-e), and the type-level guard of BUILD-DELTA #42.
+//! It is not evidence that a credential is random.
 //!
-//! KNOWN GAPS (covered by review, by the behavioural entropy tests of BUILD-DELTA #36d and by the type-level guard of
-//! BUILD-DELTA #42): a function-local `const` holding a registered prefix; a mint built by a helper in another file; a
+//! KNOWN GAPS (covered by review now, and by the PLANNED behavioural entropy tests of BUILD-DELTA #36d and type-level
+//! guard of BUILD-DELTA #42): a function-local `const` holding a registered prefix; a mint built by a helper in another file; a
 //! prefix assembled by a macro (`concat!`, `stringify!`) or at run time; a credential whose prefix is not in the list;
 //! a credential minted in a function whose name holds none of the keywords and no registered prefix; weak entropy at
 //! run time. A pass means none of the accidental shapes above was found, and nothing more.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 struct Mint {
     file: &'static str,
@@ -123,223 +127,176 @@ const DISCOVERY_REVIEWED: &[(&str, &str, &str)] = &[
 ];
 
 // ---------------------------------------------------------------------------------------------------------------
-// The scanner. Std only; it reads source TEXT and reports violations. The tests feed it the real tree and planted
+// The scanner. It reads each source file as TOKENS, through the tokenizer proc macros use
+// (`proc_macro2::TokenStream::from_str`): comments are dropped and every literal (string, raw string, byte string, C
+// string, char, byte char, number) is ONE opaque token, so no comment and no literal content can satisfy anything it
+// matches. Its API, for discovery to build on: `file_tokens` (a file as a flat token sequence, each group opened and
+// closed in place), `functions` (each function's name and the token range of its body, nested functions included;
+// a function-local `const` is an ordinary statement inside that range), `test_items` (the `#[cfg(test)]` items),
+// `string_content` (a string literal's contents), `pattern` (a code fragment as a token sequence) and
+// `find_tokens` / `contains_tokens` (the token-sequence matcher). The tests feed it the real tree and planted
 // counterexamples.
 // ---------------------------------------------------------------------------------------------------------------
 
-#[derive(Clone)]
-struct Func {
-    name: String,
-    start: usize, // byte offset of `fn`
-    end: usize,   // byte offset one past the closing brace
+/// One token of a file. A group is flattened into its opening delimiter, its contents and its closing delimiter; a
+/// literal keeps its exact source text (quotes, prefixes and hashes included) and is never looked inside, except by
+/// `string_content`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Tok {
+    Ident(String),
+    Punct(char),
+    Lit(String),
+    Open(char),
+    Close(char),
 }
 
-/// A string literal's contents: byte offsets of the text between its delimiters.
-#[derive(Clone, Copy)]
-struct Lit {
-    start: usize,
-    end: usize,
-}
-
-/// A copy of `text` of the same byte length with the inside of every string (plain, raw, byte), char literal and
-/// (nested) comment blanked to spaces, newlines kept; plus the spans of the string literals' contents.
-fn lex(text: &str) -> (String, Vec<Lit>) {
-    let b = text.as_bytes();
-    let mut out: Vec<u8> = b.to_vec();
-    let mut lits = Vec::new();
-    let blank = |out: &mut Vec<u8>, from: usize, to: usize| {
-        for k in from..to.min(out.len()) {
-            if out[k] != b'\n' {
-                out[k] = b' ';
-            }
-        }
-    };
-    let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
-    let mut i = 0;
-    while i < b.len() {
-        let c = b[i];
-        if c == b'/' && b.get(i + 1) == Some(&b'/') {
-            let mut j = i;
-            while j < b.len() && b[j] != b'\n' {
-                j += 1;
-            }
-            blank(&mut out, i, j);
-            i = j;
-        } else if c == b'/' && b.get(i + 1) == Some(&b'*') {
-            let mut depth = 1;
-            let mut j = i + 2;
-            while j < b.len() && depth > 0 {
-                if b[j] == b'/' && b.get(j + 1) == Some(&b'*') {
-                    depth += 1;
-                    j += 2;
-                } else if b[j] == b'*' && b.get(j + 1) == Some(&b'/') {
-                    depth -= 1;
-                    j += 2;
-                } else {
-                    j += 1;
-                }
-            }
-            blank(&mut out, i, j);
-            i = j;
-        } else if (c == b'r' || (c == b'b' && b.get(i + 1) == Some(&b'r')))
-            && (i == 0 || !ident(b[i - 1]))
-            && {
-                let mut k = i + if c == b'b' { 2 } else { 1 };
-                while b.get(k) == Some(&b'#') {
-                    k += 1;
-                }
-                b.get(k) == Some(&b'"')
-            }
-        {
-            let mut k = i + if c == b'b' { 2 } else { 1 };
-            let mut hashes = 0;
-            while b.get(k) == Some(&b'#') {
-                hashes += 1;
-                k += 1;
-            }
-            let content = k + 1;
-            let mut e = content;
-            while e < b.len() {
-                if b[e] == b'"' && (0..hashes).all(|h| b.get(e + 1 + h) == Some(&b'#')) {
-                    break;
-                }
-                e += 1;
-            }
-            lits.push(Lit {
-                start: content,
-                end: e.min(b.len()),
-            });
-            blank(&mut out, content, e);
-            i = e + 1 + hashes;
-        } else if c == b'"' {
-            let content = i + 1;
-            let mut j = content;
-            while j < b.len() && b[j] != b'"' {
-                if b[j] == b'\\' {
-                    j += 1;
-                }
-                j += 1;
-            }
-            lits.push(Lit {
-                start: content,
-                end: j.min(b.len()),
-            });
-            blank(&mut out, content, j);
-            i = j + 1;
-        } else if c == b'\'' {
-            // a char literal ('x', '\n', '"', '—') but not a lifetime ('a)
-            if b.get(i + 1) == Some(&b'\\') {
-                let mut j = i + 3;
-                while j < b.len() && b[j] != b'\'' {
-                    j += 1;
-                }
-                blank(&mut out, i + 1, j);
-                i = j + 1;
-            } else if let Some(&lead) = b.get(i + 1) {
-                let len = if lead < 0x80 {
-                    1
-                } else if lead >= 0xF0 {
-                    4
-                } else if lead >= 0xE0 {
-                    3
-                } else {
-                    2
+fn flatten(stream: proc_macro2::TokenStream, out: &mut Vec<Tok>) {
+    for tree in stream {
+        match tree {
+            proc_macro2::TokenTree::Ident(ident) => out.push(Tok::Ident(ident.to_string())),
+            proc_macro2::TokenTree::Punct(punct) => out.push(Tok::Punct(punct.as_char())),
+            proc_macro2::TokenTree::Literal(literal) => out.push(Tok::Lit(literal.to_string())),
+            proc_macro2::TokenTree::Group(group) => {
+                let (open, close) = match group.delimiter() {
+                    proc_macro2::Delimiter::Parenthesis => ('(', ')'),
+                    proc_macro2::Delimiter::Brace => ('{', '}'),
+                    proc_macro2::Delimiter::Bracket => ('[', ']'),
+                    proc_macro2::Delimiter::None => ('\u{0}', '\u{0}'),
                 };
-                if b.get(i + 1 + len) == Some(&b'\'') {
-                    blank(&mut out, i + 1, i + 1 + len);
-                    i += 2 + len;
-                } else {
-                    i += 1;
-                }
-            } else {
-                i += 1;
+                out.push(Tok::Open(open));
+                flatten(group.stream(), out);
+                out.push(Tok::Close(close));
             }
-        } else {
-            i += 1;
         }
     }
-    (
-        String::from_utf8(out)
-            .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned()),
-        lits,
-    )
 }
 
-fn matching_brace(code: &[u8], open: usize) -> Option<usize> {
-    let mut depth = 0i32;
-    for (k, &ch) in code.iter().enumerate().skip(open) {
-        if ch == b'{' {
-            depth += 1;
-        } else if ch == b'}' {
-            depth -= 1;
-            if depth == 0 {
-                return Some(k + 1);
+/// A file as a flat token sequence, or why it does not tokenize.
+fn file_tokens(text: &str) -> Result<Vec<Tok>, String> {
+    let stream = proc_macro2::TokenStream::from_str(text).map_err(|error| error.to_string())?;
+    let mut out = Vec::new();
+    flatten(stream, &mut out);
+    Ok(out)
+}
+
+/// A code fragment as a token sequence. A fragment may leave delimiters open (`jwt_encode(`, `[..`): they are closed to
+/// tokenize it and the closing tokens are dropped, so the pattern is a prefix of the code it names.
+fn pattern(fragment: &str) -> Vec<Tok> {
+    let mut unclosed = Vec::new();
+    for c in fragment.chars() {
+        match c {
+            '(' => unclosed.push(')'),
+            '[' => unclosed.push(']'),
+            '{' => unclosed.push('}'),
+            ')' | ']' | '}' => {
+                unclosed.pop();
             }
+            _ => {}
+        }
+    }
+    let closers: String = unclosed.iter().rev().collect();
+    let mut toks = file_tokens(&format!("{fragment}{closers}"))
+        .unwrap_or_else(|error| panic!("the pattern {fragment:?} tokenizes: {error}"));
+    toks.truncate(toks.len() - closers.chars().count());
+    toks
+}
+
+/// Where `needle` first occurs in `haystack`, as a contiguous token sequence.
+fn find_tokens(haystack: &[Tok], needle: &[Tok]) -> Option<usize> {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return None;
+    }
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+fn contains_tokens(haystack: &[Tok], needle: &[Tok]) -> bool {
+    find_tokens(haystack, needle).is_some()
+}
+
+/// One past the token that closes the group opened at `open`.
+fn group_end(toks: &[Tok], open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (k, tok) in toks.iter().enumerate().skip(open) {
+        match tok {
+            Tok::Open(_) => depth += 1,
+            Tok::Close(_) => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(k + 1);
+                }
+            }
+            _ => {}
         }
     }
     None
 }
 
-/// Byte-offset spans of `fn` items and of `#[cfg(test)]` blocks, from the lexed code.
-fn spans(code: &str) -> (Vec<Func>, Vec<(usize, usize)>) {
-    let bytes = code.as_bytes();
-    let mut funcs = Vec::new();
-    let mut tests = Vec::new();
-    let mut search = 0;
-    while let Some(rel) = code[search..].find("fn ") {
-        let at = search + rel;
-        search = at + 3;
-        if at > 0 && (bytes[at - 1].is_ascii_alphanumeric() || bytes[at - 1] == b'_') {
-            continue;
-        }
-        let name: String = code[at + 3..]
-            .chars()
-            .take_while(|c| c.is_alphanumeric() || *c == '_')
-            .collect();
-        if name.is_empty() {
-            continue;
-        }
-        let mut k = at + 3 + name.len();
-        let mut open = None;
-        let mut paren = 0i32;
-        while k < bytes.len() {
-            match bytes[k] {
-                b'(' | b'[' => paren += 1,
-                b')' | b']' => paren -= 1,
-                b'{' if paren <= 0 => {
-                    open = Some(k);
-                    break;
+/// The first brace group at this level from `from` (skipping other groups), or None when a `;` or the end of the
+/// enclosing group comes first.
+fn next_brace_group(toks: &[Tok], from: usize) -> Option<(usize, usize)> {
+    let mut depth = 0usize;
+    for (k, tok) in toks.iter().enumerate().skip(from) {
+        match tok {
+            Tok::Open('{') if depth == 0 => return group_end(toks, k).map(|end| (k, end)),
+            Tok::Open(_) => depth += 1,
+            Tok::Close(_) => {
+                if depth == 0 {
+                    return None;
                 }
-                b';' if paren <= 0 => break,
-                _ => {}
+                depth -= 1;
             }
-            k += 1;
-        }
-        if let Some(open) = open {
-            if let Some(end) = matching_brace(bytes, open) {
-                funcs.push(Func {
-                    name,
-                    start: at,
-                    end,
-                });
-            }
+            Tok::Punct(';') if depth == 0 => return None,
+            _ => {}
         }
     }
-    let mut s = 0;
-    while let Some(rel) = code[s..].find("#[cfg(test)]") {
-        let at = s + rel;
-        s = at + 12;
-        if let Some(open_rel) = code[s..].find('{') {
-            let open = s + open_rel;
-            let header = &code[s..open];
-            if header.len() < 200 && !header.contains(';') {
-                if let Some(end) = matching_brace(bytes, open) {
-                    tests.push((at, end));
-                }
-            }
+    None
+}
+
+/// A function with a body: its name and the token range of its body (the brace group after `fn <name>`, braces
+/// included).
+#[derive(Clone)]
+struct Func {
+    name: String,
+    start: usize,
+    end: usize,
+}
+
+/// Every function with a body, nested ones included, in token order.
+fn functions(toks: &[Tok]) -> Vec<Func> {
+    let mut out = Vec::new();
+    for at in 0..toks.len() {
+        let (Tok::Ident(keyword), Some(Tok::Ident(name))) = (&toks[at], toks.get(at + 1)) else {
+            continue;
+        };
+        if keyword != "fn" {
+            continue;
+        }
+        if let Some((start, end)) = next_brace_group(toks, at + 2) {
+            out.push(Func {
+                name: name.trim_start_matches("r#").to_string(),
+                start,
+                end,
+            });
         }
     }
-    (funcs, tests)
+    out
+}
+
+/// The token ranges of `#[cfg(test)]` items: from the attribute through the item's brace group.
+fn test_items(toks: &[Tok]) -> Vec<(usize, usize)> {
+    let attribute = pattern("#[cfg(test)]");
+    let mut out = Vec::new();
+    let mut from = 0;
+    while let Some(rel) = find_tokens(&toks[from..], &attribute) {
+        let at = from + rel;
+        from = at + attribute.len();
+        if let Some((_, end)) = next_brace_group(toks, from) {
+            out.push((at, end));
+        }
+    }
+    out
 }
 
 fn enclosing(funcs: &[Func], at: usize) -> Option<&Func> {
@@ -349,34 +306,42 @@ fn enclosing(funcs: &[Func], at: usize) -> Option<&Func> {
         .min_by_key(|f| f.end - f.start)
 }
 
-fn line_of(text: &str, at: usize) -> usize {
-    text[..at.min(text.len())].matches('\n').count() + 1
+/// A string literal's contents (`"…"`, `r"…"`, `r#"…"#`, and the byte and C forms of each), or None for any other
+/// literal.
+fn string_content(lit: &str) -> Option<&str> {
+    let rest = ["br", "cr", "b", "c", "r", ""].iter().find_map(|prefix| {
+        lit.strip_prefix(prefix).filter(|rest| {
+            rest.starts_with('"') || (prefix.ends_with('r') && rest.starts_with('#'))
+        })
+    })?;
+    let hashes = rest.chars().take_while(|c| *c == '#').count();
+    let body = &rest[hashes..];
+    let close = format!("\"{}", "#".repeat(hashes));
+    (body.len() >= 1 + close.len() && body.starts_with('"') && body.ends_with(&close))
+        .then(|| &body[1..body.len() - close.len()])
 }
 
-/// The statement holding `at`, from the call expression holding the literal (or the previous delimiter) to its end.
-fn statement_around(code: &str, at: usize, limit_end: usize) -> (usize, usize) {
-    let bytes = code.as_bytes();
-    // start: the previous statement/field delimiter
-    let mut start = 0;
-    let mut k = at;
-    while k > 0 {
-        k -= 1;
-        if matches!(bytes[k], b';' | b'{' | b'}' | b',') {
+/// The statement holding the token at `at` inside `range`: from after the previous `;`, `{`, `}` or `,` to the end of
+/// the call holding it (its innermost unclosed `(`), else to the next `;`.
+fn statement_around(toks: &[Tok], at: usize, range: (usize, usize)) -> (usize, usize) {
+    let mut start = range.0;
+    for k in (range.0..at).rev() {
+        if matches!(
+            toks[k],
+            Tok::Punct(';') | Tok::Open('{') | Tok::Close('}') | Tok::Punct(',')
+        ) {
             start = k + 1;
             break;
         }
     }
-    // the innermost unmatched '(' before the literal and its match bound the call; otherwise run to the ';'
-    let mut depth = 0i32;
+    let mut depth = 0usize;
     let mut open = None;
-    let mut j = at;
-    while j > start {
-        j -= 1;
-        match bytes[j] {
-            b')' => depth += 1,
-            b'(' => {
+    for k in (start..at).rev() {
+        match toks[k] {
+            Tok::Close(')') => depth += 1,
+            Tok::Open('(') => {
                 if depth == 0 {
-                    open = Some(j);
+                    open = Some(k);
                     break;
                 }
                 depth -= 1;
@@ -384,85 +349,111 @@ fn statement_around(code: &str, at: usize, limit_end: usize) -> (usize, usize) {
             _ => {}
         }
     }
-    if let Some(open) = open {
-        let mut d = 0i32;
-        for (idx, &ch) in bytes.iter().enumerate().skip(open) {
-            if idx >= limit_end {
-                break;
-            }
-            if ch == b'(' {
-                d += 1;
-            } else if ch == b')' {
-                d -= 1;
-                if d == 0 {
-                    return (start, idx + 1);
-                }
-            }
+    if let Some(end) = open.and_then(|open| group_end(toks, open)) {
+        if end <= range.1 {
+            return (start, end);
         }
     }
-    let end = code[at..limit_end.min(code.len())]
-        .find(';')
-        .map(|e| at + e)
-        .unwrap_or(limit_end.min(code.len()));
+    let end = (at..range.1)
+        .find(|&k| toks[k] == Tok::Punct(';'))
+        .unwrap_or(range.1);
     (start, end)
 }
 
 struct Candidate {
-    at: usize,
     prefix: &'static str,
     func: Option<Func>,
     statement: (usize, usize),
 }
 
-/// Every literal that starts with a registered prefix and is used to BUILD a value (not to compare against one).
-fn candidates(
-    text: &str,
-    code: &str,
-    lits: &[Lit],
-    funcs: &[Func],
-    tests: &[(usize, usize)],
-) -> Vec<Candidate> {
+fn patterns(fragments: &[&str]) -> Vec<Vec<Tok>> {
+    fragments.iter().map(|fragment| pattern(fragment)).collect()
+}
+
+fn is_building(statement: &[Tok]) -> bool {
+    static BUILDING: std::sync::OnceLock<Vec<Vec<Tok>>> = std::sync::OnceLock::new();
+    BUILDING
+        .get_or_init(|| {
+            patterns(&[
+                "+",
+                "push_str",
+                "to_owned",
+                "String::from",
+                "format!",
+                "concat!",
+                ".join(",
+                ".to_string()",
+                ".into()",
+            ])
+        })
+        .iter()
+        .any(|p| contains_tokens(statement, p))
+}
+
+fn is_comparing(statement: &[Tok]) -> bool {
+    static COMPARING: std::sync::OnceLock<Vec<Vec<Tok>>> = std::sync::OnceLock::new();
+    COMPARING
+        .get_or_init(|| {
+            patterns(&[
+                "starts_with",
+                "strip_prefix",
+                "matches!",
+                "==",
+                "!=",
+                ".eq(",
+                "ends_with",
+                ".contains(",
+            ])
+        })
+        .iter()
+        .any(|p| contains_tokens(statement, p))
+}
+
+/// Every string literal that starts with a registered prefix and is used to BUILD a value (not to compare against one).
+fn candidates(toks: &[Tok], funcs: &[Func], tests: &[(usize, usize)]) -> Vec<Candidate> {
     let mut out = Vec::new();
-    for lit in lits {
-        let content = &text[lit.start..lit.end];
+    for (at, tok) in toks.iter().enumerate() {
+        let Tok::Lit(lit) = tok else {
+            continue;
+        };
+        let Some(content) = string_content(lit) else {
+            continue;
+        };
         let Some(prefix) = PREFIXES.iter().find(|p| content.starts_with(**p)) else {
             continue;
         };
-        if tests.iter().any(|(a, b)| *a <= lit.start && lit.start < *b) {
+        if tests.iter().any(|(a, b)| *a <= at && at < *b) {
             continue;
         }
-        let func = enclosing(funcs, lit.start).cloned();
-        let limit = func.as_ref().map(|f| f.end).unwrap_or(code.len());
-        let statement = statement_around(code, lit.start, limit);
-        let stmt_text = &text[statement.0..statement.1.min(text.len())];
-        let building = content.contains('{') || is_building(stmt_text);
-        let comparing = is_comparing(stmt_text);
+        let func = enclosing(funcs, at).cloned();
+        let range = func.as_ref().map_or((0, toks.len()), |f| (f.start, f.end));
+        let statement = statement_around(toks, at, range);
+        let stmt = &toks[statement.0..statement.1];
+        let building = content.contains('{') || is_building(stmt);
+        let comparing = is_comparing(stmt);
         if func.is_some() && (!building || (comparing && !content.contains('{'))) {
             continue;
         }
         out.push(Candidate {
-            at: lit.start,
             prefix,
             func,
             statement,
         });
     }
-    out.sort_by_key(|c| c.at);
     out
 }
 
-/// Literals shaped like `<word>_` or `<word>_{..}` inside a function, used to BUILD a value: prefixes this lint was
-/// not told about.
-fn shaped_prefixes(
-    text: &str,
-    code: &str,
-    lits: &[Lit],
-    from: usize,
-    to: usize,
-) -> Vec<(usize, String)> {
+/// String literals shaped like `<word>_` or `<word>_{..}` inside a function, used to BUILD a value: prefixes this lint
+/// was not told about.
+fn shaped_prefixes(toks: &[Tok], func: &Func) -> Vec<String> {
     let mut out = Vec::new();
-    for lit in lits.iter().filter(|l| l.start >= from && l.end <= to) {
-        let content = &text[lit.start..lit.end];
+    for at in func.start..func.end {
+        let Tok::Lit(lit) = &toks[at] else {
+            continue;
+        };
+        let Some(content) = string_content(lit) else {
+            continue;
+        };
         let head: String = content
             .chars()
             .take_while(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '_')
@@ -475,61 +466,54 @@ fn shaped_prefixes(
             continue;
         }
         if !content.contains('{') {
-            let (a, z) = statement_around(code, lit.start, to);
-            let stmt = &text[a..z.min(text.len())];
+            let (a, z) = statement_around(toks, at, (func.start, func.end));
+            let stmt = &toks[a..z];
             if !is_building(stmt) || is_comparing(stmt) {
                 continue;
             }
         }
-        out.push((lit.start, head));
+        out.push(head);
     }
     out
 }
 
-fn is_building(statement: &str) -> bool {
-    [
-        "+",
-        "push_str",
-        "to_owned",
-        "String::from",
-        "format!",
-        "concat!",
-        ".join(",
-        ".to_string()",
-        ".into()",
-    ]
-    .iter()
-    .any(|m| statement.contains(m))
-}
-
-fn is_comparing(statement: &str) -> bool {
-    [
-        "starts_with",
-        "strip_prefix",
-        "matches!",
-        "==",
-        "!=",
-        ".eq(",
-        "ends_with",
-        ".contains(",
-    ]
-    .iter()
-    .any(|m| statement.contains(m))
-}
-
 /// Scan the given files. One line per violation; empty means no accidental shape inside this lint's scope.
 fn scan(files: &[(String, String)]) -> Vec<String> {
+    let forbidden_fragments = [
+        "[..",
+        "hash_json(",
+        "create_hash",
+        "as_millis",
+        "as_secs",
+        "as_nanos",
+        "SystemTime",
+        "Instant::now",
+    ];
+    let forbidden: Vec<(&str, Vec<Tok>)> = forbidden_fragments
+        .iter()
+        .map(|fragment| (*fragment, pattern(fragment)))
+        .collect();
     let mut violations = Vec::new();
     let mut found: Vec<(String, String, String, usize)> = Vec::new(); // (file, function, prefix, occurrences)
     let mut non_mints_built: Vec<(String, String)> = Vec::new(); // (file, function) of reviewed non-mints seen
+    let mut tokenized: Vec<(String, Vec<Tok>, Vec<Func>)> = Vec::new();
     for (rel, text) in files {
-        let (code, lits) = lex(text);
-        let (funcs, tests) = spans(&code);
+        let toks = match file_tokens(text) {
+            Ok(toks) => toks,
+            Err(error) => {
+                violations.push(format!(
+                    "{rel}: the file does not tokenize ({error}); the sweep cannot read it"
+                ));
+                continue;
+            }
+        };
+        let funcs = functions(&toks);
+        let tests = test_items(&toks);
         // 1. every mint candidate against the registry, by (file, function, prefix, nth)
         let mut seen: Vec<(String, String, usize)> = Vec::new();
-        for cand in candidates(text, &code, &lits, &funcs, &tests) {
+        for cand in candidates(&toks, &funcs, &tests) {
             let Some(func) = cand.func.clone() else {
-                violations.push(format!("{rel}:{}: `{}…` is held outside any function (a const or static): register the mint that uses it", line_of(text, cand.at), cand.prefix));
+                violations.push(format!("{rel}: `{}…` is held outside any function (a const or static): register the mint that uses it", cand.prefix));
                 continue;
             };
             let nth = seen
@@ -537,17 +521,16 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                 .filter(|(f, p, _)| *f == func.name && p == cand.prefix)
                 .count();
             seen.push((func.name.clone(), cand.prefix.to_string(), nth));
-            let line = line_of(text, cand.at);
+            let statement = &toks[cand.statement.0..cand.statement.1];
             if let Some(non_mint) = REVIEWED_NON_MINTS
                 .iter()
                 .find(|n| n.file == rel && n.function == func.name && n.prefix == cand.prefix)
             {
-                let statement = &text[cand.statement.0..cand.statement.1.min(text.len())];
                 if nth > 0 {
-                    violations.push(format!("{rel}:{line}: `{}` builds `{}…` more than once; only one reviewed non-mint is accepted there", func.name, cand.prefix));
-                } else if !statement.contains(non_mint.statement) {
+                    violations.push(format!("{rel}: `{}` builds `{}…` more than once; only one reviewed non-mint is accepted there", func.name, cand.prefix));
+                } else if !contains_tokens(statement, &pattern(non_mint.statement)) {
                     violations.push(format!(
-                        "{rel}:{line}: `{}` builds `{}…` other than by its reviewed statement {:?}",
+                        "{rel}: `{}` builds `{}…` other than by its reviewed statement {:?}",
                         func.name, cand.prefix, non_mint.statement
                     ));
                 } else {
@@ -562,35 +545,41 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                     .iter()
                     .any(|m| m.file == rel && m.function == func.name && m.prefix == cand.prefix);
                 violations.push(if known {
-                    format!("{rel}:{line}: `{}` mints `{}…` more times than the registry says (occurrence {})", func.name, cand.prefix, nth + 1)
+                    format!(
+                        "{rel}: `{}` mints `{}…` more times than the registry says (occurrence {})",
+                        func.name,
+                        cand.prefix,
+                        nth + 1
+                    )
                 } else {
-                    format!("{rel}:{line}: `{}…` is minted in `{}`, which is not a registered minting site", cand.prefix, func.name)
+                    format!(
+                        "{rel}: `{}…` is minted in `{}`, which is not a registered minting site",
+                        cand.prefix, func.name
+                    )
                 });
                 continue;
             };
-            let statement = &text[cand.statement.0..cand.statement.1.min(text.len())];
-            if !statement.contains(mint.inline) {
-                violations.push(format!("{rel}:{line}: the `{}…` mint in `{}` is not formed from its registered source {:?}", cand.prefix, func.name, mint.inline));
+            if !contains_tokens(statement, &pattern(mint.inline)) {
+                violations.push(format!(
+                    "{rel}: the `{}…` mint in `{}` is not formed from its registered source {:?}",
+                    cand.prefix, func.name, mint.inline
+                ));
             }
             if !mint.fed_by.is_empty() {
-                // The lexed code: a registered draw in a comment or a string literal is not a draw.
-                let before = &code[func.start..cand.statement.0.min(code.len()).max(func.start)];
-                if !before.contains(mint.fed_by) {
-                    violations.push(format!("{rel}:{line}: the `{}…` mint in `{}` is not preceded by its registered draw {:?}", cand.prefix, func.name, mint.fed_by));
+                let before = &toks[func.start..cand.statement.0.max(func.start)];
+                if !contains_tokens(before, &pattern(mint.fed_by)) {
+                    violations.push(format!(
+                        "{rel}: the `{}…` mint in `{}` is not preceded by its registered draw {:?}",
+                        cand.prefix, func.name, mint.fed_by
+                    ));
                 }
             }
-            for forbidden in [
-                "[..",
-                "hash_json(",
-                "create_hash",
-                "as_millis",
-                "as_secs",
-                "as_nanos",
-                "SystemTime",
-                "Instant::now",
-            ] {
-                if statement.contains(forbidden) && !mint.tolerates.contains(&forbidden) {
-                    violations.push(format!("{rel}:{line}: the `{}…` mint in `{}` is built from a derivation ({forbidden:?})", cand.prefix, func.name));
+            for (fragment, tokens) in &forbidden {
+                if contains_tokens(statement, tokens) && !mint.tolerates.contains(fragment) {
+                    violations.push(format!(
+                        "{rel}: the `{}…` mint in `{}` is built from a derivation ({fragment:?})",
+                        cand.prefix, func.name
+                    ));
                 }
             }
         }
@@ -614,7 +603,7 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
             {
                 continue;
             }
-            for (at, head) in shaped_prefixes(text, &code, &lits, func.start, func.end) {
+            for head in shaped_prefixes(&toks, func) {
                 let registered = MINTS
                     .iter()
                     .any(|m| m.file == rel && m.function == func.name && m.prefix == head);
@@ -622,10 +611,14 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                     .iter()
                     .any(|(f, n, _)| *f == rel && *n == func.name);
                 if !registered && !reviewed {
-                    violations.push(format!("{rel}:{}: `{}` builds a `{head}…` value and is neither registered nor reviewed", line_of(text, at), func.name));
+                    violations.push(format!(
+                        "{rel}: `{}` builds a `{head}…` value and is neither registered nor reviewed",
+                        func.name
+                    ));
                 }
             }
         }
+        tokenized.push((rel.clone(), toks, funcs));
     }
     // 3. the registry against the tree: every registered file and function exists, every registered mint is found,
     // and every reviewed non-mint is still built where it was reviewed
@@ -651,7 +644,7 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
     }
     let mut missing_files: Vec<&str> = Vec::new();
     for mint in MINTS {
-        let Some((rel, text)) = files.iter().find(|(rel, _)| rel == mint.file) else {
+        if !files.iter().any(|(rel, _)| rel == mint.file) {
             if !missing_files.contains(&mint.file) {
                 missing_files.push(mint.file);
                 violations.push(format!(
@@ -660,9 +653,14 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                 ));
             }
             continue;
+        }
+        let Some((rel, toks, funcs)) = tokenized.iter().find(|(rel, _, _)| rel == mint.file) else {
+            violations.push(format!(
+                "{}: the registered minting function `{}` cannot be read: its file does not tokenize",
+                mint.file, mint.function
+            ));
+            continue;
         };
-        let (code, _) = lex(text);
-        let (funcs, _) = spans(&code);
         let Some(func) = funcs.iter().find(|f| f.name == mint.function) else {
             violations.push(format!(
                 "{rel}: the registered minting function `{}` no longer exists",
@@ -671,8 +669,8 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
             continue;
         };
         if mint.prefix.is_empty() {
-            // The lexed code: a primitive's draw in a comment or a string literal is not a draw.
-            if !code[func.start..func.end].contains(mint.inline) {
+            // The function body's tokens: a primitive's draw in a comment or inside any literal is not a draw.
+            if !contains_tokens(&toks[func.start..func.end], &pattern(mint.inline)) {
                 violations.push(format!(
                     "{rel}: `{}` ({}) no longer shows {:?}",
                     mint.function, mint.note, mint.inline
@@ -907,10 +905,11 @@ fn a_registered_draw_inside_a_literal_or_a_raw_identifier_decoy_fails_the_sweep(
 }
 
 /// DOCUMENTED LIMITS, pinned so no pass is read as more than an inventory: a registered draw kept in a dead branch, or a
-/// decoy copy of it in a closure that never runs, passes this lint. The EXECUTION property is guarded behaviourally: for
-/// the editor connection token by preview_editor_lease_tokens.rs two_editor_runtime_starts_get_different_nonzero_tokens
-/// (two starts give two different non-zero tokens), for every site by BUILD-DELTA #36d's 256-draw entropy tests (the
-/// editor host is #36d-e), and at the type level by BUILD-DELTA #42.
+/// decoy copy of it in a closure that never runs, passes this lint. The EXECUTION property is guarded behaviourally:
+/// NOW for the editor connection token, by preview_editor_lease_tokens.rs
+/// two_editor_runtime_starts_get_different_nonzero_tokens (two starts give two different non-zero tokens); PLANNED
+/// (deferred) for every site, by BUILD-DELTA #36d's 256-draw entropy tests (the editor host is #36d-e), and at the type
+/// level by BUILD-DELTA #42.
 #[test]
 fn a_dead_branch_or_decoy_draw_is_a_documented_lint_limit() {
     for (shape, replacement) in [

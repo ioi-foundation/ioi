@@ -88,6 +88,8 @@ mime_guess = "2.0"
 
 [dev-dependencies]
 tempfile = "3.3"
+# The credential-minting lint reads source as tokens (the version already in Cargo.lock).
+proc-macro2 = "1.0.106"
 
 [features]
 default = []
