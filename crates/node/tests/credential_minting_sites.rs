@@ -9,10 +9,17 @@
 //! a second mint of a prefix, and a mint built from a hash slice or a clock fail. The lexer blanks strings (raw and byte
 //! included), char literals and nested block comments before it finds function and `#[cfg(test)]` spans.
 //!
-//! WHAT ITS ENTROPY CHECK IS. A HEURISTIC. It checks that a mint's own statement names its registered source (the RNG or
-//! uuid call, or a variable) and that a registered draw appears earlier in the function. It reads the text as written, so it does NOT
-//! see a commented-out draw, a buffer overwritten after the draw (`secret.fill(0)`), or a draw that is dead code. It is
-//! not evidence that a credential is random.
+//! WHAT IT GUARANTEES: AN INVENTORY. Every mint site it knows is named (file, function, prefix, occurrence, or a
+//! primitive's exact draw and building text), and removing or replacing a registered draw's text at its site is flagged:
+//! a primitive entry and a prefixed mint's registered draw (`fed_by`) are matched against the LEXED code, comments and
+//! string literals blanked by the same lexer that finds the function, so a commented-out draw is a removed draw. It does
+//! NOT prove that the draw executes or that its output reaches the credential: a draw in a dead branch, a decoy copy
+//! beside a constant, and a buffer overwritten after the draw (`secret.fill(0)`) all pass this lint BY DESIGN
+//! (`a_dead_branch_or_decoy_draw_is_a_documented_lint_limit` pins that). The EXECUTION property is guaranteed
+//! BEHAVIOURALLY: the editor connection token by preview_editor_lease_tokens.rs
+//! `two_editor_runtime_starts_get_different_nonzero_tokens`, every site by BUILD-DELTA #36d's 256-draw entropy tests
+//! (the editor host is #36d-e), and at the type level by BUILD-DELTA #42. It is not evidence that a credential is
+//! random.
 //!
 //! KNOWN GAPS (covered by review, by the behavioural entropy tests of BUILD-DELTA #36d and by the type-level guard of
 //! BUILD-DELTA #42): a function-local `const` holding a registered prefix; a mint built by a helper in another file; a
@@ -566,7 +573,8 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
                 violations.push(format!("{rel}:{line}: the `{}…` mint in `{}` is not formed from its registered source {:?}", cand.prefix, func.name, mint.inline));
             }
             if !mint.fed_by.is_empty() {
-                let before = &text[func.start..cand.statement.0.min(text.len()).max(func.start)];
+                // The lexed code: a registered draw in a comment or a string literal is not a draw.
+                let before = &code[func.start..cand.statement.0.min(code.len()).max(func.start)];
                 if !before.contains(mint.fed_by) {
                     violations.push(format!("{rel}:{line}: the `{}…` mint in `{}` is not preceded by its registered draw {:?}", cand.prefix, func.name, mint.fed_by));
                 }
@@ -663,7 +671,8 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
             continue;
         };
         if mint.prefix.is_empty() {
-            if !text[func.start..func.end].contains(mint.inline) {
+            // The lexed code: a primitive's draw in a comment or a string literal is not a draw.
+            if !code[func.start..func.end].contains(mint.inline) {
                 violations.push(format!(
                     "{rel}: `{}` ({}) no longer shows {:?}",
                     mint.function, mint.note, mint.inline
