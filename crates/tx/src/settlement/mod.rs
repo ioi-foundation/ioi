@@ -225,9 +225,10 @@ where
                     .and_then(|b| codec::from_bytes_canonical(&b).ok())
                     .unwrap_or(0);
 
-                if sender_bal < *amount {
-                    return Err(TransactionError::InsufficientFunds);
-                }
+                // The funds check, as checked arithmetic (BD-62): the debit cannot wrap.
+                let new_sender_bal = sender_bal
+                    .checked_sub(*amount)
+                    .ok_or(TransactionError::InsufficientFunds)?;
 
                 // BD-61: a transfer to oneself moves nothing. Sender and receiver share
                 // one balance key, so the two writes below would leave balance + amount
@@ -241,17 +242,16 @@ where
                     .and_then(|b| codec::from_bytes_canonical(&b).ok())
                     .unwrap_or(0);
 
-                let new_sender_bal = sender_bal - amount;
-                let new_receiver_bal = receiver_bal + amount;
+                // BD-62: a credit that would overflow u128 is refused, and every new value
+                // is computed and encoded before the first write, so a refusal writes nothing.
+                let new_receiver_bal = receiver_bal.checked_add(*amount).ok_or_else(|| {
+                    TransactionError::Invalid("Receiver balance overflow".into())
+                })?;
+                let sender_bytes = encode_balance(&new_sender_bal)?;
+                let receiver_bytes = encode_balance(&new_receiver_bal)?;
 
-                state.insert(
-                    &sender_key,
-                    &codec::to_bytes_canonical(&new_sender_bal).unwrap(),
-                )?;
-                state.insert(
-                    &receiver_key,
-                    &codec::to_bytes_canonical(&new_receiver_bal).unwrap(),
-                )?;
+                state.insert(&sender_key, &sender_bytes)?;
+                state.insert(&receiver_key, &receiver_bytes)?;
             }
 
             // Lock funds for a session. Every refusal precedes the first write.
