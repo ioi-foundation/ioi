@@ -1,14 +1,21 @@
 // Path: crates/tx/src/settlement/mod.rs
 
+use crate::system::validation::{enforce_credential_policy, verify_signature};
 use async_trait::async_trait;
 use ioi_api::chain::ChainView;
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::state::{ProofProvider, StateAccess, StateManager};
+use ioi_api::state::namespaced::ReadOnlyNamespacedStateAccess;
+use ioi_api::state::{service_namespace_prefix, ProofProvider, StateAccess, StateManager};
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
-use ioi_types::app::{SettlementPayload, SettlementTransaction};
+use ioi_types::app::{
+    account_id_from_key_material, AccountId, ChainId, SettlementPayload, SettlementSummary,
+    SettlementTransaction, SignatureProof,
+};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use ioi_types::keys::active_service_key;
+use ioi_types::service_configs::ActiveServiceMeta;
 use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::fmt::Debug;
@@ -29,6 +36,134 @@ impl<CS: CommitmentScheme + Clone> SettlementModel<CS> {
 // Canonical keys for settlement objects (bonds, channels, etc.)
 const BOND_PREFIX: &[u8] = b"settle::bond::";
 // const CHANNEL_PREFIX: &[u8] = b"settle::channel::";
+/// A disputed session's custody (`dispute::` ‖ session id): the `DisputeRecordV1` Escalate writes.
+const DISPUTE_PREFIX: &[u8] = b"dispute::";
+/// A settled session's tombstone (`settled::` ‖ session id). Commit refuses a session id
+/// that has one, so a doubly-signed summary can pay at most once.
+const SETTLED_TOMBSTONE_PREFIX: &[u8] = b"settled::";
+/// Account balance key prefix (`balance::` ‖ account id).
+const BALANCE_PREFIX: &[u8] = b"balance::";
+/// Domain separator of the settlement summary signatures.
+const SUMMARY_SIGNING_DOMAIN: &[u8] = b"ioi::settlement::summary::v1\0";
+
+/// The record Commit stores under the bond key (SCALE-encoded). Escalate moves it,
+/// unchanged, into the `DisputeRecordV1` under the dispute key.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct BondRecordV1 {
+    /// The account that committed the bond (the Commit transaction's signer).
+    pub payer: AccountId,
+    /// The counterparty the bond backs.
+    pub provider_id: AccountId,
+    /// The bonded amount, debited from the payer at Commit.
+    pub amount: u128,
+    /// The policy hash named at Commit.
+    pub policy_hash: [u8; 32],
+}
+
+/// The record Escalate stores under the dispute key (SCALE-encoded): the session's
+/// bond record, moved from the bond key, and the appeal bond debited from the
+/// escalating party, held in the same custody, so that nothing is burned (BD-57
+/// review 1, finding 1). No arm releases or resolves it yet (FU-N5-1).
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct DisputeRecordV1 {
+    /// The session's bond record, as Commit wrote it.
+    pub bond: BondRecordV1,
+    /// The appeal bond debited from the escalating party.
+    pub appeal_amount: u128,
+    /// The party that escalated and deposited the appeal bond (the Escalate signer).
+    pub appeal_depositor: AccountId,
+}
+
+fn bond_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [BOND_PREFIX, session_id.as_slice()].concat()
+}
+
+fn dispute_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [DISPUTE_PREFIX, session_id.as_slice()].concat()
+}
+
+fn settled_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [SETTLED_TOMBSTONE_PREFIX, session_id.as_slice()].concat()
+}
+
+fn balance_key(account: &AccountId) -> Vec<u8> {
+    [BALANCE_PREFIX, account.as_ref()].concat()
+}
+
+/// Reads a balance; an absent or undecodable value reads as 0, as in the Transfer arm.
+fn read_balance(state: &dyn StateAccess, key: &[u8]) -> Result<u128, TransactionError> {
+    Ok(state
+        .get(key)?
+        .and_then(|b| codec::from_bytes_canonical(&b).ok())
+        .unwrap_or(0))
+}
+
+fn encode_balance(balance: &u128) -> Result<Vec<u8>, TransactionError> {
+    codec::to_bytes_canonical(balance).map_err(TransactionError::Serialization)
+}
+
+/// The exact message both summary signatures cover:
+/// `b"ioi::settlement::summary::v1\0" ‖ SCALE(chain_id) ‖ SCALE(summary) ‖ SCALE(expires_at_height)`,
+/// where `chain_id` is the executing chain's id (u32 LE) and `expires_at_height` is u64 LE.
+fn summary_sign_bytes(
+    chain_id: ChainId,
+    summary: &SettlementSummary,
+    expires_at_height: u64,
+) -> Vec<u8> {
+    let mut message = Vec::new();
+    message.extend_from_slice(SUMMARY_SIGNING_DOMAIN);
+    message.extend_from_slice(&chain_id.encode());
+    message.extend_from_slice(&summary.encode());
+    message.extend_from_slice(&expires_at_height.encode());
+    message
+}
+
+/// Verifies `proof` over `message` as a signature by `party`'s ACTIVE credential.
+///
+/// This follows the credential path of `verify_stateful_authorization`
+/// (crates/tx/src/system/validation.rs): it reads `party`'s credentials through the
+/// identity hub's credentials view, binds the proof's key to them with
+/// `account_id_from_key_material` and `enforce_credential_policy`, then checks the
+/// signature with `verify_signature`. It only reads state. Unlike the outer
+/// signature, it has no bootstrap path: an account with no active credential
+/// cannot authorize a settlement (fail-closed).
+fn verify_party_signature(
+    state: &dyn StateAccess,
+    ctx: &TxContext<'_>,
+    party: &AccountId,
+    proof: &SignatureProof,
+    message: &[u8],
+) -> Result<(), TransactionError> {
+    let creds_view = ctx.services.services().find_map(|s| s.as_credentials_view());
+    let creds = if let Some(view) = &creds_view {
+        let meta_key = active_service_key(view.id());
+        let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
+            TransactionError::Unsupported(format!("Service '{}' is not active", view.id()))
+        })?;
+        let meta: ActiveServiceMeta = codec::from_bytes_canonical(&meta_bytes)?;
+
+        let prefix = service_namespace_prefix(view.id());
+        let namespaced_state = ReadOnlyNamespacedStateAccess::new(state, prefix, &meta);
+        view.get_credentials(&namespaced_state, party)?
+    } else {
+        [None, None]
+    };
+
+    let derived_pk_hash = account_id_from_key_material(proof.suite, &proof.public_key)?;
+    let accept_staged = creds_view
+        .as_ref()
+        .is_none_or(|v| v.accept_staged_during_grace());
+    enforce_credential_policy(
+        &creds,
+        proof.suite,
+        &derived_pk_hash,
+        ctx.block_height,
+        accept_staged,
+    )?;
+
+    verify_signature(proof.suite, &proof.public_key, message, &proof.signature)
+        .map_err(TransactionError::InvalidSignature)
+}
 
 #[async_trait]
 impl<CS: CommitmentScheme + Clone + Send + Sync> TransactionModel for SettlementModel<CS>
@@ -90,8 +225,16 @@ where
                     .and_then(|b| codec::from_bytes_canonical(&b).ok())
                     .unwrap_or(0);
 
-                if sender_bal < *amount {
-                    return Err(TransactionError::InsufficientFunds);
+                // The funds check, as checked arithmetic (BD-62): the debit cannot wrap.
+                let new_sender_bal = sender_bal
+                    .checked_sub(*amount)
+                    .ok_or(TransactionError::InsufficientFunds)?;
+
+                // BD-61: a transfer to oneself moves nothing. Sender and receiver share
+                // one balance key, so the two writes below would leave balance + amount
+                // (a mint); once the funds check passes it is a no-op, with no write.
+                if *to == sender {
+                    return Ok(((), gas_used));
                 }
 
                 let receiver_bal: u128 = state
@@ -99,112 +242,207 @@ where
                     .and_then(|b| codec::from_bytes_canonical(&b).ok())
                     .unwrap_or(0);
 
-                let new_sender_bal = sender_bal - amount;
-                let new_receiver_bal = receiver_bal + amount;
+                // BD-62: a credit that would overflow u128 is refused, and every new value
+                // is computed and encoded before the first write, so a refusal writes nothing.
+                let new_receiver_bal = receiver_bal.checked_add(*amount).ok_or_else(|| {
+                    TransactionError::Invalid("Receiver balance overflow".into())
+                })?;
+                let sender_bytes = encode_balance(&new_sender_bal)?;
+                let receiver_bytes = encode_balance(&new_receiver_bal)?;
 
-                state.insert(
-                    &sender_key,
-                    &codec::to_bytes_canonical(&new_sender_bal).unwrap(),
-                )?;
-                state.insert(
-                    &receiver_key,
-                    &codec::to_bytes_canonical(&new_receiver_bal).unwrap(),
-                )?;
+                state.insert(&sender_key, &sender_bytes)?;
+                state.insert(&receiver_key, &receiver_bytes)?;
             }
 
-            // [FIX] Correctly ignore unused fields
+            // Lock funds for a session. Every refusal precedes the first write.
             SettlementPayload::Commit {
                 session_id,
+                provider_id,
                 bond_amount,
-                policy_hash: _,
+                policy_hash,
                 receipt_root: _,
             } => {
-                // Lock funds for a session
-                let sender = ctx.signer_account_id;
-                let sender_key = [b"balance::", sender.as_ref()].concat();
-                let sender_bal: u128 = state
-                    .get(&sender_key)?
-                    .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                    .unwrap_or(0);
+                let bond_k = bond_key(session_id);
+                // R15: an open bond already uses this session id.
+                if state.get(&bond_k)?.is_some() {
+                    return Err(TransactionError::Invalid("Session ID collision".into()));
+                }
+                // R9 (re-Commit arm): a disputed session id is never re-bonded.
+                if state.get(&dispute_key(session_id))?.is_some() {
+                    return Err(TransactionError::Invalid(
+                        "Session ID is under dispute".into(),
+                    ));
+                }
+                // R5: a settled session id is never re-bonded, so its summary cannot pay again.
+                if state.get(&settled_key(session_id))?.is_some() {
+                    return Err(TransactionError::Invalid(
+                        "Session ID already settled".into(),
+                    ));
+                }
 
-                if sender_bal < *bond_amount {
+                let payer = ctx.signer_account_id;
+                let payer_k = balance_key(&payer);
+                let payer_bal = read_balance(&*state, &payer_k)?;
+                // R16: the payer must cover the bond.
+                if payer_bal < *bond_amount {
                     return Err(TransactionError::InsufficientFunds);
                 }
 
-                // Deduct from sender
-                let new_sender_bal = sender_bal - bond_amount;
-                state.insert(
-                    &sender_key,
-                    &codec::to_bytes_canonical(&new_sender_bal).unwrap(),
-                )?;
+                let record = BondRecordV1 {
+                    payer,
+                    provider_id: *provider_id,
+                    amount: *bond_amount,
+                    policy_hash: *policy_hash,
+                };
+                let record_bytes =
+                    codec::to_bytes_canonical(&record).map_err(TransactionError::Serialization)?;
+                let new_payer_bal = encode_balance(&(payer_bal - *bond_amount))?;
 
-                // Create Bond record
-                let bond_key = [BOND_PREFIX, session_id].concat();
-                if state.get(&bond_key)?.is_some() {
-                    return Err(TransactionError::Invalid("Session ID collision".into()));
-                }
-
-                state.insert(&bond_key, &codec::to_bytes_canonical(bond_amount).unwrap())?;
+                // Writes: only after every check above.
+                state.insert(&payer_k, &new_payer_bal)?;
+                state.insert(&bond_k, &record_bytes)?;
             }
 
+            // Cooperative close. Anyone may relay a doubly-signed summary; every refusal
+            // precedes the first write.
             SettlementPayload::Settle {
                 summary,
-                payer_sig: _,
-                provider_sig: _,
+                expires_at_height,
+                payer_sig,
+                provider_sig,
             } => {
-                let bond_key = [BOND_PREFIX, &summary.session_id].concat();
-                let bonded_amount: u128 = state
-                    .get(&bond_key)?
-                    .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                    .ok_or(TransactionError::Invalid("Session bond not found".into()))?;
+                // R7: unilateral close has no challenge window yet (FU-N5-2): refused.
+                if summary.mode != 0 {
+                    return Err(TransactionError::Unsupported(
+                        "Unilateral close is not supported: no challenge window".into(),
+                    ));
+                }
 
-                if summary.final_amount > bonded_amount {
+                let bond_k = bond_key(&summary.session_id);
+                // R9 (Settle arm) and R5 (replay): no open bond under this session id.
+                let bond: BondRecordV1 = match state.get(&bond_k)? {
+                    Some(bytes) => codec::from_bytes_canonical(&bytes)
+                        .map_err(TransactionError::Deserialization)?,
+                    None => {
+                        return Err(TransactionError::Invalid("Session bond not found".into()))
+                    }
+                };
+
+                // R3, R14 (isolated): the summary's payer must be the payer recorded at Commit.
+                if summary.payer_id != bond.payer {
+                    return Err(TransactionError::Invalid(
+                        "Summary payer is not the bond's payer".into(),
+                    ));
+                }
+                // R1, R13 (isolated): the summary's provider must be the provider the bond backs.
+                if summary.provider_id != bond.provider_id {
+                    return Err(TransactionError::Invalid(
+                        "Summary provider is not the bond's provider".into(),
+                    ));
+                }
+                // R17: the payment cannot exceed the bond.
+                if summary.final_amount > bond.amount {
                     return Err(TransactionError::Invalid(
                         "Settlement amount exceeds bond".into(),
                     ));
                 }
-
-                // Transfer final_amount to Provider
-                let provider_key = [b"balance::", summary.provider_id.as_ref()].concat();
-                let provider_bal: u128 = state
-                    .get(&provider_key)?
-                    .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                    .unwrap_or(0);
-                let new_provider_bal = provider_bal + summary.final_amount;
-                state.insert(
-                    &provider_key,
-                    &codec::to_bytes_canonical(&new_provider_bal).unwrap(),
-                )?;
-
-                // Refund remaining to Payer
-                let refund = bonded_amount - summary.final_amount;
-                if refund > 0 {
-                    let payer_key = [b"balance::", summary.payer_id.as_ref()].concat();
-                    let payer_bal: u128 = state
-                        .get(&payer_key)?
-                        .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                        .unwrap_or(0);
-                    let new_payer_bal = payer_bal + refund;
-                    state.insert(
-                        &payer_key,
-                        &codec::to_bytes_canonical(&new_payer_bal).unwrap(),
-                    )?;
+                // R10: an expired authorization is refused.
+                if ctx.block_height > *expires_at_height {
+                    return Err(TransactionError::Invalid(
+                        "Settlement authorization expired".into(),
+                    ));
                 }
 
-                // Close bond
-                state.delete(&bond_key)?;
+                let message = summary_sign_bytes(ctx.chain_id, summary, *expires_at_height);
+                // R2a, R2b, R8: payer_sig must be the payer's ACTIVE credential over this message.
+                verify_party_signature(&*state, ctx, &bond.payer, payer_sig, &message)?;
+                // R11, R8: provider_sig must be the provider's ACTIVE credential over this message.
+                verify_party_signature(&*state, ctx, &bond.provider_id, provider_sig, &message)?;
+
+                // Compute every new value before the first write. The payer and provider
+                // keys may coincide, so the refund is added on top of the provider credit.
+                let provider_k = balance_key(&bond.provider_id);
+                let payer_k = balance_key(&bond.payer);
+                let new_provider_bal = read_balance(&*state, &provider_k)?
+                    .checked_add(summary.final_amount)
+                    .ok_or_else(|| TransactionError::Invalid("Provider balance overflow".into()))?;
+                let refund = bond.amount - summary.final_amount;
+                let payer_base = if payer_k == provider_k {
+                    new_provider_bal
+                } else {
+                    read_balance(&*state, &payer_k)?
+                };
+                let new_payer_bal = payer_base
+                    .checked_add(refund)
+                    .ok_or_else(|| TransactionError::Invalid("Payer balance overflow".into()))?;
+                let provider_bytes = encode_balance(&new_provider_bal)?;
+                let payer_bytes = encode_balance(&new_payer_bal)?;
+                let tombstone = codec::to_bytes_canonical(&ctx.block_height)
+                    .map_err(TransactionError::Serialization)?;
+
+                // Writes (R4): pay, refund, close the bond, tombstone the session id.
+                state.insert(&provider_k, &provider_bytes)?;
+                if refund > 0 {
+                    state.insert(&payer_k, &payer_bytes)?;
+                }
+                state.delete(&bond_k)?;
+                state.insert(&settled_key(&summary.session_id), &tombstone)?;
             }
 
-            SettlementPayload::Escalate { session_id, .. } => {
-                // Mark session as disputed
-                let bond_key = [BOND_PREFIX, session_id].concat();
-                if state.get(&bond_key)?.is_none() {
-                    return Err(TransactionError::Invalid("Session bond not found".into()));
+            // Mark a session as disputed. Every refusal precedes the first write.
+            // FU-N5-1: frozen, fail-closed. No arm releases or resolves a dispute (that
+            // needs the judiciary design), so a disputed bond and the debited appeal bond
+            // stay locked: never paid out, refunded, re-bonded or drawable.
+            SettlementPayload::Escalate {
+                session_id,
+                evidence: _,
+                bond: appeal_bond,
+            } => {
+                let bond_k = bond_key(session_id);
+                let dispute_k = dispute_key(session_id);
+                // R9 (second-Escalate arm), R22 (isolated): a session already under dispute.
+                if state.get(&dispute_k)?.is_some() {
+                    return Err(TransactionError::Invalid(
+                        "Session is already under dispute".into(),
+                    ));
                 }
-                let dispute_key = [b"dispute::", session_id.as_slice()].concat();
-                let bond_val = state.get(&bond_key)?.unwrap();
-                state.delete(&bond_key)?;
-                state.insert(&dispute_key, &bond_val)?;
+                // R20: no open bond under this session id.
+                let bond_bytes = state
+                    .get(&bond_k)?
+                    .ok_or(TransactionError::Invalid("Session bond not found".into()))?;
+                let bond: BondRecordV1 = codec::from_bytes_canonical(&bond_bytes)
+                    .map_err(TransactionError::Deserialization)?;
+
+                let signer = ctx.signer_account_id;
+                // R6a: only the bond's payer or provider may escalate.
+                if signer != bond.payer && signer != bond.provider_id {
+                    return Err(TransactionError::Invalid(
+                        "Escalation signer is not a party to the session".into(),
+                    ));
+                }
+                let signer_k = balance_key(&signer);
+                let signer_bal = read_balance(&*state, &signer_k)?;
+                // R21: the signer must cover the appeal bond.
+                if signer_bal < *appeal_bond {
+                    return Err(TransactionError::InsufficientFunds);
+                }
+                let new_signer_bal = encode_balance(&(signer_bal - *appeal_bond))?;
+                // BD-57b (review 1, finding 1; R6b, R9, R12): the debited appeal bond is
+                // HELD with the bond record, under the signer as its depositor, so the
+                // total value held is unchanged (nothing is burned).
+                let custody = DisputeRecordV1 {
+                    bond,
+                    appeal_amount: *appeal_bond,
+                    appeal_depositor: signer,
+                };
+                let custody_bytes =
+                    codec::to_bytes_canonical(&custody).map_err(TransactionError::Serialization)?;
+
+                // Writes (R6b): debit the appeal bond, close the open bond, hold both in
+                // the dispute custody.
+                state.insert(&signer_k, &new_signer_bal)?;
+                state.delete(&bond_k)?;
+                state.insert(&dispute_k, &custody_bytes)?;
             }
 
             // [NEW] UpgradeLiability Payload
@@ -222,28 +460,38 @@ where
                 if let Some(amount) = bond_amount {
                     let sender = ctx.signer_account_id;
                     let sender_key = [b"balance::", sender.as_ref()].concat();
-                    let sender_bal: u128 = state
-                        .get(&sender_key)?
-                        .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                        .unwrap_or(0);
 
-                    if sender_bal < *amount {
-                        return Err(TransactionError::InsufficientFunds);
-                    }
-
-                    let new_sender_bal = sender_bal - amount;
-                    state.insert(
-                        &sender_key,
-                        &codec::to_bytes_canonical(&new_sender_bal).unwrap(),
-                    )?;
-
-                    // Store the upgrade bond
+                    // The upgrade bond's custody key (the receipt's payload hash).
                     let upgrade_key = [
                         b"liability::upgrade::",
                         receipt.canonical_payload_hash.as_ref(),
                     ]
                     .concat();
-                    state.insert(&upgrade_key, &codec::to_bytes_canonical(amount).unwrap())?;
+                    // BD-63: an occupied upgrade key is refused BEFORE any debit. Writing
+                    // over it would drop the bond already held there (a second debit with
+                    // one amount kept), and any signer could overwrite it, Some(0) included.
+                    if state.get(&upgrade_key)?.is_some() {
+                        return Err(TransactionError::Invalid(
+                            "Liability upgrade bond already held for this receipt".into(),
+                        ));
+                    }
+
+                    let sender_bal: u128 = state
+                        .get(&sender_key)?
+                        .and_then(|b| codec::from_bytes_canonical(&b).ok())
+                        .unwrap_or(0);
+
+                    // The funds check, as checked arithmetic (BD-63): the debit cannot wrap.
+                    let new_sender_bal = sender_bal
+                        .checked_sub(*amount)
+                        .ok_or(TransactionError::InsufficientFunds)?;
+                    let sender_bytes = encode_balance(&new_sender_bal)?;
+                    let amount_bytes =
+                        codec::to_bytes_canonical(amount).map_err(TransactionError::Serialization)?;
+
+                    // Writes: only after every check above.
+                    state.insert(&sender_key, &sender_bytes)?;
+                    state.insert(&upgrade_key, &amount_bytes)?;
                 }
 
                 // 3. Process ZK Proof (if target_level requires it)
@@ -277,10 +525,15 @@ where
                     &nonce.to_be_bytes(),
                 ]
                 .concat();
+                // Review 2 finding 2: the next nonce is checked and encoded BEFORE either
+                // write, so an exhausted outbox refuses with the state unchanged.
+                let next_nonce = nonce.checked_add(1).ok_or_else(|| {
+                    TransactionError::Invalid("Bridge outbox nonce exhausted".into())
+                })?;
+                let next_nonce_bytes =
+                    codec::to_bytes_canonical(&next_nonce).map_err(TransactionError::Serialization)?;
                 state.insert(&outbox_key, payload)?;
-
-                let next_nonce = nonce + 1;
-                state.insert(&nonce_key, &codec::to_bytes_canonical(&next_nonce).unwrap())?;
+                state.insert(&nonce_key, &next_nonce_bytes)?;
             }
         }
 
@@ -296,3 +549,6 @@ where
             .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests;
