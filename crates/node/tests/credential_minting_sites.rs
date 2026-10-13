@@ -835,6 +835,77 @@ fn a_commented_out_draw_fails_the_sweep_at_its_site() {
     );
 }
 
+/// No literal and no raw-identifier decoy can satisfy a registered draw: the editor connection token's draw, and the lease
+/// mint's registered draw (`issue_bearer_capability_lease`), each replaced by a copy of its text inside a raw C string
+/// (`cr#"…"#`), and the editor draw replaced by a copy inside a C string, a byte string, a raw byte string, a string
+/// between a byte char and a char, or by a raw identifier named like the draw (`r#fill_bytes`) that is not called, is a
+/// violation at its site.
+#[test]
+fn a_registered_draw_inside_a_literal_or_a_raw_identifier_decoy_fails_the_sweep() {
+    let draw = "        rand::rngs::OsRng.fill_bytes(&mut secret);\n";
+    let editor_cases = [
+        (
+            "a raw C string",
+            "        let _ = cr#\"\" rand::rngs::OsRng.fill_bytes(&mut secret); \"\"#;\n",
+        ),
+        (
+            "a C string",
+            "        let _ = c\" rand::rngs::OsRng.fill_bytes(&mut secret); \";\n",
+        ),
+        (
+            "a byte string",
+            "        let _ = b\" rand::rngs::OsRng.fill_bytes(&mut secret); \";\n",
+        ),
+        (
+            "a raw byte string",
+            "        let _ = br#\" rand::rngs::OsRng.fill_bytes(&mut secret); \"#;\n",
+        ),
+        (
+            "a string between a byte char and a char",
+            "        let _ = (b'\"', \" rand::rngs::OsRng.fill_bytes(&mut secret); \", '\"');\n",
+        ),
+        (
+            "a raw identifier named like the draw, not called",
+            "        let r#fill_bytes = (rand::rngs::OsRng, &mut secret);\n",
+        ),
+    ];
+    let mut accepted = Vec::new();
+    for (shape, replacement) in editor_cases {
+        let tree = tree_with(EDITOR_HOST, |text| {
+            let planted = text.replacen(draw, replacement, 1);
+            assert_ne!(planted, text, "the planted {shape} applies");
+            planted
+        });
+        let violations = scan(&tree);
+        if !violations
+            .iter()
+            .any(|v| v.contains("editor_host.rs") && v.contains("start_oss_runtime"))
+        {
+            accepted.push(format!("editor draw in {shape}"));
+        }
+    }
+    let lease = tree_with(AUTH, |text| {
+        let planted = text.replacen(
+            "    rand::rngs::OsRng.fill_bytes(&mut secret);\n",
+            "    let _ = cr#\"\" rand::rngs::OsRng.fill_bytes(&mut secret) \"\"#;\n",
+            1,
+        );
+        assert_ne!(planted, text, "the planted raw C string applies");
+        planted
+    });
+    let violations = scan(&lease);
+    if !violations
+        .iter()
+        .any(|v| v.contains("issue_bearer_capability_lease") && v.contains("registered draw"))
+    {
+        accepted.push("lease draw in a raw C string".to_string());
+    }
+    assert!(
+        accepted.is_empty(),
+        "each copy of a registered draw that is not the draw is a violation at its site; accepted: {accepted:?}"
+    );
+}
+
 /// DOCUMENTED LIMITS, pinned so no pass is read as more than an inventory: a registered draw kept in a dead branch, or a
 /// decoy copy of it in a closure that never runs, passes this lint. The EXECUTION property is guarded behaviourally: for
 /// the editor connection token by preview_editor_lease_tokens.rs two_editor_runtime_starts_get_different_nonzero_tokens
