@@ -12,7 +12,9 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
-use super::system_activation_routes::{classify, required_string, verr, with_source_locks};
+use super::system_activation_routes::{
+    classify, required_string, shared_system_read, verr, SystemReadLocks, SystemReadRefusal,
+};
 use super::DaemonState;
 
 type VErr = (String, String);
@@ -291,7 +293,7 @@ pub(crate) async fn handle_get(
     headers: axum::http::HeaderMap,
     Query(query): Query<HashMap<String, String>>,
 ) -> axum::response::Response {
-    super::system_activation_routes::system_read_reply(
+    super::system_activation_routes::system_read_response(
         handle_get_reply(State(state), headers, Query(query)).await,
     )
 }
@@ -300,101 +302,121 @@ async fn handle_get_reply(
     State(state): State<Arc<DaemonState>>,
     headers: axum::http::HeaderMap,
     Query(query): Query<HashMap<String, String>>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), SystemReadRefusal> {
     let view = query.get("view").map(String::as_str).unwrap_or("compact");
     if !matches!(view, "compact" | "advanced") {
-        return classify(verr(
+        return Ok(classify(verr(
             "system_projection_view_invalid",
             "view must be exactly 'compact' or 'advanced'",
-        ));
+        )));
     }
     // POLICY BEFORE ROWS. The inventory is filtered by the request identity before any row is
     // built, counted or reported as `honest_empty`; an unresolvable caller is a typed refusal.
     let identity = match super::substrate_store::resolve_request_identity(&state.data_dir, &headers)
     {
         Ok(identity) => identity,
-        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+        Err(error) => return Ok(super::mutation_event_foundation::scope_refusal_reply(error)),
     };
-    // ONE STRICT PASS FOR THE WHOLE READ (R-240): every exact Agentgres read the rows make — the
-    // verified admission, the live chain, the membership and writer planes, for every visible System —
-    // is answered from one validated snapshot instead of one full-log pass each.
     // BUILD-DELTA #48: the read is synchronous and long (one strict pass over the whole Agentgres log
     // under the System source locks), so it runs on the blocking pool, never on an async worker.
+    // FIX-3: identical concurrent reads share ONE read. The answer depends on the view, the
+    // narrowing and WHO asks (rows are filtered by the principal and its tenant scope, and the answer
+    // names the principal), so all of them are the key: an answer is never shared across principals.
+    // The caller was resolved above, per request, before it asks for the read.
+    let system_id = query.get("system_id").cloned();
+    let key = json!([
+        "systems_projection",
+        view,
+        system_id,
+        identity.principal_ref,
+        identity.tenant_refs
+    ])
+    .to_string();
     let data_dir = state.data_dir.clone();
     let view = view.to_string();
-    let read = super::system_activation_routes::off_the_async_workers(state.system_reads.clone(), move || {
-        super::substrate_store::with_exact_read_snapshot(&data_dir, || {
-            with_source_locks(|| {
-                let mut records = super::system_genesis_routes::scan_records(&data_dir)
-                    .map_err(|message| verr("system_projection_source_unreadable", message))?;
-                let mut substrate_records = super::substrate_store::read_required_all(
-                    &data_dir,
-                    super::system_genesis_routes::RECORD_DIR,
-                )
-                .map_err(|error| {
-                    verr(
-                        "system_projection_source_unreadable",
-                        format!("Agentgres admission census failed ({error})"),
-                    )
-                })?;
-                records.sort_by_key(|record| {
-                    record
-                        .get("system_id")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_owned()
-                });
-                substrate_records.sort_by_key(|record| {
-                    record
-                        .get("system_id")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_owned()
-                });
-                if substrate_records != records {
-                    return Err(verr(
-                        "system_projection_source_incomplete",
-                        "local and Agentgres genesis admission censuses differ",
-                    ));
-                }
-                if let Some(filter) = query.get("system_id") {
-                    records.retain(|record| {
-                        record.get("system_id").and_then(Value::as_str) == Some(filter.as_str())
-                    });
-                }
-                let visible: Vec<(&Value, &'static str)> = records
-                    .iter()
-                    .filter_map(|record| {
-                        row_visible_to(record, &identity).map(|filter| (record, filter))
-                    })
-                    .collect();
-                let systems = visible
-                    .iter()
-                    .map(|(record, filter)| {
-                        let policy =
-                            json!({ "principal_ref": identity.principal_ref, "filter": filter });
-                        project_one(&data_dir, record, &view, &policy)
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                Ok::<_, VErr>(json!({
-                    "schema_version":"ioi.hypervisor.autonomous-system-read-projection.v1",
-                    "row_schema_version": SYSTEMS_PROJECTION_SCHEMA,
-                    "row_contract_id": SYSTEMS_PROJECTION_CONTRACT_ID,
-                    "view":view,
-                    "state":if systems.is_empty(){"honest_empty"}else{"ready"},
-                    "systems":systems,
-                    "policy":{"principal_ref": identity.principal_ref, "applied_before": ["rows", "state"], "admitted_rows": systems.len(), "inventory_rows": records.len()},
-                    "projection_source":"verified_owner_reconstruction",
-                    "nonclaims":{"authority":false,"mutation":false,"membership":false,"writer":false,"network_assurance":false,"runtime_effect":false,"persistence":false}
-                }))
-            })
-        })
-    })
-    .await;
-    match read.and_then(|answer| answer) {
+    let read = shared_system_read(
+        &state.system_reads,
+        key,
+        SystemReadLocks::Sources,
+        move || systems_projection(&data_dir, &view, system_id.as_deref(), &identity),
+    )
+    .await?;
+    Ok(match read {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(error) => classify(error),
-    }
+    })
+}
+
+/// The Systems projection as `identity` sees it, read under the System source locks (the caller
+/// holds them). ONE STRICT PASS FOR THE WHOLE READ (R-240): every exact Agentgres read the rows make
+/// (the verified admission, the live chain, the membership and writer planes, for every visible
+/// System) is answered from one validated snapshot instead of one full-log pass each.
+fn systems_projection(
+    data_dir: &str,
+    view: &str,
+    system_id: Option<&str>,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Result<Value, VErr> {
+    super::substrate_store::with_exact_read_snapshot(data_dir, || {
+        let mut records = super::system_genesis_routes::scan_records(data_dir)
+            .map_err(|message| verr("system_projection_source_unreadable", message))?;
+        let mut substrate_records = super::substrate_store::read_required_all(
+            data_dir,
+            super::system_genesis_routes::RECORD_DIR,
+        )
+        .map_err(|error| {
+            verr(
+                "system_projection_source_unreadable",
+                format!("Agentgres admission census failed ({error})"),
+            )
+        })?;
+        records.sort_by_key(|record| {
+            record
+                .get("system_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned()
+        });
+        substrate_records.sort_by_key(|record| {
+            record
+                .get("system_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned()
+        });
+        if substrate_records != records {
+            return Err(verr(
+                "system_projection_source_incomplete",
+                "local and Agentgres genesis admission censuses differ",
+            ));
+        }
+        if let Some(filter) = system_id {
+            records
+                .retain(|record| record.get("system_id").and_then(Value::as_str) == Some(filter));
+        }
+        let visible: Vec<(&Value, &'static str)> = records
+            .iter()
+            .filter_map(|record| row_visible_to(record, identity).map(|filter| (record, filter)))
+            .collect();
+        let systems = visible
+            .iter()
+            .map(|(record, filter)| {
+                let policy = json!({ "principal_ref": identity.principal_ref, "filter": filter });
+                project_one(data_dir, record, view, &policy)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok::<_, VErr>(json!({
+            "schema_version":"ioi.hypervisor.autonomous-system-read-projection.v1",
+            "row_schema_version": SYSTEMS_PROJECTION_SCHEMA,
+            "row_contract_id": SYSTEMS_PROJECTION_CONTRACT_ID,
+            "view":view,
+            "state":if systems.is_empty(){"honest_empty"}else{"ready"},
+            "systems":systems,
+            "policy":{"principal_ref": identity.principal_ref, "applied_before": ["rows", "state"], "admitted_rows": systems.len(), "inventory_rows": records.len()},
+            "projection_source":"verified_owner_reconstruction",
+            "nonclaims":{"authority":false,"mutation":false,"membership":false,"writer":false,"network_assurance":false,"runtime_effect":false,"persistence":false}
+        }))
+    })
 }
 
 #[cfg(test)]
@@ -952,6 +974,59 @@ mod worker_starvation_tests {
             state.system_reads.started.load(Ordering::SeqCst) - begun,
             1,
             "the remaining request got the shared read, not a read of its own"
+        );
+    }
+
+    /// FIX-3's freshness rule: a shared read stops being joinable the moment it holds the source
+    /// locks, BEFORE it reads anything, so a request arriving once a read has begun to look at the
+    /// state never gets that read's answer (it could predate the request): it starts a read of its
+    /// own. The read is made slow enough (the log grown until one read takes half a second) that the
+    /// later request arrives while the first is still reading.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_read_that_holds_the_source_locks_is_never_joined() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let (written, one_read) =
+            calibrate(&state, &data_dir, &headers, Duration::from_millis(500)).await;
+        eprintln!("load: {written} records, one projection read {one_read:?}");
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let first = projection(&state, &headers, None);
+        reads_begun(&state, begun, 1).await;
+        assert_eq!(
+            state.system_reads.open_reads(),
+            1,
+            "a read waiting at the locks is open (joinable)"
+        );
+        drop(held);
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while state.system_reads.open_reads() != 0 {
+            assert!(
+                Instant::now() < deadline,
+                "the read closes once it holds the locks"
+            );
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        assert!(
+            !first.is_finished(),
+            "the first read is still reading when the later request arrives"
+        );
+        let second = projection(&state, &headers, None);
+        for read in [first, second] {
+            let response = tokio::time::timeout(Duration::from_secs(120), read)
+                .await
+                .expect("every read answers")
+                .unwrap();
+            assert_eq!(response.status(), axum::http::StatusCode::OK);
+        }
+        assert_eq!(
+            state.system_reads.started.load(Ordering::SeqCst) - begun,
+            2,
+            "the later request started a read of its own"
         );
     }
 

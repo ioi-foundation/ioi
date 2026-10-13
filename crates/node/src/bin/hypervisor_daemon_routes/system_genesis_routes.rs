@@ -2278,7 +2278,7 @@ pub(crate) async fn handle_get(
     State(state): State<Arc<DaemonState>>,
     Query(query): Query<HashMap<String, String>>,
 ) -> axum::response::Response {
-    super::system_activation_routes::system_read_reply(
+    super::system_activation_routes::system_read_response(
         handle_get_reply(State(state), Query(query)).await,
     )
 }
@@ -2286,38 +2286,27 @@ pub(crate) async fn handle_get(
 async fn handle_get_reply(
     State(state): State<Arc<DaemonState>>,
     Query(query): Query<HashMap<String, String>>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), super::system_activation_routes::SystemReadRefusal> {
     let Some(system_id) = query.get("system_id") else {
-        return classify(verr(
+        return Ok(classify(verr(
             "system_genesis_system_id_required",
             "GET requires the exact canonical 'system_id' query parameter",
-        ));
+        )));
     };
     if !canonical_ref(system_id, "system://") {
-        return classify(verr(
+        return Ok(classify(verr(
             "system_genesis_system_id_invalid",
             "system_id must be a canonical system:// ref",
-        ));
+        )));
     }
-    let tail = record_tail(system_id);
-    let data_dir = state.data_dir.clone();
-    // BUILD-DELTA #48: the read waits on SYSTEM_GENESIS_LOCK; it runs on the blocking pool.
-    match super::system_activation_routes::off_the_async_workers(
-        state.system_reads.clone(),
-        move || handle_get_tail(&data_dir, &tail),
-    )
-    .await
-    {
-        Ok(answer) => answer,
-        Err(error) => classify(error),
-    }
+    shared_genesis_record_read(&state, record_tail(system_id)).await
 }
 
 pub(crate) async fn handle_get_by_key(
     State(state): State<Arc<DaemonState>>,
     AxumPath(tail): AxumPath<String>,
 ) -> axum::response::Response {
-    super::system_activation_routes::system_read_reply(
+    super::system_activation_routes::system_read_response(
         handle_get_by_key_reply(State(state), AxumPath(tail)).await,
     )
 }
@@ -2325,30 +2314,37 @@ pub(crate) async fn handle_get_by_key(
 async fn handle_get_by_key_reply(
     State(state): State<Arc<DaemonState>>,
     AxumPath(tail): AxumPath<String>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), super::system_activation_routes::SystemReadRefusal> {
     if !canonical_record_tail(&tail) {
-        return classify(verr(
+        return Ok(classify(verr(
             "system_genesis_key_invalid",
             "record key must be the exact canonical asg_<64 lowercase hex> storage identity",
-        ));
+        )));
     }
+    shared_genesis_record_read(&state, tail).await
+}
+
+/// BUILD-DELTA #48: the genesis record read waits on SYSTEM_GENESIS_LOCK, so it runs on the
+/// blocking pool, admitted. FIX-3: identical concurrent reads share ONE read; the answer depends on
+/// the storage key alone (no principal), so by system id and by key read the same record under the
+/// same key.
+async fn shared_genesis_record_read(
+    state: &DaemonState,
+    tail: String,
+) -> Result<(StatusCode, Json<Value>), super::system_activation_routes::SystemReadRefusal> {
+    let key = json!(["system_genesis_record", tail]).to_string();
     let data_dir = state.data_dir.clone();
-    // BUILD-DELTA #48: the read waits on SYSTEM_GENESIS_LOCK; it runs on the blocking pool.
-    match super::system_activation_routes::off_the_async_workers(
-        state.system_reads.clone(),
+    super::system_activation_routes::shared_system_read(
+        &state.system_reads,
+        key,
+        super::system_activation_routes::SystemReadLocks::Genesis,
         move || handle_get_tail(&data_dir, &tail),
     )
     .await
-    {
-        Ok(answer) => answer,
-        Err(error) => classify(error),
-    }
 }
 
+/// A genesis record by storage key, read under SYSTEM_GENESIS_LOCK (the caller holds it).
 fn handle_get_tail(data_dir: &str, tail: &str) -> (StatusCode, Json<Value>) {
-    let _plane = SYSTEM_GENESIS_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let pending = match scan_intents(data_dir) {
         Ok(intents) => intents
             .iter()
