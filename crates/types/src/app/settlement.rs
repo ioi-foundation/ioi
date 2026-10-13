@@ -72,10 +72,11 @@ pub enum SettlementPayload {
     /// Submitting a Challenge Package to the Judiciary for arbitration.
     /// Defined in Whitepaper §10.2.2.
     ///
-    /// The signer must be the session's payer or provider; the appeal `bond` is
-    /// debited from the signer, and the session's bond moves to the dispute record.
-    /// No release or resolution path for a dispute exists yet (named residual
-    /// FU-N5-1): a disputed bond is frozen.
+    /// The signer must be the session's payer or provider. The appeal `bond` is
+    /// debited from the signer and held, with the session's bond, in the dispute
+    /// record (the bond record, the appeal amount and its depositor), so no value
+    /// is burned. No release or resolution path for a dispute exists yet (named
+    /// residual FU-N5-1): the disputed bond and the appeal bond are frozen.
     Escalate {
         /// The ID of the session being disputed.
         session_id: [u8; 32],

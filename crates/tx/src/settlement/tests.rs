@@ -1,15 +1,24 @@
 // Path: crates/tx/src/settlement/tests.rs
-//! BD-57 RED tests for the settlement model (FIX-PLAN §3, R1-R10).
+//! BD-57 RED tests for the settlement model (FIX-PLAN §3, R1-R11), BD-57 review 1's
+//! tests (R6b and R9 strengthened; R12-R24), and, in their own sections, the tests
+//! of BD-61, BD-62 and BD-63.
 //!
 //! Every test drives the model through its real entry point,
 //! `TransactionModel::apply_payload`, with a `TxContext` and an in-memory
 //! `StateAccess`. Only the genesis-like starting state (balances, the identity
 //! hub's activation record and each account's credential) is written directly;
 //! every bond, settlement, escalation and transfer goes through `apply_payload`.
+//! Two exceptions, each stated at its test: a credential TRANSITION (an alias
+//! account in R13/R14, the rotation in R23, the missing credential in R24) writes
+//! the identity hub's credentials key in the layout the hub itself writes, and R22
+//! re-writes an open bond beside a dispute (a state no handler produces), so that
+//! only the dispute guard can refuse.
 //!
 //! Each test asserts the FIXED behaviour. A comment above each test states its
-//! predicted outcome at the RED commit (handlers unchanged except for the
-//! compile-only `_` patterns) and the reason.
+//! predicted outcome at the RED commit that added (or last changed) it, and the
+//! reason. For R1-R11 that is a76dcb018 (handlers unchanged except for the
+//! compile-only `_` patterns); for the later tests it is their own RED commit,
+//! whose handlers are those of the BD-57 GREEN commit 03c7ef148.
 //!
 //! Signatures are real Ed25519 signatures. Accounts are registered exactly as
 //! `GenesisBuilder::add_identity` registers them (crates/cli/src/testing/genesis.rs):
@@ -21,7 +30,7 @@
 //! credential through the identity hub, or through the pubkey map, or through the
 //! bootstrap derivation, finds the same key.
 
-use super::SettlementModel;
+use super::{BondRecordV1, DisputeRecordV1, SettlementModel};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, StateRef};
 use ioi_api::commitment::{
@@ -1053,17 +1062,30 @@ fn r6a_escalate_by_a_non_party_is_refused() {
 }
 
 // R6 (payer arm): the payer escalates with an appeal bond.
-// After the fix: ACCEPTED; the appeal bond is debited from the signer, the bond
-// record moves from the bond key to dispute:: unchanged, no tombstone, and the
-// provider is untouched.
-// PREDICTED AT THE RED COMMIT: FAILS on the LAST assertion only. The Escalate is
-// ACCEPTED and moves the bond, but the appeal bond is not debited (the arm ignores
-// the `bond` field).
+// After the fix: ACCEPTED; the appeal bond is debited from the signer, the bond key
+// is gone, no tombstone, the provider is untouched, and (BD-57 review 1, finding 1)
+// the appeal bond is HELD, not burned: dispute:: holds DisputeRecordV1 { bond: the
+// record Commit wrote, appeal_amount: APPEAL, appeal_depositor: the payer }, and the
+// total value held (World::total_value: balances + open bonds + dispute custody) is
+// the genesis total after Commit and after Escalate.
+// PREDICTED AT THE BD-57 RED COMMIT (a76dcb018, before review 1, when this test
+// expected the bond bytes to move unchanged): FAILED on the debit assertion only
+// (measured; RESULT-red.md).
+// PREDICTED AT THE BD-57b RED COMMIT (Escalate arm as at 03c7ef148): FAILS at the
+// custody decode (the second-last assertion), after the debit assertion passes. The
+// arm debits the appeal bond but writes only the bare BondRecordV1 (112 bytes) under
+// dispute::, which does not decode as DisputeRecordV1 (160 bytes).
 #[test]
 fn r6b_escalate_by_the_payer_is_accepted_and_debits_the_appeal_bond() {
     let mut world = World::new();
+    let genesis_total = world.total_value();
     world.commit_bond();
-    let bond_record = world.bond().expect("R6b setup: the bond is open");
+    assert_eq!(
+        world.total_value(),
+        genesis_total,
+        "R6b: Commit conserves the total value held"
+    );
+    let bond_record = world.bond_record("R6b setup");
 
     let (payer, provider) = (world.payer.id, world.provider.id);
     let result = world.submit(payer, HEIGHT, escalate_payload(payer, APPEAL));
@@ -1074,11 +1096,6 @@ fn r6b_escalate_by_the_payer_is_accepted_and_debits_the_appeal_bond() {
         result
     );
     assert!(world.bond().is_none(), "R6b: the bond leaves the open-bond key");
-    assert_eq!(
-        world.dispute(),
-        Some(bond_record),
-        "R6b: the bond record moves to dispute::"
-    );
     assert!(
         world.tombstone().is_none(),
         "R6b: an escalated session is not settled"
@@ -1092,6 +1109,20 @@ fn r6b_escalate_by_the_payer_is_accepted_and_debits_the_appeal_bond() {
         world.balance(&payer),
         PAYER_START - BOND - APPEAL,
         "R6b: the appeal bond must be debited from the signer"
+    );
+    assert_eq!(
+        world.dispute_record("R6b"),
+        DisputeRecordV1 {
+            bond: bond_record,
+            appeal_amount: APPEAL,
+            appeal_depositor: payer,
+        },
+        "R6b: dispute:: holds the bond record and the appeal bond, deposited by the payer"
+    );
+    assert_eq!(
+        world.total_value(),
+        genesis_total,
+        "R6b: Escalate conserves the total value held (the appeal bond is not burned)"
     );
 }
 
@@ -1141,15 +1172,24 @@ fn r8_signature_over_another_chain_id_is_refused() {
 //   arm 3, a second Escalate, by the provider (who can pay the appeal bond);
 //   arm 4, Transfers by the payer and by the provider that draw on the bonded amount.
 // After the fix: each REFUSED with no state written, and the dispute:: record stays
-// byte-for-byte what the Escalate wrote.
-// PREDICTED AT THE RED COMMIT: FAILS on ARM 2. Arm 1 is refused at RED too (the
-// bond key is gone, so "Session bond not found", with no write). Arm 2 is ACCEPTED:
-// Commit checks only the bond key, not dispute::, so a disputed session id is
-// re-bonded. Arms 3 and 4 are not reached.
+// byte-for-byte what the Escalate wrote. That record (BD-57 review 1, finding 1) is
+// DisputeRecordV1 { the bond record, appeal_amount: APPEAL, appeal_depositor: the
+// payer }, and the total value held (World::total_value) is the genesis total at
+// the end. (Arm 3 is refused before the dispute guard by the missing open bond; R22
+// isolates the dispute guard itself.)
+// PREDICTED AT THE BD-57 RED COMMIT (a76dcb018): FAILED on ARM 2 (measured;
+// RESULT-red.md). Arm 2 was ACCEPTED: Commit checked only the bond key, not
+// dispute::, so a disputed session id was re-bonded.
+// PREDICTED AT THE BD-57b RED COMMIT (handlers as at 03c7ef148): arms 1-4 are each
+// refused with no write, and the test FAILS at the custody decode after them: the
+// Escalate wrote only the bare BondRecordV1 (112 bytes) under dispute::, which does
+// not decode as DisputeRecordV1 (160 bytes).
 #[test]
 fn r9_disputed_bond_is_frozen_fail_closed() {
     let mut world = World::new();
+    let genesis_total = world.total_value();
     world.commit_bond();
+    let bond_record = world.bond_record("R9 setup");
 
     let (payer, provider, mallory) = (world.payer.id, world.provider.id, world.mallory.id);
     world
@@ -1215,6 +1255,20 @@ fn r9_disputed_bond_is_frozen_fail_closed() {
     );
     assert!(world.bond().is_none(), "R9: no bond is reopened");
     assert!(world.tombstone().is_none(), "R9: the disputed session is not settled");
+    assert_eq!(
+        world.dispute_record("R9"),
+        DisputeRecordV1 {
+            bond: bond_record,
+            appeal_amount: APPEAL,
+            appeal_depositor: payer,
+        },
+        "R9: dispute:: holds the bond record and the appeal bond, deposited by the payer"
+    );
+    assert_eq!(
+        world.total_value(),
+        genesis_total,
+        "R9: the total value held is conserved (the appeal bond is held, not burned)"
+    );
 }
 
 // R10: an EXPIRED authorization. Both signatures are valid over
@@ -1524,4 +1578,579 @@ fn bd63_upgrade_bond_without_funds_is_refused() {
 
     world.assert_refused_without_writes("BD-63 (insufficient funds)", result, &before);
     assert_eq!(world.upgrade_bond(), None, "BD-63: no upgrade custody is written");
+}
+
+// ---------------------------------------------------------------------------
+// BD-57 review 1 (BD-57b): finding 1, the appeal bond's custody (R6b and R9 above,
+// R12), and finding 5, one isolated, state-preserving refusal test per guard
+// (R13-R22) and the credential transitions (R23, R24). Each refusal test uses
+// otherwise-VALID inputs, so that only the guard it names can refuse.
+// ---------------------------------------------------------------------------
+
+/// An account (not key-derived) whose active credential is the PROVIDER's key: an
+/// account the provider also controls. An account id stays fixed while its key
+/// changes (crates/types/src/app/identity.rs:47), so it need not derive from the key.
+const PROVIDER_ALIAS: AccountId = AccountId([0xA1; 32]);
+/// The payer-side counterpart of PROVIDER_ALIAS: its active credential is the PAYER's key.
+const PAYER_ALIAS: AccountId = AccountId([0xA2; 32]);
+
+/// The identity hub's credentials key of `account`, as `register_identity` writes it:
+/// the hub's namespace ‖ `IDENTITY_CREDENTIALS_PREFIX` ‖ account id. The hub reads and
+/// writes this key as `[Option<Credential>; 2]` (active, staged) in
+/// `IdentityHub::load_credentials` / `save_credentials`
+/// (crates/services/src/identity/mod.rs:60-82); an absent key reads as `[None, None]`
+/// (:67).
+fn credentials_key(account: &AccountId) -> Vec<u8> {
+    let ns = service_namespace_prefix("identity_hub");
+    [ns.as_slice(), IDENTITY_CREDENTIALS_PREFIX, account.as_ref()].concat()
+}
+
+/// An Ed25519 credential for the key whose hash is `public_key_hash`.
+fn ed25519_credential(public_key_hash: [u8; 32], activation_height: u64) -> Credential {
+    Credential {
+        suite: SignatureSuite::ED25519,
+        public_key_hash,
+        activation_height,
+        l2_location: None,
+        weight: 1,
+    }
+}
+
+impl World {
+    /// Writes `account`'s credentials `[active, staged]` directly (see `credentials_key`).
+    fn set_credentials(&mut self, account: &AccountId, creds: [Option<Credential>; 2]) {
+        put(
+            &mut self.state,
+            credentials_key(account),
+            codec::to_bytes_canonical(&creds).expect("setup: encode credentials"),
+        );
+    }
+
+    /// Deletes `account`'s credentials key (the hub then reads `[None, None]`).
+    fn remove_credentials(&mut self, account: &AccountId) {
+        self.state.data.remove(&credentials_key(account));
+    }
+
+    /// The open bond under `SESSION`, decoded as the handler's `BondRecordV1`.
+    fn bond_record(&self, case: &str) -> BondRecordV1 {
+        let bytes = self
+            .bond()
+            .unwrap_or_else(|| panic!("{case}: no open bond under the session id"));
+        codec::from_bytes_canonical(&bytes)
+            .unwrap_or_else(|e| panic!("{case}: the open bond must decode as BondRecordV1 ({e})"))
+    }
+
+    /// The dispute record under `SESSION`, decoded as the handler's `DisputeRecordV1`.
+    fn dispute_record(&self, case: &str) -> DisputeRecordV1 {
+        let bytes = self
+            .dispute()
+            .unwrap_or_else(|| panic!("{case}: no dispute:: record is written"));
+        codec::from_bytes_canonical(&bytes).unwrap_or_else(|e| {
+            panic!(
+                "{case}: the dispute:: record must decode as DisputeRecordV1 {{ bond, \
+                 appeal_amount, appeal_depositor }}, holding the appeal bond in custody; it \
+                 holds {} bytes ({e})",
+                bytes.len()
+            )
+        })
+    }
+
+    /// BD-57 review 1, finding 1 (CONSERVATION): the total value the settlement state
+    /// holds: every balance (`balance::`), every open bond's amount (`settle::bond::`),
+    /// every dispute custody (`dispute::`: the bond's amount plus the appeal amount) and
+    /// every liability-upgrade bond (`liability::upgrade::`). Every accepted operation
+    /// only moves value among these keys, so it must leave the total unchanged. Panics
+    /// if a value does not decode, or if the total overflows u128 (so it is not called
+    /// in the tests that hold balances near u128::MAX).
+    fn total_value(&self) -> u128 {
+        let mut total: u128 = 0;
+        for (key, value) in &self.state.data {
+            let held: u128 = if key.starts_with(BALANCE_PREFIX) {
+                codec::from_bytes_canonical(value).unwrap_or_else(|e| {
+                    panic!("conservation: balance {} does not decode ({e})", printable(key))
+                })
+            } else if key.starts_with(BOND_PREFIX) {
+                let bond: BondRecordV1 = codec::from_bytes_canonical(value).unwrap_or_else(|e| {
+                    panic!(
+                        "conservation: bond {} does not decode as BondRecordV1 ({e})",
+                        printable(key)
+                    )
+                });
+                bond.amount
+            } else if key.starts_with(DISPUTE_PREFIX) {
+                let custody: DisputeRecordV1 =
+                    codec::from_bytes_canonical(value).unwrap_or_else(|e| {
+                        panic!(
+                            "conservation: dispute {} does not decode as DisputeRecordV1 ({e})",
+                            printable(key)
+                        )
+                    });
+                custody
+                    .bond
+                    .amount
+                    .checked_add(custody.appeal_amount)
+                    .expect("conservation: a dispute custody overflows u128")
+            } else if key.starts_with(UPGRADE_BOND_PREFIX) {
+                codec::from_bytes_canonical(value).unwrap_or_else(|e| {
+                    panic!(
+                        "conservation: upgrade bond {} does not decode ({e})",
+                        printable(key)
+                    )
+                })
+            } else {
+                0
+            };
+            total = total
+                .checked_add(held)
+                .expect("conservation: the total overflows u128");
+        }
+        total
+    }
+}
+
+// R12 (finding 1; the provider arm of R6): the PROVIDER escalates with an appeal bond.
+// After the fix: ACCEPTED; the provider is debited APPEAL; dispute:: holds
+// DisputeRecordV1 { the bond record, APPEAL, appeal_depositor: the PROVIDER } (the
+// custody records who paid the appeal bond, not merely the bond's payer); the payer
+// is untouched beyond its bond; the total value held is unchanged.
+// PREDICTED AT THE BD-57b RED COMMIT (Escalate arm as at 03c7ef148): FAILS at the
+// custody decode, as R6b (dispute:: holds the bare 112-byte BondRecordV1).
+#[test]
+fn r12_escalate_by_the_provider_holds_its_appeal_bond_in_custody() {
+    let mut world = World::new();
+    let genesis_total = world.total_value();
+    world.commit_bond();
+    let bond_record = world.bond_record("R12 setup");
+
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    let result = world.submit(provider, HEIGHT, escalate_payload(provider, APPEAL));
+
+    assert!(
+        result.is_ok(),
+        "R12: an Escalate by the provider must be ACCEPTED, got {:?}",
+        result
+    );
+    assert!(world.bond().is_none(), "R12: the bond leaves the open-bond key");
+    assert_eq!(
+        world.balance(&provider),
+        PROVIDER_START - APPEAL,
+        "R12: the appeal bond is debited from the provider"
+    );
+    assert_eq!(
+        world.balance(&payer),
+        PAYER_START - BOND,
+        "R12: the payer is untouched beyond its bond"
+    );
+    assert_eq!(
+        world.dispute_record("R12"),
+        DisputeRecordV1 {
+            bond: bond_record,
+            appeal_amount: APPEAL,
+            appeal_depositor: provider,
+        },
+        "R12: dispute:: holds the bond record and the appeal bond, deposited by the provider"
+    );
+    assert_eq!(
+        world.total_value(),
+        genesis_total,
+        "R12: Escalate conserves the total value held"
+    );
+}
+
+// R13 (finding 5; isolates the provider-id guard, which R1 cannot, since R1's
+// signatures are also invalid): summary.provider_id is NOT the bond's provider, and
+// BOTH signatures are VALID: the payer's and the RECORDED provider's active
+// credentials, over that summary. Arm 1 names Mallory as provider. Arm 2 names
+// PROVIDER_ALIAS, whose active credential is the provider's key, so the provider
+// signature is valid as the STATED provider's as well.
+// After the fix: each REFUSED by `summary.provider_id != bond.provider_id`; no state
+// written. (The handler verifies provider_sig against bond.provider_id, so without
+// the id guard both arms would be ACCEPTED, paying the recorded provider.)
+// PREDICTED AT THE BD-57b RED COMMIT (Settle arm as at 03c7ef148): PASSES (a PIN).
+#[test]
+fn r13_settle_naming_another_provider_with_valid_party_signatures_is_refused() {
+    let mut world = World::new();
+    world.commit_bond();
+    let (payer, provider, mallory) = (world.payer.id, world.provider.id, world.mallory.id);
+
+    let close = world.doubly_signed_close(summary(payer, mallory, FINAL, 0), CHAIN, EXPIRES);
+    let before = world.snapshot();
+    let result = world.submit(mallory, HEIGHT, close);
+    world.assert_refused_without_writes(
+        "R13 arm 1 (the summary names Mallory as provider)",
+        result,
+        &before,
+    );
+
+    let provider_key_hash = provider.0;
+    world.set_credentials(
+        &PROVIDER_ALIAS,
+        [Some(ed25519_credential(provider_key_hash, 0)), None],
+    );
+    let close = world.doubly_signed_close(
+        summary(payer, PROVIDER_ALIAS, FINAL, 0),
+        CHAIN,
+        EXPIRES,
+    );
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close);
+    world.assert_refused_without_writes(
+        "R13 arm 2 (the summary names an alias holding the provider's key)",
+        result,
+        &before,
+    );
+}
+
+// R14 (finding 5; isolates the payer-id guard, which R3 cannot, since R3's payer
+// signature is by the substituted payer's key and the recorded payer's credential
+// check also refuses it): summary.payer_id is NOT the bond's payer, and BOTH
+// signatures are VALID: payer_sig by the RECORDED payer's active credential and
+// provider_sig by the provider's, over that summary. Arm 1 names Mallory as payer.
+// Arm 2 names PAYER_ALIAS, whose active credential is the payer's key.
+// After the fix: each REFUSED by `summary.payer_id != bond.payer`; no state written.
+// (payer_sig is verified against bond.payer, so without the id guard both arms would
+// be ACCEPTED.)
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN).
+#[test]
+fn r14_settle_naming_another_payer_with_valid_party_signatures_is_refused() {
+    let mut world = World::new();
+    world.commit_bond();
+    let (payer, provider, mallory) = (world.payer.id, world.provider.id, world.mallory.id);
+
+    let close = world.doubly_signed_close(summary(mallory, provider, FINAL, 0), CHAIN, EXPIRES);
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close);
+    world.assert_refused_without_writes(
+        "R14 arm 1 (the summary names Mallory as payer)",
+        result,
+        &before,
+    );
+
+    let payer_key_hash = payer.0;
+    world.set_credentials(&PAYER_ALIAS, [Some(ed25519_credential(payer_key_hash, 0)), None]);
+    let close = world.doubly_signed_close(
+        summary(PAYER_ALIAS, provider, FINAL, 0),
+        CHAIN,
+        EXPIRES,
+    );
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close);
+    world.assert_refused_without_writes(
+        "R14 arm 2 (the summary names an alias holding the payer's key)",
+        result,
+        &before,
+    );
+}
+
+// R15 (finding 5; the open-bond collision): after the payer's Commit, arm 1: Mallory
+// (funded) Commits the same session id, backing herself; arm 2: the payer Commits it
+// again. No dispute and no tombstone exist, and both signers can pay the bond, so only
+// the open-bond guard can refuse.
+// After the fix: each REFUSED; no state written (the payer's bond record is intact).
+// PREDICTED AT THE BD-57b RED COMMIT (Commit arm as at 03c7ef148): PASSES (a PIN).
+#[test]
+fn r15_commit_onto_an_open_bond_is_refused() {
+    let mut world = World::new();
+    world.commit_bond();
+    let (payer, provider, mallory) = (world.payer.id, world.provider.id, world.mallory.id);
+    let before = world.snapshot();
+
+    let result = world.submit(mallory, HEIGHT, commit_payload(mallory));
+    world.assert_refused_without_writes("R15 arm 1 (Mallory re-bonds the session)", result, &before);
+
+    let result = world.submit(payer, HEIGHT, commit_payload(provider));
+    world.assert_refused_without_writes("R15 arm 2 (the payer re-bonds the session)", result, &before);
+}
+
+// R16 (finding 5; Commit funds): the payer Commits PAYER_START + 1 on an unused
+// session id (no bond, no dispute, no tombstone), so only the funds check can refuse.
+// After the fix: REFUSED; no state written.
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN).
+#[test]
+fn r16_commit_without_funds_is_refused() {
+    let mut world = World::new();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    let before = world.snapshot();
+
+    let result = world.submit(
+        payer,
+        HEIGHT,
+        SettlementPayload::Commit {
+            session_id: SESSION,
+            provider_id: provider,
+            bond_amount: PAYER_START + 1,
+            policy_hash: [0x9A; 32],
+            receipt_root: [0u8; 32],
+        },
+    );
+
+    world.assert_refused_without_writes("R16", result, &before);
+}
+
+// R17 (finding 5; payment above the bond): a cooperative close for BOND + 1, signed by
+// both parties' active credentials, on this chain, unexpired.
+// After the fix: REFUSED (`final_amount > bond.amount`); no state written.
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN).
+#[test]
+fn r17_settle_above_the_bond_is_refused() {
+    let mut world = World::new();
+    world.commit_bond();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+
+    let close = world.doubly_signed_close(summary(payer, provider, BOND + 1, 0), CHAIN, EXPIRES);
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close);
+
+    world.assert_refused_without_writes("R17", result, &before);
+}
+
+// R18 (finding 5; provider credit overflow): the provider holds
+// u128::MAX - (FINAL - 1) (written directly), and a valid cooperative close pays it
+// FINAL.
+// After the fix: REFUSED (the provider credit would overflow); no state written.
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN: the checked provider credit).
+#[test]
+fn r18_settle_whose_provider_credit_overflows_is_refused() {
+    let mut world = World::new();
+    world.commit_bond();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    world.put_balance(&provider, u128::MAX - (FINAL - 1));
+
+    let close = world.doubly_signed_close(summary(payer, provider, FINAL, 0), CHAIN, EXPIRES);
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close);
+
+    world.assert_refused_without_writes("R18", result, &before);
+}
+
+// R19 (finding 5; payer refund overflow): after the Commit the payer holds
+// u128::MAX - (BOND - FINAL - 1) (written directly), and a valid cooperative close
+// refunds it BOND - FINAL.
+// After the fix: REFUSED (the payer credit would overflow); no state written.
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN: the checked payer credit).
+#[test]
+fn r19_settle_whose_payer_refund_overflows_is_refused() {
+    let mut world = World::new();
+    world.commit_bond();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    world.put_balance(&payer, u128::MAX - (BOND - FINAL - 1));
+
+    let close = world.doubly_signed_close(summary(payer, provider, FINAL, 0), CHAIN, EXPIRES);
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close);
+
+    world.assert_refused_without_writes("R19", result, &before);
+}
+
+// R20 (finding 5; Escalate with no open bond and no dispute): arm 1: the payer
+// escalates a session id that was never bonded; arm 2: after an accepted cooperative
+// close (the bond deleted, the tombstone written), the payer escalates it.
+// After the fix: each REFUSED; no state written.
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN).
+#[test]
+fn r20_escalate_without_an_open_bond_is_refused() {
+    let mut world = World::new();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    let before = world.snapshot();
+    let result = world.submit(payer, HEIGHT, escalate_payload(payer, APPEAL));
+    world.assert_refused_without_writes("R20 arm 1 (never bonded)", result, &before);
+
+    world.commit_bond();
+    let close = world.doubly_signed_close(summary(payer, provider, FINAL, 0), CHAIN, EXPIRES);
+    world
+        .submit(provider, HEIGHT, close)
+        .expect("R20 setup: the cooperative close is accepted");
+    let before = world.snapshot();
+    let result = world.submit(payer, HEIGHT + 1, escalate_payload(payer, APPEAL));
+    world.assert_refused_without_writes("R20 arm 2 (already settled)", result, &before);
+}
+
+// R21 (finding 5; appeal funds): with the bond open, arm 1: the provider (holding
+// PROVIDER_START) escalates with an appeal bond of PROVIDER_START + 1; arm 2: the payer
+// (holding PAYER_START - BOND) escalates with PAYER_START - BOND + 1. Each signer is a
+// party, the bond is open and no dispute exists, so only the funds check can refuse.
+// After the fix: each REFUSED; no state written.
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN).
+#[test]
+fn r21_escalate_without_appeal_funds_is_refused() {
+    let mut world = World::new();
+    world.commit_bond();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    let before = world.snapshot();
+
+    let result = world.submit(
+        provider,
+        HEIGHT,
+        escalate_payload(provider, PROVIDER_START + 1),
+    );
+    world.assert_refused_without_writes("R21 arm 1 (the provider)", result, &before);
+
+    let result = world.submit(
+        payer,
+        HEIGHT,
+        escalate_payload(payer, PAYER_START - BOND + 1),
+    );
+    world.assert_refused_without_writes("R21 arm 2 (the payer)", result, &before);
+}
+
+// R22 (finding 5; the dispute guard ITSELF, which R9 arm 3 cannot isolate because the
+// open bond is already gone there): after the payer's Escalate, the open bond record
+// is written back under the bond key (directly: no handler produces an open bond beside
+// a dispute), so the open-bond check passes. The provider, a party with funds, then
+// escalates again.
+// After the fix: REFUSED by the dispute guard; no state written.
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN). This test never decodes dispute::.
+#[test]
+fn r22_second_escalate_is_refused_by_the_dispute_guard() {
+    let mut world = World::new();
+    world.commit_bond();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    let open_bond = world.bond().expect("R22 setup: the bond is open");
+    world
+        .submit(payer, HEIGHT, escalate_payload(payer, APPEAL))
+        .expect("R22 setup: the payer's Escalate is accepted");
+    assert!(
+        world.dispute().is_some() && world.bond().is_none(),
+        "R22 setup: the session is under dispute and its bond key is empty"
+    );
+    put(&mut world.state, bond_key(), open_bond);
+    let before = world.snapshot();
+
+    let result = world.submit(provider, HEIGHT + 1, escalate_payload(provider, APPEAL));
+
+    world.assert_refused_without_writes("R22", result, &before);
+}
+
+// R23 (finding 5; rotation cutover): the payer's key is rotated to NEXT (seed 0x44),
+// and a summary is signed by the payer's OLD key (the provider's signature is valid).
+//   Arm 1: the staged credential is in force but not yet promoted: credentials
+//     [Some(old, 0), Some(NEXT, activation HEIGHT)], as IdentityHub::rotate writes them
+//     (crates/services/src/identity/mod.rs:289-302) at HEIGHT - grace, read at HEIGHT.
+//   Arm 2: the staged credential is promoted: [Some(NEXT, HEIGHT), None], as
+//     IdentityHub::on_end_block writes it (:493-494).
+//   Control: in arm 2's state, the same summary with payer_sig by NEXT is ACCEPTED, so
+//     only the credential state refuses the old key.
+// After the fix: arms 1 and 2 REFUSED with no state written; the control pays as R4
+// and conserves the total value held.
+// PREDICTED AT THE BD-57b RED COMMIT (the credential path as at 03c7ef148): PASSES
+// (a PIN). Arm 1: enforce_credential_policy returns ExpiredKey; arm 2:
+// UnauthorizedByCredentials.
+#[test]
+fn r23_after_rotation_a_summary_signed_by_the_old_payer_key_is_refused() {
+    let mut world = World::new();
+    let genesis_total = world.total_value();
+    world.commit_bond();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    let next = Party::from_seed(0x44);
+
+    let terms = summary(payer, provider, FINAL, 0);
+    let old_key_close = world.doubly_signed_close(terms.clone(), CHAIN, EXPIRES);
+    let next_key_close = settle_payload(
+        terms.clone(),
+        EXPIRES,
+        next.sign_summary(CHAIN, &terms, EXPIRES),
+        world.provider.sign_summary(CHAIN, &terms, EXPIRES),
+    );
+
+    world.set_credentials(
+        &payer,
+        [
+            Some(ed25519_credential(payer.0, 0)),
+            Some(ed25519_credential(next.id.0, HEIGHT)),
+        ],
+    );
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, old_key_close.clone());
+    world.assert_refused_without_writes(
+        "R23 arm 1 (old key; the staged key is in force)",
+        result,
+        &before,
+    );
+
+    world.set_credentials(&payer, [Some(ed25519_credential(next.id.0, HEIGHT)), None]);
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, old_key_close);
+    world.assert_refused_without_writes(
+        "R23 arm 2 (old key; the new key is promoted)",
+        result,
+        &before,
+    );
+
+    let result = world.submit(provider, HEIGHT, next_key_close);
+    assert!(
+        result.is_ok(),
+        "R23 control: the same summary signed by the payer's NEW key must be ACCEPTED, got {:?}",
+        result
+    );
+    assert_eq!(
+        world.balance(&provider),
+        PROVIDER_START + FINAL,
+        "R23 control: the provider is paid final_amount"
+    );
+    assert_eq!(
+        world.balance(&payer),
+        PAYER_START - FINAL,
+        "R23 control: the payer is refunded bond - final_amount"
+    );
+    assert!(world.bond().is_none(), "R23 control: the bond key is deleted");
+    assert!(
+        world.tombstone().is_some(),
+        "R23 control: the settled tombstone is written"
+    );
+    assert_eq!(
+        world.total_value(),
+        genesis_total,
+        "R23 control: Commit and Settle conserve the total value held"
+    );
+}
+
+// R24 (finding 5; no active credential): a summary validly signed by the payer's key
+// and the provider's, while the payer has NO active credential.
+//   Arm 1: the payer's credentials key is absent (the hub reads [None, None]).
+//   Arm 2: the payer's credentials are an explicit [None, None].
+//   Control: the payer's genesis credential restored, the same payload is ACCEPTED.
+// After the fix: arms 1 and 2 REFUSED with no state written (no bootstrap fallback:
+// fail-closed); the control pays as R4 and conserves the total value held.
+// PREDICTED AT THE BD-57b RED COMMIT: PASSES (a PIN): enforce_credential_policy
+// returns UnauthorizedByCredentials when there is no active credential.
+#[test]
+fn r24_a_payer_without_an_active_credential_cannot_authorize_a_settlement() {
+    let mut world = World::new();
+    let genesis_total = world.total_value();
+    world.commit_bond();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    let close = world.doubly_signed_close(summary(payer, provider, FINAL, 0), CHAIN, EXPIRES);
+
+    world.remove_credentials(&payer);
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close.clone());
+    world.assert_refused_without_writes("R24 arm 1 (no credentials key)", result, &before);
+
+    world.set_credentials(&payer, [None, None]);
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close.clone());
+    world.assert_refused_without_writes("R24 arm 2 ([None, None])", result, &before);
+
+    world.set_credentials(&payer, [Some(ed25519_credential(payer.0, 0)), None]);
+    let result = world.submit(provider, HEIGHT, close);
+    assert!(
+        result.is_ok(),
+        "R24 control: with the payer's credential restored the close must be ACCEPTED, got {:?}",
+        result
+    );
+    assert_eq!(
+        world.balance(&provider),
+        PROVIDER_START + FINAL,
+        "R24 control: the provider is paid final_amount"
+    );
+    assert_eq!(
+        world.balance(&payer),
+        PAYER_START - FINAL,
+        "R24 control: the payer is refunded bond - final_amount"
+    );
+    assert_eq!(
+        world.total_value(),
+        genesis_total,
+        "R24 control: Commit and Settle conserve the total value held"
+    );
 }

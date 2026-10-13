@@ -60,6 +60,20 @@ pub struct BondRecordV1 {
     pub policy_hash: [u8; 32],
 }
 
+/// The record Escalate stores under the dispute key (SCALE-encoded): the session's
+/// bond record, moved from the bond key, and the appeal bond debited from the
+/// escalating party, held in the same custody, so that nothing is burned (BD-57
+/// review 1, finding 1). No arm releases or resolves it yet (FU-N5-1).
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct DisputeRecordV1 {
+    /// The session's bond record, as Commit wrote it.
+    pub bond: BondRecordV1,
+    /// The appeal bond debited from the escalating party.
+    pub appeal_amount: u128,
+    /// The party that escalated and deposited the appeal bond (the Escalate signer).
+    pub appeal_depositor: AccountId,
+}
+
 fn bond_key(session_id: &[u8; 32]) -> Vec<u8> {
     [BOND_PREFIX, session_id.as_slice()].concat()
 }
