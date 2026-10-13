@@ -36,7 +36,7 @@ impl<CS: CommitmentScheme + Clone> SettlementModel<CS> {
 // Canonical keys for settlement objects (bonds, channels, etc.)
 const BOND_PREFIX: &[u8] = b"settle::bond::";
 // const CHANNEL_PREFIX: &[u8] = b"settle::channel::";
-/// A disputed session's bond record (`dispute::` ‖ session id), moved here unchanged by Escalate.
+/// A disputed session's custody (`dispute::` ‖ session id): the `DisputeRecordV1` Escalate writes.
 const DISPUTE_PREFIX: &[u8] = b"dispute::";
 /// A settled session's tombstone (`settled::` ‖ session id). Commit refuses a session id
 /// that has one, so a doubly-signed summary can pay at most once.
@@ -46,8 +46,8 @@ const BALANCE_PREFIX: &[u8] = b"balance::";
 /// Domain separator of the settlement summary signatures.
 const SUMMARY_SIGNING_DOMAIN: &[u8] = b"ioi::settlement::summary::v1\0";
 
-/// The record Commit stores under the bond key (SCALE-encoded). Escalate moves it
-/// unchanged to the dispute key.
+/// The record Commit stores under the bond key (SCALE-encoded). Escalate moves it,
+/// unchanged, into the `DisputeRecordV1` under the dispute key.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct BondRecordV1 {
     /// The account that committed the bond (the Commit transaction's signer).
@@ -263,7 +263,7 @@ where
                 receipt_root: _,
             } => {
                 let bond_k = bond_key(session_id);
-                // Pre-existing refusal (no R test): an open bond already uses this session id.
+                // R15: an open bond already uses this session id.
                 if state.get(&bond_k)?.is_some() {
                     return Err(TransactionError::Invalid("Session ID collision".into()));
                 }
@@ -283,7 +283,7 @@ where
                 let payer = ctx.signer_account_id;
                 let payer_k = balance_key(&payer);
                 let payer_bal = read_balance(&*state, &payer_k)?;
-                // Pre-existing refusal (no R test): the payer must cover the bond.
+                // R16: the payer must cover the bond.
                 if payer_bal < *bond_amount {
                     return Err(TransactionError::InsufficientFunds);
                 }
@@ -328,19 +328,19 @@ where
                     }
                 };
 
-                // R3: the summary's payer must be the payer recorded at Commit.
+                // R3, R14 (isolated): the summary's payer must be the payer recorded at Commit.
                 if summary.payer_id != bond.payer {
                     return Err(TransactionError::Invalid(
                         "Summary payer is not the bond's payer".into(),
                     ));
                 }
-                // R1: the summary's provider must be the provider the bond backs.
+                // R1, R13 (isolated): the summary's provider must be the provider the bond backs.
                 if summary.provider_id != bond.provider_id {
                     return Err(TransactionError::Invalid(
                         "Summary provider is not the bond's provider".into(),
                     ));
                 }
-                // Pre-existing refusal (no R test): the payment cannot exceed the bond.
+                // R17: the payment cannot exceed the bond.
                 if summary.final_amount > bond.amount {
                     return Err(TransactionError::Invalid(
                         "Settlement amount exceeds bond".into(),
@@ -400,13 +400,13 @@ where
             } => {
                 let bond_k = bond_key(session_id);
                 let dispute_k = dispute_key(session_id);
-                // R9 (second-Escalate arm): a session already under dispute.
+                // R9 (second-Escalate arm), R22 (isolated): a session already under dispute.
                 if state.get(&dispute_k)?.is_some() {
                     return Err(TransactionError::Invalid(
                         "Session is already under dispute".into(),
                     ));
                 }
-                // Pre-existing refusal (no R test): no open bond under this session id.
+                // R20: no open bond under this session id.
                 let bond_bytes = state
                     .get(&bond_k)?
                     .ok_or(TransactionError::Invalid("Session bond not found".into()))?;
@@ -422,16 +422,27 @@ where
                 }
                 let signer_k = balance_key(&signer);
                 let signer_bal = read_balance(&*state, &signer_k)?;
-                // New (no R test of its own): the signer must cover the appeal bond.
+                // R21: the signer must cover the appeal bond.
                 if signer_bal < *appeal_bond {
                     return Err(TransactionError::InsufficientFunds);
                 }
                 let new_signer_bal = encode_balance(&(signer_bal - *appeal_bond))?;
+                // BD-57b (review 1, finding 1; R6b, R9, R12): the debited appeal bond is
+                // HELD with the bond record, under the signer as its depositor, so the
+                // total value held is unchanged (nothing is burned).
+                let custody = DisputeRecordV1 {
+                    bond,
+                    appeal_amount: *appeal_bond,
+                    appeal_depositor: signer,
+                };
+                let custody_bytes =
+                    codec::to_bytes_canonical(&custody).map_err(TransactionError::Serialization)?;
 
-                // Writes (R6b): debit the appeal bond, move the bond record unchanged.
+                // Writes (R6b): debit the appeal bond, close the open bond, hold both in
+                // the dispute custody.
                 state.insert(&signer_k, &new_signer_bal)?;
                 state.delete(&bond_k)?;
-                state.insert(&dispute_k, &bond_bytes)?;
+                state.insert(&dispute_k, &custody_bytes)?;
             }
 
             // [NEW] UpgradeLiability Payload
