@@ -890,10 +890,12 @@ pub(crate) fn system_read_response(
     }
 }
 
-/// The admission instrument's log lines: every refused read logs "system read refused busy", and
-/// every admitted read logs, when it finishes, how long it waited for its permit and how long it held
-/// the pool. A line carries counts, durations and a wall-clock millisecond stamp only (`unix_ms`),
-/// never a System, a principal or any other value of the read.
+/// The admission instrument's log lines: every refused read logs "system read refused busy" (always),
+/// and every admitted read records, when it finishes, how long it waited for its permit and how long
+/// it held the pool, at TRACE level only (target `system_read_admission`; off unless a TRACE
+/// subscriber is enabled), so a production daemon does not log every read. A line carries counts,
+/// durations and a wall-clock millisecond stamp only (`unix_ms`), never a System, a principal or any
+/// other value of the read.
 fn unix_ms() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -936,10 +938,12 @@ async fn off_the_async_workers<T: Send + 'static>(
         started.fetch_add(1, Ordering::SeqCst);
         let reading = std::time::Instant::now();
         let answer = work();
-        eprintln!(
-            "[hypervisor-daemon] system read finished: waited {waited} ms for admission, held the pool {} ms; at_ms={}",
-            reading.elapsed().as_millis(),
-            unix_ms()
+        tracing::trace!(
+            target: "system_read_admission",
+            waited_ms = waited as u64,
+            held_ms = reading.elapsed().as_millis() as u64,
+            at_ms = unix_ms() as u64,
+            "system read finished"
         );
         answer
     })
