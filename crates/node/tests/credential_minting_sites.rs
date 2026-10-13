@@ -748,6 +748,21 @@ fn tree_with(rel: &str, edit: impl Fn(&str) -> String) -> Vec<(String, String)> 
     tree
 }
 
+/// The real tree with one file's text edited and new files added: the planted counterexamples that need a second file.
+fn tree_adding(
+    rel: &str,
+    edit: impl Fn(&str) -> String,
+    added: &[(&str, &str)],
+) -> Vec<(String, String)> {
+    let mut tree = tree_with(rel, edit);
+    for (path, text) in added {
+        assert!(!tree.iter().any(|(r, _)| r == path), "{path} is a new file");
+        tree.push((path.to_string(), text.to_string()));
+    }
+    tree.sort();
+    tree
+}
+
 const KERNEL: &str = "services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs";
 const ORCH: &str = "node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs";
 const AUTH: &str = "node/src/bin/hypervisor_daemon_routes/authority_routes.rs";
@@ -1219,4 +1234,246 @@ fn a_prefix_assembled_from_pieces_is_a_named_out_of_scope_shape_not_a_pass() {
         format!("{text}\nfn make_value() -> String {{\n    concat!(\"ioi_p\", \"at_\", \"x\").to_string()\n}}\n")
     });
     assert!(scan(&tree).is_empty());
+}
+
+// ---- the function-discovery counterexamples (Codex batch-3 r4) and the include!/#[path] controls --------------
+
+/// A registered site is the function at its MODULE PATH (its file, the inline modules and impl self type inside it,
+/// then its name), never a same-named function elsewhere. With the editor connection token's production draw replaced
+/// by a constant, a same-named function holding the draw in a `#[cfg(test)]` module, a same-named method of another
+/// type, or a same-named function in another inline module, each placed before the registered function, does not stand
+/// in for it: the removed draw is still a violation at the site. Control: each shadow beside the intact draw is no
+/// violation there.
+#[test]
+fn a_same_named_shadow_never_stands_in_for_a_registered_site() {
+    let body = "        use rand::RngCore;\n        let mut secret = [0u8; 32];\n        let nonce = [0u8; 8];\n        rand::rngs::OsRng.fill_bytes(&mut secret);\n        let _ = (hex::encode(secret), hex::encode(nonce));\n";
+    let shadows = [
+        (
+            "a same-named #[cfg(test)] function in a test module",
+            format!("#[cfg(test)]\nmod inventory_shadow {{\n    fn start_oss_runtime() {{\n{body}    }}\n}}\n\n"),
+        ),
+        (
+            "a same-named method of another type",
+            format!("pub(crate) struct InventoryShadow;\n\nimpl InventoryShadow {{\n    fn start_oss_runtime(&self) {{\n{body}    }}\n}}\n\n"),
+        ),
+        (
+            "a same-named function in another inline module",
+            format!("mod inventory_shadow {{\n    fn start_oss_runtime() {{\n{body}    }}\n}}\n\n"),
+        ),
+    ];
+    let site = "pub(crate) async fn start_oss_runtime(";
+    let draw = "        rand::rngs::OsRng.fill_bytes(&mut secret);\n";
+    let at_site = |v: &String| v.contains("editor_host.rs") && v.contains("start_oss_runtime");
+    let mut accepted = Vec::new();
+    for (shape, shadow) in &shadows {
+        let control = tree_with(EDITOR_HOST, |text| {
+            let planted = text.replacen(site, &format!("{shadow}{site}"), 1);
+            assert_ne!(planted, text, "the planted {shape} applies");
+            planted
+        });
+        let violations = scan(&control);
+        assert!(
+            !violations.iter().any(at_site),
+            "{shape} beside the intact draw is no violation at the site: {violations:?}"
+        );
+        let tree = tree_with(EDITOR_HOST, |text| {
+            let without = text.replacen(draw, "        secret = [0u8; 32];\n", 1);
+            assert_ne!(without, text, "the production draw edit applies");
+            let planted = without.replacen(site, &format!("{shadow}{site}"), 1);
+            assert_ne!(planted, without, "the planted {shape} applies");
+            planted
+        });
+        if !scan(&tree).iter().any(at_site) {
+            accepted.push(*shape);
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "a shadow stood in for the registered site whose draw was removed: {accepted:?}"
+    );
+}
+
+/// A function's body is the block the parser says it is: a const-generic argument's brace group in a `where` bound or
+/// in the return type is not the body, so a credential-named function building a new prefix after such a signature is
+/// still found.
+#[test]
+fn a_const_generic_brace_group_in_a_signature_is_not_the_function_body() {
+    let shapes = [
+        (
+            "a `where` bound",
+            "fresh_secret_key",
+            "trait Tag<const N: usize> {}\nimpl Tag<1> for () {}\n\nfn fresh_secret_key() -> String\nwhere\n    (): Tag<{ 1 }>,\n{\n    format!(\"zzk_{}\", 7)\n}\n",
+        ),
+        (
+            "the return type",
+            "fresh_secret_token",
+            "pub struct Tagged<const N: usize>(String);\n\nfn fresh_secret_token() -> Tagged<{ 2 }> {\n    Tagged(format!(\"zzk_{}\", 8))\n}\n",
+        ),
+    ];
+    let mut accepted = Vec::new();
+    for (shape, function, planted) in shapes {
+        let tree = tree_with(AUTH, |text| format!("{text}\n{planted}"));
+        if !scan(&tree).iter().any(|v| v.contains(function)) {
+            accepted.push(shape);
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "a const-generic brace group hid the body of: {accepted:?}"
+    );
+}
+
+/// Documentation is not code: a doc comment or a `#[doc]` attribute holding a registered prefix, on an item or on a
+/// statement inside a function, is never a mint candidate (its text never becomes a value).
+#[test]
+fn a_doc_comment_is_never_a_mint_candidate() {
+    for (shape, planted) in [
+        ("a doc comment on an item", "///ioi_pat_example\nfn harmless() {}\n"),
+        ("a #[doc] attribute on an item", "#[doc = \"ioi_pat_example\"]\nfn harmless() {}\n"),
+        (
+            "a doc comment on a statement",
+            "fn harmless() -> String {\n    ///ioi_pat_example\n    let plain = String::from(\"plain\");\n    plain\n}\n",
+        ),
+    ] {
+        let tree = tree_with(AUTH, |text| format!("{text}\n{planted}"));
+        let violations = scan(&tree);
+        assert!(
+            violations.is_empty(),
+            "{shape} is not a mint candidate: {violations:?}"
+        );
+    }
+}
+
+const DRAW_FRAGMENT: &str = "node/src/bin/hypervisor_daemon_routes/editor_host_draw.rs";
+
+/// `include!` is read the way the compiler reads it: a fragment's code is part of the function at its include site.
+/// The editor connection token's draw moved into a fragment included in its place is still the registered draw at
+/// that site; a constant included there instead is a violation at the site.
+#[test]
+fn a_registered_draw_in_an_include_fragment_is_read_at_its_include_site() {
+    let draw = "        rand::rngs::OsRng.fill_bytes(&mut secret);\n";
+    let at_site = |v: &String| v.contains("editor_host.rs") && v.contains("start_oss_runtime");
+    let moved = |fragment: &str| {
+        tree_adding(
+            EDITOR_HOST,
+            |text| {
+                let planted =
+                    text.replacen(draw, "        include!(\"editor_host_draw.rs\");\n", 1);
+                assert_ne!(planted, text, "the planted include! applies");
+                planted
+            },
+            &[(DRAW_FRAGMENT, fragment)],
+        )
+    };
+    let violations = scan(&moved("rand::rngs::OsRng.fill_bytes(&mut secret)\n"));
+    assert!(
+        !violations.iter().any(at_site),
+        "the draw included at its site is the registered draw: {violations:?}"
+    );
+    let violations = scan(&moved("secret = [0u8; 32]\n"));
+    assert!(
+        violations.iter().any(at_site),
+        "a constant included at the site is caught there: {violations:?}"
+    );
+}
+
+/// A mint in an `include!` fragment is a mint in the function that includes it: an unregistered prefixed mint moved
+/// into a fragment fails the sweep naming the including function.
+#[test]
+fn an_unregistered_mint_in_an_include_fragment_fails_at_its_including_function() {
+    let tree = tree_adding(
+        AUTH,
+        |text| {
+            format!(
+                "{text}\nfn make_value() -> String {{\n    include!(\"authority_value.rs\")\n}}\n"
+            )
+        },
+        &[(
+            "node/src/bin/hypervisor_daemon_routes/authority_value.rs",
+            "format!(\"ioi_pat_{}\", 1)\n",
+        )],
+    );
+    let violations = scan(&tree);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("make_value") && v.contains("ioi_pat_")),
+        "{violations:?}"
+    );
+}
+
+/// Every file is read: a file that parses neither as a module nor at a found `include!` site fails the sweep (its code
+/// cannot be seen), and so does an `include!` of a file that is not in the tree. Control: the same fragment included by
+/// a production function is read there and is no violation.
+#[test]
+fn a_file_read_neither_as_a_module_nor_at_an_include_site_fails_the_sweep() {
+    let fragment = (
+        "node/src/bin/hypervisor_daemon_routes/authority_fragment.rs",
+        "{\n    let _unit = ();\n}\n",
+    );
+    let orphan = tree_adding(AUTH, |text| text.to_string(), &[fragment]);
+    let violations = scan(&orphan);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("authority_fragment.rs")),
+        "a fragment no file includes is caught: {violations:?}"
+    );
+    let included = tree_adding(
+        AUTH,
+        |text| {
+            format!(
+                "{text}\nfn uses_the_fragment() {{\n    include!(\"authority_fragment.rs\");\n}}\n"
+            )
+        },
+        &[fragment],
+    );
+    let violations = scan(&included);
+    assert!(
+        violations.is_empty(),
+        "the same fragment read at its include site is no violation: {violations:?}"
+    );
+    let missing = tree_with(AUTH, |text| {
+        format!("{text}\nfn uses_a_missing_fragment() {{\n    include!(\"authority_missing.rs\");\n}}\n")
+    });
+    let violations = scan(&missing);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("authority_missing.rs")),
+        "an include! of a file not in the tree is caught: {violations:?}"
+    );
+}
+
+/// `mod` declarations are followed the way the compiler follows them, `#[path]` included: a module file reached only
+/// through a `#[cfg(test)]` declaration is test code, so a mint in it is not a production mint. Control: the same file
+/// declared without the `cfg(test)` is production code, and its mint fails the sweep.
+#[test]
+fn a_module_file_reached_only_through_cfg_test_is_not_production_code() {
+    let module = (
+        "node/src/bin/hypervisor_daemon_routes/authority_planted.rs",
+        "pub(crate) fn bearer() -> String {\n    format!(\"ioi_pat_{}\", 1)\n}\n",
+    );
+    let test_only = tree_adding(
+        AUTH,
+        |text| format!("{text}\n#[cfg(test)]\n#[path = \"authority_planted.rs\"]\nmod planted;\n"),
+        &[module],
+    );
+    let violations = scan(&test_only);
+    assert!(
+        violations.is_empty(),
+        "a module reached only through cfg(test) is test code: {violations:?}"
+    );
+    let production = tree_adding(
+        AUTH,
+        |text| format!("{text}\n#[path = \"authority_planted.rs\"]\nmod planted;\n"),
+        &[module],
+    );
+    let violations = scan(&production);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("authority_planted.rs") && v.contains("bearer")),
+        "the same module declared for production is read: {violations:?}"
+    );
 }
