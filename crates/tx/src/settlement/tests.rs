@@ -1269,3 +1269,70 @@ fn r11_provider_signature_by_a_key_that_is_not_the_providers_credential_is_refus
 
     world.assert_refused_without_writes("R11", result, &before);
 }
+
+// ---------------------------------------------------------------------------
+// BD-61 (BD-57 review 1, finding 2): a Transfer to oneself MINTED `amount`. Both
+// balance reads return the same value, and the receiver write (balance + amount)
+// lands after the sender write (balance - amount), so the account gains `amount`.
+// After the fix: a self-transfer is a no-op once the funds check passes.
+// ---------------------------------------------------------------------------
+
+// BD-61 (no-op arm): the payer transfers 10 to itself, with PAYER_START funds.
+// After the fix: ACCEPTED as a no-op: the state is byte-for-byte unchanged (the payer
+// keeps PAYER_START, so the total held is unchanged).
+// PREDICTED AT THE BD-61 RED COMMIT (Transfer arm as at 03c7ef148): FAILS on the
+// SECOND assertion. The Transfer is ACCEPTED and writes the sender key with
+// PAYER_START - 10, then the same key as the receiver with PAYER_START + 10, so the
+// payer holds 1010 (minted 10).
+#[test]
+fn bd61_self_transfer_is_a_no_op_after_the_funds_check() {
+    let mut world = World::new();
+    let before = world.snapshot();
+
+    let payer = world.payer.id;
+    let result = world.submit(
+        payer,
+        HEIGHT,
+        SettlementPayload::Transfer {
+            to: payer,
+            amount: 10,
+        },
+    );
+
+    assert!(
+        result.is_ok(),
+        "BD-61: a funded self-transfer is ACCEPTED as a no-op, got {:?}",
+        result
+    );
+    assert!(
+        world.state.data == before,
+        "BD-61: a self-transfer must change nothing; payer {} (was {}); state diff: [{}]",
+        world.balance(&payer),
+        PAYER_START,
+        describe_diff(&before, &world.state.data),
+    );
+}
+
+// BD-61 (funds arm): the payer transfers PAYER_START + 1 to itself.
+// After the fix: REFUSED by the funds check (the no-op comes only after it); no state
+// written.
+// PREDICTED AT THE BD-61 RED COMMIT: PASSES (a PIN). The funds check
+// (`sender_bal < amount`) already refuses before any write. It pins that the fix
+// keeps the funds check ahead of the self-transfer no-op.
+#[test]
+fn bd61_insufficient_self_transfer_is_refused() {
+    let mut world = World::new();
+    let before = world.snapshot();
+
+    let payer = world.payer.id;
+    let result = world.submit(
+        payer,
+        HEIGHT,
+        SettlementPayload::Transfer {
+            to: payer,
+            amount: PAYER_START + 1,
+        },
+    );
+
+    world.assert_refused_without_writes("BD-61 (insufficient self-transfer)", result, &before);
+}
