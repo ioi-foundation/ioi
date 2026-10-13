@@ -1336,3 +1336,50 @@ fn bd61_insufficient_self_transfer_is_refused() {
 
     world.assert_refused_without_writes("BD-61 (insufficient self-transfer)", result, &before);
 }
+
+// ---------------------------------------------------------------------------
+// BD-62 (BD-57 review 1, finding 3): the Transfer receiver credit was unchecked
+// (`receiver_bal + amount`). Without overflow checks it wraps (the sender is
+// debited and the receiver drops to a small value: a burn); with them it panics
+// instead of refusing. After the fix: an overflowing credit is REFUSED, and every
+// new value is computed before the first write, so the refusal writes nothing.
+// ---------------------------------------------------------------------------
+
+impl World {
+    /// Writes `id`'s balance directly, as genesis writes balances (`World::new`).
+    fn put_balance(&mut self, id: &AccountId, amount: u128) {
+        put(
+            &mut self.state,
+            balance_key(id),
+            codec::to_bytes_canonical(&amount).expect("setup: encode balance"),
+        );
+    }
+}
+
+// BD-62: the receiver (Mallory) holds u128::MAX, and the payer (PAYER_START funds)
+// transfers 1 to Mallory.
+// After the fix: REFUSED (the credit would overflow u128); the state is byte-for-byte
+// unchanged, so the payer is not debited.
+// PREDICTED AT THE BD-62 RED COMMIT (Transfer arm as at 03c7ef148): FAILS by a PANIC,
+// "attempt to add with overflow", at the receiver credit `receiver_bal + amount` in
+// crates/tx/src/settlement/mod.rs. The test build keeps overflow checks (the
+// workspace [profile.dev] sets only opt-level and debug). Without overflow checks the
+// credit would wrap to 0 and the Transfer would be ACCEPTED with the payer debited.
+#[test]
+fn bd62_transfer_credit_overflow_is_refused_without_writes() {
+    let mut world = World::new();
+    let (payer, mallory) = (world.payer.id, world.mallory.id);
+    world.put_balance(&mallory, u128::MAX);
+    let before = world.snapshot();
+
+    let result = world.submit(
+        payer,
+        HEIGHT,
+        SettlementPayload::Transfer {
+            to: mallory,
+            amount: 1,
+        },
+    );
+
+    world.assert_refused_without_writes("BD-62", result, &before);
+}
