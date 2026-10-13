@@ -2717,6 +2717,15 @@ pub(crate) fn canonical_block_head(block: &Block<ChainTransaction>) -> Result<St
     Ok(format!("sha256:{}", hex::encode(block_hash(block)?)))
 }
 
+/// The committed cursor (`last_committed_block`) a restart starts from: the block the Agentgres
+/// canonical head names, falling back to the durable tip when it names none.
+pub(crate) fn restart_committed_cursor(
+    admitted: Option<Block<ChainTransaction>>,
+    durable_tip: Option<Block<ChainTransaction>>,
+) -> Option<Block<ChainTransaction>> {
+    admitted.or(durable_tip)
+}
+
 /// Selects the Agentgres canonical head from which runtime admission begins.
 ///
 /// On a fresh chain, height one names the all-zero protocol parent rather than
@@ -3502,12 +3511,42 @@ mod tests {
         assert_eq!(coordinator.staged_reads.load(Ordering::Relaxed), 1);
     }
 
+    /// FU-N11-RESTART-HYDRATION-1 RED (plans/ioi-network/records/port/restart-hydration/DESIGN.md;
+    /// the durable-status review's BLOCKER 1). This REPLACES the test that pinned the old behaviour
+    /// (`missing_spine_on_nonempty_chain_seeds_the_exact_durable_tip`). The workload's durable status
+    /// counts a signed but not-yet-committed block, so a missing spine must not take its canonical head
+    /// from it: the seed for a non-genesis workload is a refusal (restore or recover the spine).
     #[test]
-    fn missing_spine_on_nonempty_chain_seeds_the_exact_durable_tip() {
+    fn missing_spine_on_nonempty_chain_refuses_the_durable_tip() {
         let block = empty_block([3; 32], 7);
+        let seed = runtime_finality_initial_head(Some(&block));
+        assert!(
+            seed.is_err(),
+            "a missing spine must not be seeded from the durable tip (height 7), got {seed:?}"
+        );
         assert_eq!(
-            runtime_finality_initial_head(Some(&block)).unwrap(),
-            canonical_block_head(&block).unwrap()
+            runtime_finality_initial_head(None).unwrap(),
+            format!("sha256:{}", hex::encode([0_u8; 32])),
+            "a genesis workload still seeds the zero head"
+        );
+    }
+
+    /// FU-N11-RESTART-HYDRATION-1 RED: the committed cursor comes from admission evidence only. With
+    /// no admitted block, a restart has no committed cursor; it never adopts the durable tip, which
+    /// may be uncommitted.
+    #[test]
+    fn restart_committed_cursor_never_falls_back_to_the_durable_tip() {
+        let admitted = empty_block([3; 32], 4);
+        let tip = empty_block([4; 32], 7);
+        assert_eq!(
+            restart_committed_cursor(None, Some(tip.clone())),
+            None,
+            "with no admitted block the committed cursor must stay empty, not take the durable tip"
+        );
+        assert_eq!(
+            restart_committed_cursor(Some(admitted.clone()), Some(tip)),
+            Some(admitted),
+            "the admitted block is the committed cursor"
         );
     }
 

@@ -1405,7 +1405,10 @@ where
                 )));
             }
         }
-        let last_admitted_block = agentgres_admitted_block.or_else(|| initial_block.clone());
+        let last_admitted_block = super::runtime_finality::restart_committed_cursor(
+            agentgres_admitted_block,
+            initial_block.clone(),
+        );
         let runtime_finality = Arc::new(Mutex::new(runtime_finality));
 
         let mut context = MainLoopContext::<CS, ST, CE, V> {
