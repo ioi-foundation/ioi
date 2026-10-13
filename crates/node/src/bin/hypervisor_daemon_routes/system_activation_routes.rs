@@ -119,7 +119,7 @@ pub(crate) fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
         StatusCode::NOT_FOUND
     } else if code.contains("authority_required") || code.contains("wallet_consumption_refused") {
         StatusCode::FORBIDDEN
-    } else if code.contains("wallet_consumption_unavailable") {
+    } else if code.contains("wallet_consumption_unavailable") || code == "system_source_read_busy" {
         StatusCode::SERVICE_UNAVAILABLE
     } else if code.contains("conflict") {
         StatusCode::CONFLICT
@@ -750,19 +750,98 @@ pub(crate) fn validate_wallet_receipt(
     Ok(value)
 }
 
+/// How many System source reads may hold a blocking-pool thread at once (BUILD-DELTA #48 FIX-2).
+/// The reads serialize on the three global System source locks (`with_source_locks`), so more
+/// concurrent readers would only park blocking threads waiting on those locks without reading any
+/// faster. Four is far below the blocking pool's size (the daemon's runtime keeps tokio's default
+/// limit of 512 blocking threads), so a burst of reads never takes the threads other blocking work
+/// needs (wallet transaction locking, workload execution).
+pub(crate) const SYSTEM_READ_PERMITS: usize = 4;
+/// How long a read waits for an admission permit before it is answered busy.
+pub(crate) const SYSTEM_READ_ADMISSION_WAIT: std::time::Duration =
+    std::time::Duration::from_secs(2);
+/// The Retry-After a busy read answers with, in seconds.
+pub(crate) const SYSTEM_READ_RETRY_AFTER_SECONDS: u64 = 2;
+
+/// The admission of System source reads to the blocking pool, one per daemon (`DaemonState`): a
+/// FAIR (first come, first served) semaphore of `SYSTEM_READ_PERMITS`, and a count of the admitted
+/// reads that have begun on the pool (an acknowledged signal that a read is in flight).
+#[derive(Clone)]
+pub(crate) struct SystemReadAdmission {
+    permits: Arc<tokio::sync::Semaphore>,
+    pub(crate) started: Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl SystemReadAdmission {
+    pub(crate) fn new() -> Self {
+        SystemReadAdmission {
+            permits: Arc::new(tokio::sync::Semaphore::new(SYSTEM_READ_PERMITS)),
+            started: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        }
+    }
+}
+
 /// Run synchronous System work (it takes the System source locks and may make a full Agentgres
 /// pass, tens of seconds on a large log) on the blocking thread pool, so it never holds one of the
-/// async workers every other request needs, identity resolution included (BUILD-DELTA #48). Work
-/// that panics answers a typed refusal instead of tearing down the request.
+/// async workers every other request needs, identity resolution included (BUILD-DELTA #48). The
+/// work is ADMITTED first (FIX-2): its permit is acquired asynchronously, within
+/// `SYSTEM_READ_ADMISSION_WAIT`, and MOVED into the blocking closure, so it is held until the work
+/// completes or unwinds, even when the request is dropped; a read not admitted in time answers
+/// `system_source_read_busy` (503, Retry-After) instead of queueing without bound. Work that panics
+/// answers a typed refusal instead of tearing down the request.
 pub(crate) async fn off_the_async_workers<T: Send + 'static>(
+    admission: SystemReadAdmission,
     work: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, VErr> {
-    tokio::task::spawn_blocking(work).await.map_err(|error| {
+    let permit = match tokio::time::timeout(
+        SYSTEM_READ_ADMISSION_WAIT,
+        admission.permits.clone().acquire_owned(),
+    )
+    .await
+    {
+        Ok(Ok(permit)) => permit,
+        _ => {
+            return Err(verr(
+                "system_source_read_busy",
+                format!(
+                    "the System source reads are at their admission bound ({SYSTEM_READ_PERMITS} at once) and none was admitted within {SYSTEM_READ_ADMISSION_WAIT:?}; retry after {SYSTEM_READ_RETRY_AFTER_SECONDS} s"
+                ),
+            ))
+        }
+    };
+    let started = admission.started.clone();
+    tokio::task::spawn_blocking(move || {
+        let _admitted = permit;
+        started.fetch_add(1, Ordering::SeqCst);
+        work()
+    })
+    .await
+    .map_err(|error| {
         verr(
             "system_source_read_unreadable",
             format!("the read did not complete on the blocking pool ({error})"),
         )
     })
+}
+
+/// A System read handler's answer: a busy read (`system_source_read_busy`, 503) carries
+/// Retry-After; every other answer is unchanged.
+pub(crate) fn system_read_reply(
+    (status, body): (StatusCode, Json<Value>),
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if body.0["error"]["code"] == "system_source_read_busy" {
+        return (
+            status,
+            [(
+                axum::http::header::RETRY_AFTER,
+                SYSTEM_READ_RETRY_AFTER_SECONDS.to_string(),
+            )],
+            body,
+        )
+            .into_response();
+    }
+    (status, body).into_response()
 }
 
 pub(crate) fn with_source_locks<T>(f: impl FnOnce() -> T) -> T {

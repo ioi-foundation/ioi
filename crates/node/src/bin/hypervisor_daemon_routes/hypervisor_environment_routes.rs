@@ -1454,21 +1454,32 @@ pub(crate) fn build_environment_projection(
 /// GET /v1/hypervisor/environments/lifecycle/projection
 pub(crate) async fn handle_get_environment_projection(
     State(state): State<Arc<DaemonState>>,
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_reply(
+        handle_get_environment_projection_reply(State(state)).await,
+    )
+}
+
+async fn handle_get_environment_projection_reply(
+    State(state): State<Arc<DaemonState>>,
 ) -> (StatusCode, Json<Value>) {
     // BUILD-DELTA #48: the read waits on the System source locks; it runs on the blocking pool.
     let state = state.clone();
-    let read = super::system_activation_routes::off_the_async_workers(move || {
-        with_source_locks(|| {
-            let source = load_environment_lifecycle_source(&state.data_dir)?;
-            let observations = resolve_route_observations(&state.data_dir)?;
-            build_environment_projection(
-                &source.binding.estate_namespace,
-                &source.state,
-                &source.head,
-                &observations,
-            )
-        })
-    })
+    let read = super::system_activation_routes::off_the_async_workers(
+        state.system_reads.clone(),
+        move || {
+            with_source_locks(|| {
+                let source = load_environment_lifecycle_source(&state.data_dir)?;
+                let observations = resolve_route_observations(&state.data_dir)?;
+                build_environment_projection(
+                    &source.binding.estate_namespace,
+                    &source.state,
+                    &source.head,
+                    &observations,
+                )
+            })
+        },
+    )
     .await;
     match read.and_then(|answer| answer) {
         Ok(value) => (StatusCode::OK, Json(value)),

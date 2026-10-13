@@ -1223,6 +1223,15 @@ pub(crate) fn build_membership_projection(
 pub(crate) async fn handle_get_projection(
     AxumPath(key): AxumPath<String>,
     State(state): State<Arc<DaemonState>>,
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_reply(
+        handle_get_projection_reply(AxumPath(key), State(state)).await,
+    )
+}
+
+async fn handle_get_projection_reply(
+    AxumPath(key): AxumPath<String>,
+    State(state): State<Arc<DaemonState>>,
 ) -> (StatusCode, Json<Value>) {
     if !canonical_system_key(&key) {
         return classify(verr(
@@ -1232,20 +1241,23 @@ pub(crate) async fn handle_get_projection(
     }
     // BUILD-DELTA #48: the read waits on the System source locks; it runs on the blocking pool.
     let state = state.clone();
-    let read = super::system_activation_routes::off_the_async_workers(move || {
-        with_source_locks(|| {
-            let source = load_membership_source(&state.data_dir, &key)?;
-            build_membership_projection(
-                &source.binding.system_id,
-                source
-                    .desired_topology
-                    .as_ref()
-                    .zip(source.desired_topology_root.as_deref()),
-                &source.records,
-                &source.head,
-            )
-        })
-    })
+    let read = super::system_activation_routes::off_the_async_workers(
+        state.system_reads.clone(),
+        move || {
+            with_source_locks(|| {
+                let source = load_membership_source(&state.data_dir, &key)?;
+                build_membership_projection(
+                    &source.binding.system_id,
+                    source
+                        .desired_topology
+                        .as_ref()
+                        .zip(source.desired_topology_root.as_deref()),
+                    &source.records,
+                    &source.head,
+                )
+            })
+        },
+    )
     .await;
     match read.and_then(|answer| answer) {
         Ok(value) => (StatusCode::OK, Json(value)),

@@ -381,6 +381,8 @@ pub(crate) struct DaemonState {
     pub(crate) editor_runtimes: Mutex<HashMap<String, editor_host::EditorRuntime>>,
     // WS-4 — live lease-authenticated proxies fronting editor runtimes, keyed by editor service_id.
     pub(crate) editor_proxies: Mutex<HashMap<String, editor_proxy::EditorProxy>>,
+    /// The bounded, fair admission of System source reads to the blocking pool (BUILD-DELTA #48).
+    pub(crate) system_reads: system_activation_routes::SystemReadAdmission,
     // Serializes model-route registry read-modify-write sections so the exactly-one-default
     // invariant and per-record updates are not lost under concurrent axum handlers. Guards only the
     // synchronous file mutation regions in model_routes.rs — never held across a network probe.
@@ -424,6 +426,7 @@ pub(crate) fn test_daemon_state(data_dir: &str) -> Arc<DaemonState> {
         terminals: Mutex::new(HashMap::new()),
         editor_runtimes: Mutex::new(HashMap::new()),
         editor_proxies: Mutex::new(HashMap::new()),
+        system_reads: system_activation_routes::SystemReadAdmission::new(),
     })
 }
 
@@ -839,6 +842,7 @@ async fn async_main() -> anyhow::Result<()> {
         terminals: Mutex::new(HashMap::new()),
         editor_runtimes: Mutex::new(HashMap::new()),
         editor_proxies: Mutex::new(HashMap::new()),
+        system_reads: system_activation_routes::SystemReadAdmission::new(),
     });
 
     // Inject the event-stream admission capability into the runtime side.

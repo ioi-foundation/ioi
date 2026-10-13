@@ -1262,31 +1262,42 @@ pub(crate) fn build_node_attestation_projection(
 /// GET /v1/hypervisor/hypervisoros/nodes/projection
 pub(crate) async fn handle_get_node_projection(
     State(state): State<Arc<DaemonState>>,
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_reply(
+        handle_get_node_projection_reply(State(state)).await,
+    )
+}
+
+async fn handle_get_node_projection_reply(
+    State(state): State<Arc<DaemonState>>,
 ) -> (StatusCode, Json<Value>) {
     // BUILD-DELTA #48: the read waits on the System source locks; it runs on the blocking pool.
     let state = state.clone();
-    let read = super::system_activation_routes::off_the_async_workers(move || {
-        with_source_locks(|| {
-            let source = load_node_attestation_source(&state.data_dir)?;
-            let loader = |root: &str| -> Result<Option<Value>, VErr> {
-                load_required_exact(&state.data_dir, BOOT_RECEIPT_DIR, &tail("hvbr_", root)?)
-            };
-            build_node_attestation_projection(
-                &source.binding.estate_namespace,
-                source
-                    .boot_profile
-                    .as_ref()
-                    .zip(source.boot_profile_root.as_deref()),
-                source
-                    .temporal_profile
-                    .as_ref()
-                    .zip(source.temporal_profile_root.as_deref()),
-                &source.records,
-                &source.head,
-                &loader,
-            )
-        })
-    })
+    let read = super::system_activation_routes::off_the_async_workers(
+        state.system_reads.clone(),
+        move || {
+            with_source_locks(|| {
+                let source = load_node_attestation_source(&state.data_dir)?;
+                let loader = |root: &str| -> Result<Option<Value>, VErr> {
+                    load_required_exact(&state.data_dir, BOOT_RECEIPT_DIR, &tail("hvbr_", root)?)
+                };
+                build_node_attestation_projection(
+                    &source.binding.estate_namespace,
+                    source
+                        .boot_profile
+                        .as_ref()
+                        .zip(source.boot_profile_root.as_deref()),
+                    source
+                        .temporal_profile
+                        .as_ref()
+                        .zip(source.temporal_profile_root.as_deref()),
+                    &source.records,
+                    &source.head,
+                    &loader,
+                )
+            })
+        },
+    )
     .await;
     match read.and_then(|answer| answer) {
         Ok(value) => (StatusCode::OK, Json(value)),

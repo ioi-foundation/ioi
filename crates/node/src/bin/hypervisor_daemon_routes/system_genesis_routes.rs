@@ -2277,6 +2277,15 @@ pub(crate) async fn handle_admit(
 pub(crate) async fn handle_get(
     State(state): State<Arc<DaemonState>>,
     Query(query): Query<HashMap<String, String>>,
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_reply(
+        handle_get_reply(State(state), Query(query)).await,
+    )
+}
+
+async fn handle_get_reply(
+    State(state): State<Arc<DaemonState>>,
+    Query(query): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     let Some(system_id) = query.get("system_id") else {
         return classify(verr(
@@ -2293,9 +2302,10 @@ pub(crate) async fn handle_get(
     let tail = record_tail(system_id);
     let data_dir = state.data_dir.clone();
     // BUILD-DELTA #48: the read waits on SYSTEM_GENESIS_LOCK; it runs on the blocking pool.
-    match super::system_activation_routes::off_the_async_workers(move || {
-        handle_get_tail(&data_dir, &tail)
-    })
+    match super::system_activation_routes::off_the_async_workers(
+        state.system_reads.clone(),
+        move || handle_get_tail(&data_dir, &tail),
+    )
     .await
     {
         Ok(answer) => answer,
@@ -2304,6 +2314,15 @@ pub(crate) async fn handle_get(
 }
 
 pub(crate) async fn handle_get_by_key(
+    State(state): State<Arc<DaemonState>>,
+    AxumPath(tail): AxumPath<String>,
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_reply(
+        handle_get_by_key_reply(State(state), AxumPath(tail)).await,
+    )
+}
+
+async fn handle_get_by_key_reply(
     State(state): State<Arc<DaemonState>>,
     AxumPath(tail): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
@@ -2315,9 +2334,10 @@ pub(crate) async fn handle_get_by_key(
     }
     let data_dir = state.data_dir.clone();
     // BUILD-DELTA #48: the read waits on SYSTEM_GENESIS_LOCK; it runs on the blocking pool.
-    match super::system_activation_routes::off_the_async_workers(move || {
-        handle_get_tail(&data_dir, &tail)
-    })
+    match super::system_activation_routes::off_the_async_workers(
+        state.system_reads.clone(),
+        move || handle_get_tail(&data_dir, &tail),
+    )
     .await
     {
         Ok(answer) => answer,

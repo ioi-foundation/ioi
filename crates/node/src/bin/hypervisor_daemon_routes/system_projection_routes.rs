@@ -290,6 +290,16 @@ pub(crate) async fn handle_get(
     State(state): State<Arc<DaemonState>>,
     headers: axum::http::HeaderMap,
     Query(query): Query<HashMap<String, String>>,
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_reply(
+        handle_get_reply(State(state), headers, Query(query)).await,
+    )
+}
+
+async fn handle_get_reply(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     let view = query.get("view").map(String::as_str).unwrap_or("compact");
     if !matches!(view, "compact" | "advanced") {
@@ -312,7 +322,7 @@ pub(crate) async fn handle_get(
     // under the System source locks), so it runs on the blocking pool, never on an async worker.
     let data_dir = state.data_dir.clone();
     let view = view.to_string();
-    let read = super::system_activation_routes::off_the_async_workers(move || {
+    let read = super::system_activation_routes::off_the_async_workers(state.system_reads.clone(), move || {
         super::substrate_store::with_exact_read_snapshot(&data_dir, || {
             with_source_locks(|| {
                 let mut records = super::system_genesis_routes::scan_records(&data_dir)
@@ -592,73 +602,75 @@ mod worker_starvation_tests {
     }
 
     /// With ONE async worker and a projection read made honestly slow (the Agentgres log grown
-    /// through the store's own write path until one read takes at least a second), four parallel
-    /// projection reads do not delay a concurrent identity resolution (`/auth/whoami`).
+    /// through the store's own write path until one read takes at least a second, every calibration
+    /// read succeeding), four parallel projection reads do not delay identity resolution
+    /// (`/auth/whoami`): once the daemon acknowledges that a read has begun on the blocking pool (its
+    /// admission count moves, not a sleep), five identity resolutions in a row each answer the
+    /// signed-in principal (`authenticated: true`, principal `operator`) in under half a read, while
+    /// a read is still in flight.
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn parallel_systems_projections_never_delay_identity_resolution() {
+        use axum::response::IntoResponse;
+        use std::sync::atomic::Ordering;
         let dir = tempfile::tempdir().unwrap();
         let data_dir = dir.path().to_str().unwrap().to_string();
         let state = crate::test_daemon_state(&data_dir);
         let headers = signed_in(&data_dir);
-        let read = |state: std::sync::Arc<super::DaemonState>, headers: HeaderMap| {
-            super::handle_get(State(state), headers, Query(HashMap::new()))
-        };
-        let (status, body) = read(state.clone(), headers.clone()).await;
-        assert_eq!(
-            status,
-            axum::http::StatusCode::OK,
-            "the projection reads: {}",
-            body.0
-        );
-        // The honest load: every projection read takes one strict pass over the whole Agentgres
-        // log, so the log is grown (provider receipts, a promoted family) until one read takes
-        // at least a second. No sleep stands in for the read.
-        let mut written = 0usize;
-        let mut one_read = Duration::ZERO;
-        while one_read < Duration::from_secs(1) {
-            let target = (written * 2).max(1000);
-            assert!(
-                target <= 128_000,
-                "the load did not reach a one-second read: {written} records, {one_read:?} per read"
-            );
-            for index in written..target {
-                super::super::persist_record(
-                    &data_dir,
-                    "provider-receipts",
-                    &format!("load-{index:06}"),
-                    &json!({ "receipt_id": format!("load-{index:06}"), "kind": "load", "index": index }),
-                )
-                .unwrap();
-            }
-            written = target;
-            let started = Instant::now();
-            let _ = read(state.clone(), headers.clone()).await;
-            one_read = started.elapsed();
-        }
+        let (written, one_read) =
+            calibrate(&state, &data_dir, &headers, Duration::from_secs(1)).await;
         eprintln!("load: {written} records, one projection read {one_read:?}");
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
         let reads: Vec<_> = (0..4)
-            .map(|_| tokio::spawn(read(state.clone(), headers.clone())))
+            .map(|_| {
+                let (state, headers) = (state.clone(), headers.clone());
+                tokio::spawn(async move {
+                    super::handle_get(State(state), headers, Query(HashMap::new()))
+                        .await
+                        .into_response()
+                })
+            })
             .collect();
-        // Let the reads take the worker before identity is asked for.
-        std::thread::sleep(Duration::from_millis(200));
-        let started = Instant::now();
-        let whoami = tokio::spawn(super::super::lifecycle_routes::handle_auth_whoami(
-            State(state.clone()),
-            headers.clone(),
-        ));
-        let (status, _) = whoami.await.unwrap();
-        let waited = started.elapsed();
-        eprintln!(
-            "identity resolution answered after {waited:?} (one projection read {one_read:?})"
-        );
-        assert_eq!(status, axum::http::StatusCode::OK);
+        // THE ACKNOWLEDGED OVERLAP: a read has begun on the blocking pool.
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while state.system_reads.started.load(Ordering::SeqCst) == begun {
+            assert!(
+                Instant::now() < deadline,
+                "a projection read begins on the blocking pool"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        let mut waits = Vec::new();
+        for _ in 0..5 {
+            let started = Instant::now();
+            let whoami = tokio::spawn(super::super::lifecycle_routes::handle_auth_whoami(
+                State(state.clone()),
+                headers.clone(),
+            ));
+            let (status, body) = whoami.await.unwrap();
+            waits.push(started.elapsed());
+            assert!(
+                status == axum::http::StatusCode::OK
+                    && body.0["authenticated"] == json!(true)
+                    && body.0["principal"]["principal_id"] == json!("operator"),
+                "identity resolution answers the signed-in principal: {status} {}",
+                body.0
+            );
+        }
         assert!(
-            waited < one_read / 2,
-            "identity resolution waited {waited:?} behind projection reads that take {one_read:?} each"
+            !reads.iter().all(|read| read.is_finished()),
+            "a projection read is still in flight after the identity samples"
+        );
+        let worst = waits.iter().max().copied().unwrap_or_default();
+        eprintln!(
+            "identity resolution answered after at most {worst:?} over {} samples (one projection read {one_read:?})",
+            waits.len()
+        );
+        assert!(
+            worst < one_read / 2,
+            "identity resolution waited {worst:?} behind projection reads that take {one_read:?} each"
         );
         for read in reads {
-            let (status, _) = read.await.unwrap();
-            assert_eq!(status, axum::http::StatusCode::OK);
+            assert_eq!(read.await.unwrap().status(), axum::http::StatusCode::OK);
         }
     }
 
