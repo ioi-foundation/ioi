@@ -229,6 +229,13 @@ where
                     return Err(TransactionError::InsufficientFunds);
                 }
 
+                // BD-61: a transfer to oneself moves nothing. Sender and receiver share
+                // one balance key, so the two writes below would leave balance + amount
+                // (a mint); once the funds check passes it is a no-op, with no write.
+                if *to == sender {
+                    return Ok(((), gas_used));
+                }
+
                 let receiver_bal: u128 = state
                     .get(&receiver_key)?
                     .and_then(|b| codec::from_bytes_canonical(&b).ok())
