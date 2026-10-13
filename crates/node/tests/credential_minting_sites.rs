@@ -2270,3 +2270,113 @@ fn a_module_file_reached_only_through_cfg_test_is_not_production_code() {
         "the same module declared for production is read: {violations:?}"
     );
 }
+
+// ---- Codex batch-3 r5's four counterexamples (named REDs; each must be caught) ----------------------------------
+
+const SERVICES_ROOT: &str = "services/src/lib.rs";
+
+/// r5 MAJOR 1: a `#[cfg(test)]` ARRAY ELEMENT is compiled out of a non-test build, so a draw kept only there is a
+/// removed draw: the editor connection token's production draw replaced by Codex's array, whose only draw is in a
+/// cfg(test) element (the non-test build leaves `secret` zeroed), is a violation at the registered site.
+#[test]
+fn r5_major_1_a_cfg_test_array_element_never_stands_in_for_a_registered_draw() {
+    let tree = tree_with(EDITOR_HOST, |text| {
+        let planted = text.replacen(
+            "        rand::rngs::OsRng.fill_bytes(&mut secret);\n",
+            "        let _ = [\n            #[cfg(test)]\n            {\n                rand::rngs::OsRng.fill_bytes(&mut secret);\n                0u8\n            },\n            0u8,\n        ];\n",
+            1,
+        );
+        assert_ne!(planted, text, "the planted array applies");
+        planted
+    });
+    let violations = scan(&tree);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("editor_host.rs") && v.contains("start_oss_runtime")),
+        "a draw kept only in a cfg(test) array element is a removed draw at its site: {violations:?}"
+    );
+}
+
+/// r5 MAJOR 2: the compiler resolves a module's children by HOW the file was loaded: `r5_shared.rs` loaded through
+/// `#[path]` has its children beside it (`r5_leaf.rs`, harmless), loaded through `mod r5_shared;` it has them in
+/// `r5_shared/` (`r5_shared/r5_leaf.rs`, a production `ioi_pat_` mint). That mint reached only that way (and through a
+/// `#[cfg(test)]` path) is production code and fails the sweep.
+#[test]
+fn r5_major_2_a_file_loaded_through_path_and_through_mod_keeps_both_subtrees() {
+    let tree = tree_adding(
+        SERVICES_ROOT,
+        |text| {
+            format!(
+                "{text}\n#[path = \"r5_shared.rs\"]\nmod r5_first;\n\nmod r5_shared;\n\n#[cfg(test)]\n#[path = \"r5_shared/r5_leaf.rs\"]\nmod r5_fixture;\n"
+            )
+        },
+        &[
+            ("services/src/r5_shared.rs", "pub mod r5_leaf;\n"),
+            ("services/src/r5_leaf.rs", "pub fn harmless() {}\n"),
+            (
+                "services/src/r5_shared/r5_leaf.rs",
+                "pub fn bearer() -> String {\n    format!(\"ioi_pat_{}\", 7)\n}\n",
+            ),
+        ],
+    );
+    let violations = scan(&tree);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("r5_shared/r5_leaf.rs") && v.contains("ioi_pat_")),
+        "the production mint in the subtree only `mod r5_shared;` reaches fails the sweep: {violations:?}"
+    );
+}
+
+/// r5 MAJOR 3: `cfg_attr(not(test), path = ...)` selects the file a non-test build compiles, so `r5_hidden.rs` (an
+/// `ioi_pat_` mint) IS module `r5_selected` in production; that it is also reached through a `#[cfg(test)]` path does
+/// not make it test code, and the mint fails the sweep.
+#[test]
+fn r5_major_3_a_cfg_attr_path_selects_the_production_file() {
+    let tree = tree_adding(
+        SERVICES_ROOT,
+        |text| {
+            format!(
+                "{text}\n#[cfg_attr(not(test), path = \"r5_hidden.rs\")]\nmod r5_selected;\n\n#[cfg(test)]\n#[path = \"r5_hidden.rs\"]\nmod r5_fixture;\n"
+            )
+        },
+        &[
+            ("services/src/r5_selected.rs", "pub fn harmless() {}\n"),
+            (
+                "services/src/r5_hidden.rs",
+                "pub fn bearer() -> String {\n    format!(\"ioi_pat_{}\", 7)\n}\n",
+            ),
+        ],
+    );
+    let violations = scan(&tree);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("r5_hidden.rs") && v.contains("ioi_pat_")),
+        "the file a cfg_attr path selects for production is read as production: {violations:?}"
+    );
+}
+
+/// r5 MINOR: `include ! ("r5_a.rs")` (the whitespace spelling) is an include site: two otherwise unreferenced files,
+/// `r5_a.rs` (an expression) and `r5_z.rs` (a function including it), are a valid tree and no violation, whatever the
+/// order in which they are read.
+#[test]
+fn r5_minor_an_include_site_is_found_whatever_its_spelling_and_order() {
+    let tree = tree_adding(
+        SERVICES_ROOT,
+        |text| text.to_string(),
+        &[
+            ("services/src/r5_a.rs", "42u8\n"),
+            (
+                "services/src/r5_z.rs",
+                "fn harmless() {\n    let _ = include ! (\"r5_a.rs\");\n}\n",
+            ),
+        ],
+    );
+    let violations = scan(&tree);
+    assert!(
+        violations.is_empty(),
+        "an expression fragment included with the spelling `include !` is read at its include site: {violations:?}"
+    );
+}
