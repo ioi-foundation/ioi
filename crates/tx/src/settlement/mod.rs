@@ -115,6 +115,7 @@ where
             // [FIX] Correctly ignore unused fields
             SettlementPayload::Commit {
                 session_id,
+                provider_id: _,
                 bond_amount,
                 policy_hash: _,
                 receipt_root: _,
@@ -149,6 +150,7 @@ where
 
             SettlementPayload::Settle {
                 summary,
+                expires_at_height: _,
                 payer_sig: _,
                 provider_sig: _,
             } => {
@@ -296,3 +298,6 @@ where
             .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests;
