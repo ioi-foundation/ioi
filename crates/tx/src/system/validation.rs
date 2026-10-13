@@ -18,7 +18,7 @@ use ioi_types::service_configs::ActiveServiceMeta;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
 
 /// A centralized helper for verifying cryptographic signatures.
-fn verify_signature(
+pub(crate) fn verify_signature(
     suite: SignatureSuite,
     public_key: &[u8],
     message: &[u8],
@@ -142,7 +142,7 @@ pub fn get_signature_components(
 }
 
 /// Enforces the credential policy for a transaction signature.
-fn enforce_credential_policy(
+pub(crate) fn enforce_credential_policy(
     creds: &[Option<Credential>; 2],
     proof_suite: SignatureSuite,
     proof_pk_hash: &[u8; 32],
