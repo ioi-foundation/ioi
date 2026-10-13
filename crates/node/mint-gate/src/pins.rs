@@ -5,7 +5,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-/// One configuration the gate checks: a shipped feature set of ioi-node (or every feature).
+/// One configuration the gate checks: a shipped feature set of ioi-node, or one of the two builds
+/// that together enable every feature (ioi-node's commitment features exclude each other).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Config {
     pub name: String,

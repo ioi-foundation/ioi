@@ -13,9 +13,12 @@
 //!   callers are sites too. Its sha256, the inventoried packages' features and direct dependencies
 //!   and the CONFIGURATIONS are pinned in `deps.pin`: a dependency or feature change re-opens the
 //!   review, and a new feature fails until its configuration is added.
-//! - For EVERY pinned configuration (each shipped feature set of ioi-node, and every feature),
-//!   clippy runs over the production targets (ioi-node's binaries, ioi-services' library) and the
-//!   canary, `--message-format=json`, with `clippy::disallowed_methods` and `disallowed_types`
+//! - For EVERY pinned configuration (each shipped feature set of ioi-node, and every feature in
+//!   two builds, `all-hash` and `all-kzg`: ioi-node's commitment features are mutually exclusive,
+//!   so `--all-features` does not build; every feature and every production target must be in
+//!   some configuration), clippy runs over the production targets (ioi-node's binaries,
+//!   ioi-services' library) and the canary, `--message-format=json`, with
+//!   `clippy::disallowed_methods` and `disallowed_types`
 //!   FORCE-WARNED (an `#[allow]` cannot hide a use), `--no-deps` (dependencies are reviewed at their
 //!   public API instead) and `--cap-lints warn` (an in-source `deny` cannot abort the inventory).
 //!   Clippy reports every use by its RESOLVED path, through aliases, renamed imports, UFCS calls,
@@ -227,11 +230,10 @@ fn direct_deps(meta: &Value) -> Result<BTreeSet<String>, String> {
     Ok(out)
 }
 
-/// The targets a configuration must check, as `package kind name` labels, and the enabled
-/// features of ioi-node there.
-fn expected_targets(meta: &Value) -> Result<(BTreeSet<String>, BTreeSet<String>), String> {
-    let node = package(meta, NODE)?;
-    let enabled: BTreeSet<String> = resolve_node(meta, &node["id"])?["features"]
+/// The enabled features of a workspace package in a resolve, by name.
+fn enabled_features(meta: &Value, name: &str) -> Result<BTreeSet<String>, String> {
+    let package = package(meta, name)?;
+    Ok(resolve_node(meta, &package["id"])?["features"]
         .as_array()
         .map(|features| {
             features
@@ -239,7 +241,24 @@ fn expected_targets(meta: &Value) -> Result<(BTreeSet<String>, BTreeSet<String>)
                 .filter_map(|f| f.as_str().map(str::to_string))
                 .collect()
         })
-        .unwrap_or_default();
+        .unwrap_or_default())
+}
+
+/// The targets a configuration must check, as `package kind name` labels, and the enabled
+/// features of ioi-node and ioi-services there, as `package feature`. With `every_target`, an
+/// ioi-node target's required features are ignored: every production target is listed.
+fn expected_targets(
+    meta: &Value,
+    every_target: bool,
+) -> Result<(BTreeSet<String>, BTreeSet<String>), String> {
+    let enabled = enabled_features(meta, NODE)?;
+    let mut enabled_labels: BTreeSet<String> =
+        enabled.iter().map(|f| format!("{NODE} {f}")).collect();
+    enabled_labels.extend(
+        enabled_features(meta, SERVICES)?
+            .into_iter()
+            .map(|f| format!("{SERVICES} {f}")),
+    );
     let mut out = BTreeSet::new();
     for name in [NODE, SERVICES, CANARY] {
         for target in package(meta, name)?["targets"]
@@ -270,7 +289,7 @@ fn expected_targets(meta: &Value) -> Result<(BTreeSet<String>, BTreeSet<String>)
                         .collect()
                 })
                 .unwrap_or_default();
-            if name == NODE && required.iter().any(|f| !enabled.contains(f)) {
+            if !every_target && name == NODE && required.iter().any(|f| !enabled.contains(f)) {
                 continue;
             }
             out.insert(format!(
@@ -279,7 +298,7 @@ fn expected_targets(meta: &Value) -> Result<(BTreeSet<String>, BTreeSet<String>)
             ));
         }
     }
-    Ok((out, enabled))
+    Ok((out, enabled_labels))
 }
 
 // =================================================================================================
@@ -1018,10 +1037,12 @@ fn main() -> ExitCode {
             unshipped.push(format!("the distribution profile {profile}"));
         }
     }
-    if !pin.configs.iter().any(|c| c.spec == ConfigSpec::Default)
-        || !pin.configs.iter().any(|c| c.spec == ConfigSpec::All)
-    {
-        unshipped.push("the default build and the every-feature build".to_string());
+    // Every feature is covered by every_feature_is_compiled_in_some_configuration and every target
+    // by every_target_is_checked_in_some_configuration: ioi-node's commitment features are mutually
+    // exclusive (orchestration.rs picks its DefaultVerifier by one of them), so `--all-features`
+    // does not build and the every-feature build is two configurations (deps.pin).
+    if !pin.configs.iter().any(|c| c.spec == ConfigSpec::Default) {
+        unshipped.push("the default build".to_string());
     }
     verdicts.check(
         "every_shipped_feature_set_is_a_configuration",
@@ -1056,24 +1077,38 @@ fn main() -> ExitCode {
             Ok(meta) => meta,
             Err(error) => return cannot(&error),
         };
-        match expected_targets(&meta) {
+        match expected_targets(&meta, false) {
             Ok((targets, enabled)) => {
-                enabled_anywhere.extend(enabled.into_iter().map(|f| format!("{NODE} {f}")));
+                enabled_anywhere.extend(enabled);
                 expected.insert(config.name.clone(), targets);
             }
             Err(error) => return cannot(&error),
         }
         metas.insert(config.name.clone(), meta);
     }
-    let node_features_pinned: Vec<&String> = pin
+    let features_not_enabled: Vec<&String> = pin
         .features
         .iter()
-        .filter(|f| f.starts_with(&format!("{NODE} ")) && !enabled_anywhere.contains(*f))
+        .filter(|f| !enabled_anywhere.contains(*f))
         .collect();
     verdicts.check(
         "every_feature_is_compiled_in_some_configuration",
-        node_features_pinned.is_empty(),
-        &format!("ioi-node features no configuration enables: {node_features_pinned:?}"),
+        features_not_enabled.is_empty(),
+        &format!("features no configuration enables: {features_not_enabled:?}"),
+    );
+    let every_target = match expected_targets(&plain, true) {
+        Ok((targets, _)) => targets,
+        Err(error) => return cannot(&error),
+    };
+    let checked_somewhere: BTreeSet<&String> = expected.values().flatten().collect();
+    let targets_unchecked: Vec<&String> = every_target
+        .iter()
+        .filter(|t| !checked_somewhere.contains(t))
+        .collect();
+    verdicts.check(
+        "every_target_is_checked_in_some_configuration",
+        targets_unchecked.is_empty(),
+        &format!("production targets no configuration checks: {targets_unchecked:?}"),
     );
     if options.plan {
         for config in &configs {

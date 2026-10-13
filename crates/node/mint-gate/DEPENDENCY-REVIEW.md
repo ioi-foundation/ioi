@@ -105,3 +105,15 @@ A function of ioi-node or ioi-services whose RETURNED value is drawn makes every
 deny-list entry. Each is listed in `hand-outs.tsv` and as an own entry in `clippy.toml`, so its callers are sites:
 `lifecycle_routes::gen_opaque`, `lifecycle_routes::random_token`, `orchestration_routes::new_webhook_token`,
 `google_auth::random_url_safe_token`. The survey of every draw site extends this list.
+
+## Re-opened 2026-10-13: the every-feature build is two configurations
+
+`--all-features` does not build ioi-node: its commitment features are mutually exclusive (orchestration.rs picks its
+`DefaultVerifier` by `commitment-hash` or `commitment-kzg`; with both, the Verkle/KZG arm fails E0271, as S1-29E's run of
+the identical file and feature graph showed for the wire gate). `deps.pin` therefore replaces the configuration
+`all-features` with `all-hash` (every ioi-node feature whose closure does not enable `commitment-kzg`) and `all-kzg`
+(every one whose closure does not enable `commitment-hash`), each with every ioi-services feature. The review is
+re-confirmed for the new set with no change to it: the features and the direct dependencies (default and every feature)
+are the same lines, the deny list and its sha256 are unchanged, and the two configurations together enable every
+feature, so every optional dependency a feature enables is still compiled in some configuration. The gate checks that
+every feature is enabled, and every production target checked, in some configuration.

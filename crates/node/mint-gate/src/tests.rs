@@ -302,3 +302,45 @@ fn a_file_outside_the_tree_is_named_portably() {
     );
     assert_eq!(portable("crates/node/src/a.rs"), "crates/node/src/a.rs");
 }
+
+#[test]
+fn a_configuration_lists_its_targets_and_the_features_it_enables() {
+    let target = |kind: &str, name: &str, required: &[&str]| serde_json::json!({"kind": [kind], "name": name, "required-features": required});
+    let meta = serde_json::json!({
+        "packages": [
+            {"name": "ioi-node", "id": "n", "source": null, "targets": [
+                target("bin", "plain", &[]), target("bin", "kzg-only", &["commitment-kzg"])]},
+            {"name": "ioi-services", "id": "s", "source": null, "targets": [target("lib", "ioi_services", &[])]},
+            {"name": "ioi-node-mint-gate-canary", "id": "c", "source": null, "targets": [
+                target("bin", "mint-gate-canary", &[]), target("lib", "ioi_node_mint_gate_canary", &[])]},
+        ],
+        "resolve": {"nodes": [
+            {"id": "n", "features": ["commitment-hash"]},
+            {"id": "s", "features": ["agentic", "gas-escrow"]},
+            {"id": "c", "features": []},
+        ]}
+    });
+    let (targets, enabled) = expected_targets(&meta, false).expect("targets");
+    assert!(targets.contains("ioi-node bin plain"));
+    assert!(
+        !targets.contains("ioi-node bin kzg-only"),
+        "a binary whose required feature is off is not this configuration's: {targets:?}"
+    );
+    assert!(targets.contains("ioi-services lib ioi_services"));
+    assert!(targets.contains("ioi-node-mint-gate-canary bin mint-gate-canary"));
+    let want: BTreeSet<String> = [
+        "ioi-node commitment-hash",
+        "ioi-services agentic",
+        "ioi-services gas-escrow",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+    assert_eq!(enabled, want, "ioi-services' features count as enabled too");
+    let (every, _) = expected_targets(&meta, true).expect("every target");
+    assert!(
+        every.contains("ioi-node bin kzg-only"),
+        "every production target is listed whatever its required features: {every:?}"
+    );
+    assert_eq!(every.len(), targets.len() + 1);
+}
