@@ -5,18 +5,31 @@
 //! with a registered credential prefix (`ioi_mnt_`, `ioi_pat_`, `ioi_lease_`, `wec_`, `wbt_`, `whk_`, `idisp_`, …) used to
 //! build a value (`format!`, `+`, `.to_owned()`, `push_str`, `String::from`, `.join(`), and functions named like a credential
 //! (token, secret, bearer, key, verifier, state, nonce, jwt) that build a `<prefix>_`-shaped value. Each must be a
-//! registered (file, function, prefix, occurrence) or be reviewed by name; a registered function or file that disappears,
-//! a second mint of a prefix, and a mint built from a hash slice or a clock fail. It reads every file as TOKENS, through
-//! the tokenizer proc macros use (`proc_macro2`): comments are dropped and every literal (string, raw string, byte
-//! string, C string, char, byte char) is one opaque token; functions, their bodies and `#[cfg(test)]` items are found in
-//! the token tree, and every registered fragment is matched as a token sequence. The scanner section names the API
-//! discovery can build on (a function-local `const` is visible in a function's token range).
+//! registered (file, site, prefix, occurrence) or be reviewed by site; a registered function or file that disappears,
+//! a second mint of a prefix, and a mint built from a hash slice or a clock fail.
 //!
-//! WHAT IT GUARANTEES: AN INVENTORY. Every mint site it knows is named (file, function, prefix, occurrence, or a
+//! HOW IT READS THE SOURCE: the way the compiler does, with syn's FULL parser. From each crate root (`src/lib.rs`,
+//! `src/main.rs`, `src/bin/*.rs`, `src/bin/*/main.rs`) it follows every `mod` declaration (`#[path]` included, with the
+//! compiler's module-directory rules) and every `include!` (a fragment is parsed AT ITS INCLUDE SITE, as items in item
+//! position and as one expression inside a function, never standalone). What a non-test build never compiles is not
+//! production code: an item, statement, match arm or struct-literal field carrying a `cfg` that cannot hold without
+//! `test` (`#[cfg(test)]`, `#[cfg(all(test, …))]`), everything inside it, recursively, and a module file reached only
+//! through such a declaration. A file no root reaches is read standalone as a module; a file that parses neither as a
+//! module nor at a found `include!` site, and an `include!` or `mod` whose file is not in the tree, FAIL the sweep.
+//! Each function is identified by its SITE: its file, then the inline modules, the impl's self type (`Type`, or
+//! `<Type as Trait>`) or the trait, and any enclosing function inside that file's module, then its name (a free
+//! function at file level is just its name). Its body is its parsed block (`ItemFn`/`ImplItemFn`/`TraitItemFn`
+//! `.block`); a nested function is its own site; documentation (doc comments, `#[doc]`) is dropped everywhere. Inside
+//! a body every registered fragment is matched as a token sequence, through the tokenizer proc macros use
+//! (`proc_macro2`): comments are gone and every literal is one opaque token. The scanner section names the API
+//! discovery can build on (a function-local `const` is visible in a function's body tokens).
+//!
+//! WHAT IT GUARANTEES: AN INVENTORY. Every mint site it knows is named (file, site, prefix, occurrence, or a
 //! primitive's exact draw and building code), and removing or replacing a registered draw at its site is flagged: a
-//! primitive entry and a prefixed mint's registered draw (`fed_by`) are matched as token sequences in the function
-//! body's tokens, where no comment and no literal content can satisfy them, so a commented-out draw, or a copy of it in
-//! any literal, is a removed draw. It does NOT prove that the draw executes or that its output reaches the credential: a
+//! primitive entry and a prefixed mint's registered draw (`fed_by`) are matched as token sequences in the body of the
+//! ONE production function at the registered site (none, or more than one, is a violation), where no comment and no
+//! literal content can satisfy them, so a commented-out draw, a copy of it in any literal, or a same-named function
+//! elsewhere is a removed draw. It does NOT prove that the draw executes or that its output reaches the credential: a
 //! draw in a dead branch, a decoy copy beside a constant, and a buffer overwritten after the draw (`secret.fill(0)`) all
 //! pass this lint BY DESIGN (`a_dead_branch_or_decoy_draw_is_a_documented_lint_limit` pins that). The EXECUTION
 //! property is guarded BEHAVIOURALLY. NOW: the editor connection token, by preview_editor_lease_tokens.rs
@@ -28,11 +41,17 @@
 //! guard of BUILD-DELTA #42): a function-local `const` holding a registered prefix; a mint built by a helper in another file; a
 //! prefix assembled by a macro (`concat!`, `stringify!`) or at run time; a credential whose prefix is not in the list;
 //! a credential minted in a function whose name holds none of the keywords and no registered prefix; weak entropy at
-//! run time. A pass means none of the accidental shapes above was found, and nothing more.
+//! run time. Macro invocation bodies are tokens, not syntax: a function defined inside one is not a site (its prefixed
+//! literals are "outside any function"), and an `include!` inside one is not followed (its file is then read standalone,
+//! or fails). A `cfg` other than `test` (a feature, a platform) is read as production code. A pass means none of the
+//! accidental shapes above was found, and nothing more.
 
+use quote::ToTokens;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use syn::visit_mut::VisitMut;
 
 struct Mint {
     file: &'static str,
@@ -127,18 +146,19 @@ const DISCOVERY_REVIEWED: &[(&str, &str, &str)] = &[
 ];
 
 // ---------------------------------------------------------------------------------------------------------------
-// The scanner. It reads each source file as TOKENS, through the tokenizer proc macros use
-// (`proc_macro2::TokenStream::from_str`): comments are dropped and every literal (string, raw string, byte string, C
-// string, char, byte char, number) is ONE opaque token, so no comment and no literal content can satisfy anything it
-// matches. Its API, for discovery to build on: `file_tokens` (a file as a flat token sequence, each group opened and
-// closed in place), `functions` (each function's name and the token range of its body, nested functions included;
-// a function-local `const` is an ordinary statement inside that range), `test_items` (the `#[cfg(test)]` items),
-// `string_content` (a string literal's contents), `pattern` (a code fragment as a token sequence) and
-// `find_tokens` / `contains_tokens` (the token-sequence matcher). The tests feed it the real tree and planted
-// counterexamples.
+// The scanner. It reads the tree the way the compiler does, with syn's full parser (`parse_tree`): crate roots, `mod`
+// declarations (`#[path]` included) and `include!` sites are followed, what a non-test build never compiles is set
+// aside, and each production function becomes a `Func`: its file, its SITE (the registry's `function` field: inline
+// modules, impl self type or trait, enclosing functions, then its name, joined by `::`) and its body's TOKENS, through
+// the tokenizer proc macros use (`proc_macro2`): comments are dropped, documentation attributes are dropped, and every
+// literal (string, raw string, byte string, C string, char, byte char, number) is ONE opaque token, so no comment and
+// no literal content can satisfy anything it matches. Its API, for discovery to build on: `parse_tree` (a tree's
+// production functions, the tokens outside every function body, and the violations reading it), `string_content`
+// (a string literal's contents), `pattern` (a code fragment as a token sequence) and `find_tokens` /
+// `contains_tokens` (the token-sequence matcher). The tests feed it the real tree and planted counterexamples.
 // ---------------------------------------------------------------------------------------------------------------
 
-/// One token of a file. A group is flattened into its opening delimiter, its contents and its closing delimiter; a
+/// One token of a body. A group is flattened into its opening delimiter, its contents and its closing delimiter; a
 /// literal keeps its exact source text (quotes, prefixes and hashes included) and is never looked inside, except by
 /// `string_content`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -150,9 +170,37 @@ enum Tok {
     Close(char),
 }
 
+/// The length of a documentation attribute at the start of `trees` (`#[doc …]` or `#![doc …]`, which is what a doc
+/// comment becomes), or None.
+fn doc_attribute(trees: &[proc_macro2::TokenTree]) -> Option<usize> {
+    use proc_macro2::TokenTree;
+    let TokenTree::Punct(hash) = trees.first()? else {
+        return None;
+    };
+    if hash.as_char() != '#' {
+        return None;
+    }
+    let at = match trees.get(1)? {
+        TokenTree::Punct(bang) if bang.as_char() == '!' => 2,
+        _ => 1,
+    };
+    let TokenTree::Group(group) = trees.get(at)? else {
+        return None;
+    };
+    let is_doc = group.delimiter() == proc_macro2::Delimiter::Bracket
+        && matches!(group.stream().into_iter().next(), Some(TokenTree::Ident(ident)) if ident == "doc");
+    is_doc.then_some(at + 1)
+}
+
 fn flatten(stream: proc_macro2::TokenStream, out: &mut Vec<Tok>) {
-    for tree in stream {
-        match tree {
+    let trees: Vec<proc_macro2::TokenTree> = stream.into_iter().collect();
+    let mut at = 0;
+    while at < trees.len() {
+        if let Some(len) = doc_attribute(&trees[at..]) {
+            at += len;
+            continue;
+        }
+        match &trees[at] {
             proc_macro2::TokenTree::Ident(ident) => out.push(Tok::Ident(ident.to_string())),
             proc_macro2::TokenTree::Punct(punct) => out.push(Tok::Punct(punct.as_char())),
             proc_macro2::TokenTree::Literal(literal) => out.push(Tok::Lit(literal.to_string())),
@@ -168,10 +216,18 @@ fn flatten(stream: proc_macro2::TokenStream, out: &mut Vec<Tok>) {
                 out.push(Tok::Close(close));
             }
         }
+        at += 1;
     }
 }
 
-/// A file as a flat token sequence, or why it does not tokenize.
+/// A parsed node's tokens.
+fn tokens(node: &impl ToTokens) -> Vec<Tok> {
+    let mut out = Vec::new();
+    flatten(node.to_token_stream(), &mut out);
+    out
+}
+
+/// A code fragment as a token sequence, or why it does not tokenize.
 fn file_tokens(text: &str) -> Result<Vec<Tok>, String> {
     let stream = proc_macro2::TokenStream::from_str(text).map_err(|error| error.to_string())?;
     let mut out = Vec::new();
@@ -233,78 +289,821 @@ fn group_end(toks: &[Tok], open: usize) -> Option<usize> {
     None
 }
 
-/// The first brace group at this level from `from` (skipping other groups), or None when a `;` or the end of the
-/// enclosing group comes first.
-fn next_brace_group(toks: &[Tok], from: usize) -> Option<(usize, usize)> {
-    let mut depth = 0usize;
-    for (k, tok) in toks.iter().enumerate().skip(from) {
-        match tok {
-            Tok::Open('{') if depth == 0 => return group_end(toks, k).map(|end| (k, end)),
-            Tok::Open(_) => depth += 1,
-            Tok::Close(_) => {
-                if depth == 0 {
-                    return None;
-                }
-                depth -= 1;
+// ---- reading the tree the way the compiler does -----------------------------------------------------------------
+
+/// Whether a `cfg` predicate can hold in a non-test build: Some(false) when it needs `test` (or can never hold),
+/// Some(true) when it always holds, None when it depends on anything else (a feature, a platform).
+fn cfg_holds(meta: &syn::Meta) -> Option<bool> {
+    match meta {
+        syn::Meta::Path(path) if path.is_ident("test") => Some(false),
+        syn::Meta::List(list)
+            if ["all", "any", "not"]
+                .iter()
+                .any(|op| list.path.is_ident(op)) =>
+        {
+            let args = list
+                .parse_args_with(
+                    syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated,
+                )
+                .ok()?;
+            let values: Vec<Option<bool>> = args.iter().map(cfg_holds).collect();
+            if list.path.is_ident("not") {
+                return match values.as_slice() {
+                    [value] => value.map(|v| !v),
+                    _ => None,
+                };
             }
-            Tok::Punct(';') if depth == 0 => return None,
-            _ => {}
+            // all(): one false is false, all true is true; any(): one true is true, all false is false
+            let all = list.path.is_ident("all");
+            if values.contains(&Some(!all)) {
+                Some(!all)
+            } else if values.iter().all(|value| *value == Some(all)) {
+                Some(all)
+            } else {
+                None
+            }
         }
+        _ => None,
     }
-    None
 }
 
-/// A function with a body: its name and the token range of its body (the brace group after `fn <name>`, braces
-/// included).
+/// An item, statement, arm or field that a non-test build never compiles: it carries a `cfg` that cannot hold there.
+fn test_only(attrs: &[syn::Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        attr.path().is_ident("cfg")
+            && attr
+                .parse_args::<syn::Meta>()
+                .ok()
+                .and_then(|meta| cfg_holds(&meta))
+                == Some(false)
+    })
+}
+
+fn item_attrs(item: &syn::Item) -> &[syn::Attribute] {
+    match item {
+        syn::Item::Const(item) => &item.attrs,
+        syn::Item::Enum(item) => &item.attrs,
+        syn::Item::ExternCrate(item) => &item.attrs,
+        syn::Item::Fn(item) => &item.attrs,
+        syn::Item::ForeignMod(item) => &item.attrs,
+        syn::Item::Impl(item) => &item.attrs,
+        syn::Item::Macro(item) => &item.attrs,
+        syn::Item::Mod(item) => &item.attrs,
+        syn::Item::Static(item) => &item.attrs,
+        syn::Item::Struct(item) => &item.attrs,
+        syn::Item::Trait(item) => &item.attrs,
+        syn::Item::TraitAlias(item) => &item.attrs,
+        syn::Item::Type(item) => &item.attrs,
+        syn::Item::Union(item) => &item.attrs,
+        syn::Item::Use(item) => &item.attrs,
+        _ => &[],
+    }
+}
+
+fn impl_item_attrs(item: &syn::ImplItem) -> &[syn::Attribute] {
+    match item {
+        syn::ImplItem::Const(item) => &item.attrs,
+        syn::ImplItem::Fn(item) => &item.attrs,
+        syn::ImplItem::Type(item) => &item.attrs,
+        syn::ImplItem::Macro(item) => &item.attrs,
+        _ => &[],
+    }
+}
+
+fn trait_item_attrs(item: &syn::TraitItem) -> &[syn::Attribute] {
+    match item {
+        syn::TraitItem::Const(item) => &item.attrs,
+        syn::TraitItem::Fn(item) => &item.attrs,
+        syn::TraitItem::Type(item) => &item.attrs,
+        syn::TraitItem::Macro(item) => &item.attrs,
+        _ => &[],
+    }
+}
+
+fn expr_attrs(expr: &syn::Expr) -> &[syn::Attribute] {
+    use syn::Expr;
+    match expr {
+        Expr::Array(e) => &e.attrs,
+        Expr::Assign(e) => &e.attrs,
+        Expr::Async(e) => &e.attrs,
+        Expr::Await(e) => &e.attrs,
+        Expr::Binary(e) => &e.attrs,
+        Expr::Block(e) => &e.attrs,
+        Expr::Break(e) => &e.attrs,
+        Expr::Call(e) => &e.attrs,
+        Expr::Cast(e) => &e.attrs,
+        Expr::Closure(e) => &e.attrs,
+        Expr::Const(e) => &e.attrs,
+        Expr::Continue(e) => &e.attrs,
+        Expr::Field(e) => &e.attrs,
+        Expr::ForLoop(e) => &e.attrs,
+        Expr::Group(e) => &e.attrs,
+        Expr::If(e) => &e.attrs,
+        Expr::Index(e) => &e.attrs,
+        Expr::Infer(e) => &e.attrs,
+        Expr::Let(e) => &e.attrs,
+        Expr::Lit(e) => &e.attrs,
+        Expr::Loop(e) => &e.attrs,
+        Expr::Macro(e) => &e.attrs,
+        Expr::Match(e) => &e.attrs,
+        Expr::MethodCall(e) => &e.attrs,
+        Expr::Paren(e) => &e.attrs,
+        Expr::Path(e) => &e.attrs,
+        Expr::Range(e) => &e.attrs,
+        Expr::RawAddr(e) => &e.attrs,
+        Expr::Reference(e) => &e.attrs,
+        Expr::Repeat(e) => &e.attrs,
+        Expr::Return(e) => &e.attrs,
+        Expr::Struct(e) => &e.attrs,
+        Expr::Try(e) => &e.attrs,
+        Expr::TryBlock(e) => &e.attrs,
+        Expr::Tuple(e) => &e.attrs,
+        Expr::Unary(e) => &e.attrs,
+        Expr::Unsafe(e) => &e.attrs,
+        Expr::While(e) => &e.attrs,
+        Expr::Yield(e) => &e.attrs,
+        _ => &[],
+    }
+}
+
+/// A statement's attributes. syn puts an expression statement's attributes on the leftmost operand of an
+/// assignment, a binary operation or a cast.
+fn stmt_attrs(stmt: &syn::Stmt) -> &[syn::Attribute] {
+    match stmt {
+        syn::Stmt::Local(local) => &local.attrs,
+        syn::Stmt::Item(item) => item_attrs(item),
+        syn::Stmt::Macro(mac) => &mac.attrs,
+        syn::Stmt::Expr(expr, _) => {
+            let mut expr = expr;
+            loop {
+                expr = match expr {
+                    syn::Expr::Assign(e) => &e.left,
+                    syn::Expr::Binary(e) => &e.left,
+                    syn::Expr::Cast(e) => &e.expr,
+                    other => return expr_attrs(other),
+                };
+            }
+        }
+    }
+}
+
+/// An item inside a body that holds functions of its own (each its own site, never part of the body).
+fn holds_functions(item: &syn::Item) -> bool {
+    matches!(
+        item,
+        syn::Item::Fn(_) | syn::Item::Impl(_) | syn::Item::Trait(_) | syn::Item::Mod(_)
+    )
+}
+
+/// The path an `include!` (or `std::include!`, `core::include!`) names, as written; None for any other macro.
+fn include_path(mac: &syn::Macro) -> Option<Result<String, String>> {
+    let segments: Vec<String> = mac
+        .path
+        .segments
+        .iter()
+        .map(|segment| segment.ident.to_string())
+        .collect();
+    let is_include = match segments.as_slice() {
+        [only] => only == "include",
+        [root, last] => (root == "std" || root == "core") && last == "include",
+        _ => false,
+    };
+    is_include.then(|| {
+        mac.parse_body::<syn::LitStr>()
+            .map(|lit| lit.value())
+            .map_err(|error| error.to_string())
+    })
+}
+
+/// The first `#[path = "…"]` of a module declaration (the one the compiler uses).
+fn path_attr(attrs: &[syn::Attribute]) -> Option<String> {
+    let attr = attrs.iter().find(|attr| attr.path().is_ident("path"))?;
+    let syn::Meta::NameValue(pair) = &attr.meta else {
+        return None;
+    };
+    let syn::Expr::Lit(syn::ExprLit {
+        lit: syn::Lit::Str(path),
+        ..
+    }) = &pair.value
+    else {
+        return None;
+    };
+    Some(path.value())
+}
+
+fn parent(rel: &str) -> &str {
+    rel.rsplit_once('/').map_or("", |(dir, _)| dir)
+}
+
+/// `base` joined with a relative `path`, `.` and `..` resolved.
+fn join(base: &str, path: &str) -> String {
+    let mut parts: Vec<&str> = base.split('/').filter(|part| !part.is_empty()).collect();
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            part => parts.push(part),
+        }
+    }
+    parts.join("/")
+}
+
+fn ident_name(ident: &syn::Ident) -> String {
+    ident.to_string().trim_start_matches("r#").to_string()
+}
+
+/// A type or path as compact text (`Foo<T>`, `<Foo as Bar>`), for a site.
+fn compact(node: &impl ToTokens) -> String {
+    let text: Vec<char> = node.to_token_stream().to_string().chars().collect();
+    let word = |c: Option<&char>| c.is_some_and(|c| c.is_alphanumeric() || *c == '_' || *c == '\'');
+    let mut out = String::new();
+    for (k, c) in text.iter().enumerate() {
+        if *c == ' ' && !(word(out.chars().last().as_ref()) && word(text.get(k + 1))) {
+            continue;
+        }
+        out.push(*c);
+    }
+    out
+}
+
+fn impl_segment(imp: &syn::ItemImpl) -> String {
+    let ty = compact(&imp.self_ty);
+    match &imp.trait_ {
+        Some((negative, path, _)) => format!(
+            "<{ty} as {}{}>",
+            if negative.is_some() { "!" } else { "" },
+            compact(path)
+        ),
+        None => ty,
+    }
+}
+
+/// A crate root in the tree, at any depth (a crate may sit inside another's src): `…/src/lib.rs`, `…/src/main.rs`,
+/// `…/src/bin/*.rs` or `…/src/bin/*/main.rs`.
+fn crate_root(rel: &str) -> bool {
+    let parts: Vec<&str> = rel.split('/').collect();
+    match parts.as_slice() {
+        [.., "src", "lib.rs" | "main.rs"] => true,
+        [.., "src", "bin", file] => file.ends_with(".rs"),
+        [.., "src", "bin", _, "main.rs"] => true,
+        _ => false,
+    }
+}
+
+/// One production function as the compiler sees it.
 #[derive(Clone)]
 struct Func {
+    /// The file its definition's text is in.
+    file: String,
+    /// Its site inside that file's module: inline modules, an impl's self type (`Type`, or `<Type as Trait>`) or a
+    /// trait, enclosing functions, then its name, joined by `::` (a free function at file level is just its name).
+    site: String,
     name: String,
-    start: usize,
-    end: usize,
+    /// Its parsed block's tokens, braces included: each `include!` is replaced by its fragment's code; nested functions
+    /// (their own sites), what a non-test build never compiles, and documentation are left out.
+    body: Vec<Tok>,
 }
 
-/// Every function with a body, nested ones included, in token order.
-fn functions(toks: &[Tok]) -> Vec<Func> {
-    let mut out = Vec::new();
-    for at in 0..toks.len() {
-        let (Tok::Ident(keyword), Some(Tok::Ident(name))) = (&toks[at], toks.get(at + 1)) else {
-            continue;
-        };
-        if keyword != "fn" {
-            continue;
+/// A tree read as production code.
+#[derive(Default)]
+struct Tree {
+    funcs: Vec<Func>,
+    /// Tokens of production code outside every function body (a `const`, a `static`, an item macro, a signature).
+    outside: Vec<(String, Vec<Tok>)>,
+    /// Files that do not parse where production code reads them (a registered entry in one "cannot be read").
+    unreadable: BTreeSet<String>,
+    violations: Vec<String>,
+}
+
+/// Where a module's out-of-line submodules are found, as the compiler keeps it: a directory and, for a module file
+/// that is not a `mod.rs` (nor a crate root, nor loaded by `#[path]`), its own name as one more directory.
+#[derive(Clone)]
+struct ModDir {
+    dir: String,
+    relative: Option<String>,
+}
+
+/// What an item is read inside of: its module directory (None inside a function body, where `mod x;` cannot be),
+/// the site segments so far, and whether a non-test build never compiles it.
+#[derive(Clone)]
+struct Ctx {
+    dir: Option<ModDir>,
+    site: Vec<String>,
+    test: bool,
+}
+
+struct Walk<'a> {
+    files: &'a BTreeMap<String, &'a str>,
+    tree: Tree,
+    /// Every file read in some context (a module, or an `include!` site), test code included.
+    reached: BTreeSet<String>,
+    /// The module files walked as production code, and as test code, each once.
+    production: BTreeSet<String>,
+    test: BTreeSet<String>,
+    /// The `include!` chain being read: a fragment that includes itself is a violation, not a loop.
+    chain: Vec<String>,
+}
+
+impl Walk<'_> {
+    /// A violation in production code; test code is read only to reach the files it declares or includes.
+    fn violation(&mut self, test: bool, text: String) {
+        if !test {
+            self.tree.violations.push(text);
         }
-        if let Some((start, end)) = next_brace_group(toks, at + 2) {
-            out.push(Func {
-                name: name.trim_start_matches("r#").to_string(),
-                start,
-                end,
+    }
+
+    fn outside(&mut self, rel: &str, test: bool, node: &impl ToTokens) {
+        if !test {
+            self.tree.outside.push((rel.to_string(), tokens(node)));
+        }
+    }
+
+    fn module(&mut self, rel: &str, dir: ModDir, test: bool) {
+        let first = if test {
+            !self.production.contains(rel) && self.test.insert(rel.to_string())
+        } else {
+            self.production.insert(rel.to_string())
+        };
+        if !first {
+            return;
+        }
+        self.reached.insert(rel.to_string());
+        match syn::parse_file(self.files[rel]) {
+            Ok(file) => {
+                let test = test || test_only(&file.attrs);
+                let ctx = Ctx {
+                    dir: Some(dir),
+                    site: Vec::new(),
+                    test,
+                };
+                self.items(rel, &file.items, &ctx);
+            }
+            Err(error) => {
+                if !test {
+                    self.tree.unreadable.insert(rel.to_string());
+                }
+                self.violation(
+                    test,
+                    format!("{rel}: the module does not parse ({error}); the sweep cannot read it"),
+                );
+            }
+        }
+    }
+
+    fn items(&mut self, rel: &str, items: &[syn::Item], ctx: &Ctx) {
+        for item in items {
+            let here = Ctx {
+                test: ctx.test || test_only(item_attrs(item)),
+                ..ctx.clone()
+            };
+            match item {
+                syn::Item::Fn(function) => {
+                    let mut signature = function.clone();
+                    signature.block.stmts.clear();
+                    self.outside(rel, here.test, &signature);
+                    self.function(rel, &function.sig.ident, &function.block, &here);
+                }
+                syn::Item::Mod(module) => self.module_item(rel, module, &here),
+                syn::Item::Impl(imp) => {
+                    let mut shell = imp.clone();
+                    shell
+                        .items
+                        .retain(|member| !test_only(impl_item_attrs(member)));
+                    for member in &mut shell.items {
+                        if let syn::ImplItem::Fn(function) = member {
+                            function.block.stmts.clear();
+                        }
+                    }
+                    self.outside(rel, here.test, &shell);
+                    let site = [here.site.clone(), vec![impl_segment(imp)]].concat();
+                    for member in &imp.items {
+                        if let syn::ImplItem::Fn(function) = member {
+                            let inner = Ctx {
+                                dir: None,
+                                site: site.clone(),
+                                test: here.test || test_only(&function.attrs),
+                            };
+                            self.function(rel, &function.sig.ident, &function.block, &inner);
+                        }
+                    }
+                }
+                syn::Item::Trait(definition) => {
+                    let mut shell = definition.clone();
+                    shell
+                        .items
+                        .retain(|member| !test_only(trait_item_attrs(member)));
+                    for member in &mut shell.items {
+                        if let syn::TraitItem::Fn(function) = member {
+                            if let Some(block) = &mut function.default {
+                                block.stmts.clear();
+                            }
+                        }
+                    }
+                    self.outside(rel, here.test, &shell);
+                    let site = [here.site.clone(), vec![ident_name(&definition.ident)]].concat();
+                    for member in &definition.items {
+                        if let syn::TraitItem::Fn(function) = member {
+                            if let Some(block) = &function.default {
+                                let inner = Ctx {
+                                    dir: None,
+                                    site: site.clone(),
+                                    test: here.test || test_only(&function.attrs),
+                                };
+                                self.function(rel, &function.sig.ident, block, &inner);
+                            }
+                        }
+                    }
+                }
+                syn::Item::Macro(mac) if include_path(&mac.mac).is_some() => {
+                    self.include_items(rel, &mac.mac, &here)
+                }
+                other => self.outside(rel, here.test, other),
+            }
+        }
+    }
+
+    /// A `mod`: an inline one is read in place; an out-of-line one is found by the compiler's rules (`#[path]` relative
+    /// to the module directory; else `<name>.rs` or `<name>/mod.rs` under it) and read as its own module.
+    fn module_item(&mut self, rel: &str, module: &syn::ItemMod, ctx: &Ctx) {
+        let name = ident_name(&module.ident);
+        let path = path_attr(&module.attrs);
+        if let Some((_, items)) = &module.content {
+            let mut shell = module.clone();
+            if let Some((_, inner)) = &mut shell.content {
+                inner.clear();
+            }
+            self.outside(rel, ctx.test, &shell);
+            let dir = ctx.dir.as_ref().map(|dir| match &path {
+                Some(path) => ModDir {
+                    dir: join(&dir.dir, path),
+                    relative: None,
+                },
+                None => ModDir {
+                    dir: join(
+                        &join(&dir.dir, dir.relative.as_deref().unwrap_or("")),
+                        &name,
+                    ),
+                    relative: None,
+                },
+            });
+            let inner = Ctx {
+                dir,
+                site: [ctx.site.clone(), vec![name]].concat(),
+                test: ctx.test,
+            };
+            self.items(rel, items, &inner);
+            return;
+        }
+        self.outside(rel, ctx.test, module);
+        let Some(dir) = &ctx.dir else {
+            self.violation(
+                ctx.test,
+                format!("{rel}: `mod {name};` inside a function body; the sweep cannot read it"),
+            );
+            return;
+        };
+        let (target, child) = match path {
+            Some(path) => {
+                let target = join(&dir.dir, &path);
+                let child = ModDir {
+                    dir: parent(&target).to_string(),
+                    relative: None,
+                };
+                (target, child)
+            }
+            None => {
+                let base = join(&dir.dir, dir.relative.as_deref().unwrap_or(""));
+                let primary = join(&base, &format!("{name}.rs"));
+                let secondary = join(&base, &format!("{name}/mod.rs"));
+                match (
+                    self.files.contains_key(&primary),
+                    self.files.contains_key(&secondary),
+                ) {
+                    (true, false) => {
+                        let child = ModDir {
+                            dir: parent(&primary).to_string(),
+                            relative: Some(name.clone()),
+                        };
+                        (primary, child)
+                    }
+                    (false, true) => {
+                        let child = ModDir {
+                            dir: parent(&secondary).to_string(),
+                            relative: None,
+                        };
+                        (secondary, child)
+                    }
+                    (true, true) => {
+                        self.violation(
+                            ctx.test,
+                            format!("{rel}: `mod {name};` names both {primary} and {secondary}"),
+                        );
+                        return;
+                    }
+                    (false, false) => {
+                        self.violation(ctx.test, format!("{rel}: `mod {name};` names {primary} or {secondary}, and neither is in the tree; the sweep cannot read it"));
+                        return;
+                    }
+                }
+            }
+        };
+        if !self.files.contains_key(&target) {
+            self.violation(
+                ctx.test,
+                format!("{rel}: `mod {name};` names {target}, which is not in the tree; the sweep cannot read it"),
+            );
+            return;
+        }
+        self.module(&target, child, ctx.test);
+    }
+
+    /// The file an `include!` in `rel` names, now reached; None (with a violation) when its path is not a literal,
+    /// its file is not in the tree, or it is already being included.
+    fn fragment(&mut self, rel: &str, mac: &syn::Macro, test: bool) -> Option<String> {
+        let path = match include_path(mac)? {
+            Ok(path) if !path.starts_with('/') => path,
+            Ok(path) => {
+                self.violation(
+                    test,
+                    format!(
+                        "{rel}: include!({path:?}) is an absolute path; the sweep cannot read it"
+                    ),
+                );
+                return None;
+            }
+            Err(error) => {
+                self.violation(test, format!("{rel}: an include! whose path is not a string literal ({error}); the sweep cannot read it"));
+                return None;
+            }
+        };
+        let target = join(parent(rel), &path);
+        if !self.files.contains_key(&target) {
+            self.violation(test, format!("{rel}: include!({path:?}) names {target}, which is not in the tree; the sweep cannot read it"));
+            return None;
+        }
+        if self.chain.contains(&target) {
+            self.violation(
+                test,
+                format!("{rel}: include!({path:?}) includes {target} inside itself"),
+            );
+            return None;
+        }
+        self.reached.insert(target.clone());
+        Some(target)
+    }
+
+    /// An `include!` in item position: its fragment is read as items of the including module, at the include site.
+    /// As the compiler does, a `mod` declaration inside the fragment is found from the FRAGMENT's directory.
+    fn include_items(&mut self, rel: &str, mac: &syn::Macro, ctx: &Ctx) {
+        let Some(target) = self.fragment(rel, mac, ctx.test) else {
+            return;
+        };
+        match syn::parse_file(self.files[&target]) {
+            Ok(file) => {
+                let inner = Ctx {
+                    dir: ctx.dir.as_ref().map(|_| ModDir {
+                        dir: parent(&target).to_string(),
+                        relative: None,
+                    }),
+                    ..ctx.clone()
+                };
+                self.chain.push(target.clone());
+                self.items(&target, &file.items, &inner);
+                self.chain.pop();
+            }
+            Err(error) => {
+                if !ctx.test {
+                    self.tree.unreadable.insert(target.clone());
+                }
+                self.violation(ctx.test, format!("{target}: the fragment does not parse as items at its include! site in {rel} ({error}); the sweep cannot read it"));
+            }
+        }
+    }
+
+    fn function(&mut self, rel: &str, ident: &syn::Ident, block: &syn::Block, ctx: &Ctx) {
+        let name = ident_name(ident);
+        let site = [ctx.site.clone(), vec![name.clone()]].concat();
+        let mut body = block.clone();
+        let nested = {
+            let mut prune = Prune {
+                walk: self,
+                files: vec![rel.to_string()],
+                test: ctx.test,
+                nested: Vec::new(),
+            };
+            prune.visit_block_mut(&mut body);
+            prune.nested
+        };
+        if !ctx.test {
+            self.tree.funcs.push(Func {
+                file: rel.to_string(),
+                site: site.join("::"),
+                name,
+                body: tokens(&body),
             });
         }
-    }
-    out
-}
-
-/// The token ranges of `#[cfg(test)]` items: from the attribute through the item's brace group.
-fn test_items(toks: &[Tok]) -> Vec<(usize, usize)> {
-    let attribute = pattern("#[cfg(test)]");
-    let mut out = Vec::new();
-    let mut from = 0;
-    while let Some(rel) = find_tokens(&toks[from..], &attribute) {
-        let at = from + rel;
-        from = at + attribute.len();
-        if let Some((_, end)) = next_brace_group(toks, from) {
-            out.push((at, end));
+        for (file, test, item) in nested {
+            let inner = Ctx {
+                dir: None,
+                site: site.clone(),
+                test,
+            };
+            self.items(&file, std::slice::from_ref(&item), &inner);
         }
     }
-    out
 }
 
-fn enclosing(funcs: &[Func], at: usize) -> Option<&Func> {
-    funcs
-        .iter()
-        .filter(|f| f.start <= at && at < f.end)
-        .min_by_key(|f| f.end - f.start)
+/// Builds a function body the way the compiler does: each `include!` in statement or expression position is replaced
+/// by its fragment parsed as one expression (and read in the fragment's file); what a non-test build never compiles
+/// (a statement, match arm or struct-literal field with a `cfg` that cannot hold) is read as test code and left out;
+/// a nested item that holds functions is set aside as its own site.
+struct Prune<'w, 'a> {
+    walk: &'w mut Walk<'a>,
+    /// The file whose text is being read: the function's, or a fragment an `include!` spliced in.
+    files: Vec<String>,
+    test: bool,
+    /// Items inside the body that hold functions: (file, test, item).
+    nested: Vec<(String, bool, syn::Item)>,
 }
+
+impl Prune<'_, '_> {
+    fn file(&self) -> String {
+        self.files.last().cloned().unwrap_or_default()
+    }
+
+    /// Read a node as test code: its `include!` files are reached and its nested items walked as test code.
+    fn as_test(&mut self, read: impl FnOnce(&mut Self)) {
+        let was = self.test;
+        self.test = true;
+        read(self);
+        self.test = was;
+    }
+
+    /// The fragment an `include!` in expression position names, parsed as one expression and read in its own file.
+    fn spliced(&mut self, mac: &syn::Macro) -> Option<syn::Expr> {
+        let rel = self.file();
+        let target = self.walk.fragment(&rel, mac, self.test)?;
+        match syn::parse_str::<syn::Expr>(self.walk.files[&target]) {
+            Ok(mut expr) => {
+                self.walk.chain.push(target.clone());
+                self.files.push(target);
+                self.visit_expr_mut(&mut expr);
+                self.files.pop();
+                self.walk.chain.pop();
+                Some(expr)
+            }
+            Err(error) => {
+                if !self.test {
+                    self.walk.tree.unreadable.insert(target.clone());
+                }
+                self.walk.violation(self.test, format!("{target}: the fragment does not parse as an expression at its include! site in {rel} ({error}); the sweep cannot read it"));
+                None
+            }
+        }
+    }
+}
+
+impl VisitMut for Prune<'_, '_> {
+    fn visit_block_mut(&mut self, block: &mut syn::Block) {
+        for stmt in std::mem::take(&mut block.stmts) {
+            if !self.test && test_only(stmt_attrs(&stmt)) {
+                // read in a block of its own, so its include! sites and nested items are reached as test code
+                let mut alone = syn::Block {
+                    brace_token: Default::default(),
+                    stmts: vec![stmt],
+                };
+                self.as_test(|prune| prune.visit_block_mut(&mut alone));
+                continue;
+            }
+            match stmt {
+                syn::Stmt::Item(item) if holds_functions(&item) => {
+                    let file = self.file();
+                    self.nested.push((file, self.test, item));
+                }
+                syn::Stmt::Macro(mac) if include_path(&mac.mac).is_some() => {
+                    match self.spliced(&mac.mac) {
+                        Some(expr) => block.stmts.push(syn::Stmt::Expr(expr, mac.semi_token)),
+                        None => block.stmts.push(syn::Stmt::Macro(mac)),
+                    }
+                }
+                mut other => {
+                    self.visit_stmt_mut(&mut other);
+                    block.stmts.push(other);
+                }
+            }
+        }
+    }
+
+    fn visit_expr_mut(&mut self, expr: &mut syn::Expr) {
+        let include = match &*expr {
+            syn::Expr::Macro(mac) if include_path(&mac.mac).is_some() => Some(mac.mac.clone()),
+            _ => None,
+        };
+        match include {
+            Some(mac) => {
+                if let Some(spliced) = self.spliced(&mac) {
+                    *expr = spliced;
+                }
+            }
+            None => syn::visit_mut::visit_expr_mut(self, expr),
+        }
+    }
+
+    fn visit_expr_match_mut(&mut self, node: &mut syn::ExprMatch) {
+        if !self.test {
+            let (kept, dropped): (Vec<syn::Arm>, Vec<syn::Arm>) = std::mem::take(&mut node.arms)
+                .into_iter()
+                .partition(|arm| !test_only(&arm.attrs));
+            node.arms = kept;
+            for mut arm in dropped {
+                self.as_test(|prune| prune.visit_arm_mut(&mut arm));
+            }
+        }
+        syn::visit_mut::visit_expr_match_mut(self, node);
+    }
+
+    fn visit_expr_struct_mut(&mut self, node: &mut syn::ExprStruct) {
+        if !self.test {
+            for pair in std::mem::take(&mut node.fields).into_pairs() {
+                let (mut field, comma) = pair.into_tuple();
+                if test_only(&field.attrs) {
+                    self.as_test(|prune| prune.visit_field_value_mut(&mut field));
+                    continue;
+                }
+                node.fields.push_value(field);
+                if let Some(comma) = comma {
+                    node.fields.push_punct(comma);
+                }
+            }
+        }
+        syn::visit_mut::visit_expr_struct_mut(self, node);
+    }
+}
+
+/// The tree read as production code: from each crate root, then each file no root reached, standalone. syn's parser
+/// recurses with the source's nesting, so it reads on a thread of its own with a large stack.
+fn parse_tree(files: &[(String, String)]) -> Tree {
+    std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .name("parse_tree".to_string())
+            .stack_size(512 << 20)
+            .spawn_scoped(scope, || read_tree(files))
+            .expect("the parse thread starts")
+            .join()
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+    })
+}
+
+fn read_tree(files: &[(String, String)]) -> Tree {
+    let map: BTreeMap<String, &str> = files
+        .iter()
+        .map(|(rel, text)| (rel.clone(), text.as_str()))
+        .collect();
+    let mut walk = Walk {
+        files: &map,
+        tree: Tree::default(),
+        reached: BTreeSet::new(),
+        production: BTreeSet::new(),
+        test: BTreeSet::new(),
+        chain: Vec::new(),
+    };
+    for rel in map.keys().filter(|rel| crate_root(rel)) {
+        let dir = ModDir {
+            dir: parent(rel).to_string(),
+            relative: None,
+        };
+        walk.module(rel, dir, false);
+    }
+    // A file no root reaches is read as `mod <name>;` would load it; one that may include others goes first, so a
+    // fragment it includes is read at its include site, not standalone.
+    let mut orphans: Vec<&String> = map
+        .keys()
+        .filter(|rel| !walk.reached.contains(*rel))
+        .collect();
+    orphans.sort_by_key(|rel| !map[*rel].contains("include!"));
+    for rel in orphans {
+        if walk.reached.contains(rel) {
+            continue;
+        }
+        if let Err(error) = syn::parse_file(map[rel]) {
+            walk.reached.insert(rel.clone());
+            walk.tree.unreadable.insert(rel.clone());
+            walk.tree.violations.push(format!("{rel}: the file parses neither as a module nor at a found include! site ({error}); the sweep cannot read it"));
+            continue;
+        }
+        let stem = rel.rsplit('/').next().unwrap_or("").trim_end_matches(".rs");
+        let dir = ModDir {
+            dir: parent(rel).to_string(),
+            relative: (!["mod", "lib", "main"].contains(&stem)).then(|| stem.to_string()),
+        };
+        walk.module(rel, dir, false);
+    }
+    walk.tree
+}
+
+// ---- the sweep ----------------------------------------------------------------------------------------------------
 
 /// A string literal's contents (`"…"`, `r"…"`, `r#"…"#`, and the byte and C forms of each), or None for any other
 /// literal.
@@ -362,7 +1161,6 @@ fn statement_around(toks: &[Tok], at: usize, range: (usize, usize)) -> (usize, u
 
 struct Candidate {
     prefix: &'static str,
-    func: Option<Func>,
     statement: (usize, usize),
 }
 
@@ -409,8 +1207,8 @@ fn is_comparing(statement: &[Tok]) -> bool {
         .any(|p| contains_tokens(statement, p))
 }
 
-/// Every string literal that starts with a registered prefix and is used to BUILD a value (not to compare against one).
-fn candidates(toks: &[Tok], funcs: &[Func], tests: &[(usize, usize)]) -> Vec<Candidate> {
+/// Every string literal in `toks` that starts with a registered prefix: (position, prefix, contents).
+fn prefixed_literals(toks: &[Tok]) -> Vec<(usize, &'static str, &str)> {
     let mut out = Vec::new();
     for (at, tok) in toks.iter().enumerate() {
         let Tok::Lit(lit) = tok else {
@@ -419,36 +1217,35 @@ fn candidates(toks: &[Tok], funcs: &[Func], tests: &[(usize, usize)]) -> Vec<Can
         let Some(content) = string_content(lit) else {
             continue;
         };
-        let Some(prefix) = PREFIXES.iter().find(|p| content.starts_with(**p)) else {
-            continue;
-        };
-        if tests.iter().any(|(a, b)| *a <= at && at < *b) {
-            continue;
+        if let Some(prefix) = PREFIXES.iter().find(|p| content.starts_with(**p)) {
+            out.push((at, *prefix, content));
         }
-        let func = enclosing(funcs, at).cloned();
-        let range = func.as_ref().map_or((0, toks.len()), |f| (f.start, f.end));
-        let statement = statement_around(toks, at, range);
-        let stmt = &toks[statement.0..statement.1];
-        let building = content.contains('{') || is_building(stmt);
-        let comparing = is_comparing(stmt);
-        if func.is_some() && (!building || (comparing && !content.contains('{'))) {
-            continue;
-        }
-        out.push(Candidate {
-            prefix,
-            func,
-            statement,
-        });
     }
     out
 }
 
-/// String literals shaped like `<word>_` or `<word>_{..}` inside a function, used to BUILD a value: prefixes this lint
-/// was not told about.
-fn shaped_prefixes(toks: &[Tok], func: &Func) -> Vec<String> {
+/// Every prefixed string literal in a function body that is used to BUILD a value (not to compare against one).
+fn candidates(body: &[Tok]) -> Vec<Candidate> {
     let mut out = Vec::new();
-    for at in func.start..func.end {
-        let Tok::Lit(lit) = &toks[at] else {
+    for (at, prefix, content) in prefixed_literals(body) {
+        let statement = statement_around(body, at, (0, body.len()));
+        let stmt = &body[statement.0..statement.1];
+        let building = content.contains('{') || is_building(stmt);
+        let comparing = is_comparing(stmt);
+        if !building || (comparing && !content.contains('{')) {
+            continue;
+        }
+        out.push(Candidate { prefix, statement });
+    }
+    out
+}
+
+/// String literals shaped like `<word>_` or `<word>_{..}` in a function body, used to BUILD a value: prefixes this
+/// lint was not told about.
+fn shaped_prefixes(body: &[Tok]) -> Vec<String> {
+    let mut out = Vec::new();
+    for (at, tok) in body.iter().enumerate() {
+        let Tok::Lit(lit) = tok else {
             continue;
         };
         let Some(content) = string_content(lit) else {
@@ -466,8 +1263,8 @@ fn shaped_prefixes(toks: &[Tok], func: &Func) -> Vec<String> {
             continue;
         }
         if !content.contains('{') {
-            let (a, z) = statement_around(toks, at, (func.start, func.end));
-            let stmt = &toks[a..z];
+            let (a, z) = statement_around(body, at, (0, body.len()));
+            let stmt = &body[a..z];
             if !is_building(stmt) || is_comparing(stmt) {
                 continue;
             }
@@ -493,135 +1290,115 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
         .iter()
         .map(|fragment| (*fragment, pattern(fragment)))
         .collect();
-    let mut violations = Vec::new();
-    let mut found: Vec<(String, String, String, usize)> = Vec::new(); // (file, function, prefix, occurrences)
-    let mut non_mints_built: Vec<(String, String)> = Vec::new(); // (file, function) of reviewed non-mints seen
-    let mut tokenized: Vec<(String, Vec<Tok>, Vec<Func>)> = Vec::new();
-    for (rel, text) in files {
-        let toks = match file_tokens(text) {
-            Ok(toks) => toks,
-            Err(error) => {
-                violations.push(format!(
-                    "{rel}: the file does not tokenize ({error}); the sweep cannot read it"
-                ));
-                continue;
-            }
-        };
-        let funcs = functions(&toks);
-        let tests = test_items(&toks);
-        // 1. every mint candidate against the registry, by (file, function, prefix, nth)
-        let mut seen: Vec<(String, String, usize)> = Vec::new();
-        for cand in candidates(&toks, &funcs, &tests) {
-            let Some(func) = cand.func.clone() else {
-                violations.push(format!("{rel}: `{}…` is held outside any function (a const or static): register the mint that uses it", cand.prefix));
-                continue;
-            };
-            let nth = seen
-                .iter()
-                .filter(|(f, p, _)| *f == func.name && p == cand.prefix)
-                .count();
-            seen.push((func.name.clone(), cand.prefix.to_string(), nth));
+    let tree = parse_tree(files);
+    let mut violations = tree.violations.clone();
+    let mut found: Vec<(String, String, String, usize)> = Vec::new(); // (file, site, prefix, occurrences)
+    let mut non_mints_built: Vec<(String, String)> = Vec::new(); // (file, site) of reviewed non-mints seen
+
+    // 1. a registered prefix held outside every function body
+    for (rel, toks) in &tree.outside {
+        for (_, prefix, _) in prefixed_literals(toks) {
+            violations.push(format!("{rel}: `{prefix}…` is held outside any function (a const or static): register the mint that uses it"));
+        }
+    }
+    for func in &tree.funcs {
+        let (rel, site, toks) = (&func.file, &func.site, &func.body);
+        // 2. every mint candidate against the registry, by (file, site, prefix, nth)
+        let mut seen: Vec<String> = Vec::new(); // the prefix of each candidate, in order
+        for cand in candidates(toks) {
+            let nth = seen.iter().filter(|p| *p == cand.prefix).count();
+            seen.push(cand.prefix.to_string());
             let statement = &toks[cand.statement.0..cand.statement.1];
             if let Some(non_mint) = REVIEWED_NON_MINTS
                 .iter()
-                .find(|n| n.file == rel && n.function == func.name && n.prefix == cand.prefix)
+                .find(|n| n.file == rel && n.function == site && n.prefix == cand.prefix)
             {
                 if nth > 0 {
-                    violations.push(format!("{rel}: `{}` builds `{}…` more than once; only one reviewed non-mint is accepted there", func.name, cand.prefix));
+                    violations.push(format!("{rel}: `{site}` builds `{}…` more than once; only one reviewed non-mint is accepted there", cand.prefix));
                 } else if !contains_tokens(statement, &pattern(non_mint.statement)) {
                     violations.push(format!(
-                        "{rel}: `{}` builds `{}…` other than by its reviewed statement {:?}",
-                        func.name, cand.prefix, non_mint.statement
+                        "{rel}: `{site}` builds `{}…` other than by its reviewed statement {:?}",
+                        cand.prefix, non_mint.statement
                     ));
                 } else {
-                    non_mints_built.push((rel.clone(), func.name.clone()));
+                    non_mints_built.push((rel.clone(), site.clone()));
                 }
                 continue;
             }
             let Some(mint) = MINTS.iter().find(|m| {
-                m.file == rel && m.function == func.name && m.prefix == cand.prefix && m.nth == nth
+                m.file == rel && m.function == site && m.prefix == cand.prefix && m.nth == nth
             }) else {
                 let known = MINTS
                     .iter()
-                    .any(|m| m.file == rel && m.function == func.name && m.prefix == cand.prefix);
+                    .any(|m| m.file == rel && m.function == site && m.prefix == cand.prefix);
                 violations.push(if known {
                     format!(
-                        "{rel}: `{}` mints `{}…` more times than the registry says (occurrence {})",
-                        func.name,
+                        "{rel}: `{site}` mints `{}…` more times than the registry says (occurrence {})",
                         cand.prefix,
                         nth + 1
                     )
                 } else {
                     format!(
-                        "{rel}: `{}…` is minted in `{}`, which is not a registered minting site",
-                        cand.prefix, func.name
+                        "{rel}: `{}…` is minted in `{site}`, which is not a registered minting site",
+                        cand.prefix
                     )
                 });
                 continue;
             };
             if !contains_tokens(statement, &pattern(mint.inline)) {
                 violations.push(format!(
-                    "{rel}: the `{}…` mint in `{}` is not formed from its registered source {:?}",
-                    cand.prefix, func.name, mint.inline
+                    "{rel}: the `{}…` mint in `{site}` is not formed from its registered source {:?}",
+                    cand.prefix, mint.inline
                 ));
             }
-            if !mint.fed_by.is_empty() {
-                let before = &toks[func.start..cand.statement.0.max(func.start)];
-                if !contains_tokens(before, &pattern(mint.fed_by)) {
-                    violations.push(format!(
-                        "{rel}: the `{}…` mint in `{}` is not preceded by its registered draw {:?}",
-                        cand.prefix, func.name, mint.fed_by
-                    ));
-                }
+            if !mint.fed_by.is_empty()
+                && !contains_tokens(&toks[..cand.statement.0], &pattern(mint.fed_by))
+            {
+                violations.push(format!(
+                    "{rel}: the `{}…` mint in `{site}` is not preceded by its registered draw {:?}",
+                    cand.prefix, mint.fed_by
+                ));
             }
             for (fragment, tokens) in &forbidden {
                 if contains_tokens(statement, tokens) && !mint.tolerates.contains(fragment) {
                     violations.push(format!(
-                        "{rel}: the `{}…` mint in `{}` is built from a derivation ({fragment:?})",
-                        cand.prefix, func.name
+                        "{rel}: the `{}…` mint in `{site}` is built from a derivation ({fragment:?})",
+                        cand.prefix
                     ));
                 }
             }
         }
-        for (name, prefix, _) in &seen {
+        for prefix in &seen {
             if let Some(entry) = found
                 .iter_mut()
-                .find(|(f, n, p, _)| f == rel && n == name && p == prefix)
+                .find(|(f, s, p, _)| f == rel && s == site && p == prefix)
             {
                 entry.3 += 1;
             } else {
-                found.push((rel.clone(), name.clone(), prefix.clone(), 1));
+                found.push((rel.clone(), site.clone(), prefix.clone(), 1));
             }
         }
-        // 2. discovery: a credential-named function that builds a prefix-shaped value is registered or reviewed by name
-        for func in &funcs {
-            let lower = func.name.to_lowercase();
-            if !DISCOVERY_NAMES.iter().any(|w| lower.contains(w))
-                || tests
-                    .iter()
-                    .any(|(a, b)| *a <= func.start && func.start < *b)
-            {
-                continue;
-            }
-            for head in shaped_prefixes(&toks, func) {
-                let registered = MINTS
-                    .iter()
-                    .any(|m| m.file == rel && m.function == func.name && m.prefix == head);
-                let reviewed = DISCOVERY_REVIEWED
-                    .iter()
-                    .any(|(f, n, _)| *f == rel && *n == func.name);
-                if !registered && !reviewed {
-                    violations.push(format!(
-                        "{rel}: `{}` builds a `{head}…` value and is neither registered nor reviewed",
-                        func.name
-                    ));
-                }
+        // 3. discovery: a credential-named function that builds a prefix-shaped value is registered or reviewed by site
+        let lower = func.name.to_lowercase();
+        if !DISCOVERY_NAMES.iter().any(|w| lower.contains(w)) {
+            continue;
+        }
+        for head in shaped_prefixes(toks) {
+            let registered = MINTS
+                .iter()
+                .any(|m| m.file == rel && m.function == site && m.prefix == head);
+            let reviewed = DISCOVERY_REVIEWED
+                .iter()
+                .any(|(f, s, _)| f == rel && s == site);
+            if !registered && !reviewed {
+                violations.push(format!(
+                    "{rel}: `{site}` builds a `{head}…` value and is neither registered nor reviewed"
+                ));
             }
         }
-        tokenized.push((rel.clone(), toks, funcs));
     }
-    // 3. the registry against the tree: every registered file and function exists, every registered mint is found,
-    // and every reviewed non-mint is still built where it was reviewed
+    // 4. the registry against the tree: every registered file and site exists as exactly one production function,
+    // every registered mint is found, and every reviewed non-mint is still built where it was reviewed
     for non_mint in REVIEWED_NON_MINTS {
         if !files.iter().any(|(rel, _)| rel == non_mint.file) {
             violations.push(format!(
@@ -630,7 +1407,7 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
             ));
         } else if !non_mints_built
             .iter()
-            .any(|(f, n)| f == non_mint.file && n == non_mint.function)
+            .any(|(f, s)| f == non_mint.file && s == non_mint.function)
         {
             violations.push(format!(
                 "{}: the reviewed non-mint `{}` no longer builds `{}…` by {:?} ({}): remove it",
@@ -644,33 +1421,49 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
     }
     let mut missing_files: Vec<&str> = Vec::new();
     for mint in MINTS {
-        if !files.iter().any(|(rel, _)| rel == mint.file) {
-            if !missing_files.contains(&mint.file) {
-                missing_files.push(mint.file);
+        let rel = mint.file;
+        if !files.iter().any(|(r, _)| r == rel) {
+            if !missing_files.contains(&rel) {
+                missing_files.push(rel);
                 violations.push(format!(
-                    "{}: the registered file is missing from the tree",
-                    mint.file
+                    "{rel}: the registered file is missing from the tree"
                 ));
             }
             continue;
         }
-        let Some((rel, toks, funcs)) = tokenized.iter().find(|(rel, _, _)| rel == mint.file) else {
-            violations.push(format!(
-                "{}: the registered minting function `{}` cannot be read: its file does not tokenize",
-                mint.file, mint.function
-            ));
-            continue;
-        };
-        let Some(func) = funcs.iter().find(|f| f.name == mint.function) else {
-            violations.push(format!(
-                "{rel}: the registered minting function `{}` no longer exists",
-                mint.function
-            ));
-            continue;
+        let sites: Vec<&Func> = tree
+            .funcs
+            .iter()
+            .filter(|f| f.file == rel && f.site == mint.function)
+            .collect();
+        let func = match sites.as_slice() {
+            [func] => *func,
+            [] if tree.unreadable.contains(rel) => {
+                violations.push(format!(
+                    "{rel}: the registered minting function `{}` cannot be read: its file does not parse",
+                    mint.function
+                ));
+                continue;
+            }
+            [] => {
+                violations.push(format!(
+                    "{rel}: the registered minting function `{}` no longer exists",
+                    mint.function
+                ));
+                continue;
+            }
+            many => {
+                violations.push(format!(
+                    "{rel}: the registered minting function `{}` is {} production functions at that site; the registry cannot tell which one mints",
+                    mint.function,
+                    many.len()
+                ));
+                continue;
+            }
         };
         if mint.prefix.is_empty() {
             // The function body's tokens: a primitive's draw in a comment or inside any literal is not a draw.
-            if !contains_tokens(&toks[func.start..func.end], &pattern(mint.inline)) {
+            if !contains_tokens(&func.body, &pattern(mint.inline)) {
                 violations.push(format!(
                     "{rel}: `{}` ({}) no longer shows {:?}",
                     mint.function, mint.note, mint.inline
@@ -679,7 +1472,7 @@ fn scan(files: &[(String, String)]) -> Vec<String> {
         } else {
             let count = found
                 .iter()
-                .find(|(f, n, p, _)| f == rel && n == mint.function && p == mint.prefix)
+                .find(|(f, s, p, _)| f == rel && s == mint.function && p == mint.prefix)
                 .map_or(0, |e| e.3);
             if count <= mint.nth {
                 violations.push(format!(
