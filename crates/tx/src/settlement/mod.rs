@@ -525,10 +525,15 @@ where
                     &nonce.to_be_bytes(),
                 ]
                 .concat();
+                // Review 2 finding 2: the next nonce is checked and encoded BEFORE either
+                // write, so an exhausted outbox refuses with the state unchanged.
+                let next_nonce = nonce.checked_add(1).ok_or_else(|| {
+                    TransactionError::Invalid("Bridge outbox nonce exhausted".into())
+                })?;
+                let next_nonce_bytes =
+                    codec::to_bytes_canonical(&next_nonce).map_err(TransactionError::Serialization)?;
                 state.insert(&outbox_key, payload)?;
-
-                let next_nonce = nonce + 1;
-                state.insert(&nonce_key, &codec::to_bytes_canonical(&next_nonce).unwrap())?;
+                state.insert(&nonce_key, &next_nonce_bytes)?;
             }
         }
 
