@@ -88,11 +88,6 @@ mime_guess = "2.0"
 
 [dev-dependencies]
 tempfile = "3.3"
-# The credential-minting lint reads source the way the compiler does: syn's full parser, its printer and
-# proc-macro2's tokens (the versions already in Cargo.lock).
-proc-macro2 = "1.0.106"
-quote = "1.0.44"
-syn = { version = "2.0.116", features = ["full", "visit-mut"] }
 
 [features]
 default = []

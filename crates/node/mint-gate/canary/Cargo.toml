@@ -1,0 +1,36 @@
+# THE MINT GATE'S CANARY (BUILD-DELTA #36; crates/node/mint-gate). Never shipped, never run: it is
+# CHECKED in every gate invocation, beside the production targets, so each invocation proves its own
+# non-vacuity. Its binary uses every external deny-list entry once on a marked line (each must be
+# reported there), plants a production mint (must be FOUND) and cfg(test)-only mints (must be
+# IGNORED), and draws inside a macro of this package's LIBRARY, an external crate to the binary
+# (must be reported at its invocation, or seen by layer 2). Its dependencies are the reviewed
+# crates whose randomness API the deny list names, at the versions Cargo.lock already pins and
+# with features the inventoried packages already enable (it adds no package to the lock).
+[package]
+name = "ioi-node-mint-gate-canary"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The mint gate's canary: one use of every external deny-list entry, a planted production mint and planted cfg(test)-only mints"
+license.workspace = true
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+rand = { workspace = true, features = ["small_rng"] }
+uuid = { version = "1.8.0", features = ["v4"] }
+getrandom02 = { package = "getrandom", version = "0.2.17" }
+getrandom04 = { package = "getrandom", version = "0.4.1" }
+libc = "0.2"
+dcrypt = { workspace = true }
+libp2p = { workspace = true }
+k256 = { version = "0.13", default-features = false, features = ["ecdsa", "std"] }
+webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation"] }
+rcgen = { workspace = true }
+rustls = { workspace = true, features = ["ring"] }
+tokio = { workspace = true, features = ["io-util"] }
+ioi-api = { path = "../../../api" }
+ioi-client = { path = "../../../client" }
+ioi-crypto = { path = "../../../crypto" }
+ioi-networking = { path = "../../../networking" }
+ioi-state = { path = "../../../state" }
+ioi-validator = { path = "../../../validator", default-features = false }

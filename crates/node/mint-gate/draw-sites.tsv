@@ -1,0 +1,4 @@
+# THE DRAW-SITE REGISTRY of layer 1 (BUILD-DELTA #36): every use, in the production code, of a deny-list entry
+# (clippy.toml), as clippy reports it in each pinned configuration, attributed to its enclosing item at the outermost call
+# site. Compared both ways by the gate: an unregistered site, a changed count or a registered site no longer reported fails.
+# target<TAB>file<TAB>item<TAB>lint<TAB>what<TAB>configurations (* = every one that checks the target)<TAB>count<TAB>label

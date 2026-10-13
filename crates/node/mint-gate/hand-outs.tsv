@@ -1,0 +1,8 @@
+# THE HAND-OUTS (BUILD-DELTA #36): the production code's own functions whose RETURNED value is drawn at random, so every
+# caller uses a draw without naming a deny-list entry. Each is listed here AND in clippy.toml's own entries (so its callers
+# are sites), and must hold a reported draw itself.
+# file<TAB>item<TAB>own clippy path<TAB>what it hands out
+crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn gen_opaque	hypervisor_daemon::lifecycle_routes::gen_opaque	"<prefix>_" + two UUIDv4: bootstrap, session, SCIM and invite tokens
+crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn random_token	hypervisor_daemon::lifecycle_routes::random_token	n alphanumeric characters from the thread CSPRNG: OAuth state, nonce and PKCE verifier
+crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs	fn new_webhook_token	hypervisor_daemon::orchestration_routes::new_webhook_token	the automation webhook trigger token (whk_ + two UUIDv4)
+crates/services/src/agentic/runtime/connectors/google_auth.rs	fn random_url_safe_token	ioi_services::agentic::runtime::connectors::google_auth::random_url_safe_token	base64url of n thread-CSPRNG bytes: Google OAuth state and PKCE verifier

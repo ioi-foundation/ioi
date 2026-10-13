@@ -1,0 +1,13 @@
+# THE REGISTERED CREDENTIAL PREFIXES (BUILD-DELTA #36): layer 2 counts every string literal in the expanded production
+# source that contains one, by enclosing item, and compares the counts with expanded-sites.tsv both ways.
+# prefix<TAB>what it prefixes
+ioi_mnt_	model-mount capability token
+ioi_pat_	API access token
+ioi_lease_	env-ops capability lease bearer (and the lease cookie name)
+wec_	workload effect capability token and its id
+wbt_	workload governed-provider host trigger
+whk_	automation webhook trigger token (and webhook event ids)
+idisp_	per-boot internal dispatch secret
+ioi_sess_	session token
+ioi_bootstrap_	bootstrap token
+ioi_api_	API key

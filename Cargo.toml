@@ -20,6 +20,10 @@ members = [
     "crates/ioi-finality",
     "crates/agentgres",
     "crates/node",
+    # BUILD-DELTA #36: the credential-minting inventory (the compiler resolves; its own crate keeps syn with
+    # span-locations out of ioi-node's graph) and its canary.
+    "crates/node/mint-gate",
+    "crates/node/mint-gate/canary",
     "crates/cli",
     "crates/execution",
     "crates/memory",

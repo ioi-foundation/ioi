@@ -1,0 +1,24 @@
+# THE CREDENTIAL-MINTING INVENTORY (BUILD-DELTA #36; batch 3's minting lint replaced by the
+# compiler: the Hypervisor Director's ruling "Batch-3 Codex r5 = FAIL" and the IOI Director's
+# concurrence with four amendments, 2026-10-13).
+#
+# Its own crate, as the ontology census's extractor and the wire gate are: it maps the compiler's
+# diagnostic spans to their enclosing items with `syn`, which needs proc-macro2's `span-locations`.
+# As a dependency of ioi-node that feature would rebuild every crate whose graph carries
+# proc-macro2; built alone (`cargo run --locked -p ioi-node-mint-gate`) it touches nothing of the
+# daemon's graph.
+[package]
+name = "ioi-node-mint-gate"
+version = "0.1.0"
+edition = "2021"
+description = "Runs clippy's resolved randomness-draw inventory and the expanded-source mint-format scan over the ioi-node binaries and ioi-services, and compares both with the reviewed registries"
+license.workspace = true
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+hex = { workspace = true }
+proc-macro2 = { version = "1", features = ["span-locations"] }
+quote = "1"
+serde_json = { workspace = true }
+sha2 = "0.10"
+syn = { version = "2.0.116", features = ["full", "visit"] }

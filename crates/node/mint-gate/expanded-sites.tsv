@@ -1,0 +1,3 @@
+# THE EXPANDED-SOURCE REGISTRY of layer 2 (BUILD-DELTA #36): every registered credential prefix, randomness primitive and
+# credential-shaped literal in the expanded production source of each target and configuration, by enclosing item.
+# target<TAB>item<TAB>kind (prefix|primitive|shaped)<TAB>what<TAB>configurations<TAB>count<TAB>label

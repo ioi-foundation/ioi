@@ -7109,8 +7109,6 @@ dependencies = [
  "native-tls",
  "parity-scale-codec",
  "parking_lot",
- "proc-macro2",
- "quote",
  "rand 0.8.5",
  "rcgen 0.13.2",
  "regex",
@@ -7123,7 +7121,6 @@ dependencies = [
  "serde_jcs",
  "serde_json",
  "sha2 0.10.9",
- "syn 2.0.116",
  "tempfile",
  "time 0.3.37",
  "tokio",
@@ -7138,6 +7135,42 @@ dependencies = [
  "webauthn-rs",
  "zeroize",
  "zk-driver-succinct",
+]
+
+[[package]]
+name = "ioi-node-mint-gate"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "sha2 0.10.9",
+ "syn 2.0.116",
+]
+
+[[package]]
+name = "ioi-node-mint-gate-canary"
+version = "0.1.0"
+dependencies = [
+ "dcrypt",
+ "getrandom 0.2.17",
+ "getrandom 0.4.1",
+ "ioi-api",
+ "ioi-client",
+ "ioi-crypto",
+ "ioi-networking",
+ "ioi-state",
+ "ioi-validator",
+ "k256",
+ "libc",
+ "libp2p",
+ "rand 0.8.5",
+ "rcgen 0.13.2",
+ "rustls 0.23.36",
+ "tokio",
+ "uuid 1.21.0",
+ "webauthn-rs",
 ]
 
 [[package]]
