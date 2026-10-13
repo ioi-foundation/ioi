@@ -72,7 +72,7 @@ function callerIdentityHeaders(req) {
   for (const name of IDENTITY_HEADERS) if (req?.headers?.[name]) out[name] = req.headers[name];
   return out;
 }
-function daemonJson(daemon, method, path, payload) {
+function daemonJsonOnce(daemon, method, path, payload) {
   const daemonUrl = typeof daemon === "string" ? daemon : daemon?.url;
   const identity = typeof daemon === "string" ? {} : daemon?.headers || {};
   let target;
@@ -103,12 +103,7 @@ function daemonJson(daemon, method, path, payload) {
         response.on("end", () => {
           let parsed = {};
           try { parsed = JSON.parse(raw); } catch { parsed = {}; }
-          // The busy-read instrument (BUILD-DELTA #48): what this surface does with a busy System read,
-          // logged with the daemon's Retry-After and a wall-clock stamp only, never a value of the read.
-          if (response.statusCode === 503 && parsed?.error?.code === "system_source_read_busy") {
-            console.error(`[system-genesis-surfaces] ${method} answered system_source_read_busy (Retry-After: ${response.headers["retry-after"] ?? "none"}); not asked again; at_ms=${Date.now()}`);
-          }
-          resolve({ status: response.statusCode, body: parsed });
+          resolve({ status: response.statusCode, body: parsed, retryAfter: response.headers["retry-after"] });
         });
       },
     );
@@ -119,18 +114,80 @@ function daemonJson(daemon, method, path, payload) {
   });
 }
 
+// A BUSY System read (BUILD-DELTA #48 FIX-3). The daemon admits a bounded number of System source
+// reads at once and answers the rest 503 system_source_read_busy with Retry-After. A read (GET) so
+// answered is asked again, NEVER sooner than its Retry-After, while the total budget lasts: no ask
+// starts, and no wait begins that would end, more than READ_BUSY_BUDGET_MS after the first ask. Past
+// the budget the busy answer is returned marked `busy` ({ attempts, waitedMs, retryAfter }) and the
+// surfaces render it as a TYPED busy state (busyState), never as a refusal or an untyped degraded
+// page. A governed write (anything but GET) is sent exactly once, whatever it is answered.
+export const READ_BUSY_BUDGET_MS = 10_000;
+const READ_BUSY_CODE = "system_source_read_busy";
+// The daemon's own Retry-After when an answer carries none it can read (SYSTEM_READ_RETRY_AFTER_SECONDS).
+const READ_BUSY_DEFAULT_RETRY_AFTER_S = 2;
+const isBusyRead = (result) => result?.status === 503 && result?.body?.error?.code === READ_BUSY_CODE;
+
+// Retry-After in whole seconds: delta-seconds, or an HTTP-date (RFC 9110 §10.2.3); anything else is
+// the daemon's default. Never below half a second, so a zero cannot turn the budget into a spin.
+function retryAfterSeconds(value, now = Date.now()) {
+  const text = String(value ?? "").trim();
+  let seconds = READ_BUSY_DEFAULT_RETRY_AFTER_S;
+  if (/^\d{1,9}$/u.test(text)) seconds = Number(text);
+  else if (text) {
+    const at = Date.parse(text);
+    if (Number.isFinite(at)) seconds = Math.max(0, Math.ceil((at - now) / 1000));
+  }
+  return Math.max(seconds, 0.5);
+}
+
+// The busy-read instrument (BUILD-DELTA #48): what this surface does with a busy System read, logged
+// with the daemon's Retry-After, counts, durations and a wall-clock stamp only, never a value of the read.
+function busyReadLog(what) {
+  console.error(`[system-genesis-surfaces] a GET ${what}; at_ms=${Date.now()}`);
+}
+
+async function daemonJson(daemon, method, path, payload) {
+  const first = Date.now();
+  let attempts = 0;
+  for (;;) {
+    const result = await daemonJsonOnce(daemon, method, path, payload);
+    attempts += 1;
+    if (method !== "GET" || !isBusyRead(result)) return result;
+    const retryAfter = retryAfterSeconds(result.retryAfter);
+    const resumeAt = Date.now() + retryAfter * 1000;
+    if (resumeAt - first > READ_BUSY_BUDGET_MS) {
+      busyReadLog(`still busy after ${attempts} asks in ${Date.now() - first} ms (Retry-After: ${result.retryAfter ?? "none"}); shown as a typed busy state`);
+      return { ...result, busy: { attempts, waitedMs: Date.now() - first, retryAfter } };
+    }
+    busyReadLog(`answered system_source_read_busy (Retry-After: ${result.retryAfter ?? "none"}); asked again in ${retryAfter} s (ask ${attempts + 1})`);
+    await new Promise((resolve) => setTimeout(resolve, Math.max(0, resumeAt - Date.now())));
+  }
+}
+
 // ---- honest-state kit ----------------------------------------------------------------------
 const stateBlock = (state, code, inner) =>
   `<div class="sysgen-state" data-journey-state="${esc(state)}"${code ? ` data-truth-code="${esc(code)}"` : ""}>${inner}</div>`;
 
 function stateForErrorCode(code) {
   if (!code) return "denied_or_revoked";
+  if (code === READ_BUSY_CODE) return "unavailable_or_degraded";
   if (code.includes("pending")) return "loading_or_pending";
   if (code.includes("incomplete") || code.includes("conflict") || code.includes("ambiguous")) {
     return "stale_conflict_or_ambiguous";
   }
   if (code.endsWith("_not_found")) return "honest_empty";
   return "denied_or_revoked";
+}
+
+// The TYPED busy state: the daemon's own code, what was asked, how often and for how long, and when to
+// ask again. It shows no fact in place of the read it could not make.
+function busyState(result, what) {
+  const busy = result.busy || { attempts: 1, waitedMs: 0, retryAfter: retryAfterSeconds(result.retryAfter) };
+  return stateBlock(
+    "unavailable_or_degraded",
+    READ_BUSY_CODE,
+    `<div class="empty" data-daemon-busy="${esc(String(busy.retryAfter))}">The daemon is busy: its System reads are at their admission bound (<code>${READ_BUSY_CODE}</code>). ${esc(what)} was asked ${esc(String(busy.attempts))} time${busy.attempts === 1 ? "" : "s"} over ${esc((busy.waitedMs / 1000).toFixed(1))} s, never sooner than the daemon's Retry-After of ${esc(String(busy.retryAfter))} s, and was not admitted. Nothing is shown in its place; ask again in ${esc(String(busy.retryAfter))} s.</div>`,
+  );
 }
 
 const NONCLAIMS_BANNER = `<p class="sub" data-sysgen-nonclaims="1" style="margin:6px 0 14px">Read projection of daemon-owned truth — presentation grants <b>no</b> authority, admission, activation, membership, network assurance, or runtime effect. Every consequential action below resolves to a <code>/v1/hypervisor/autonomous-systems</code> daemon route under its own wallet challenge; this surface holds no state of its own.</p>`;
@@ -410,6 +467,7 @@ function censusState(result) {
       ),
     };
   }
+  if (code === READ_BUSY_CODE) return { html: busyState(result, "The Systems projection") };
   if (code === "system_lifecycle_not_found") {
     return {
       html: stateBlock(
@@ -828,6 +886,9 @@ async function detailParts(daemonUrl, tail, view, viewHref) {
       `<div class="empty">Daemon unreachable (<code>${esc(admission.networkError)}</code>) — no admission, chain, or receipt facts can be shown, and none are substituted.</div>`,
     ));
   }
+  if (isBusyRead(admission)) {
+    return shell(title, head + busyState(admission, "This System's genesis admission"));
+  }
   if (admission.status !== 200) {
     const code = admission.status >= 400 ? refusalCodeOf(admission.body, admission.status) : "";
     return shell(title, head + stateBlock(
@@ -1230,7 +1291,7 @@ export async function systemEvaluations(daemonUrl, systemId) {
   return stateBlock("ready_or_proposed", null, `<table data-system-evaluations="${esc(systemId)}"><thead><tr><th>Run</th><th>Suite revision</th><th>Lane</th><th>Scorecard</th></tr></thead><tbody>${body}</tbody></table>`);
 }
 
-async function renderSystemWorkspace(daemonUrl, shell, parsed) {
+async function renderSystemWorkspace(daemonUrl, shell, parsed, page = {}) {
   const { systemId, tailPath, mode } = parsed;
   const modeLabel = (WORKSPACE_MODES.find(([m]) => m === mode) || ["", "Overview"])[1];
   const tabs = `<nav class="tabs" aria-label="System modes">${WORKSPACE_MODES.map(([m, label]) =>
@@ -1246,6 +1307,10 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
   const gate = await fetchCensus(daemonUrl, "compact", systemId);
   if (gate.networkError) {
     return shell(title, refusedHead + stateBlock("unavailable_or_degraded", "daemon_unreachable", `<div class="empty">The daemon did not answer (<code>${esc(gate.networkError)}</code>) — no System facts are shown, and none are substituted.</div>`));
+  }
+  if (isBusyRead(gate)) {
+    page.busy = gate.busy || { attempts: 1, waitedMs: 0, retryAfter: retryAfterSeconds(gate.retryAfter) };
+    return shell(title, refusedHead + busyState(gate, "This workspace's gate (the Systems projection, as you)"));
   }
   const body = gate.body || {};
   let row = null;
@@ -1317,8 +1382,12 @@ export async function handleSystemWorkspace(req, res, pathname, { daemonUrl: bas
     return true;
   }
   const daemonUrl = { url: baseDaemonUrl, headers: callerIdentityHeaders(req) };
-  res.writeHead(200, HTMLH);
-  res.end(await renderSystemWorkspace(daemonUrl, shell, { ...parsed, query: new URL(req.url || "", "http://x").searchParams }));
+  const page = {};
+  const html = await renderSystemWorkspace(daemonUrl, shell, { ...parsed, query: new URL(req.url || "", "http://x").searchParams }, page);
+  // A gate the daemon stayed busy on is said at the HTTP level too: 503 with the daemon's Retry-After.
+  if (page.busy) res.writeHead(503, { ...HTMLH, "Retry-After": String(Math.ceil(page.busy.retryAfter)) });
+  else res.writeHead(200, HTMLH);
+  res.end(html);
   return true;
 }
 
