@@ -121,6 +121,11 @@ function daemonJsonOnce(daemon, method, path, payload) {
 // the budget the busy answer is returned marked `busy` ({ attempts, waitedMs, retryAfter }) and the
 // surfaces render it as a TYPED busy state (busyState), never as a refusal or an untyped degraded
 // page. A governed write (anything but GET) is sent exactly once, whatever it is answered.
+// The budget is a DEADLINE on the MONOTONIC clock (performance.now(), which no wall-clock step moves),
+// and it is checked again AFTER EVERY WAIT and IMMEDIATELY BEFORE EVERY RETRY (FIX-4, Codex #48 r3
+// MAJOR 1): a timer may wake late (a busy event loop) or early, so a wake past the deadline asks
+// nothing more and returns the retained busy answer, and an early wake waits out the rest of
+// Retry-After. Date.now() below is only a log stamp and the "now" of an HTTP-date Retry-After.
 export const READ_BUSY_BUDGET_MS = 10_000;
 const READ_BUSY_CODE = "system_source_read_busy";
 // The daemon's own Retry-After when an answer carries none it can read (SYSTEM_READ_RETRY_AFTER_SECONDS).
@@ -146,21 +151,36 @@ function busyReadLog(what) {
   console.error(`[system-genesis-surfaces] a GET ${what}; at_ms=${Date.now()}`);
 }
 
+// The busy budget's clock: monotonic milliseconds, read at every use (never cached), never Date.now().
+const monotonicMs = () => performance.now();
+
 async function daemonJson(daemon, method, path, payload) {
-  const first = Date.now();
+  const first = monotonicMs();
+  const deadline = first + READ_BUSY_BUDGET_MS;
   let attempts = 0;
   for (;;) {
     const result = await daemonJsonOnce(daemon, method, path, payload);
     attempts += 1;
     if (method !== "GET" || !isBusyRead(result)) return result;
     const retryAfter = retryAfterSeconds(result.retryAfter);
-    const resumeAt = Date.now() + retryAfter * 1000;
-    if (resumeAt - first > READ_BUSY_BUDGET_MS) {
-      busyReadLog(`still busy after ${attempts} asks in ${Date.now() - first} ms (Retry-After: ${result.retryAfter ?? "none"}); shown as a typed busy state`);
-      return { ...result, busy: { attempts, waitedMs: Date.now() - first, retryAfter } };
-    }
+    // The retained busy answer (the last one), marked busy, with the time actually spent.
+    const stillBusy = (why) => {
+      const waitedMs = Math.round(monotonicMs() - first);
+      busyReadLog(`still busy after ${attempts} asks in ${waitedMs} ms (Retry-After: ${result.retryAfter ?? "none"}); ${why}; shown as a typed busy state`);
+      return { ...result, busy: { attempts, waitedMs, retryAfter } };
+    };
+    const resumeAt = monotonicMs() + retryAfter * 1000;
+    if (resumeAt > deadline) return stillBusy("a wait of Retry-After would end past the budget, so none is begun");
     busyReadLog(`answered system_source_read_busy (Retry-After: ${result.retryAfter ?? "none"}); asked again in ${retryAfter} s (ask ${attempts + 1})`);
-    await new Promise((resolve) => setTimeout(resolve, Math.max(0, resumeAt - Date.now())));
+    // Every wake is checked: past the deadline nothing more is asked; before resumeAt (an early wake)
+    // the rest of Retry-After is waited. The loop leaves only with the clock in [resumeAt, deadline],
+    // and the retry at the top of the outer loop then starts in the same turn as that check.
+    for (;;) {
+      const now = monotonicMs();
+      if (now > deadline) return stillBusy(`the wait for ask ${attempts + 1} ended past the budget, so it is not asked again`);
+      if (now >= resumeAt) break;
+      await new Promise((resolve) => setTimeout(resolve, resumeAt - now));
+    }
   }
 }
 
