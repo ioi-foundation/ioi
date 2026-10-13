@@ -787,6 +787,79 @@ fn an_editor_connection_token_built_from_a_constant_fails_the_sweep() {
     );
 }
 
+/// A registered draw commented out is a removed draw: the editor connection token's primitive draw, and the draw a
+/// prefixed mint is registered as fed by (`issue_bearer_capability_lease`), each turned into a comment, is a violation
+/// at its site.
+#[test]
+fn a_commented_out_draw_fails_the_sweep_at_its_site() {
+    let editor = tree_with(EDITOR_HOST, |text| {
+        let planted = text.replacen(
+            "        rand::rngs::OsRng.fill_bytes(&mut secret);\n",
+            "        // rand::rngs::OsRng.fill_bytes(&mut secret);\n",
+            1,
+        );
+        assert_ne!(planted, text, "the planted comment applies");
+        planted
+    });
+    let violations = scan(&editor);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("editor_host.rs") && v.contains("start_oss_runtime")),
+        "a commented-out primitive draw is caught at its site: {violations:?}"
+    );
+    let lease = tree_with(AUTH, |text| {
+        let planted = text.replacen(
+            "rand::rngs::OsRng.fill_bytes(&mut secret)",
+            "// rand::rngs::OsRng.fill_bytes(&mut secret)\n",
+            1,
+        );
+        assert_ne!(planted, text, "the planted comment applies");
+        planted
+    });
+    let violations = scan(&lease);
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("issue_bearer_capability_lease") && v.contains("registered draw")),
+        "a commented-out registered draw of a prefixed mint is caught at its site: {violations:?}"
+    );
+}
+
+/// DOCUMENTED LIMITS, pinned so no pass is read as more than an inventory: a registered draw kept in a dead branch, or a
+/// decoy copy of it in a closure that never runs, passes this lint. The EXECUTION property is guarded behaviourally: for
+/// the editor connection token by preview_editor_lease_tokens.rs two_editor_runtime_starts_get_different_nonzero_tokens
+/// (two starts give two different non-zero tokens), for every site by BUILD-DELTA #36d's 256-draw entropy tests (the
+/// editor host is #36d-e), and at the type level by BUILD-DELTA #42.
+#[test]
+fn a_dead_branch_or_decoy_draw_is_a_documented_lint_limit() {
+    for (shape, replacement) in [
+        (
+            "a dead branch",
+            "        if false {\n            rand::rngs::OsRng.fill_bytes(&mut secret);\n        }\n",
+        ),
+        (
+            "a decoy closure that never runs",
+            "        let _decoy = || rand::rngs::OsRng.fill_bytes(&mut secret);\n",
+        ),
+    ] {
+        let tree = tree_with(EDITOR_HOST, |text| {
+            let planted = text.replacen(
+                "        rand::rngs::OsRng.fill_bytes(&mut secret);\n",
+                replacement,
+                1,
+            );
+            assert_ne!(planted, text, "the planted {shape} applies");
+            planted
+        });
+        let violations = scan(&tree);
+        assert!(
+            !violations.iter().any(|v| v.contains("editor_host.rs")),
+            "{shape} passes the lint by design (a documented limit; the behavioural guards catch it): {violations:?}"
+        );
+    }
+}
+
 /// A reviewed non-mint whose file is missing from the tree is a violation, as a registered mint's missing file is:
 /// its exemption never goes stale silently.
 #[test]
