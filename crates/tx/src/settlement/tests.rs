@@ -653,9 +653,15 @@ struct World {
 
 impl World {
     fn new() -> Self {
+        Self::with_staged_grace(false)
+    }
+
+    /// The same world, its identity hub accepting a staged key during the grace window
+    /// only when `accept_staged_during_grace` is true (review 2, R26).
+    fn with_staged_grace(accept_staged_during_grace: bool) -> Self {
         let hub = IdentityHub::new(MigrationConfig {
             grace_period_blocks: 10,
-            accept_staged_during_grace: false,
+            accept_staged_during_grace,
             allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
             chain_id: CHAIN.0,
@@ -2153,4 +2159,213 @@ fn r24_a_payer_without_an_active_credential_cannot_authorize_a_settlement() {
         genesis_total,
         "R24 control: Commit and Settle conserve the total value held"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Review 2 (records/port/bd57/review2/codex-out.txt): finding 1 (credential refusal
+// coverage) and finding 2 (the Bridge outbox nonce).
+
+// R25 (review 2 finding 1, part a; the identity service's activation): a summary validly
+// signed by both recorded parties while the identity hub's activation metadata is ABSENT.
+// The parties' credentials are still in state: an inactive service's stale credentials
+// must not authorize a settlement.
+//   Control: with the activation metadata restored, the same payload is ACCEPTED.
+// After the fix (the check is unchanged since 03c7ef148): REFUSED with no state written
+// ("Service 'identity_hub' is not active"); the control pays as R4 and conserves.
+// PREDICTED AT THE REVIEW-2 RED COMMIT: PASSES (a PIN).
+#[test]
+fn r25_an_inactive_identity_service_cannot_authorize_a_settlement() {
+    let mut world = World::new();
+    let genesis_total = world.total_value();
+    world.commit_bond();
+    let (payer, provider) = (world.payer.id, world.provider.id);
+    let close = world.doubly_signed_close(summary(payer, provider, FINAL, 0), CHAIN, EXPIRES);
+
+    world.state.data.remove(&active_service_key("identity_hub"));
+    let before = world.snapshot();
+    let result = world.submit(provider, HEIGHT, close.clone());
+    world.assert_refused_without_writes("R25 (the identity hub is not active)", result, &before);
+
+    activate_identity_hub(&mut world.state);
+    let result = world.submit(provider, HEIGHT, close);
+    assert!(
+        result.is_ok(),
+        "R25 control: with the identity hub active the close must be ACCEPTED, got {:?}",
+        result
+    );
+    assert_eq!(
+        world.balance(&provider),
+        PROVIDER_START + FINAL,
+        "R25 control: the provider is paid final_amount"
+    );
+    assert_eq!(
+        world.balance(&payer),
+        PAYER_START - FINAL,
+        "R25 control: the payer is refunded bond - final_amount"
+    );
+    assert_eq!(
+        world.total_value(),
+        genesis_total,
+        "R25 control: Commit and Settle conserve the total value held"
+    );
+}
+
+// R26 (review 2 finding 1, part b; a staged key BEFORE its activation): the payer has
+// rotated to NEXT (seed 0x44) with the activation in the future: credentials
+// [Some(old, 0), Some(NEXT, HEIGHT + 10)], read at HEIGHT. The summary is signed by NEXT.
+//   Grace OFF (World::new, accept_staged_during_grace = false):
+//     Arm 1: the NEXT-signed close is REFUSED with no state written
+//       (enforce_credential_policy: UnauthorizedByCredentials).
+//     Control A: the same terms signed by the payer's ACTIVE (old) key are ACCEPTED.
+//   Grace ON (World::with_staged_grace(true)):
+//     Control B: the NEXT-signed close is ACCEPTED, so only the grace policy refuses arm 1.
+// After the fix (the policy is unchanged since 03c7ef148): as above; both controls pay
+// as R4 and conserve.
+// PREDICTED AT THE REVIEW-2 RED COMMIT: PASSES (a PIN).
+#[test]
+fn r26_a_staged_key_before_its_activation_is_refused_when_grace_acceptance_is_off() {
+    for grace in [false, true] {
+        let mut world = World::with_staged_grace(grace);
+        let genesis_total = world.total_value();
+        world.commit_bond();
+        let (payer, provider) = (world.payer.id, world.provider.id);
+        let next = Party::from_seed(0x44);
+        let terms = summary(payer, provider, FINAL, 0);
+        let staged_close = settle_payload(
+            terms.clone(),
+            EXPIRES,
+            next.sign_summary(CHAIN, &terms, EXPIRES),
+            world.provider.sign_summary(CHAIN, &terms, EXPIRES),
+        );
+        world.set_credentials(
+            &payer,
+            [
+                Some(ed25519_credential(payer.0, 0)),
+                Some(ed25519_credential(next.id.0, HEIGHT + 10)),
+            ],
+        );
+
+        let case = if grace {
+            let result = world.submit(provider, HEIGHT, staged_close);
+            assert!(
+                result.is_ok(),
+                "R26 control B (grace ON): the staged key's close must be ACCEPTED, got {:?}",
+                result
+            );
+            "R26 control B"
+        } else {
+            let before = world.snapshot();
+            let result = world.submit(provider, HEIGHT, staged_close);
+            world.assert_refused_without_writes(
+                "R26 arm 1 (the staged key before its activation; grace OFF)",
+                result,
+                &before,
+            );
+            let active_close = world.doubly_signed_close(terms, CHAIN, EXPIRES);
+            let result = world.submit(provider, HEIGHT, active_close);
+            assert!(
+                result.is_ok(),
+                "R26 control A (grace OFF): the payer's ACTIVE key's close must be ACCEPTED, got {:?}",
+                result
+            );
+            "R26 control A"
+        };
+        assert_eq!(
+            world.balance(&provider),
+            PROVIDER_START + FINAL,
+            "{case}: the provider is paid final_amount"
+        );
+        assert_eq!(
+            world.balance(&payer),
+            PAYER_START - FINAL,
+            "{case}: the payer is refunded bond - final_amount"
+        );
+        assert_eq!(
+            world.total_value(),
+            genesis_total,
+            "{case}: Commit and Settle conserve the total value held"
+        );
+    }
+}
+
+const BRIDGE_CHAIN: &str = "eth-mainnet";
+const BRIDGE_CALL: [u8; 2] = [0xB1, 0xB2];
+
+fn bridge_nonce_key() -> Vec<u8> {
+    [b"outbox::nonce::".as_slice(), BRIDGE_CHAIN.as_bytes()].concat()
+}
+
+fn bridge_queue_key(nonce: u64) -> Vec<u8> {
+    [
+        b"outbox::queue::".as_slice(),
+        BRIDGE_CHAIN.as_bytes(),
+        &nonce.to_be_bytes(),
+    ]
+    .concat()
+}
+
+fn bridge_payload(signer_id: AccountId) -> SettlementPayload {
+    SettlementPayload::Bridge {
+        target_chain: BRIDGE_CHAIN.to_string(),
+        payload: BRIDGE_CALL.to_vec(),
+        receipt: Receipt {
+            canonical_payload_hash: [0x0B; 32],
+            inputs_commitment: [0x02; 32],
+            outputs_commitment: [0x03; 32],
+            model_snapshot_id: [0x04; 32],
+            policy_hash: [0x9A; 32],
+            session_id: None,
+            prev_receipt_hash: [0u8; 32],
+            signer_id,
+            signature: Vec::new(),
+            external_proof: None,
+        },
+    }
+}
+
+// R27 (review 2 finding 2; the Bridge outbox nonce): the outbox nonce for BRIDGE_CHAIN is
+// u64::MAX, and Mallory submits a Bridge call.
+//   Control: at nonce 7 the call is queued under nonce 7 and the nonce becomes 8.
+// After the fix: REFUSED with no state written (the next nonce is checked BEFORE any write).
+// PREDICTED AT THE REVIEW-2 RED COMMIT: FAILS BY PANIC, "attempt to add with overflow" at
+// the Bridge arm's `nonce + 1` (the test profile keeps overflow checks), after the queue
+// write.
+#[test]
+fn r27_a_bridge_call_at_an_exhausted_outbox_nonce_is_refused_without_writes() {
+    let mut world = World::new();
+    let mallory = world.mallory.id;
+    put(
+        &mut world.state,
+        bridge_nonce_key(),
+        codec::to_bytes_canonical(&u64::MAX).expect("R27 setup: encode the nonce"),
+    );
+    let before = world.snapshot();
+    let result = world.submit(mallory, HEIGHT, bridge_payload(mallory));
+    world.assert_refused_without_writes("R27 (outbox nonce u64::MAX)", result, &before);
+
+    put(
+        &mut world.state,
+        bridge_nonce_key(),
+        codec::to_bytes_canonical(&7u64).expect("R27 setup: encode the nonce"),
+    );
+    let result = world.submit(mallory, HEIGHT, bridge_payload(mallory));
+    assert!(
+        result.is_ok(),
+        "R27 control: a Bridge call at nonce 7 must be ACCEPTED, got {:?}",
+        result
+    );
+    assert_eq!(
+        world.state.data.get(&bridge_queue_key(7)),
+        Some(&BRIDGE_CALL.to_vec()),
+        "R27 control: the call is queued under nonce 7"
+    );
+    let next: u64 = codec::from_bytes_canonical(
+        world
+            .state
+            .data
+            .get(&bridge_nonce_key())
+            .expect("R27 control: the nonce key is present"),
+    )
+    .expect("R27 control: decode the nonce");
+    assert_eq!(next, 8, "R27 control: the nonce advances to 8");
 }
