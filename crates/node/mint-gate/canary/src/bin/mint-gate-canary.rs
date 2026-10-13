@@ -137,6 +137,8 @@ fn os_entropy() {
 // ---- the reviewed direct dependencies' randomness APIs (DEPENDENCY-REVIEW.md) --------------------
 
 fn dependency_helpers() {
+    // The fake-credential generator is generic over its ID distribution: name one explicitly.
+    use webauthn_rs::fake::FakePasskeyDistribution as Passkeys;
     let mut os = rand::rngs::OsRng;
     let _ = libp2p::identity::ed25519::Keypair::generate; // deny: libp2p_identity::ed25519::Keypair::generate
     let _ = libp2p::identity::ed25519::SecretKey::generate; // deny: libp2p_identity::ed25519::SecretKey::generate
@@ -153,7 +155,7 @@ fn dependency_helpers() {
     let _ = webauthn_rs::Webauthn::start_securitykey_authentication; // deny: webauthn_rs::Webauthn::start_securitykey_authentication
     let _ = webauthn_rs::Webauthn::start_attested_passkey_registration; // deny: webauthn_rs::Webauthn::start_attested_passkey_registration
     let _ = webauthn_rs::Webauthn::start_attested_passkey_authentication; // deny: webauthn_rs::Webauthn::start_attested_passkey_authentication
-    let _ = webauthn_rs::fake::WebauthnFakeCredentialGenerator::new_hmac_key; // deny: webauthn_rs_core::fake::WebauthnFakeCredentialGenerator::new_hmac_key
+    let _ = webauthn_rs::fake::WebauthnFakeCredentialGenerator::<Passkeys>::new_hmac_key; // deny: webauthn_rs_core::fake::WebauthnFakeCredentialGenerator::new_hmac_key
     let _ = rcgen::KeyPair::generate; // deny: rcgen::KeyPair::generate
     let _ = rcgen::KeyPair::generate_for; // deny: rcgen::KeyPair::generate_for
     let _ = rcgen::generate_simple_self_signed(vec![String::new()]); // deny: rcgen::generate_simple_self_signed
