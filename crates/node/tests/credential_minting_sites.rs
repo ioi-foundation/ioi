@@ -12,8 +12,8 @@
 //!   credential prefixes and the randomness primitives in the EXPANDED production source, compared
 //!   both ways with expanded-sites.tsv.
 //!
-//! This file pins only that the inventory cannot silently stop running: the workspace builds the
-//! gate and its canary, and the gate's pinned inputs and registries exist.
+//! This file pins only that the inventory cannot silently stop running: CI runs layer 1, the
+//! workspace builds the gate and its canary, and the gate's pinned inputs and registries exist.
 
 use std::path::{Path, PathBuf};
 
@@ -24,6 +24,22 @@ fn repo() -> PathBuf {
 fn read(relative: &str) -> String {
     std::fs::read_to_string(repo().join(relative))
         .unwrap_or_else(|error| panic!("{relative} does not read: {error}"))
+}
+
+/// CI runs layer 1 as its own step, beside the security regression tests.
+#[test]
+fn ci_runs_the_compiler_resolved_minting_inventory() {
+    let ci = read(".github/workflows/ci.yml");
+    let runs: Vec<&str> = ci
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("run: "))
+        .filter(|command| command.contains("ioi-node-mint-gate"))
+        .collect();
+    assert_eq!(
+        runs,
+        ["cargo run --locked -p ioi-node-mint-gate"],
+        "exactly one CI step runs the minting inventory, plainly"
+    );
 }
 
 /// The workspace builds the gate and its canary, and the gate's pinned inputs and registries exist.

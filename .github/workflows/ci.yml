@@ -198,6 +198,14 @@ jobs:
           unshare -rn bash -c 'ip link set lo up && exec "$@"' _ \
             cargo test --locked --no-fail-fast -p ioi-node "${args[@]}"
 
+      # BUILD-DELTA #36: the credential-minting inventory, LAYER 1 (clippy's resolved randomness-draw inventory of
+      # ioi-node's binaries and ioi-services over every pinned configuration, compared both ways with
+      # crates/node/mint-gate/draw-sites.tsv, the canary counted in every invocation). LAYER 2, the expanded-source scan
+      # (crates/node/mint-gate/expanded-scan.sh, the pinned nightly), is a required PRE-MERGE step, not run here.
+      - name: credential-minting inventory (compiler-resolved)
+        if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
+        run: cargo run --locked -p ioi-node-mint-gate
+
       # M05.10 is a Rust-backed live-daemon gate. Keep it beside the daemon build and full daemon
       # test so the Node-only product job never invokes Cargo implicitly. The verifier refuses an
       # out-of-worktree binary and exercises only synthetic records on an isolated data directory.
