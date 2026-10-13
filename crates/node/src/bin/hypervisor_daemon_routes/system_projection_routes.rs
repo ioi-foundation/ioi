@@ -794,6 +794,11 @@ mod worker_starvation_tests {
             }
             eprintln!("reads answered busy: {busy} of 16");
             assert!(busy > 0, "a burst past the admission bound is answered busy, not queued");
+            assert_eq!(
+                state.system_reads.refused(),
+                busy,
+                "the instrument counts every busy answer, once"
+            );
         });
     }
 }

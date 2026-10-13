@@ -764,12 +764,14 @@ pub(crate) const SYSTEM_READ_ADMISSION_WAIT: std::time::Duration =
 pub(crate) const SYSTEM_READ_RETRY_AFTER_SECONDS: u64 = 2;
 
 /// The admission of System source reads to the blocking pool, one per daemon (`DaemonState`): a
-/// FAIR (first come, first served) semaphore of `SYSTEM_READ_PERMITS`, and a count of the admitted
-/// reads that have begun on the pool (an acknowledged signal that a read is in flight).
+/// FAIR (first come, first served) semaphore of `SYSTEM_READ_PERMITS`, a count of the admitted
+/// reads that have begun on the pool (an acknowledged signal that a read is in flight), and the
+/// INSTRUMENT: a count of the reads refused busy (`refused`), each also logged.
 #[derive(Clone)]
 pub(crate) struct SystemReadAdmission {
     permits: Arc<tokio::sync::Semaphore>,
     pub(crate) started: Arc<std::sync::atomic::AtomicU64>,
+    refusals: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl SystemReadAdmission {
@@ -777,8 +779,26 @@ impl SystemReadAdmission {
         SystemReadAdmission {
             permits: Arc::new(tokio::sync::Semaphore::new(SYSTEM_READ_PERMITS)),
             started: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            refusals: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         }
     }
+
+    /// How many reads this daemon has refused busy since it started (the instrument's count; every
+    /// refusal is also logged); for tests.
+    #[cfg(test)]
+    pub(crate) fn refused(&self) -> u64 {
+        self.refusals.load(Ordering::SeqCst)
+    }
+}
+
+/// The admission instrument's log lines: every refused read logs "system read refused busy", and
+/// every admitted read logs, when it finishes, how long it waited for its permit and how long it held
+/// the pool. A line carries counts, durations and a wall-clock millisecond stamp only (`unix_ms`),
+/// never a System, a principal or any other value of the read.
+fn unix_ms() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis())
 }
 
 /// Run synchronous System work (it takes the System source locks and may make a full Agentgres
@@ -793,6 +813,7 @@ pub(crate) async fn off_the_async_workers<T: Send + 'static>(
     admission: SystemReadAdmission,
     work: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, VErr> {
+    let asked = std::time::Instant::now();
     let permit = match tokio::time::timeout(
         SYSTEM_READ_ADMISSION_WAIT,
         admission.permits.clone().acquire_owned(),
@@ -801,19 +822,32 @@ pub(crate) async fn off_the_async_workers<T: Send + 'static>(
     {
         Ok(Ok(permit)) => permit,
         _ => {
+            let refused = admission.refusals.fetch_add(1, Ordering::SeqCst) + 1;
+            eprintln!(
+                "[hypervisor-daemon] system read refused busy: not admitted within {SYSTEM_READ_ADMISSION_WAIT:?} ({SYSTEM_READ_PERMITS} at once); {refused} refused since start; at_ms={}",
+                unix_ms()
+            );
             return Err(verr(
                 "system_source_read_busy",
                 format!(
                     "the System source reads are at their admission bound ({SYSTEM_READ_PERMITS} at once) and none was admitted within {SYSTEM_READ_ADMISSION_WAIT:?}; retry after {SYSTEM_READ_RETRY_AFTER_SECONDS} s"
                 ),
-            ))
+            ));
         }
     };
+    let waited = asked.elapsed().as_millis();
     let started = admission.started.clone();
     tokio::task::spawn_blocking(move || {
         let _admitted = permit;
         started.fetch_add(1, Ordering::SeqCst);
-        work()
+        let reading = std::time::Instant::now();
+        let answer = work();
+        eprintln!(
+            "[hypervisor-daemon] system read finished: waited {waited} ms for admission, held the pool {} ms; at_ms={}",
+            reading.elapsed().as_millis(),
+            unix_ms()
+        );
+        answer
     })
     .await
     .map_err(|error| {

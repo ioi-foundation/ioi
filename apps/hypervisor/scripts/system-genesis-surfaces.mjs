@@ -103,6 +103,11 @@ function daemonJson(daemon, method, path, payload) {
         response.on("end", () => {
           let parsed = {};
           try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+          // The busy-read instrument (BUILD-DELTA #48): what this surface does with a busy System read,
+          // logged with the daemon's Retry-After and a wall-clock stamp only, never a value of the read.
+          if (response.statusCode === 503 && parsed?.error?.code === "system_source_read_busy") {
+            console.error(`[system-genesis-surfaces] ${method} answered system_source_read_busy (Retry-After: ${response.headers["retry-after"] ?? "none"}); not asked again; at_ms=${Date.now()}`);
+          }
           resolve({ status: response.statusCode, body: parsed });
         });
       },
