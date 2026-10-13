@@ -551,9 +551,11 @@ const ALL_METHODS: &[&str] = &[
     "GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE", "TRACE", "CONNECT", "PURGE",
 ];
 
-/// Methods the HTTP parser may refuse before any route or guard runs (CONNECT needs an authority-form target): a read-only
-/// token's answer must then equal the full token's (proving no handler ran for either) and is printed NO-HANDLER. TRACE and
-/// PURGE are NOT here: the guard answers them before routing, so a read-only token must get its 403 like any unlisted request.
+/// Methods the HTTP parser may refuse before any route or guard runs (CONNECT needs an authority-form target). A read-only
+/// token's 403 counts as refused only with the guard's TYPED code, like every other body-carrying method. Otherwise its answer
+/// must equal the full token's and be a parser/router status; it is then printed NO-HANDLER and excluded. Equal statuses are
+/// LIMITED evidence that no handler ran for either token, not proof. TRACE and PURGE are NOT here: the guard answers them
+/// before routing, so a read-only token must get its typed 403 like any unlisted request.
 const NO_HANDLER_METHODS: &[&str] = &["CONNECT"];
 const NO_HANDLER_STATUSES: &[u16] = &[0, 400, 404, 405, 501]; // 0: the connection was closed by the parser
 
@@ -648,7 +650,7 @@ fn a_read_only_token_is_admitted_on_exactly_the_allowlist() {
             // A HEAD or OPTIONS answer is read by the guard's exact answer headers (above), never by the status alone.
             let refused = if NO_HANDLER_METHODS.contains(method) {
                 let (full_status, _) = call(&f, &full, method, path, body.as_ref());
-                if status == 403 {
+                if is_read_only_refusal(status, &answer) {
                     true
                 } else if status == full_status && NO_HANDLER_STATUSES.contains(&status) {
                     println!(
