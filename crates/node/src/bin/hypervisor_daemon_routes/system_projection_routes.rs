@@ -661,4 +661,127 @@ mod worker_starvation_tests {
             assert_eq!(status, axum::http::StatusCode::OK);
         }
     }
+
+    /// Grow the Agentgres log through the store's own write path until one projection read takes at
+    /// least `at_least`; every calibration read must succeed. Returns (records, one read).
+    async fn calibrate(
+        state: &std::sync::Arc<super::DaemonState>,
+        data_dir: &str,
+        headers: &HeaderMap,
+        at_least: Duration,
+    ) -> (usize, Duration) {
+        use axum::response::IntoResponse;
+        let mut written = 0usize;
+        let mut one_read = Duration::ZERO;
+        while one_read < at_least {
+            let target = (written * 2).max(1000);
+            assert!(
+                target <= 128_000,
+                "the load did not reach {at_least:?} per read: {written} records, {one_read:?} per read"
+            );
+            for index in written..target {
+                super::super::persist_record(
+                    data_dir,
+                    "provider-receipts",
+                    &format!("load-{index:06}"),
+                    &json!({ "receipt_id": format!("load-{index:06}"), "kind": "load", "index": index }),
+                )
+                .unwrap();
+            }
+            written = target;
+            let started = Instant::now();
+            let answer =
+                super::handle_get(State(state.clone()), headers.clone(), Query(HashMap::new()))
+                    .await
+                    .into_response();
+            one_read = started.elapsed();
+            assert_eq!(
+                answer.status(),
+                axum::http::StatusCode::OK,
+                "a calibration read succeeds"
+            );
+        }
+        (written, one_read)
+    }
+
+    /// A burst of Systems projection reads larger than the blocking pool never starves another user
+    /// of that pool: with 8 blocking threads and 16 parallel reads (each one strict pass over a log
+    /// grown until a read takes half a second), an UNRELATED spawn_blocking, sampled repeatedly while
+    /// the reads are in flight, always completes within one read's time; and every read answers,
+    /// 200 or a typed 503 (`system_source_read_busy`, with Retry-After), instead of hanging.
+    #[test]
+    fn a_burst_of_systems_reads_never_starves_the_blocking_pool() {
+        use axum::response::IntoResponse;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .max_blocking_threads(8)
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let dir = tempfile::tempdir().unwrap();
+            let data_dir = dir.path().to_str().unwrap().to_string();
+            let state = crate::test_daemon_state(&data_dir);
+            let headers = signed_in(&data_dir);
+            let (written, one_read) =
+                calibrate(&state, &data_dir, &headers, Duration::from_millis(500)).await;
+            eprintln!("load: {written} records, one projection read {one_read:?}");
+            let reads: Vec<_> = (0..16)
+                .map(|_| {
+                    let (state, headers) = (state.clone(), headers.clone());
+                    tokio::spawn(async move {
+                        super::handle_get(State(state), headers, Query(HashMap::new()))
+                            .await
+                            .into_response()
+                    })
+                })
+                .collect();
+            // Repeated samples of an unrelated blocking operation while the reads are in flight.
+            let mut samples = Vec::new();
+            while !reads.iter().all(|read| read.is_finished()) && samples.len() < 400 {
+                let submitted = Instant::now();
+                tokio::task::spawn_blocking(|| ()).await.unwrap();
+                samples.push(submitted.elapsed());
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            let worst = samples.iter().max().copied().unwrap_or_default();
+            eprintln!(
+                "unrelated blocking operation: {} samples, worst {worst:?} (one projection read {one_read:?})",
+                samples.len()
+            );
+            assert!(
+                worst < one_read,
+                "an unrelated blocking operation waited {worst:?} behind projection reads that take {one_read:?} each"
+            );
+            let mut busy = 0;
+            for read in reads {
+                let answer = tokio::time::timeout(Duration::from_secs(120), read)
+                    .await
+                    .expect("every read answers within two minutes")
+                    .unwrap();
+                match answer.status() {
+                    axum::http::StatusCode::OK => {}
+                    axum::http::StatusCode::SERVICE_UNAVAILABLE => {
+                        busy += 1;
+                        assert!(
+                            answer.headers().contains_key(axum::http::header::RETRY_AFTER),
+                            "a busy read answers with Retry-After"
+                        );
+                        let body = axum::body::to_bytes(answer.into_body(), usize::MAX)
+                            .await
+                            .unwrap();
+                        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+                        assert_eq!(
+                            body["error"]["code"],
+                            json!("system_source_read_busy"),
+                            "a busy read is typed: {body}"
+                        );
+                    }
+                    other => panic!("a read answers 200 or 503, not {other}"),
+                }
+            }
+            eprintln!("reads answered busy: {busy} of 16");
+            assert!(busy > 0, "a burst past the admission bound is answered busy, not queued");
+        });
+    }
 }
