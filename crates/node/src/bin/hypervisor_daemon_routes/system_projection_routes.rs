@@ -560,36 +560,44 @@ mod worker_starvation_tests {
     /// A signed-in principal of the `org://local` tenant: its principal, membership and session
     /// records, and the bearer headers that present the session.
     fn signed_in(data_dir: &str) -> HeaderMap {
+        signed_in_as(data_dir, "operator")
+    }
+
+    /// `signed_in` for any principal id: a second principal of the same tenant has the same tenant
+    /// scope and a different principal ref.
+    fn signed_in_as(data_dir: &str, principal_id: &str) -> HeaderMap {
         super::super::persist_record(
             data_dir,
             "principals",
-            "operator",
-            &json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": "operator",
-                     "email": "operator@example.test", "name": "operator", "role": "owner",
+            principal_id,
+            &json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": principal_id,
+                     "email": format!("{principal_id}@example.test"), "name": principal_id, "role": "owner",
                      "status": "active", "source": "test",
                      "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" }),
         )
         .unwrap();
+        let principal_ref = format!("user://{principal_id}");
         super::super::lifecycle_routes::apply_membership_transition(
             data_dir,
-            "user://operator",
-            "user://operator",
+            &principal_ref,
+            &principal_ref,
             "org://local",
             "organization",
             "active",
             0,
-            "test-operator-org-local",
+            &format!("test-{principal_id}-org-local"),
             "test membership",
             "deployment_bootstrap",
         )
         .unwrap();
-        let token = "token-operator";
+        let token = format!("token-{principal_id}");
         super::super::persist_record(
             data_dir,
             "sessions",
-            "session-operator",
-            &json!({ "session_id": "session-operator", "token_hash": super::super::sha256_hex_str(token),
-                     "principal_id": "operator", "source": "test",
+            &format!("session-{principal_id}"),
+            &json!({ "session_id": format!("session-{principal_id}"),
+                     "token_hash": super::super::sha256_hex_str(&token),
+                     "principal_id": principal_id, "source": "test",
                      "created_at": "2026-01-01T00:00:00Z", "expires_at": "9999-12-31T23:59:59Z" }),
         )
         .unwrap();
@@ -601,16 +609,363 @@ mod worker_starvation_tests {
         headers
     }
 
+    /// ONE AT A TIME. These tests hold the process-global System source locks for seconds, or time
+    /// projection reads that such a hold would inflate: a calibration read waiting at locks another
+    /// test holds would stop calibration on a log far too small, and the test would then measure
+    /// nothing. Every test in this module takes this guard first, so none of them overlaps another.
+    static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+        ONE_AT_A_TIME
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// The System source locks, held on a thread of their own until the holder is dropped, so a
+    /// test can keep every System read waiting at the locks (a write in progress looks the same).
+    /// `new` returns only once the locks are held.
+    struct SourceLocksHeld {
+        release: Option<std::sync::mpsc::Sender<()>>,
+        holder: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl SourceLocksHeld {
+        fn new() -> Self {
+            let (held_tx, held_rx) = std::sync::mpsc::channel();
+            let (release, release_rx) = std::sync::mpsc::channel::<()>();
+            let holder = std::thread::spawn(move || {
+                super::super::system_activation_routes::with_source_locks(|| {
+                    held_tx.send(()).unwrap();
+                    // Released by a send or by the sender being dropped (a failing test included).
+                    let _ = release_rx.recv();
+                });
+            });
+            held_rx
+                .recv_timeout(Duration::from_secs(120))
+                .expect("the System source locks are taken");
+            SourceLocksHeld {
+                release: Some(release),
+                holder: Some(holder),
+            }
+        }
+    }
+
+    impl Drop for SourceLocksHeld {
+        fn drop(&mut self) {
+            drop(self.release.take());
+            if let Some(holder) = self.holder.take() {
+                let _ = holder.join();
+            }
+        }
+    }
+
+    /// How long concurrent requests are given to arrive while the source locks hold every read at
+    /// the locks: a lower bound only (a request arriving later starts a read of its own, so a short
+    /// window can fail a sharing test, never pass it), and well inside the 2 s admission bound.
+    const ARRIVAL_WINDOW: Duration = Duration::from_millis(1000);
+
+    /// Wait (bounded) until at least `count` admitted reads have begun on the blocking pool since
+    /// `begun`: the daemon's own acknowledgement, never a sleep.
+    async fn reads_begun(state: &std::sync::Arc<super::DaemonState>, begun: u64, count: u64) {
+        use std::sync::atomic::Ordering;
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while state.system_reads.started.load(Ordering::SeqCst) < begun + count {
+            assert!(
+                Instant::now() < deadline,
+                "{count} admitted read(s) begin on the blocking pool"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    }
+
+    async fn answer_of(
+        response: axum::response::Response,
+    ) -> (axum::http::StatusCode, Option<String>, serde_json::Value) {
+        let status = response.status();
+        let retry_after = response
+            .headers()
+            .get(axum::http::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
+        (status, retry_after, body)
+    }
+
+    /// One Systems projection read as `headers`, narrowed to `system_id` when given (a distinct
+    /// narrowing is a distinct read).
+    fn projection(
+        state: &std::sync::Arc<super::DaemonState>,
+        headers: &HeaderMap,
+        system_id: Option<&str>,
+    ) -> tokio::task::JoinHandle<axum::response::Response> {
+        let (state, headers) = (state.clone(), headers.clone());
+        let mut query = HashMap::new();
+        query.insert("view".to_owned(), "compact".to_owned());
+        if let Some(system_id) = system_id {
+            query.insert("system_id".to_owned(), system_id.to_owned());
+        }
+        tokio::spawn(async move { super::handle_get(State(state), headers, Query(query)).await })
+    }
+
+    /// BUILD-DELTA #48 FIX-3, MAJOR 1: an admission timeout is ONE typed answer on EVERY admitted
+    /// System read: 503, `Retry-After: 2`, code `system_source_read_busy`, whatever the route
+    /// module's own refusal classifier would make of the code. The admission is saturated through
+    /// the daemon's own behaviour: the source locks are held, and one read per permit, each a
+    /// distinct read, is admitted and acknowledged (begun on the blocking pool, waiting at the
+    /// locks); then each of the six admitted handlers is asked once, with an input it accepts.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn every_admitted_system_read_answers_an_admission_timeout_with_a_typed_503() {
+        let _one_at_a_time = one_at_a_time();
+        use axum::extract::Path as AxumPath;
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let permits = super::super::system_activation_routes::SYSTEM_READ_PERMITS as u64;
+        let saturating: Vec<_> = (0..permits)
+            .map(|index| {
+                projection(
+                    &state,
+                    &headers,
+                    Some(&format!("system://test/saturate-{index}")),
+                )
+            })
+            .collect();
+        reads_begun(&state, begun, permits).await;
+        let key = format!("asg_{}", "a".repeat(64));
+        let probes: Vec<(&str, tokio::task::JoinHandle<axum::response::Response>)> = vec![
+            (
+                "systems projection",
+                projection(&state, &headers, Some("system://test/probe")),
+            ),
+            ("genesis by system id", {
+                let state = state.clone();
+                let mut query = HashMap::new();
+                query.insert("system_id".to_owned(), "system://test/probe".to_owned());
+                tokio::spawn(async move {
+                    super::super::system_genesis_routes::handle_get(State(state), Query(query))
+                        .await
+                })
+            }),
+            ("genesis by key", {
+                let (state, key) = (state.clone(), key.clone());
+                tokio::spawn(async move {
+                    super::super::system_genesis_routes::handle_get_by_key(
+                        State(state),
+                        AxumPath(key),
+                    )
+                    .await
+                })
+            }),
+            ("membership projection", {
+                let (state, key) = (state.clone(), key.clone());
+                tokio::spawn(async move {
+                    super::super::system_membership_routes::handle_get_projection(
+                        AxumPath(key),
+                        State(state),
+                    )
+                    .await
+                })
+            }),
+            ("environment projection", {
+                let state = state.clone();
+                tokio::spawn(async move {
+                    super::super::hypervisor_environment_routes::handle_get_environment_projection(
+                        State(state),
+                    )
+                    .await
+                })
+            }),
+            ("node projection", {
+                let state = state.clone();
+                tokio::spawn(async move {
+                    super::super::hypervisoros_node_routes::handle_get_node_projection(State(state))
+                        .await
+                })
+            }),
+        ];
+        let mut wrong = Vec::new();
+        for (name, probe) in probes {
+            let response = tokio::time::timeout(Duration::from_secs(60), probe)
+                .await
+                .unwrap_or_else(|_| panic!("the {name} answers while the admission is saturated"))
+                .unwrap();
+            let (status, retry_after, body) = answer_of(response).await;
+            eprintln!(
+                "{name}: {status} Retry-After {retry_after:?} code {}",
+                body["error"]["code"]
+            );
+            if status != axum::http::StatusCode::SERVICE_UNAVAILABLE
+                || retry_after.as_deref() != Some("2")
+                || body["error"]["code"] != json!("system_source_read_busy")
+            {
+                wrong.push(format!(
+                    "{name} answered {status} Retry-After {retry_after:?} code {}",
+                    body["error"]["code"]
+                ));
+            }
+        }
+        drop(held);
+        for read in saturating {
+            let response = tokio::time::timeout(Duration::from_secs(120), read)
+                .await
+                .expect("a saturating read completes once the locks are released")
+                .unwrap();
+            assert_eq!(response.status(), axum::http::StatusCode::OK);
+        }
+        assert!(
+            wrong.is_empty(),
+            "every admitted System read answers an admission timeout 503 + Retry-After 2 + system_source_read_busy; not so: {wrong:?}"
+        );
+    }
+
+    /// BUILD-DELTA #48 FIX-3, MAJOR 2 acceptance: seven concurrent IDENTICAL projection requests
+    /// (one principal, one view, one narrowing; a workspace's seven modes asking for its gate) all
+    /// succeed, with ONE underlying read. The source locks are held while they arrive (a write in
+    /// progress looks the same), so no read can have taken its snapshot before the last request
+    /// arrived; the arrival window is a lower bound only (a request arriving after it starts a read
+    /// of its own, so a short window can fail this test, never pass it).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn seven_concurrent_identical_projection_reads_share_one_admitted_read() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let (status, _, alone) = answer_of(projection(&state, &headers, None).await.unwrap()).await;
+        assert_eq!(
+            status,
+            axum::http::StatusCode::OK,
+            "a lone read answers: {alone}"
+        );
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let reads: Vec<_> = (0..7).map(|_| projection(&state, &headers, None)).collect();
+        reads_begun(&state, begun, 1).await;
+        tokio::time::sleep(ARRIVAL_WINDOW).await;
+        drop(held);
+        let mut bodies = Vec::new();
+        for read in reads {
+            let response = tokio::time::timeout(Duration::from_secs(120), read)
+                .await
+                .expect("every read answers")
+                .unwrap();
+            let (status, retry_after, body) = answer_of(response).await;
+            assert_eq!(
+                status,
+                axum::http::StatusCode::OK,
+                "every one of the seven reads succeeds (Retry-After {retry_after:?}): {body}"
+            );
+            bodies.push(body);
+        }
+        let reads_run = state.system_reads.started.load(Ordering::SeqCst) - begun;
+        eprintln!("seven identical projection requests: {reads_run} underlying read(s)");
+        assert!(
+            bodies.iter().all(|body| *body == bodies[0]),
+            "the seven answers are one answer"
+        );
+        assert_eq!(
+            reads_run, 1,
+            "seven concurrent identical projection requests share ONE admitted read"
+        );
+    }
+
+    /// The Systems projection is principal-dependent (rows are filtered by who asks, and every
+    /// answer names its principal), so the principal is part of what makes two requests identical:
+    /// three requests from each of two principals of the same tenant make TWO reads, and every
+    /// answer names its own caller.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn identical_projection_reads_of_two_principals_are_never_shared() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let operator = signed_in(&data_dir);
+        let auditor = signed_in_as(&data_dir, "auditor");
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let reads: Vec<_> = (0..6)
+            .map(|index| {
+                let (caller, headers) = if index % 2 == 0 {
+                    ("user://operator", &operator)
+                } else {
+                    ("user://auditor", &auditor)
+                };
+                (caller, projection(&state, headers, None))
+            })
+            .collect();
+        reads_begun(&state, begun, 1).await;
+        tokio::time::sleep(ARRIVAL_WINDOW).await;
+        drop(held);
+        for (caller, read) in reads {
+            let response = tokio::time::timeout(Duration::from_secs(120), read)
+                .await
+                .expect("every read answers")
+                .unwrap();
+            let (status, _, body) = answer_of(response).await;
+            assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+            assert_eq!(
+                body["policy"]["principal_ref"],
+                json!(caller),
+                "an answer names its own caller, never another principal's"
+            );
+        }
+        assert_eq!(
+            state.system_reads.started.load(Ordering::SeqCst) - begun,
+            2,
+            "one shared read per principal, never one across principals"
+        );
+    }
+
+    /// A shared read belongs to no single request: the request that started it may go away (its
+    /// client disconnects) and the others still get the one read's answer.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_dropped_request_never_cancels_the_read_it_shares() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let first = projection(&state, &headers, None);
+        reads_begun(&state, begun, 1).await;
+        let second = projection(&state, &headers, None);
+        tokio::time::sleep(ARRIVAL_WINDOW).await;
+        first.abort();
+        drop(held);
+        let response = tokio::time::timeout(Duration::from_secs(120), second)
+            .await
+            .expect("the remaining request answers")
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        assert_eq!(
+            state.system_reads.started.load(Ordering::SeqCst) - begun,
+            1,
+            "the remaining request got the shared read, not a read of its own"
+        );
+    }
+
     /// With ONE async worker and a projection read made honestly slow (the Agentgres log grown
     /// through the store's own write path until one read takes at least a second, every calibration
     /// read succeeding), four parallel projection reads do not delay identity resolution
     /// (`/auth/whoami`): once the daemon acknowledges that a read has begun on the blocking pool (its
     /// admission count moves, not a sleep), five identity resolutions in a row each answer the
     /// signed-in principal (`authenticated: true`, principal `operator`) in under half a read, while
-    /// a read is still in flight.
+    /// a read is still in flight. The four reads are DISTINCT (each narrowed to its own System id):
+    /// identical reads share one read by design (FIX-3), and this test is about four reads.
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn parallel_systems_projections_never_delay_identity_resolution() {
-        use axum::response::IntoResponse;
+        let _one_at_a_time = one_at_a_time();
         use std::sync::atomic::Ordering;
         let dir = tempfile::tempdir().unwrap();
         let data_dir = dir.path().to_str().unwrap().to_string();
@@ -621,13 +976,12 @@ mod worker_starvation_tests {
         eprintln!("load: {written} records, one projection read {one_read:?}");
         let begun = state.system_reads.started.load(Ordering::SeqCst);
         let reads: Vec<_> = (0..4)
-            .map(|_| {
-                let (state, headers) = (state.clone(), headers.clone());
-                tokio::spawn(async move {
-                    super::handle_get(State(state), headers, Query(HashMap::new()))
-                        .await
-                        .into_response()
-                })
+            .map(|index| {
+                projection(
+                    &state,
+                    &headers,
+                    Some(&format!("system://test/parallel-{index}")),
+                )
             })
             .collect();
         // THE ACKNOWLEDGED OVERLAP: a read has begun on the blocking pool.
@@ -721,9 +1075,15 @@ mod worker_starvation_tests {
     /// grown until a read takes half a second), an UNRELATED spawn_blocking, sampled repeatedly while
     /// the reads are in flight, always completes within one read's time; and every read answers,
     /// 200 or a typed 503 (`system_source_read_busy`, with Retry-After), instead of hanging.
+    /// The reads are DISTINCT (each narrowed to its own System id): identical reads share one read
+    /// by design (FIX-3), and this test is about a burst of reads. NOT VACUOUS (r2 MINOR 5): sampling
+    /// starts only once the daemon acknowledges a read on the blocking pool, a sample counts only
+    /// when a read is still in flight after it, and at least `MIN_OVERLAPPING_SAMPLES` must count.
     #[test]
     fn a_burst_of_systems_reads_never_starves_the_blocking_pool() {
-        use axum::response::IntoResponse;
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        const MIN_OVERLAPPING_SAMPLES: usize = 5;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .max_blocking_threads(8)
@@ -738,25 +1098,36 @@ mod worker_starvation_tests {
             let (written, one_read) =
                 calibrate(&state, &data_dir, &headers, Duration::from_millis(500)).await;
             eprintln!("load: {written} records, one projection read {one_read:?}");
+            let begun = state.system_reads.started.load(Ordering::SeqCst);
             let reads: Vec<_> = (0..16)
-                .map(|_| {
-                    let (state, headers) = (state.clone(), headers.clone());
-                    tokio::spawn(async move {
-                        super::handle_get(State(state), headers, Query(HashMap::new()))
-                            .await
-                            .into_response()
-                    })
+                .map(|index| {
+                    projection(
+                        &state,
+                        &headers,
+                        Some(&format!("system://test/burst-{index}")),
+                    )
                 })
                 .collect();
+            // THE ACKNOWLEDGED OVERLAP: a read has begun on the blocking pool.
+            reads_begun(&state, begun, 1).await;
             // Repeated samples of an unrelated blocking operation while the reads are in flight.
             let mut samples = Vec::new();
-            while !reads.iter().all(|read| read.is_finished()) && samples.len() < 400 {
+            while samples.len() < 400 {
                 let submitted = Instant::now();
                 tokio::task::spawn_blocking(|| ()).await.unwrap();
-                samples.push(submitted.elapsed());
+                let waited = submitted.elapsed();
+                if reads.iter().all(|read| read.is_finished()) {
+                    break;
+                }
+                samples.push(waited);
                 tokio::time::sleep(Duration::from_millis(50)).await;
             }
-            let worst = samples.iter().max().copied().unwrap_or_default();
+            assert!(
+                samples.len() >= MIN_OVERLAPPING_SAMPLES,
+                "at least {MIN_OVERLAPPING_SAMPLES} samples overlap the reads in flight, not {}",
+                samples.len()
+            );
+            let worst = samples.iter().max().copied().unwrap();
             eprintln!(
                 "unrelated blocking operation: {} samples, worst {worst:?} (one projection read {one_read:?})",
                 samples.len()
