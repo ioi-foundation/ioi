@@ -2733,16 +2733,21 @@ pub(crate) fn restart_committed_cursor(
 /// On a fresh chain (no durable tip), height one names the all-zero protocol parent rather than the
 /// separately stored genesis-state container. A workload that already holds blocks is REFUSED
 /// (FU-N11-RESTART-HYDRATION-1): its durable status counts a signed but not-yet-committed block, so
-/// it is not admission evidence and cannot seed canonical authority. Restore the ordering-finality
-/// directory or recover the spine explicitly (the ordering-finality recovery route).
+/// it is not admission evidence and cannot seed canonical authority. The refusal names the recovery
+/// procedures (restore ordering-finality from a backup, or resync from peers with an empty data
+/// directory); an explicit spine-recovery command is FU-N11-SPINE-RECOVERY-1.
 pub(crate) fn runtime_finality_initial_head(
     durable_tip: Option<&Block<ChainTransaction>>,
 ) -> Result<String> {
     match durable_tip {
         Some(block) => Err(anyhow!(
-            "the Agentgres finality spine is missing while the workload holds blocks to height {}; \
-             its canonical head cannot be taken from the workload's durable status, which counts \
-             uncommitted blocks: restore ordering-finality or recover the spine explicitly",
+            "the Agentgres finality spine (the node's ordering-finality directory) is missing while \
+             the workload holds blocks to height {}; its canonical head cannot be taken from the \
+             workload's durable status, which counts uncommitted blocks. To recover: (1) restore the \
+             ordering-finality directory from a backup taken with this workload state, or (2) resync \
+             the node from its peers by starting it with an EMPTY data directory (both the workload \
+             state and ordering-finality removed). An explicit spine-recovery command does not exist \
+             yet (FU-N11-SPINE-RECOVERY-1)",
             block.header.height
         )),
         None => Ok(format!("sha256:{}", hex::encode([0_u8; 32]))),
