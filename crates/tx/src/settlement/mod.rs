@@ -449,28 +449,38 @@ where
                 if let Some(amount) = bond_amount {
                     let sender = ctx.signer_account_id;
                     let sender_key = [b"balance::", sender.as_ref()].concat();
-                    let sender_bal: u128 = state
-                        .get(&sender_key)?
-                        .and_then(|b| codec::from_bytes_canonical(&b).ok())
-                        .unwrap_or(0);
 
-                    if sender_bal < *amount {
-                        return Err(TransactionError::InsufficientFunds);
-                    }
-
-                    let new_sender_bal = sender_bal - amount;
-                    state.insert(
-                        &sender_key,
-                        &codec::to_bytes_canonical(&new_sender_bal).unwrap(),
-                    )?;
-
-                    // Store the upgrade bond
+                    // The upgrade bond's custody key (the receipt's payload hash).
                     let upgrade_key = [
                         b"liability::upgrade::",
                         receipt.canonical_payload_hash.as_ref(),
                     ]
                     .concat();
-                    state.insert(&upgrade_key, &codec::to_bytes_canonical(amount).unwrap())?;
+                    // BD-63: an occupied upgrade key is refused BEFORE any debit. Writing
+                    // over it would drop the bond already held there (a second debit with
+                    // one amount kept), and any signer could overwrite it, Some(0) included.
+                    if state.get(&upgrade_key)?.is_some() {
+                        return Err(TransactionError::Invalid(
+                            "Liability upgrade bond already held for this receipt".into(),
+                        ));
+                    }
+
+                    let sender_bal: u128 = state
+                        .get(&sender_key)?
+                        .and_then(|b| codec::from_bytes_canonical(&b).ok())
+                        .unwrap_or(0);
+
+                    // The funds check, as checked arithmetic (BD-63): the debit cannot wrap.
+                    let new_sender_bal = sender_bal
+                        .checked_sub(*amount)
+                        .ok_or(TransactionError::InsufficientFunds)?;
+                    let sender_bytes = encode_balance(&new_sender_bal)?;
+                    let amount_bytes =
+                        codec::to_bytes_canonical(amount).map_err(TransactionError::Serialization)?;
+
+                    // Writes: only after every check above.
+                    state.insert(&sender_key, &sender_bytes)?;
+                    state.insert(&upgrade_key, &amount_bytes)?;
                 }
 
                 // 3. Process ZK Proof (if target_level requires it)
