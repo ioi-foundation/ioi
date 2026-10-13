@@ -635,7 +635,7 @@ impl Harness {
             "harness".into(),
             profile,
             "harness-writer".into(),
-            runtime_finality_initial_head(None).unwrap(),
+            || runtime_finality_initial_head(None),
             format!(
                 "key://test/{}",
                 hex::encode(key.public_key().unwrap().as_bytes())

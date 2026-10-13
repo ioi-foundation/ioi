@@ -1368,8 +1368,7 @@ where
             format!("chain://ioi/{}", self.config.chain_id.0),
             configured_profile,
             format!("writer://ioi/validator/{}", hex::encode(local_account_id.0)),
-            super::runtime_finality::runtime_finality_initial_head(initial_block.as_ref())
-                .map_err(|error| ValidatorError::Other(error.to_string()))?,
+            || super::runtime_finality::runtime_finality_initial_head(initial_block.as_ref()),
             issuer_key_id,
             secret.as_ref(),
         )
