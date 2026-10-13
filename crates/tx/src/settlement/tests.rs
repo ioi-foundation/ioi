@@ -1383,3 +1383,145 @@ fn bd62_transfer_credit_overflow_is_refused_without_writes() {
 
     world.assert_refused_without_writes("BD-62", result, &before);
 }
+
+// ---------------------------------------------------------------------------
+// BD-63 (BD-57 review 1, finding 4): UpgradeLiability keyed its bond custody by the
+// receipt's payload hash alone (`liability::upgrade::` ‖ canonical_payload_hash) and
+// overwrote it: a second upgrade debited again but kept one amount, and any signer
+// could overwrite another's record (with Some(0) included). After the fix: an
+// occupied upgrade key is REFUSED before any debit.
+// ---------------------------------------------------------------------------
+
+/// Liability-upgrade bond key prefix (`liability::upgrade::` ‖ receipt payload hash),
+/// as the UpgradeLiability arm writes it.
+const UPGRADE_BOND_PREFIX: &[u8] = b"liability::upgrade::";
+/// The upgraded receipt's canonical payload hash.
+const UPGRADE_RECEIPT_HASH: [u8; 32] = [0xC4; 32];
+/// The upgrade bond the payer posts first.
+const UPGRADE: u128 = 10;
+
+fn upgrade_key() -> Vec<u8> {
+    [UPGRADE_BOND_PREFIX, UPGRADE_RECEIPT_HASH.as_slice()].concat()
+}
+
+fn upgrade_payload(signer_id: AccountId, bond_amount: Option<u128>) -> SettlementPayload {
+    SettlementPayload::UpgradeLiability {
+        receipt: Receipt {
+            canonical_payload_hash: UPGRADE_RECEIPT_HASH,
+            inputs_commitment: [0x02; 32],
+            outputs_commitment: [0x03; 32],
+            model_snapshot_id: [0x04; 32],
+            policy_hash: [0x9A; 32],
+            session_id: None,
+            prev_receipt_hash: [0u8; 32],
+            signer_id,
+            signature: Vec::new(),
+            external_proof: None,
+        },
+        target_level: 3,
+        bond_amount,
+        zk_proof: None,
+    }
+}
+
+impl World {
+    fn upgrade_bond(&self) -> Option<u128> {
+        self.state
+            .data
+            .get(&upgrade_key())
+            .map(|bytes| codec::from_bytes_canonical(bytes).expect("upgrade bond decodes"))
+    }
+
+    /// BD-63 setup: the payer posts an UPGRADE bond against the receipt (accepted). The
+    /// payer's debit and the custody under the upgrade key sum to PAYER_START.
+    fn upgrade_once(&mut self) {
+        let payer = self.payer.id;
+        self.submit(payer, HEIGHT, upgrade_payload(payer, Some(UPGRADE)))
+            .expect("BD-63 setup: the first upgrade bond is accepted");
+        assert_eq!(
+            self.balance(&payer),
+            PAYER_START - UPGRADE,
+            "BD-63 setup: the upgrade bond is debited from the payer"
+        );
+        assert_eq!(
+            self.upgrade_bond(),
+            Some(UPGRADE),
+            "BD-63 setup: the upgrade bond is held under the upgrade key"
+        );
+    }
+}
+
+// BD-63 (same-signer arm): after the payer's first upgrade bond, the payer posts a
+// second UPGRADE bond against the same receipt.
+// After the fix: REFUSED before any debit; no state written (one debit, one custody).
+// PREDICTED AT THE BD-63 RED COMMIT (UpgradeLiability arm as at 03c7ef148): FAILS,
+// because the second upgrade is ACCEPTED: the payer is debited again (980) and the
+// upgrade key is rewritten with the same 10, so 20 is debited and 10 is held.
+#[test]
+fn bd63_second_upgrade_bond_by_the_same_signer_is_refused_before_any_debit() {
+    let mut world = World::new();
+    world.upgrade_once();
+    let before = world.snapshot();
+
+    let payer = world.payer.id;
+    let result = world.submit(payer, HEIGHT + 1, upgrade_payload(payer, Some(UPGRADE)));
+
+    world.assert_refused_without_writes("BD-63 (same signer)", result, &before);
+}
+
+// BD-63 (other-signer arm): after the payer's upgrade bond, Mallory (funded) posts an
+// UPGRADE bond against the same receipt.
+// After the fix: REFUSED before any debit; no state written.
+// PREDICTED AT THE BD-63 RED COMMIT: FAILS, because Mallory's upgrade is ACCEPTED:
+// Mallory is debited and the payer's custody record is overwritten.
+#[test]
+fn bd63_upgrade_bond_by_another_signer_is_refused_before_any_debit() {
+    let mut world = World::new();
+    world.upgrade_once();
+    let before = world.snapshot();
+
+    let mallory = world.mallory.id;
+    let result = world.submit(mallory, HEIGHT + 1, upgrade_payload(mallory, Some(UPGRADE)));
+
+    world.assert_refused_without_writes("BD-63 (another signer)", result, &before);
+}
+
+// BD-63 (Some(0) arm): after the payer's upgrade bond, Mallory posts Some(0) against
+// the same receipt, which would overwrite the payer's 10 with 0 at no cost.
+// After the fix: REFUSED; no state written (the payer's custody stays 10).
+// PREDICTED AT THE BD-63 RED COMMIT: FAILS, because the Some(0) upgrade is ACCEPTED:
+// the upgrade key is rewritten with 0 (Mallory's balance key is rewritten with the
+// same bytes), so the payer's 10 is no longer held anywhere.
+#[test]
+fn bd63_zero_upgrade_bond_by_another_signer_cannot_overwrite_the_custody() {
+    let mut world = World::new();
+    world.upgrade_once();
+    let before = world.snapshot();
+
+    let mallory = world.mallory.id;
+    let result = world.submit(mallory, HEIGHT + 1, upgrade_payload(mallory, Some(0)));
+
+    world.assert_refused_without_writes("BD-63 (Some(0) by another signer)", result, &before);
+    assert_eq!(
+        world.upgrade_bond(),
+        Some(UPGRADE),
+        "BD-63: the payer's upgrade custody is intact"
+    );
+}
+
+// BD-63 (funds arm): on an unoccupied upgrade key, the payer posts PAYER_START + 1.
+// After the fix: REFUSED by the funds check (checked arithmetic); no state written.
+// PREDICTED AT THE BD-63 RED COMMIT: PASSES (a PIN). The funds check
+// (`sender_bal < amount`) already refuses before any write. It pins the funds refusal
+// across the fix's rewrite of the debit to checked arithmetic.
+#[test]
+fn bd63_upgrade_bond_without_funds_is_refused() {
+    let mut world = World::new();
+    let before = world.snapshot();
+
+    let payer = world.payer.id;
+    let result = world.submit(payer, HEIGHT, upgrade_payload(payer, Some(PAYER_START + 1)));
+
+    world.assert_refused_without_writes("BD-63 (insufficient funds)", result, &before);
+    assert_eq!(world.upgrade_bond(), None, "BD-63: no upgrade custody is written");
+}
