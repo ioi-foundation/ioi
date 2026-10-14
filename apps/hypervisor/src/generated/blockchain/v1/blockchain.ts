@@ -56,6 +56,42 @@ export interface ProcessBlockResponse {
   /** SCALE-encoded Block<ChainTransaction> (processed) */
   blockBytes: Uint8Array;
   events: Uint8Array[];
+  /**
+   * Canonical SCALE-encoded BlockExecutionReceipt values, exactly one per
+   * included transaction and in block order.
+   */
+  executionReceipts: Uint8Array[];
+}
+
+export interface ReplaceUnfinalizedTipRequest {
+  /** SCALE-encoded replacement Block<ChainTransaction>. */
+  replacementBlockBytes: Uint8Array;
+  /**
+   * Exact workload projection being retired. All fields are revalidated under
+   * the workload machine lock before the parent snapshot is restored.
+   */
+  expectedTipHeight: number;
+  expectedParentStateRoot: Uint8Array;
+  expectedStateRoot: Uint8Array;
+  expectedTransactionsRoot: Uint8Array;
+  /**
+   * Canonical Agentgres admission floor supplied after the validator drains
+   * pending recognized effects. This is a caller fence, not an independent
+   * Agentgres observation by the workload process.
+   */
+  recognizedHeight: number;
+  /**
+   * Required canonical SCALE encoding of the complete target block. The
+   * workload rejects legacy callers that provide only the partial fields
+   * above; those fields remain reserved for wire compatibility.
+   */
+  expectedTargetBlockBytes: Uint8Array;
+  /**
+   * Required canonical SCALE encoding of the exact workload head observed by
+   * the validator. It is either the target itself or its single speculative
+   * descendant and is revalidated under the workload machine lock.
+   */
+  expectedLiveTipBlockBytes: Uint8Array;
 }
 
 export interface GetBlocksRangeRequest {
@@ -539,7 +575,7 @@ export const ProcessBlockRequest: MessageFns<ProcessBlockRequest> = {
 };
 
 function createBaseProcessBlockResponse(): ProcessBlockResponse {
-  return { blockBytes: new Uint8Array(0), events: [] };
+  return { blockBytes: new Uint8Array(0), events: [], executionReceipts: [] };
 }
 
 export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
@@ -549,6 +585,9 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
     }
     for (const v of message.events) {
       writer.uint32(18).bytes(v!);
+    }
+    for (const v of message.executionReceipts) {
+      writer.uint32(26).bytes(v!);
     }
     return writer;
   },
@@ -576,6 +615,14 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
           message.events.push(reader.bytes());
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.executionReceipts.push(reader.bytes());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -593,6 +640,11 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
         ? bytesFromBase64(object.block_bytes)
         : new Uint8Array(0),
       events: globalThis.Array.isArray(object?.events) ? object.events.map((e: any) => bytesFromBase64(e)) : [],
+      executionReceipts: globalThis.Array.isArray(object?.executionReceipts)
+        ? object.executionReceipts.map((e: any) => bytesFromBase64(e))
+        : globalThis.Array.isArray(object?.execution_receipts)
+        ? object.execution_receipts.map((e: any) => bytesFromBase64(e))
+        : [],
     };
   },
 
@@ -604,6 +656,9 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
     if (message.events?.length) {
       obj.events = message.events.map((e) => base64FromBytes(e));
     }
+    if (message.executionReceipts?.length) {
+      obj.executionReceipts = message.executionReceipts.map((e) => base64FromBytes(e));
+    }
     return obj;
   },
 
@@ -614,6 +669,220 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
     const message = createBaseProcessBlockResponse();
     message.blockBytes = object.blockBytes ?? new Uint8Array(0);
     message.events = object.events?.map((e) => e) || [];
+    message.executionReceipts = object.executionReceipts?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseReplaceUnfinalizedTipRequest(): ReplaceUnfinalizedTipRequest {
+  return {
+    replacementBlockBytes: new Uint8Array(0),
+    expectedTipHeight: 0,
+    expectedParentStateRoot: new Uint8Array(0),
+    expectedStateRoot: new Uint8Array(0),
+    expectedTransactionsRoot: new Uint8Array(0),
+    recognizedHeight: 0,
+    expectedTargetBlockBytes: new Uint8Array(0),
+    expectedLiveTipBlockBytes: new Uint8Array(0),
+  };
+}
+
+export const ReplaceUnfinalizedTipRequest: MessageFns<ReplaceUnfinalizedTipRequest> = {
+  encode(message: ReplaceUnfinalizedTipRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.replacementBlockBytes.length !== 0) {
+      writer.uint32(10).bytes(message.replacementBlockBytes);
+    }
+    if (message.expectedTipHeight !== 0) {
+      writer.uint32(16).uint64(message.expectedTipHeight);
+    }
+    if (message.expectedParentStateRoot.length !== 0) {
+      writer.uint32(26).bytes(message.expectedParentStateRoot);
+    }
+    if (message.expectedStateRoot.length !== 0) {
+      writer.uint32(34).bytes(message.expectedStateRoot);
+    }
+    if (message.expectedTransactionsRoot.length !== 0) {
+      writer.uint32(42).bytes(message.expectedTransactionsRoot);
+    }
+    if (message.recognizedHeight !== 0) {
+      writer.uint32(48).uint64(message.recognizedHeight);
+    }
+    if (message.expectedTargetBlockBytes.length !== 0) {
+      writer.uint32(58).bytes(message.expectedTargetBlockBytes);
+    }
+    if (message.expectedLiveTipBlockBytes.length !== 0) {
+      writer.uint32(66).bytes(message.expectedLiveTipBlockBytes);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReplaceUnfinalizedTipRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReplaceUnfinalizedTipRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.replacementBlockBytes = reader.bytes();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.expectedTipHeight = longToNumber(reader.uint64());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.expectedParentStateRoot = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.expectedStateRoot = reader.bytes();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.expectedTransactionsRoot = reader.bytes();
+          continue;
+        }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.recognizedHeight = longToNumber(reader.uint64());
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.expectedTargetBlockBytes = reader.bytes();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.expectedLiveTipBlockBytes = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ReplaceUnfinalizedTipRequest {
+    return {
+      replacementBlockBytes: isSet(object.replacementBlockBytes)
+        ? bytesFromBase64(object.replacementBlockBytes)
+        : isSet(object.replacement_block_bytes)
+        ? bytesFromBase64(object.replacement_block_bytes)
+        : new Uint8Array(0),
+      expectedTipHeight: isSet(object.expectedTipHeight)
+        ? globalThis.Number(object.expectedTipHeight)
+        : isSet(object.expected_tip_height)
+        ? globalThis.Number(object.expected_tip_height)
+        : 0,
+      expectedParentStateRoot: isSet(object.expectedParentStateRoot)
+        ? bytesFromBase64(object.expectedParentStateRoot)
+        : isSet(object.expected_parent_state_root)
+        ? bytesFromBase64(object.expected_parent_state_root)
+        : new Uint8Array(0),
+      expectedStateRoot: isSet(object.expectedStateRoot)
+        ? bytesFromBase64(object.expectedStateRoot)
+        : isSet(object.expected_state_root)
+        ? bytesFromBase64(object.expected_state_root)
+        : new Uint8Array(0),
+      expectedTransactionsRoot: isSet(object.expectedTransactionsRoot)
+        ? bytesFromBase64(object.expectedTransactionsRoot)
+        : isSet(object.expected_transactions_root)
+        ? bytesFromBase64(object.expected_transactions_root)
+        : new Uint8Array(0),
+      recognizedHeight: isSet(object.recognizedHeight)
+        ? globalThis.Number(object.recognizedHeight)
+        : isSet(object.recognized_height)
+        ? globalThis.Number(object.recognized_height)
+        : 0,
+      expectedTargetBlockBytes: isSet(object.expectedTargetBlockBytes)
+        ? bytesFromBase64(object.expectedTargetBlockBytes)
+        : isSet(object.expected_target_block_bytes)
+        ? bytesFromBase64(object.expected_target_block_bytes)
+        : new Uint8Array(0),
+      expectedLiveTipBlockBytes: isSet(object.expectedLiveTipBlockBytes)
+        ? bytesFromBase64(object.expectedLiveTipBlockBytes)
+        : isSet(object.expected_live_tip_block_bytes)
+        ? bytesFromBase64(object.expected_live_tip_block_bytes)
+        : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: ReplaceUnfinalizedTipRequest): unknown {
+    const obj: any = {};
+    if (message.replacementBlockBytes.length !== 0) {
+      obj.replacementBlockBytes = base64FromBytes(message.replacementBlockBytes);
+    }
+    if (message.expectedTipHeight !== 0) {
+      obj.expectedTipHeight = Math.round(message.expectedTipHeight);
+    }
+    if (message.expectedParentStateRoot.length !== 0) {
+      obj.expectedParentStateRoot = base64FromBytes(message.expectedParentStateRoot);
+    }
+    if (message.expectedStateRoot.length !== 0) {
+      obj.expectedStateRoot = base64FromBytes(message.expectedStateRoot);
+    }
+    if (message.expectedTransactionsRoot.length !== 0) {
+      obj.expectedTransactionsRoot = base64FromBytes(message.expectedTransactionsRoot);
+    }
+    if (message.recognizedHeight !== 0) {
+      obj.recognizedHeight = Math.round(message.recognizedHeight);
+    }
+    if (message.expectedTargetBlockBytes.length !== 0) {
+      obj.expectedTargetBlockBytes = base64FromBytes(message.expectedTargetBlockBytes);
+    }
+    if (message.expectedLiveTipBlockBytes.length !== 0) {
+      obj.expectedLiveTipBlockBytes = base64FromBytes(message.expectedLiveTipBlockBytes);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReplaceUnfinalizedTipRequest>, I>>(base?: I): ReplaceUnfinalizedTipRequest {
+    return ReplaceUnfinalizedTipRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReplaceUnfinalizedTipRequest>, I>>(object: I): ReplaceUnfinalizedTipRequest {
+    const message = createBaseReplaceUnfinalizedTipRequest();
+    message.replacementBlockBytes = object.replacementBlockBytes ?? new Uint8Array(0);
+    message.expectedTipHeight = object.expectedTipHeight ?? 0;
+    message.expectedParentStateRoot = object.expectedParentStateRoot ?? new Uint8Array(0);
+    message.expectedStateRoot = object.expectedStateRoot ?? new Uint8Array(0);
+    message.expectedTransactionsRoot = object.expectedTransactionsRoot ?? new Uint8Array(0);
+    message.recognizedHeight = object.recognizedHeight ?? 0;
+    message.expectedTargetBlockBytes = object.expectedTargetBlockBytes ?? new Uint8Array(0);
+    message.expectedLiveTipBlockBytes = object.expectedLiveTipBlockBytes ?? new Uint8Array(0);
     return message;
   },
 };
@@ -3317,6 +3586,18 @@ export const ChainControlService = {
       Buffer.from(ProcessBlockResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ProcessBlockResponse => ProcessBlockResponse.decode(value),
   },
+  /** Replaces exactly one unrecognized AFT workload tip under an execution-surface fence. */
+  replaceUnfinalizedTip: {
+    path: "/ioi.blockchain.v1.ChainControl/ReplaceUnfinalizedTip",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: ReplaceUnfinalizedTipRequest): Buffer =>
+      Buffer.from(ReplaceUnfinalizedTipRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ReplaceUnfinalizedTipRequest => ReplaceUnfinalizedTipRequest.decode(value),
+    responseSerialize: (value: ProcessBlockResponse): Buffer =>
+      Buffer.from(ProcessBlockResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ProcessBlockResponse => ProcessBlockResponse.decode(value),
+  },
   /** Fetches a range of blocks for sync. Supports Hybrid Data Plane. */
   getBlocksRange: {
     path: "/ioi.blockchain.v1.ChainControl/GetBlocksRange",
@@ -3363,11 +3644,27 @@ export const ChainControlService = {
     responseSerialize: (value: GetStatusResponse): Buffer => Buffer.from(GetStatusResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
   },
+  /**
+   * Internal raw execution status. Unlike public AFT status, this is not
+   * demoted to the latest collapse-backed height and carries no finality
+   * meaning.
+   */
+  getExecutionStatus: {
+    path: "/ioi.blockchain.v1.ChainControl/GetExecutionStatus",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetStatusRequest): Buffer => Buffer.from(GetStatusRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetStatusRequest => GetStatusRequest.decode(value),
+    responseSerialize: (value: GetStatusResponse): Buffer => Buffer.from(GetStatusResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
+  },
 } as const;
 
 export interface ChainControlServer extends UntypedServiceImplementation {
   /** Processes a block. Supports Hybrid Data Plane (Inline vs Shared Memory). */
   processBlock: handleUnaryCall<ProcessBlockRequest, ProcessBlockResponse>;
+  /** Replaces exactly one unrecognized AFT workload tip under an execution-surface fence. */
+  replaceUnfinalizedTip: handleUnaryCall<ReplaceUnfinalizedTipRequest, ProcessBlockResponse>;
   /** Fetches a range of blocks for sync. Supports Hybrid Data Plane. */
   getBlocksRange: handleUnaryCall<GetBlocksRangeRequest, GetBlocksRangeResponse>;
   /** Updates the header of a stored block (used for adding signatures/oracle data). */
@@ -3376,6 +3673,12 @@ export interface ChainControlServer extends UntypedServiceImplementation {
   getGenesisStatus: handleUnaryCall<GetGenesisStatusRequest, GetGenesisStatusResponse>;
   /** Gets the current chain status (height, timestamp, etc.). */
   getStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
+  /**
+   * Internal raw execution status. Unlike public AFT status, this is not
+   * demoted to the latest collapse-backed height and carries no finality
+   * meaning.
+   */
+  getExecutionStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
 }
 
 export interface ChainControlClient extends Client {
@@ -3395,6 +3698,22 @@ export interface ChainControlClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ProcessBlockResponse) => void,
   ): ClientUnaryCall;
+  /** Replaces exactly one unrecognized AFT workload tip under an execution-surface fence. */
+  replaceUnfinalizedTip(
+    request: ReplaceUnfinalizedTipRequest,
+    callback: (error: ServiceError | null, response: ProcessBlockResponse) => void,
+  ): ClientUnaryCall;
+  replaceUnfinalizedTip(
+    request: ReplaceUnfinalizedTipRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ProcessBlockResponse) => void,
+  ): ClientUnaryCall;
+  replaceUnfinalizedTip(
+    request: ReplaceUnfinalizedTipRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ProcessBlockResponse) => void,
+  ): ClientUnaryCall;
   /** Fetches a range of blocks for sync. Supports Hybrid Data Plane. */
   getBlocksRange(
     request: GetBlocksRangeRequest,
@@ -3454,6 +3773,26 @@ export interface ChainControlClient extends Client {
     callback: (error: ServiceError | null, response: GetStatusResponse) => void,
   ): ClientUnaryCall;
   getStatus(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Internal raw execution status. Unlike public AFT status, this is not
+   * demoted to the latest collapse-backed height and carries no finality
+   * meaning.
+   */
+  getExecutionStatus(
+    request: GetStatusRequest,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  getExecutionStatus(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  getExecutionStatus(
     request: GetStatusRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
