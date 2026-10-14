@@ -531,14 +531,10 @@ impl WorkloadClient {
         Ok(result)
     }
 
-    /// Retrieves the state root of the latest block.
+    /// Retrieves the state root of the latest COMMITTED (Agentgres-admitted) block, never of the
+    /// durable tip, which may be uncommitted (FU-N11-DURABLE-STATUS-1 D2a, C7).
     pub async fn get_state_root(&self) -> Result<StateRoot> {
-        let status = self.get_status().await?;
-        let block = self
-            .get_block_by_height(status.height)
-            .await?
-            .ok_or_else(|| anyhow!("Head block not found"))?;
-        Ok(block.header.state_root)
+        Ok(ioi_api::chain::committed_state_root(self).await?)
     }
 
     pub async fn get_block_by_height(

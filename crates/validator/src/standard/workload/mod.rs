@@ -16,3 +16,6 @@ pub mod runtime;
 
 /// Workload runtime and hardware drivers.
 pub mod drivers;
+
+/// The Agentgres-admitted tip marker and its committed status (FU-N11-DURABLE-STATUS-1 D2a).
+pub mod admitted_tip;

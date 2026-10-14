@@ -1108,3 +1108,75 @@ impl NodeStore for RedbEpochStore {
         w.commit().map_err(|e| StorageError::Backend(e.to_string()))
     }
 }
+
+#[cfg(test)]
+mod admitted_tip_tests {
+    //! FU-N11-DURABLE-STATUS-1 D2a RED-W1a: the Agentgres-admitted tip marker is persistent and
+    //! monotone in the node store.
+    use super::RedbEpochStore;
+    use ioi_api::storage::{AdmittedTip, NodeStore};
+
+    fn tip(height: u64, hash: u8, root: u8) -> AdmittedTip {
+        AdmittedTip {
+            height,
+            block_hash: [hash; 32],
+            state_root: vec![root; 32],
+        }
+    }
+
+    // The background persistence thread releases its database handle after the store drops;
+    // a bounded retry keeps the reopen deterministic.
+    fn reopen(path: &std::path::Path) -> RedbEpochStore {
+        let mut last = None;
+        for _ in 0..100 {
+            match RedbEpochStore::open(path, 1024) {
+                Ok(store) => return store,
+                Err(error) => last = Some(error),
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        panic!("reopen failed: {last:?}");
+    }
+
+    #[test]
+    fn admitted_tip_marker_is_persistent_and_monotone() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("store.redb");
+        {
+            let store = RedbEpochStore::open(&path, 1024).expect("open");
+            assert_eq!(store.get_admitted_tip().expect("read empty"), None);
+            store
+                .put_admitted_tip(&tip(3, 0xA3, 0xB3))
+                .expect("record height 3");
+            store
+                .put_admitted_tip(&tip(3, 0xA3, 0xB3))
+                .expect("the same tip again (a restart redrive) is accepted");
+            assert!(
+                store.put_admitted_tip(&tip(2, 0xA2, 0xB2)).is_err(),
+                "a lower height is refused"
+            );
+            assert!(
+                store.put_admitted_tip(&tip(3, 0xEE, 0xB3)).is_err(),
+                "the same height with a different block hash is refused"
+            );
+            assert!(
+                store.put_admitted_tip(&tip(3, 0xA3, 0xEE)).is_err(),
+                "the same height with a different state root is refused"
+            );
+            assert_eq!(
+                store.get_admitted_tip().expect("read"),
+                Some(tip(3, 0xA3, 0xB3)),
+                "a refused record leaves the marker unchanged"
+            );
+            store
+                .put_admitted_tip(&tip(5, 0xA5, 0xB5))
+                .expect("advance to height 5");
+        }
+        let reopened = reopen(&path);
+        assert_eq!(
+            reopened.get_admitted_tip().expect("read after reopen"),
+            Some(tip(5, 0xA5, 0xB5)),
+            "the marker survives a restart"
+        );
+    }
+}

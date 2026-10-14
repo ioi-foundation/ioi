@@ -31,6 +31,21 @@ impl std::fmt::Debug for NodeHash {
     }
 }
 
+/// The node's Agentgres-admitted tip: the highest block the orchestration's Agentgres admission
+/// has recorded as committed (FU-N11-DURABLE-STATUS-1 D2a). It is the source of every
+/// "committed" read (IBC latest height, licence expiry, a trusted state root), never the
+/// workload's durable status, which counts signed but uncommitted blocks.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdmittedTip {
+    /// The admitted block's height.
+    pub height: Height,
+    /// The admitted (certified) block hash. It may differ from the stored header's hash when a
+    /// view-change winner names a different parent; the execution surface is what must match.
+    pub block_hash: [u8; 32],
+    /// The admitted block's post-state root.
+    pub state_root: Vec<u8>,
+}
+
 /// Encodes a u64 into a big-endian byte array, suitable for ordered key scans.
 #[inline]
 pub fn be64(x: u64) -> [u8; 8] {
@@ -159,4 +174,18 @@ pub trait NodeStore: Send + Sync {
         limit: u32,
         max_bytes: u32,
     ) -> Result<Vec<Block<ChainTransaction>>, StorageError>;
+
+    /// The persisted Agentgres-admitted tip marker, or `None` before the first admission.
+    fn get_admitted_tip(&self) -> Result<Option<AdmittedTip>, StorageError> {
+        Ok(None)
+    }
+
+    /// Persists the Agentgres-admitted tip marker. Monotone: a lower height, or the same height
+    /// with a different block hash or state root, is refused and leaves the marker unchanged.
+    /// Backends without a marker refuse every record.
+    fn put_admitted_tip(&self, _tip: &AdmittedTip) -> Result<(), StorageError> {
+        Err(StorageError::Backend(
+            "this node store keeps no admitted-tip marker".into(),
+        ))
+    }
 }

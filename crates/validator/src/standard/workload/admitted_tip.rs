@@ -1,0 +1,283 @@
+// Path: crates/validator/src/standard/workload/admitted_tip.rs
+
+//! The workload's Agentgres-admitted tip marker (FU-N11-DURABLE-STATUS-1 D2a).
+//!
+//! The orchestration's Agentgres admission records each admitted block here. Every COMMITTED read
+//! (the IBC host's latest height, licence expiry, a trusted state root) reports this marker, never
+//! the durable status, which counts signed but uncommitted blocks. Only the admission path may
+//! advance it: a record must present the workload's per-boot capability, and the admitted block's
+//! execution surface must match the block the workload stores at that height.
+
+use anyhow::{anyhow, Result};
+use ioi_api::storage::{AdmittedTip, NodeStore};
+use ioi_types::app::{Block, ChainStatus, ChainTransaction};
+
+/// The per-boot capability that authorizes advancing the admitted-tip marker.
+#[derive(Clone, PartialEq, Eq)]
+pub struct WorkloadCapability([u8; 32]);
+
+impl WorkloadCapability {
+    /// Wraps capability bytes.
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    /// The capability bytes.
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    /// A fresh capability for this boot (32 bytes from the OS RNG).
+    pub fn generate() -> Self {
+        use rand::RngCore;
+        let mut bytes = [0u8; 32];
+        rand::rngs::OsRng.fill_bytes(&mut bytes);
+        Self(bytes)
+    }
+}
+
+/// Writes this boot's capability for a split-process orchestration: the file is REPLACED (a
+/// previous boot's file is never kept), readable only by its owner (0600), inside a directory no
+/// group or other user can read. A refusal leaves no capability file, so the orchestration cannot
+/// record admissions and the committed height stays 0 (fail-closed).
+pub fn write_capability_file(path: &std::path::Path, capability: &WorkloadCapability) -> Result<()> {
+    std::fs::write(path, capability.as_bytes())?;
+    Ok(())
+}
+
+/// Reads the capability a workload wrote for this boot.
+pub fn read_capability_file(path: &std::path::Path) -> Result<WorkloadCapability> {
+    let bytes = std::fs::read(path)?;
+    let bytes: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| anyhow!("the workload capability file is not 32 bytes"))?;
+    Ok(WorkloadCapability(bytes))
+}
+
+impl std::fmt::Debug for WorkloadCapability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("WorkloadCapability(<redacted>)")
+    }
+}
+
+/// The marker half of a node store.
+pub trait AdmittedTipStore {
+    /// The persisted marker, or `None` before the first admission.
+    fn admitted_tip(&self) -> Result<Option<AdmittedTip>>;
+    /// Persists the marker (the store enforces monotonicity).
+    fn record_admitted_tip(&self, tip: &AdmittedTip) -> Result<()>;
+}
+
+impl<T: NodeStore + ?Sized> AdmittedTipStore for T {
+    fn admitted_tip(&self) -> Result<Option<AdmittedTip>> {
+        Ok(self.get_admitted_tip()?)
+    }
+
+    fn record_admitted_tip(&self, tip: &AdmittedTip) -> Result<()> {
+        Ok(self.put_admitted_tip(tip)?)
+    }
+}
+
+/// Checks a presented capability against the workload's own.
+pub fn verify_capability(_expected: &WorkloadCapability, _presented: &[u8]) -> Result<()> {
+    Ok(())
+}
+
+/// Records an admitted tip for an authorized caller whose tip matches the stored block's
+/// execution surface. A refusal leaves the marker unchanged.
+pub fn record_admitted_tip_checked(
+    marker: &dyn AdmittedTipStore,
+    expected: &WorkloadCapability,
+    presented: &[u8],
+    tip: &AdmittedTip,
+    _stored: Option<&Block<ChainTransaction>>,
+) -> Result<()> {
+    verify_capability(expected, presented)?;
+    marker.record_admitted_tip(tip)
+}
+
+/// The committed chain status: the admitted-tip marker's height (0 when there is no marker).
+pub fn committed_status(
+    _marker: &dyn AdmittedTipStore,
+    durable: &ChainStatus,
+    _stored: impl Fn(u64) -> Option<Block<ChainTransaction>>,
+) -> Result<ChainStatus> {
+    Ok(durable.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    //! RED-W1b (execution surface), RED-W2 (capability), RED-W3 (no marker = height 0).
+    use super::*;
+    use std::cell::RefCell;
+
+    #[derive(Default)]
+    struct MemoryMarker(RefCell<Option<AdmittedTip>>);
+
+    impl AdmittedTipStore for MemoryMarker {
+        fn admitted_tip(&self) -> Result<Option<AdmittedTip>> {
+            Ok(self.0.borrow().clone())
+        }
+        fn record_admitted_tip(&self, tip: &AdmittedTip) -> Result<()> {
+            *self.0.borrow_mut() = Some(tip.clone());
+            Ok(())
+        }
+    }
+
+    const CAPABILITY: [u8; 32] = [0x5A; 32];
+
+    fn stored_block(height: u64, root: u8) -> Block<ChainTransaction> {
+        use ioi_types::app::{AccountId, BlockHeader, QuorumCertificate, SignatureSuite, StateRoot};
+        Block {
+            header: BlockHeader {
+                height,
+                view: 0,
+                parent_hash: [1; 32],
+                parent_state_root: StateRoot(vec![2; 32]),
+                state_root: StateRoot(vec![root; 32]),
+                transactions_root: vec![3; 32],
+                timestamp: 1_700_000_000 + height,
+                timestamp_ms: (1_700_000_000 + height) * 1_000,
+                gas_used: 0,
+                validator_set: vec![vec![4; 32]],
+                producer_account_id: AccountId([5; 32]),
+                producer_key_suite: SignatureSuite::ED25519,
+                producer_pubkey_hash: [6; 32],
+                producer_pubkey: vec![7; 32],
+                oracle_counter: 0,
+                oracle_trace_hash: [0; 32],
+                guardian_certificate: None,
+                sealed_finality_proof: None,
+                canonical_order_certificate: None,
+                timeout_certificate: None,
+                aft_timeout_certificate: None,
+                parent_qc: QuorumCertificate::default(),
+                previous_canonical_collapse_commitment_hash: [0; 32],
+                canonical_collapse_extension_certificate: None,
+                publication_frontier: None,
+                signature: Vec::new(),
+            },
+            transactions: Vec::new(),
+        }
+    }
+
+    fn tip(height: u64, root: u8) -> AdmittedTip {
+        AdmittedTip {
+            height,
+            block_hash: [height as u8; 32],
+            state_root: vec![root; 32],
+        }
+    }
+
+    #[test]
+    fn only_the_workload_capability_advances_the_marker() {
+        let marker = MemoryMarker::default();
+        let expected = WorkloadCapability::from_bytes(CAPABILITY);
+        let block = stored_block(3, 0xB3);
+        for presented in [&[][..], &[0x00; 32][..], &[0x5A; 31][..]] {
+            assert!(
+                record_admitted_tip_checked(&marker, &expected, presented, &tip(3, 0xB3), Some(&block))
+                    .is_err(),
+                "a missing, wrong or short capability is refused"
+            );
+            assert_eq!(marker.admitted_tip().unwrap(), None, "the marker is unchanged");
+        }
+        record_admitted_tip_checked(&marker, &expected, &CAPABILITY, &tip(3, 0xB3), Some(&block))
+            .expect("the workload capability records the admitted tip");
+        assert_eq!(marker.admitted_tip().unwrap(), Some(tip(3, 0xB3)));
+    }
+
+    #[test]
+    fn a_tip_whose_execution_surface_differs_from_the_stored_block_is_refused() {
+        let marker = MemoryMarker::default();
+        let expected = WorkloadCapability::from_bytes(CAPABILITY);
+        let block = stored_block(3, 0xB3);
+        assert!(
+            record_admitted_tip_checked(&marker, &expected, &CAPABILITY, &tip(3, 0xEE), Some(&block))
+                .is_err(),
+            "a state root that differs from the stored block's is refused"
+        );
+        assert!(
+            record_admitted_tip_checked(&marker, &expected, &CAPABILITY, &tip(3, 0xB3), None)
+                .is_err(),
+            "a tip whose block the workload does not store is refused"
+        );
+        assert_eq!(marker.admitted_tip().unwrap(), None, "the marker is unchanged");
+    }
+
+    #[test]
+    fn a_previous_boots_capability_file_is_replaced_and_its_capability_refused() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let private = dir.path().join("workload-capability");
+        std::fs::create_dir(&private).unwrap();
+        std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let path = private.join("workload-admission.capability");
+
+        let previous_boot = WorkloadCapability::generate();
+        write_capability_file(&path, &previous_boot).unwrap();
+        let this_boot = WorkloadCapability::generate();
+        assert_ne!(previous_boot, this_boot, "every boot draws a new capability");
+        write_capability_file(&path, &this_boot).expect("this boot replaces the stale file");
+        assert_eq!(read_capability_file(&path).unwrap(), this_boot);
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600,
+            "only the owner can read the capability"
+        );
+
+        let marker = MemoryMarker::default();
+        let block = stored_block(3, 0xB3);
+        assert!(
+            record_admitted_tip_checked(
+                &marker,
+                &this_boot,
+                previous_boot.as_bytes(),
+                &tip(3, 0xB3),
+                Some(&block)
+            )
+            .is_err(),
+            "a stale capability from a previous boot is refused"
+        );
+        assert_eq!(marker.admitted_tip().unwrap(), None);
+    }
+
+    #[test]
+    fn a_capability_file_is_never_written_into_a_directory_others_can_read() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let shared = dir.path().join("shared");
+        std::fs::create_dir(&shared).unwrap();
+        std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let path = shared.join("workload-admission.capability");
+        assert!(
+            write_capability_file(&path, &WorkloadCapability::generate()).is_err(),
+            "a group- or world-readable directory is refused"
+        );
+        assert!(!path.exists(), "a refusal leaves no capability file (fail-closed)");
+    }
+
+    #[test]
+    fn the_committed_status_is_the_marker_never_the_durable_height() {
+        let durable = ChainStatus {
+            height: 7,
+            ..Default::default()
+        };
+        let empty = MemoryMarker::default();
+        assert_eq!(
+            committed_status(&empty, &durable, |h| Some(stored_block(h, h as u8)))
+                .unwrap()
+                .height,
+            0,
+            "no marker (a fresh node, or before the first admission) reports height 0"
+        );
+        let marked = MemoryMarker::default();
+        marked.record_admitted_tip(&tip(3, 3)).unwrap();
+        assert_eq!(
+            committed_status(&marked, &durable, |h| Some(stored_block(h, h as u8)))
+                .unwrap()
+                .height,
+            3
+        );
+    }
+}

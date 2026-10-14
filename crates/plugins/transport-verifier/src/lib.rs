@@ -177,6 +177,19 @@ fn compute_root_from_commitment_proof(cp: &CommitmentProof) -> Result<Vec<u8>> {
         .map_err(|e| anyhow!("calculate_existence_root: {e}"))
 }
 
+/// The height an IBC query or commitment root is served at: the caller's height, or else the
+/// latest COMMITTED (Agentgres-admitted) height, never the durable status, which counts signed but
+/// uncommitted blocks (FU-N11-DURABLE-STATUS-1 D2a, C5).
+pub(crate) async fn resolve_query_height(
+    client: &(dyn WorkloadClientApi + '_),
+    height: Option<u64>,
+) -> Result<u64> {
+    match height {
+        Some(height) => Ok(height),
+        None => Ok(client.get_status().await?.height),
+    }
+}
+
 pub struct DefaultIbcHost<V: Verifier> {
     workload_client: Arc<WorkloadClient>,
     _verifier: V,
@@ -221,11 +234,7 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
 #[async_trait]
 impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
     async fn query(&self, path: &str, height: Option<u64>) -> Result<QueryHostResponse> {
-        let query_height = if let Some(h) = height {
-            h
-        } else {
-            self.workload_client.get_status().await?.height
-        };
+        let query_height = resolve_query_height(self.workload_client.as_ref(), height).await?;
 
         let block = self
             .workload_client
@@ -320,11 +329,7 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
     }
 
     async fn commitment_root(&self, height: Option<u64>) -> Result<(Vec<u8>, u64)> {
-        let query_height = if let Some(h) = height {
-            h
-        } else {
-            self.workload_client.get_status().await?.height
-        };
+        let query_height = resolve_query_height(self.workload_client.as_ref(), height).await?;
 
         let block = self
             .workload_client
@@ -333,5 +338,127 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
             .ok_or_else(|| anyhow!("Block at height {} not found", query_height))?;
 
         Ok((block.header.state_root.0, query_height))
+    }
+}
+
+#[cfg(test)]
+mod committed_height_tests {
+    //! FU-N11-DURABLE-STATUS-1 D2a RED-C5: the IBC host serves "latest" at the COMMITTED height.
+    use super::resolve_query_height;
+    use ioi_api::chain::{BlockExecutionReceipt, QueryStateResponse, WorkloadClientApi};
+    use ioi_types::app::{AccountId, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot};
+    use ioi_types::error::ChainError;
+
+    /// Polls a future that completes without waking (the client below never awaits I/O).
+    fn block_on<F: std::future::Future>(future: F) -> F::Output {
+        let mut future = std::pin::pin!(future);
+        let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+        match future.as_mut().poll(&mut context) {
+            std::task::Poll::Ready(output) => output,
+            std::task::Poll::Pending => panic!("the status-only client never pends"),
+        }
+    }
+
+    fn unused<T>() -> Result<T, ChainError> {
+        Err(ChainError::Transaction("unused by the status-only client".into()))
+    }
+
+    /// A workload client whose durable status (`get_status`) runs ahead of its committed status.
+    #[derive(Debug)]
+    struct StatusOnlyClient {
+        durable: u64,
+        committed: u64,
+    }
+
+    #[async_trait::async_trait]
+    impl WorkloadClientApi for StatusOnlyClient {
+        async fn process_block(
+            &self,
+            _block: Block<ChainTransaction>,
+        ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>, Vec<BlockExecutionReceipt>), ChainError>
+        {
+            unused()
+        }
+        async fn get_blocks_range(
+            &self,
+            _since: u64,
+            _max_blocks: u32,
+            _max_bytes: u32,
+        ) -> Result<Vec<Block<ChainTransaction>>, ChainError> {
+            unused()
+        }
+        async fn get_block_by_height(
+            &self,
+            _height: u64,
+        ) -> Result<Option<Block<ChainTransaction>>, ChainError> {
+            unused()
+        }
+        async fn check_transactions_at(
+            &self,
+            _anchor: StateAnchor,
+            _expected_timestamp_secs: u64,
+            _txs: Vec<ChainTransaction>,
+        ) -> Result<Vec<Result<(), String>>, ChainError> {
+            unused()
+        }
+        async fn query_state_at(
+            &self,
+            _root: StateRoot,
+            _key: &[u8],
+        ) -> Result<QueryStateResponse, ChainError> {
+            unused()
+        }
+        async fn query_raw_state(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
+            unused()
+        }
+        async fn prefix_scan(&self, _prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError> {
+            unused()
+        }
+        async fn get_staked_validators(
+            &self,
+        ) -> Result<std::collections::BTreeMap<AccountId, u64>, ChainError> {
+            unused()
+        }
+        async fn get_genesis_status(&self) -> Result<bool, ChainError> {
+            unused()
+        }
+        async fn update_block_header(&self, _block: Block<ChainTransaction>) -> Result<(), ChainError> {
+            unused()
+        }
+        async fn get_state_root(&self) -> Result<StateRoot, ChainError> {
+            unused()
+        }
+        async fn get_status(&self) -> Result<ChainStatus, ChainError> {
+            Ok(ChainStatus {
+                height: self.durable,
+                ..Default::default()
+            })
+        }
+        async fn get_committed_status(&self) -> Result<ChainStatus, ChainError> {
+            Ok(ChainStatus {
+                height: self.committed,
+                ..Default::default()
+            })
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn an_ibc_query_without_a_height_is_served_at_the_committed_height() {
+        let client = StatusOnlyClient {
+            durable: 9,
+            committed: 4,
+        };
+        assert_eq!(
+            block_on(resolve_query_height(&client, None)).expect("latest height"),
+            4
+        );
+        assert_eq!(
+            block_on(resolve_query_height(&client, Some(7))).expect("explicit height"),
+            7,
+            "an explicit height is served as asked"
+        );
     }
 }

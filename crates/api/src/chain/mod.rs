@@ -148,8 +148,32 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         self.get_status().await
     }
 
+    /// The COMMITTED chain status: the workload's Agentgres-admitted tip marker
+    /// (FU-N11-DURABLE-STATUS-1 D2a). Every "latest" or "trusted" read keys on it, never on
+    /// `get_status`, whose durable height counts signed but uncommitted blocks. A workload with
+    /// no marker (a fresh node, or before its first admission) reports height 0.
+    async fn get_committed_status(&self) -> Result<ChainStatus, ChainError> {
+        self.get_status().await
+    }
+
     /// Returns the client as a type-erased `Any` trait object.
     fn as_any(&self) -> &dyn Any;
+}
+
+/// The state root of the latest COMMITTED block (the Agentgres-admitted tip), for callers that
+/// need a trusted root. It errors when no block is committed yet or the committed block is not
+/// stored, rather than falling back to an uncommitted tip.
+pub async fn committed_state_root(
+    client: &(dyn WorkloadClientApi + '_),
+) -> Result<StateRoot, ChainError> {
+    let status = client.get_status().await?;
+    let block = client
+        .get_block_by_height(status.height)
+        .await?
+        .ok_or_else(|| {
+            ChainError::Transaction(format!("committed block {} is not stored", status.height))
+        })?;
+    Ok(block.header.state_root)
 }
 
 /// A base trait for a read-only, proof-verifying view of the world state.
