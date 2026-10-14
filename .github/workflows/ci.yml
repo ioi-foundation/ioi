@@ -201,7 +201,7 @@ jobs:
       # BUILD-DELTA #36: the credential-minting inventory, LAYER 1 (clippy's resolved randomness-draw inventory of
       # ioi-node's binaries and ioi-services over every pinned configuration, compared both ways with
       # crates/node/mint-gate/draw-sites.tsv, the canary counted in every invocation). LAYER 2, the expanded-source scan
-      # (crates/node/mint-gate/expanded-scan.sh, the pinned nightly), is a required PRE-MERGE step, not run here.
+      # (crates/node/mint-gate/expanded-scan.sh, the pinned 1.93.1 expanding with RUSTC_BOOTSTRAP), is a required PRE-MERGE step, not run here.
       - name: credential-minting inventory (compiler-resolved)
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: cargo run --locked -p ioi-node-mint-gate

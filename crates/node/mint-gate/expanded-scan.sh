@@ -4,15 +4,21 @@
 # Director's amendment (3)): MINT FORMATS and RANDOMNESS PRIMITIVES over the EXPANDED production source. REQUIRED
 # PRE-MERGE for any change touching the inventoried code or the gate, and recorded in the merge record next to the CI
 # result of layer 1. For every pinned configuration (the gate's `--plan`), it runs ONE `cargo check` of the inventoried
-# packages and the canary on the ALREADY-INSTALLED nightly-2026-08-08 (offline, --locked: nothing is installed or
-# updated), with expand-wrapper.sh as RUSTC_WORKSPACE_WRAPPER, so every production target is expanded
+# packages and the canary on the SAME pinned stable toolchain as layer 1 (1.93.1, already installed; offline, --locked:
+# nothing is installed or updated), with expand-wrapper.sh as RUSTC_WORKSPACE_WRAPPER, so every production target is
+# expanded
 # (`-Zunpretty=expanded`) under exactly the feature resolution layer 1 checks; then the gate (`--expanded`) scans the
+# NAMED EXCEPTION (HYP ruling 2026-10-13 19:58 (1), with the IOI Director's concurrence): `-Zunpretty=expanded` is an
+# unstable flag, so expand-wrapper.sh sets RUSTC_BOOTSTRAP=1 on the EXPANSION invocation only (it prints source and
+# compiles nothing); every build invocation, dependencies and build scripts included, runs WITHOUT it (the wrapper
+# unsets it, and this script's build environment never has it). The gate does not depend on a nightly toolchain:
+# one compiler serves both layers (the pinned nightly-2026-08-08 could not compile rustix: ticket b3r-t1b).
 # expansions and compares them with expanded-sites.tsv both ways, with the canary checks.
 # It FAILS, never skips, when the network is not isolated, a toolchain is missing, a build or an expansion fails or is
 # empty, a target is not expanded, or the subject's worktree changes. It deletes nothing.
 # usage (under unshare -rn, from anywhere): expanded-scan.sh <subject worktree> <NEW out dir> [--print] [config ...]
 #   (no config named = every pinned configuration; naming some makes the judge's run PARTIAL, never a pass)
-#   optional: EXP_NIGHTLY_TARGET (the nightly target dir; default <worktree>/target/mint-gate-nightly, build products only)
+#   optional: EXP_TARGET (the expansion build's target dir; default <worktree>/target/mint-gate-expand, build products only)
 # exit: 0 PASS; 1 FAIL (findings named); 3 CANNOT RUN.
 set -u
 WT=$1
@@ -21,12 +27,13 @@ shift 2
 PRINT=""
 if [ "${1:-}" = "--print" ]; then PRINT="--print"; shift; fi
 SUBSET="$*"
-N=${EXP_NIGHTLY:-/home/heathledger/.rustup/toolchains/nightly-2026-08-08-x86_64-unknown-linux-gnu}
+N=${EXP_TOOLCHAIN:-${RUSTUP_HOME:-/home/heathledger/.rustup}/toolchains/1.93.1-x86_64-unknown-linux-gnu}
 HERE="$WT/crates/node/mint-gate"
 fail() { echo "EXPANDED-SCAN CANNOT RUN: $*"; echo "EXPANDED-SCAN EXIT 3"; exit 3; }
 ifaces=$(tail -n +3 /proc/self/net/dev | cut -d: -f1 | tr -d ' ' | sort | tr '\n' ' ')
 [ "$ifaces" = "lo " ] || fail "not network-isolated (interfaces: $ifaces): run under unshare -rn"
-for b in "$N/bin/cargo" "$N/bin/rustc"; do [ -x "$b" ] || fail "missing $b (the pinned nightly must already be installed)"; done
+for b in "$N/bin/cargo" "$N/bin/rustc"; do [ -x "$b" ] || fail "missing $b (the pinned 1.93.1 must already be installed)"; done
+"$N/bin/rustc" --version | grep -q "^rustc 1\.93\.1 " || fail "the expansion toolchain is not the pinned 1.93.1: $("$N/bin/rustc" --version)"
 [ -x "$HERE/expand-wrapper.sh" ] || [ -f "$HERE/expand-wrapper.sh" ] || fail "no expand-wrapper.sh in the subject"
 [ -e "$OUT" ] && fail "the out dir $OUT exists: give a NEW one"
 mkdir -p "$OUT/units" || fail "cannot create $OUT"
@@ -38,7 +45,7 @@ echo "SHA256 $(sha256sum "$HERE/expand-wrapper.sh" | cut -c1-64) expand-wrapper.
 # The configurations, from the gate's own pins (stable toolchain, the gate built from the subject).
 ( cd "$WT" && cargo run --locked -q -p ioi-node-mint-gate -- --plan ) > "$OUT/plan.txt" 2> "$OUT/plan.err" || fail "the gate's --plan failed: $(tail -3 "$OUT/plan.err" | tr '\n' ' ')"
 grep -q '^PLAN ' "$OUT/plan.txt" || fail "the gate printed no plan: $(tail -5 "$OUT/plan.txt" | tr '\n' ' ')"
-TARGET=${EXP_NIGHTLY_TARGET:-$WT/target/mint-gate-nightly}
+TARGET=${EXP_TARGET:-$WT/target/mint-gate-expand}
 configs=()
 while read -r tag name args; do
   [ "$tag" = PLAN ] || continue

@@ -38,8 +38,9 @@
 //!   target not checked or an unparsable report FAILS (CANNOT RUN, exit 3); nothing is skipped.
 //!
 //! LAYER 2 (REQUIRED pre-merge; `expanded-scan.sh` then `-- --expanded <dir>`): MINT FORMATS and
-//! PRIMITIVES in the EXPANDED production source (`-Zunpretty=expanded`, the pinned
-//! nightly-2026-08-08, offline, every configuration, every production target), so a mint with no
+//! PRIMITIVES in the EXPANDED production source (`-Zunpretty=expanded` from the SAME pinned stable
+//! 1.93.1, with RUSTC_BOOTSTRAP=1 on the expansion invocation only: a NAMED EXCEPTION, never a build;
+//! offline, every configuration, every production target), so a mint with no
 //! draw at all, a prefix assembled by `concat!`, and a draw an external macro generates are seen in
 //! the compiler's own text (expanded.rs), compared with expanded-sites.tsv both ways, with the same
 //! canary checks.
@@ -876,7 +877,7 @@ fn main() -> ExitCode {
     let gate = root.join(GATE_DIR);
     let mut verdicts = Verdicts::default();
 
-    // 1. The toolchain: the pinned one, with clippy (layer 1 only; layer 2's nightly is checked by
+    // 1. The toolchain: the pinned one, with clippy (layer 1 only; layer 2's toolchain is checked by
     // expanded-scan.sh).
     let channel = std::fs::read_to_string(root.join("rust-toolchain.toml"))
         .ok()

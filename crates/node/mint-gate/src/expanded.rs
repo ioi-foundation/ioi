@@ -1,5 +1,6 @@
 //! LAYER 2: the scan of the EXPANDED production source (`rustc -Zunpretty=expanded` on the pinned
-//! nightly, one unit per production target and configuration, produced by expanded-scan.sh). The
+//! stable 1.93.1, RUSTC_BOOTSTRAP on the expansion only; one unit per production target and
+//! configuration, produced by expanded-scan.sh). The
 //! compiler has already done everything the retired walker re-implemented: `mod` and `#[path]`
 //! resolution, `cfg` and `cfg_attr` evaluation, `include!` inlining, macro expansion (an external
 //! crate's macro included), and the removal of what a non-test build never compiles. What is left is
