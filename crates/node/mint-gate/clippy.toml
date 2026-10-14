@@ -186,4 +186,7 @@ disallowed-methods = [
   { path = "hypervisor_daemon::standing_envelope_routes::spawn_standing_create", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
   { path = "ioi_services::agentic::runtime::connectors::google_workspace::configure::configure_google_login", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
   { path = "ioi_services::agentic::runtime::firewall_receipt_keys::FirewallReceiptKeyStore::open_in_data_dir", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::lifecycle_routes::authorize_capability_lease", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::lifecycle_routes::resolve_sealed_credential", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::system_activation_routes::post", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
 ]
