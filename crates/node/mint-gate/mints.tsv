@@ -2,17 +2,17 @@
 # statement or block of the minting function holding every draw clippy reports there and every literal carrying its
 # prefix (- = none). A change to how the credential is built from its draw changes the digest and re-opens the review.
 # target<TAB>file<TAB>item<TAB>prefix<TAB>region digest<TAB>what it mints
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor-daemon.rs	fn async_main	idisp_	-	per-boot internal dispatch secret: two UUIDv4, process memory only
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/authority_routes.rs	fn issue_bearer_capability_lease	ioi_lease_	-	env-ops capability lease bearer: 32 OsRng bytes, hex
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs	fn start_oss_runtime	-	-	editor runtime connection token (BUILD-DELTA #31(c)): hex of 32 OsRng bytes, no prefix
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn handle_api_token_create	ioi_pat_	-	API access token: two UUIDv4
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn gen_opaque	-	-	bootstrap, session, SCIM and invite tokens: two UUIDv4 behind one primitive
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn random_token	-	-	OAuth state, nonce and PKCE verifier: the thread CSPRNG
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn mint_github_app_jwt	-	-	GitHub App JWT: SIGNED with the App private key (RS256), not random; its secrecy is the key's
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs	fn handle_backup_export	-	-	managed backup export download token: UUIDv4, stored as a hash
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs	fn new_webhook_token	whk_	-	automation webhook trigger token: two UUIDv4
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs	fn mint_guest_effect_capability	wec_	-	workload effect capability token (32 OsRng bytes) and its one-way id
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs	fn mint_guest_governed_provider_effect_capability	wbt_	-	host trigger: 32 OsRng bytes
-ioi-services lib ioi_services	crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs	fn plan_capability_token_control	ioi_mnt_	-	model-mount capability token: 32 OsRng bytes, id drawn separately
-ioi-services lib ioi_services	crates/services/src/agentic/runtime/connectors/google_auth.rs	fn random_url_safe_token	-	-	Google OAuth state and PKCE verifier primitive: the thread CSPRNG
-ioi-services lib ioi_services	crates/services/src/agentic/runtime/connectors/google_auth.rs	fn login	-	-	Google OAuth state (24 bytes) and PKCE code_verifier (48 bytes) from that primitive
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor-daemon.rs	fn async_main	idisp_	99033f635c338364	per-boot internal dispatch secret: two UUIDv4, process memory only
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/authority_routes.rs	fn issue_bearer_capability_lease	ioi_lease_	050f1aab52ce9438	env-ops capability lease bearer: 32 OsRng bytes, hex
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs	fn start_oss_runtime	-	457ac9511fb72ac8	editor runtime connection token (BUILD-DELTA #31(c)): hex of 32 OsRng bytes, no prefix
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn handle_api_token_create	ioi_pat_	b2b8daf457d514ff	API access token: two UUIDv4
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn gen_opaque	-	c77d9c2c7cbffff2	bootstrap, session, SCIM and invite tokens: two UUIDv4 behind one primitive
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn random_token	-	83bc24e1c001e57c	OAuth state, nonce and PKCE verifier: the thread CSPRNG
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn mint_github_app_jwt	-	139f884626cc4764	GitHub App JWT: SIGNED with the App private key (RS256), not random; its secrecy is the key's
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs	fn handle_backup_export	-	843979d0b554eaf5	managed backup export download token: UUIDv4, stored as a hash
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs	fn new_webhook_token	whk_	7d4f545de3cddb94	automation webhook trigger token: two UUIDv4
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs	fn mint_guest_effect_capability	wec_	e9ee37f3af9308ee	workload effect capability token (32 OsRng bytes) and its one-way id
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs	fn mint_guest_governed_provider_effect_capability	wbt_	be8a903c59321aec	host trigger: 32 OsRng bytes
+ioi-services lib ioi_services	crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs	fn plan_capability_token_control	ioi_mnt_	ce3b2ea03d790f5a	model-mount capability token: 32 OsRng bytes, id drawn separately
+ioi-services lib ioi_services	crates/services/src/agentic/runtime/connectors/google_auth.rs	fn random_url_safe_token	-	7057d2fc8e325ed2	Google OAuth state and PKCE verifier primitive: the thread CSPRNG
+ioi-services lib ioi_services	crates/services/src/agentic/runtime/connectors/google_auth.rs	fn login	-	bb6e86b4098cd742	Google OAuth state (24 bytes) and PKCE code_verifier (48 bytes) from that primitive
