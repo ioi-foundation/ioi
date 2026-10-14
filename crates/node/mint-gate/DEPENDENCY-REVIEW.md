@@ -38,10 +38,10 @@ Not listed, each with its reason:
   `k256::elliptic_curve::rand_core` and `k256::ecdsa::signature::rand_core`), which is the SAME crate rand 0.8
   re-exports, so the rand entries resolve to its items. getrandom 0.2/0.3/0.4 are listed anyway (the ruling names
   getrandom; clippy resolves every crate named `getrandom` in the graph; the canary uses 0.2.17 and 0.4.1);
-- ioi-validator's seal-signer keys (`SlhDsaSealKeyPair::generate`, `DurableSealSignerV2::provision`): they exist only
-  under ioi-validator's `consensus-aft`, which ioi-node's dependency on ioi-validator (default-features = false) does not
-  request; the canary depends on ioi-validator the same way, so they cannot be named here. A change of that dependency
-  line re-opens the review through `deps.pin`;
+- (WITHDRAWN 2026-10-14, Codex batch-3 r6 MAJOR 1: see "Re-opened 2026-10-14: the seal-signer surface, re-derived per
+  configuration" below; the two key generators are LISTED.) ioi-validator's seal-signer keys
+  (`SlhDsaSealKeyPair::generate`, `DurableSealSignerV2::provision`) exist only under ioi-validator's `consensus-aft`;
+  this bullet held that ioi-node never enables it, which manifest text suggested and the resolved graph refutes;
 - `ioi_validator::standard::orchestration::Orchestrator::execute_query_unanimity_effect`: generic over four heavily
   bounded parameters; it draws a protocol verifier nonce into a request, and whether the returned receipt carries it is
   unconfirmed; it is not a credential. Named here, not listed;
@@ -134,6 +134,45 @@ uses), temporary-path uniqueness inside a function (`persist_key`, `HostileGuest
 `StandingAuthority::record`, the export and import staging names), and `IntentResolver::resolve_intent` (no caller). The
 dependency set, the features and the external entries are unchanged.
 
+## Re-opened 2026-10-14: the seal-signer surface, re-derived per configuration (Codex batch-3 r6 MAJOR 1)
+
+Codex batch-3 r6 (MAJOR 1) found the seal-signer exclusion above false: crates/node/Cargo.toml:151 forwards
+`ioi-validator/consensus-aft`, so the inventoried build CAN name `SlhDsaSealKeyPair::generate` and
+`DurableSealSignerV2::provision` (both draw a seed and return a key). Re-derived from cargo metadata's RESOLVED graph of
+EVERY configuration (the IOI Director's amendment (2): never manifest text), by the gate itself on each run:
+
+- `feature-scopes.tsv` row `seal-signer`: ON in a configuration whose ioi-node or ioi-services resolves ioi-validator as a
+  direct dependency with `consensus-aft`: 7 of 8 (node-profile, the four profiles, all-hash, all-kzg); OFF in `default`
+  (there ioi-validator is no resolved dependency of either inventoried package). Where ON, the gate passes the canary
+  feature `seal-signer` and the canary must report each `// deny-in seal-signer:` entry once; where OFF those canary
+  lines are compiled out and must report 0. Passing the canary feature changes no production package's resolved
+  features in any of the 7 (cargo tree of the three selected packages, with and without it).
+- Both key generators are deny-list entries (clippy.toml) in every configuration. No inventoried function calls either
+  today (a read-only survey of consensus-aft's public surface); a call would be a draw site.
+- The rest of consensus-aft's drawing surface: the `common::seal_signer::*` glob re-export is the same two items;
+  `DurableSealSignerV2::{sign, open}` and the ioi-consensus aft journal types draw internally only (the "draw
+  internally" class above); `ioi_finality::portable_assurance::generate_portable_receipt_key` draws and returns a key,
+  but ioi-finality is a direct dependency of neither inventoried package and nothing they depend on re-exports it, so it
+  cannot be named; a new direct dependency re-opens this review through `deps.pin`'s `dep` lines.
+- Every other conclusion of this review that rests on a dependency feature being OFF is a `-` row of
+  `feature-scopes.tsv` (uuid v1/v6/v7, libp2p secp256k1/ecdsa, k256 ecdh/schnorr, webauthn conditional-ui and
+  resident-key, rcgen aws_lc_rs, reqwest multipart): each resolves in 0 of 8 configurations, and resolving one FAILS
+  the gate until the review is re-opened.
+
+## Re-opened 2026-10-14: resolved feature selections and forwarding are pinned (Codex batch-3 r6 MAJOR 2)
+
+Codex batch-3 r6 (MAJOR 2) found that `deps.pin` pinned dependency names, versions and feature NAMES only, so
+`features = ["consensus-aft"]` on ioi-node's validator line would not re-open this review. `deps.pin` now also holds,
+from cargo metadata (`--offline --locked`) of EVERY configuration, normalized and sorted, exactly the lines the gate
+prints (`--plan --print`): 74 `forward` lines (each workspace package's feature forwarding the inventoried build
+reaches), 656 `select` lines (each dependency feature SELECTION: kind, target, optional, default-features, features)
+and 1235 `resolved` lines (the resolved features of every package reached over normal and build edges, per
+configuration). Three verdicts name each changed line (`feature_forwarding_equals_the_reviewed_pin`,
+`dependency_feature_selections_equal_the_reviewed_pin`, `resolved_features_equal_the_reviewed_pin`): Codex's
+validator-line plant fails the selection verdict, and a new forward fails the forwarding and resolved verdicts, by name,
+until the review is re-confirmed. No conclusion of this review changed when these lines were first pinned. cargo
+metadata resolves the whole workspace, so a `resolved` line can only OVER-state a configuration's features.
+
 ## Re-opened 2026-10-14: the hand-out reconcile's reviewed exclusions (Codex batch-3 r6 MAJOR 3)
 
 Every own function the reconcile (src/handouts.rs) derives as a CANDIDATE hand-out and that is not registered in
@@ -144,4 +183,73 @@ layer-2-only holder, by its expanded item path.
 <!-- reconcile-exclusions begin -->
 | file | item | sinks | reason |
 |---|---|---|---|
+| crates/node/src/bin/guardian.rs | fn main | closure capture | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
+| crates/node/src/bin/hypervisor-daemon.rs | fn async_main | closure capture | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
+| crates/node/src/bin/hypervisor-daemon.rs | fn authorize | closure capture | closure captures consumed in place: the closure or async block runs inside the call and its value is not handed out |
+| crates/node/src/bin/hypervisor-daemon.rs | fn handle_token_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor-daemon.rs | fn handle_token_revoke | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor-daemon.rs | fn handle_tokens_list | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/authority_challenge_routes.rs | fn handle_challenge_decision | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/authority_challenge_routes.rs | fn marker_is_ours | return | a predicate over the drawn value: it returns a bool (whether a marker carries this process's nonce), never the value (outside the ruled classes: disclosed) |
+| crates/node/src/bin/hypervisor_daemon_routes/device_custody_routes.rs | fn handle_authority_start | closure capture,return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/device_custody_routes.rs | fn handle_login_start | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/device_custody_routes.rs | fn handle_registration_start | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs | fn handle_editor_access_lease_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs | fn handle_editor_service_expose | closure capture,non-local write,return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs | fn handle_editor_service_start | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs | fn handle_env_port_expose | non-local write,return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs | fn handle_environment_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_act_tool_invoke | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_agent_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_agent_run_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_api_token_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_auth_oidc_start | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_connector_invoke | closure capture,return | HTTP handler referenced by the route table and called only by other route handlers that return its reply to the client (outside the ruled class's 'only': disclosed): its sink is the client; registering it would make the route table a holder; its draws stay draw-site rows |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_connector_oauth_start | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_domain_verification_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_org_invite_get | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_org_invite_reset | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_scim_config_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_session_execute | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_subagent_spawn | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn handle_turn_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn hash_password | return | randomized encryption or password-hashing wrapper: the draw is a salt or nonce inside the ciphertext or verifier, not a value the caller uses |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn import_guest_workspace | closure capture,return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | fn seal_scm_token | return | randomized encryption or password-hashing wrapper: the draw is a salt or nonce inside the ciphertext or verifier, not a value the caller uses |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | mod runtime_host > fn handle_runtime_host_session | return | HTTP handler referenced by the route table and called only by other route handlers that return its reply to the client (outside the ruled class's 'only': disclosed): its sink is the client; registering it would make the route table a holder; its draws stay draw-site rows |
+| crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs | mod runtime_host > impl DaemonHostStateAccess > fn persist_key | closure capture | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/machine_routes.rs | fn handle_machine_operation_submit | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs | fn build_export_bundle | return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs | fn handle_backup_export | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs | fn handle_backup_import | closure capture,return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/microvm.rs | fn hostile_guest_proposal_roundtrip | closure capture,return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/microvm.rs | fn stage_and_start_model_proxy | closure capture | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/microvm.rs | impl HostileGuestRoundtripDir > fn create | return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs | fn handle_automation_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs | fn handle_automation_webhook | closure capture,return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs | fn handle_automation_webhook_rotate | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/portal_session_exchange_routes.rs | fn handle_portal_session_exchange | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs | fn handle_connection_reauthorize | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/provider_connection_routes.rs | fn handle_connection_start | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs | fn handle_provider_operation_proposal_issue | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/standing_envelope_routes.rs | impl StandingAuthority > fn record | closure capture,return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs | fn seal_archive_bytes | return | randomized encryption or password-hashing wrapper: the draw is a salt or nonce inside the ciphertext or verifier, not a value the caller uses |
+| crates/node/src/bin/hypervisor_daemon_routes/supervisor_routes.rs | fn handle_env_ops_lease | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs | fn handle_governed_capability_mint | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
+| crates/node/src/bin/ioi-agent.rs | fn main | return | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
+| crates/node/src/bin/ioi-local.rs | fn async_main | closure capture | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
+| crates/node/src/bin/ioi-provider.rs | fn main | closure capture | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
+| crates/node/src/bin/orchestration.rs | fn main | return | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
+| crates/node/src/bin/signer.rs | fn main | closure capture | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
+| crates/services/src/agentic/intent.rs | impl IntentResolver > fn resolve_intent | closure capture,return | no production caller in the inventoried code: nothing is handed to an own caller, and an own deny-list entry with no reported caller fails the gate (outside the ruled classes: disclosed; a later caller is not a site until this row is re-reviewed) |
+| crates/services/src/agentic/runtime/firewall_receipt_keys.rs | impl FirewallReceiptKeyStore > fn rotate | non-local write,return | no production caller in the inventoried code: nothing is handed to an own caller, and an own deny-list entry with no reported caller fails the gate (outside the ruled classes: disclosed; a later caller is not a site until this row is re-reviewed) |
+| crates/services/src/agentic/runtime/kernel/mod.rs | impl RuntimeKernelService > fn plan_model_mount_capability_token_control | return | no production caller in the inventoried code: nothing is handed to an own caller, and an own deny-list entry with no reported caller fails the gate (outside the ruled classes: disclosed; a later caller is not a site until this row is re-reviewed) |
+| crates/services/src/agentic/web/transport.rs | fn fetch_binary_http_fallback_browser_ua_with_final_url | return | User-Agent fetch wrapper: it returns the fetched page, not the User-Agent (the User-Agent draw is a selected_browser_http_user_agent hand-out row) |
+| crates/services/src/agentic/web/transport.rs | fn fetch_html_http_fallback_browser_ua | return | User-Agent fetch wrapper: it returns the fetched page, not the User-Agent (the User-Agent draw is a selected_browser_http_user_agent hand-out row) |
+| crates/services/src/agentic/web/transport.rs | fn fetch_html_http_fallback_browser_ua_with_final_url | return | User-Agent fetch wrapper: it returns the fetched page, not the User-Agent (the User-Agent draw is a selected_browser_http_user_agent hand-out row) |
+| crates/services/src/agentic/web/transport.rs | fn fetch_structured_detail_http_fallback_browser_ua | return | User-Agent fetch wrapper: it returns the fetched page, not the User-Agent (the User-Agent draw is a selected_browser_http_user_agent hand-out row) |
+| crates/services/src/agentic/web/transport.rs | fn fetch_structured_detail_http_fallback_browser_ua_with_final_url | return | User-Agent fetch wrapper: it returns the fetched page, not the User-Agent (the User-Agent draw is a selected_browser_http_user_agent hand-out row) |
+| crates/services/src/market/router.rs | impl ProvisioningRouter > fn launch_agent | return | no production caller in the inventoried code: nothing is handed to an own caller, and an own deny-list entry with no reported caller fails the gate (outside the ruled classes: disclosed; a later caller is not a site until this row is re-reviewed) |
+| crates/services/src/wallet_network/handlers/connectors/auth.rs | fn connector_auth_export | &mut parameter | randomized encryption or password-hashing wrapper: the draw is a salt or nonce inside the ciphertext or verifier, not a value the caller uses |
+| crates/services/src/wallet_network/support.rs | fn encrypt_secret_payload | return | randomized encryption or password-hashing wrapper: the draw is a salt or nonce inside the ciphertext or verifier, not a value the caller uses |
 <!-- reconcile-exclusions end -->

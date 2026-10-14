@@ -29,7 +29,8 @@
 //! stores a value passed to it (one level: only the function holding the draw is read); I/O (a
 //! file, a socket, a child process, a log line, a database behind its own method name outside the
 //! write verbs); unsafe raw-pointer writes; shared state reached through a handle a call returns
-//! (`let h = registry(); h.insert(v)`) or through a method outside the interior-mutability list;
+//! (`let h = registry(); h.insert(v)`) or through a method outside the interior-mutability list
+//! (`let mut slot = STATE.lock().map_err(..)?; *slot = v` reads `slot` as a local);
 //! the inside of a macro other than `write!`/`writeln!` (its arguments are read as tokens).
 
 use crate::source::range;

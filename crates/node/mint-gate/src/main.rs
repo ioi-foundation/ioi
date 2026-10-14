@@ -30,6 +30,17 @@
 //! - A registered credential MINT (mints.tsv) pins the digest of its REGION: the smallest
 //!   expression, statement or block of the minting function holding its reported draws and its
 //!   prefixed literals, so a change to how the credential is built from its draw re-opens review.
+//! - THE HAND-OUT RECONCILE (handouts.rs; Codex batch-3 r6 MAJOR 3): every own function holding a
+//!   reported draw whose drawn value reaches a SINK (a return value, a `&mut` parameter, a write to
+//!   a non-local place, a channel send, a static, a closure capture) is a CANDIDATE hand-out; each is
+//!   registered in hand-outs.tsv (an own deny-list entry, so its callers are sites, iterated to a
+//!   fixpoint) or excluded with its reason and its exact sink kinds in DEPENDENCY-REVIEW.md, or the
+//!   gate fails. A registered row that is no longer derived, and an exclusion whose sinks changed or
+//!   that is no longer a candidate, fail too.
+//! - DEPENDENCY FEATURES from cargo metadata's RESOLVED graph of every configuration (never manifest
+//!   text; Codex batch-3 r6 MAJORs 1 and 2): deps.pin pins the feature forwarding, the dependency
+//!   feature selections and the resolved features; feature-scopes.tsv re-derives, per
+//!   configuration, each review conclusion that rests on a dependency feature.
 //! - NON-VACUITY, counted in EVERY invocation: the canary binary
 //!   (canary/src/bin/mint-gate-canary.rs) uses every external deny-list entry once on a marked line,
 //!   and each must be reported there exactly once; its planted PRODUCTION mint must be reported; its
@@ -45,15 +56,41 @@
 //! the compiler's own text (expanded.rs), compared with expanded-sites.tsv both ways, with the same
 //! canary checks.
 //!
-//! NAMED LIMITS (stated, not hidden): a unit-struct VALUE `OsRng` is not a clippy type use (only its
-//! imports and type positions are), so a draw through it is reported by the RNG method called on it
-//! in the inventoried code, by a deny-listed dependency function it is passed to, and by layer 2's
-//! `OsRng` token; a randomness API of a dependency that the review missed is not a site until the
-//! review lists it (the review re-opens on every dependency change); a dependency's INTERNAL draws
-//! (TLS handshakes, hash-map seeds, `select!` fairness) are that dependency's code; a credential
-//! built with no draw and no registered prefix (a new prefix in a function without a credential
-//! word) is not seen; the gate inventories, it does not prove that a draw executes or reaches the
-//! credential (the behavioural entropy tests do).
+//! THE CLAIM, NARROWED (the Hypervisor Director's ruling "Codex batch-3 r6 (review-a at 8c2a99613) =
+//! FAIL" and the IOI Director's 2026-10-14 amendments (1)-(3)). This gate is an INVENTORY of the
+//! REGISTERED surface plus the MECHANICALLY DERIVED candidates; it is not a closed guarantee.
+//! COVERED, in every pinned configuration: (a) every production use of a deny-list entry: the
+//! reviewed dependency randomness APIs (DEPENDENCY-REVIEW.md, re-opened by deps.pin on any change of
+//! a dependency, a feature, a resolved feature, a feature selection or a forward, and by
+//! feature-scopes.tsv per configuration) and the registered own hand-outs (hand-outs.tsv); (b) every
+//! hand-out CANDIDATE the reconcile derives from those uses, each registered (its callers are then
+//! sites, to a fixpoint) or excluded with its reviewed reason; (c) each registered mint's region;
+//! (d) layer 2's mint formats and primitives in the expanded production source.
+//! NOT COVERED, each named:
+//! - sink kinds the reconcile cannot see: a CALLEE that stores a value passed to it (only the
+//!   function holding the draw is read); I/O (a file, a socket, a child process, a log line, a store
+//!   behind a method name outside its write verbs); unsafe raw-pointer writes; shared state reached
+//!   through a handle a call returns, or through a method outside its interior-mutability list (a
+//!   `lock().map_err(..)?` guard written through is read as a local); the inside of a macro other
+//!   than `write!`/`writeln!`. Its tracking is by NAME and flow-insensitive: it over-approximates,
+//!   and every over-approximated candidate is reviewed, not assumed;
+//! - a layer-2-only draw holder gets no sink analysis (it is a candidate until reviewed);
+//! - an EXCLUDED candidate's callers are never sites: an exclusion's reason is reviewed once, so a
+//!   new caller of an excluded function (a production caller of a route-table-only handler, the
+//!   first caller of a no-caller function) does not re-open it;
+//! - a randomness API of a dependency that the review missed is not a site until the review lists
+//!   it (the review re-opens on every dependency change); a dependency's INTERNAL draws (TLS
+//!   handshakes, hash-map seeds, `select!` fairness) are that dependency's code;
+//! - a unit-struct VALUE `OsRng` is not a clippy type use (only its imports and type positions
+//!   are), so a draw through it is reported by the RNG method called on it in the inventoried code,
+//!   by a deny-listed dependency function it is passed to, and by layer 2's `OsRng` token;
+//! - a credential built with no draw and no registered prefix (a new prefix in a function without a
+//!   credential word), and a DERIVED bearer (a token computed from non-secret inputs);
+//! - the gate inventories, it does not prove that a draw executes or reaches the credential (the
+//!   behavioural entropy tests do).
+//! THE CLOSED GUARANTEE is BUILD-DELTA #42 (bearer secrets enforced at the TYPE level: a bearer type
+//! whose only constructor draws from the OS RNG, so a derived bearer fails to compile), a NAMED
+//! POST-SITTING UNIT (S1; AMENDED 2026-10-14).
 //!
 //! Usage: `cargo run --locked -p ioi-node-mint-gate [-- --print] [--configs a,b] [--expanded DIR]
 //! [--plan]`. Prints libtest-style lines (`test mint_gate::<check> ... ok|FAILED`). Exit: 0 PASS;
