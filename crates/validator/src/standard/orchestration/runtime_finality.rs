@@ -2733,11 +2733,12 @@ pub(crate) fn restart_committed_cursor(
 /// On a fresh chain (no durable tip), height one names the all-zero protocol parent rather than the
 /// separately stored genesis-state container. A workload that already holds blocks is REFUSED
 /// (FU-N11-RESTART-HYDRATION-1): its durable status counts a signed but not-yet-committed block, so
-/// it is not admission evidence and cannot seed canonical authority. The refusal names the recovery
-/// procedures (restore ordering-finality from a backup paired with the workload state, or retire
-/// the identity and provision a new one); it never advises restarting the same identity on an
-/// emptied data directory, which would discard its signing-safety journals. A validated
-/// same-identity rebuild and an explicit spine-recovery command are FU-N11-SPINE-RECOVERY-1.
+/// it is not admission evidence and cannot seed canonical authority. The refusal names the only
+/// recovery that exists today (restore ordering-finality from a backup taken with the workload
+/// state, leaving every configured signing-safety location current and in place) and otherwise
+/// keeps the node stopped; it never advises deleting, emptying or rolling back signing-safety
+/// state. A validated same-identity rebuild, enrollment of a replacement identity and an explicit
+/// spine-recovery command are FU-N11-SPINE-RECOVERY-1.
 pub(crate) fn runtime_finality_initial_head(
     durable_tip: Option<&Block<ChainTransaction>>,
 ) -> Result<String> {
@@ -2745,14 +2746,16 @@ pub(crate) fn runtime_finality_initial_head(
         Some(block) => Err(anyhow!(
             "the Agentgres finality spine (the node's ordering-finality directory) is missing while \
              the workload holds blocks to height {}; its canonical head cannot be taken from the \
-             workload's durable status, which counts uncommitted blocks. To recover: (1) restore the \
-             ordering-finality directory from a backup taken together with this workload state \
-             (state.db); or (2) retire this validator identity and provision a NEW one on an empty \
-             data directory (a new identity.key, then re-enrollment). Never restart THIS identity on \
-             an emptied data directory: that discards its signing-safety journals (aft-pq-outbox and \
-             the AFT external-anchor directory), which peers cannot restore. A same-identity rebuild \
-             that keeps those journals is not yet validated; it and an explicit spine-recovery \
-             command are FU-N11-SPINE-RECOVERY-1",
+             workload's durable status, which counts uncommitted blocks. The node stays stopped. The \
+             only supported recovery is to restore the ordering-finality directory from a backup \
+             taken together with this workload state (state.db), leaving every configured \
+             signing-safety location current and in place: the signing and custody journals, the \
+             AFT post-quantum outbox, the external-anchor directories and any signer state. Never \
+             delete, empty or roll back any of those to match the backup or to resync: that removes \
+             this identity's guard against conflicting signatures, and peers cannot restore it. If \
+             no such backup exists or those locations cannot be confirmed intact, keep the node \
+             stopped; a validated same-identity rebuild, enrollment of a replacement identity and an \
+             explicit spine-recovery command are FU-N11-SPINE-RECOVERY-1",
             block.header.height
         )),
         None => Ok(format!("sha256:{}", hex::encode([0_u8; 32]))),
