@@ -30,7 +30,7 @@ ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_api_token_create
 ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_api_token_create	shaped	pat_	*	1	SHAPED pat_ token id (pat_ + a short hash of the token hash; an id, not the token)
 ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_secret_create	shaped	sec_	*	1	SHAPED sec_ secret record id (a short hash of scope and name)
 ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_subagent_spawn	primitive	new_v4	*	1	DRAW sub-agent run id (UUIDv4)
-ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn import_guest_workspace	primitive	new_v4	*	1	DRAW imported guest workspace id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn import_guest_workspace	primitive	new_v4	*	1	DRAW temporary-path uniqueness: the .ioi-guest-quarantine-<UUIDv4> quarantine directory of a guest workspace import (not an id; Codex batch-3 r6 MINOR)
 ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn launch_record_key	shaped	launch_	*	1	SHAPED launch_ record key
 ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn random_token	primitive	rand::	*	2	MINT the random_token hand-out: rand:: sampling
 ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn random_token	primitive	thread_rng	*	1	MINT the random_token hand-out: thread_rng

@@ -133,3 +133,15 @@ Not hand-outs, by the same review: randomized encryption and password hashing (`
 uses), temporary-path uniqueness inside a function (`persist_key`, `HostileGuestRoundtripDir::create`,
 `StandingAuthority::record`, the export and import staging names), and `IntentResolver::resolve_intent` (no caller). The
 dependency set, the features and the external entries are unchanged.
+
+## Re-opened 2026-10-14: the hand-out reconcile's reviewed exclusions (Codex batch-3 r6 MAJOR 3)
+
+Every own function the reconcile (src/handouts.rs) derives as a CANDIDATE hand-out and that is not registered in
+`hand-outs.tsv` is listed here with its exact sink kinds and the reason it is not a hand-out; the gate fails on a
+candidate in neither place, on a row whose sinks changed, and on a row that is no longer a candidate. A `-` file is a
+layer-2-only holder, by its expanded item path.
+
+<!-- reconcile-exclusions begin -->
+| file | item | sinks | reason |
+|---|---|---|---|
+<!-- reconcile-exclusions end -->
