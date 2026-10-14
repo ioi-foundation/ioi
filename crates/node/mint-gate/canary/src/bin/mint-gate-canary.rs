@@ -207,3 +207,20 @@ fn workspace_helpers() {
 
 fn ty_lattice(_: &ioi_state::primitives::lattice::LatticeCommitmentScheme) {} // deny: ioi_state::primitives::lattice::LatticeCommitmentScheme
 fn ty_pedersen(_: &ioi_state::primitives::pedersen::PedersenCommitmentScheme) {} // deny: ioi_state::primitives::pedersen::PedersenCommitmentScheme
+
+// ---- ioi-validator's seal-signer keys (consensus-aft; feature-scopes.tsv scope `seal-signer`) ---
+// Compiled with the canary's `seal-signer` feature, which the gate passes exactly where the
+// inventoried packages resolve ioi-validator with consensus-aft; each line is reported once there
+// and is compiled out (0 reports) where the scope is off.
+
+#[cfg(feature = "seal-signer")]
+fn seal_signer_keys(
+    anchor: ioi_validator::common::guardian::seal_signer::SharedFileSealStateAnchor,
+) {
+    use ioi_validator::common::guardian::seal_signer::{
+        DurableSealSignerV2 as Signer, SlhDsaSealKeyPair as Keys,
+    };
+    let z = [0u8; 32];
+    let _ = Keys::generate; // deny-in seal-signer: ioi_validator::common::guardian::seal_signer::SlhDsaSealKeyPair::generate
+    let _ = |s| Signer::provision("p", String::new(), z, s, z, z, 1, anchor); // deny-in seal-signer: ioi_validator::common::guardian::seal_signer::DurableSealSignerV2::provision
+}

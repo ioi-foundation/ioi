@@ -50,12 +50,37 @@ pub struct Pin {
     pub resolved: Vec<(String, String, String)>,
 }
 
-/// The `resolved` lines per (configuration, package@version) (tests first: none yet).
+/// The `resolved` lines per (configuration, package@version): `*` is every pinned configuration.
+/// A configuration deps.pin does not pin, or two lines for one (configuration, package), is an
+/// error.
 pub fn expand_resolved(
-    _lines: &[(String, String, String)],
-    _configs: &[Config],
+    lines: &[(String, String, String)],
+    configs: &[Config],
 ) -> Result<BTreeMap<(String, String), String>, String> {
-    Ok(BTreeMap::new())
+    let mut out = BTreeMap::new();
+    for (names, package, features) in lines {
+        let names: Vec<String> = if names == "*" {
+            configs.iter().map(|c| c.name.clone()).collect()
+        } else {
+            names.split(',').map(str::to_string).collect()
+        };
+        for name in names {
+            if !configs.iter().any(|c| c.name == name) {
+                return Err(format!(
+                    "deps.pin resolved {package}: names configuration {name}, which it does not pin"
+                ));
+            }
+            if out
+                .insert((name.clone(), package.clone()), features.clone())
+                .is_some()
+            {
+                return Err(format!(
+                    "deps.pin resolves {package} twice in configuration {name}"
+                ));
+            }
+        }
+    }
+    Ok(out)
 }
 
 pub fn read_pin(text: &str) -> Result<Pin, String> {
@@ -99,6 +124,23 @@ pub fn read_pin(text: &str) -> Result<Pin, String> {
                 if !pin.deps.insert(format!("{package} {name} {version}")) {
                     return Err(format!("deps.pin repeats a dependency line: {line}"));
                 }
+            }
+            ["forward", _, _, _] => {
+                if !pin.forwards.insert(parts.join(" ")) {
+                    return Err(format!("deps.pin repeats a forward line: {line}"));
+                }
+            }
+            ["select", _, _, _, _, _, _, _] => {
+                if !pin.selects.insert(parts.join(" ")) {
+                    return Err(format!("deps.pin repeats a select line: {line}"));
+                }
+            }
+            ["resolved", configs, package, features] => {
+                pin.resolved.push((
+                    configs.to_string(),
+                    package.to_string(),
+                    features.to_string(),
+                ));
             }
             _ => return Err(format!("deps.pin has an unknown line: {line}")),
         }

@@ -12,7 +12,7 @@
 use proc_macro2::{Delimiter, LineColumn, TokenStream, TokenTree};
 use quote::ToTokens;
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const FRAGMENT: &str = "<include! fragment>";
 
@@ -118,7 +118,13 @@ struct Mapper {
     seen: BTreeMap<(String, String), usize>,
     items: Vec<Item>,
     capture: Option<Capture>,
+    /// The functions whose syntax is wanted (the hand-out reconcile), and what was found.
+    want: BTreeSet<String>,
+    asts: BTreeMap<String, FunctionAst>,
 }
+
+/// A function's signature and body (a trait function without a default body has none).
+pub type FunctionAst = (syn::Signature, Option<syn::Block>);
 
 impl Mapper {
     fn enter(&mut self, segment: String, tokens: TokenStream, _is_fn: bool) -> String {
@@ -146,8 +152,13 @@ impl Mapper {
         self.stack.pop();
     }
 
-    /// A function: if it is the captured one, collect its nodes.
-    fn function(&mut self, name: String, tokens: TokenStream, visit_nodes: &dyn Fn(&mut Nodes)) {
+    /// A function: if it is the captured one, collect its nodes. Returns its path.
+    fn function(
+        &mut self,
+        name: String,
+        tokens: TokenStream,
+        visit_nodes: &dyn Fn(&mut Nodes),
+    ) -> String {
         let path = self.enter(format!("fn {name}"), tokens.clone(), true);
         if let Some(capture) = self.capture.as_mut() {
             if capture.path == path {
@@ -159,6 +170,13 @@ impl Mapper {
                 visit_nodes(&mut nodes);
             }
         }
+        path
+    }
+
+    fn keep(&mut self, path: String, sig: &syn::Signature, block: Option<&syn::Block>) {
+        if self.want.contains(&path) {
+            self.asts.insert(path, (sig.clone(), block.cloned()));
+        }
     }
 }
 
@@ -169,11 +187,12 @@ impl<'ast> syn::visit::Visit<'ast> for Mapper {
         self.leave();
     }
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
-        self.function(
+        let path = self.function(
             node.sig.ident.to_string(),
             node.to_token_stream(),
             &|nodes| syn::visit::Visit::visit_block(nodes, &node.block),
         );
+        self.keep(path, &node.sig, Some(&node.block));
         syn::visit::visit_item_fn(self, node);
         self.leave();
     }
@@ -192,11 +211,12 @@ impl<'ast> syn::visit::Visit<'ast> for Mapper {
         self.leave();
     }
     fn visit_impl_item_fn(&mut self, node: &'ast syn::ImplItemFn) {
-        self.function(
+        let path = self.function(
             node.sig.ident.to_string(),
             node.to_token_stream(),
             &|nodes| syn::visit::Visit::visit_block(nodes, &node.block),
         );
+        self.keep(path, &node.sig, Some(&node.block));
         syn::visit::visit_impl_item_fn(self, node);
         self.leave();
     }
@@ -210,7 +230,7 @@ impl<'ast> syn::visit::Visit<'ast> for Mapper {
         self.leave();
     }
     fn visit_trait_item_fn(&mut self, node: &'ast syn::TraitItemFn) {
-        self.function(
+        let path = self.function(
             node.sig.ident.to_string(),
             node.to_token_stream(),
             &|nodes| {
@@ -219,6 +239,7 @@ impl<'ast> syn::visit::Visit<'ast> for Mapper {
                 }
             },
         );
+        self.keep(path, &node.sig, node.default.as_ref());
         syn::visit::visit_trait_item_fn(self, node);
         self.leave();
     }
@@ -319,6 +340,8 @@ fn mapper(capture: Option<Capture>) -> Mapper {
         seen: BTreeMap::new(),
         items: Vec::new(),
         capture,
+        want: BTreeSet::new(),
+        asts: BTreeMap::new(),
     }
 }
 
@@ -359,6 +382,22 @@ impl SourceFile {
                 })
             }
         }
+    }
+
+    /// The syntax of the functions at `paths` (the hand-out reconcile). A path that names no
+    /// function of the file is absent; an include! fragment has none.
+    pub fn functions(
+        &self,
+        paths: &BTreeSet<String>,
+    ) -> Result<BTreeMap<String, FunctionAst>, String> {
+        if self.fragment {
+            return Ok(BTreeMap::new());
+        }
+        let file = syn::parse_file(&self.text).map_err(|error| error.to_string())?;
+        let mut m = mapper(None);
+        m.want = paths.clone();
+        syn::visit::Visit::visit_file(&mut m, &file);
+        Ok(m.asts)
     }
 
     /// The innermost item containing (line, 0-based column).

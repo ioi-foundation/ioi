@@ -34,3 +34,11 @@ ioi-crypto = { path = "../../../crypto" }
 ioi-networking = { path = "../../../networking" }
 ioi-state = { path = "../../../state" }
 ioi-validator = { path = "../../../validator", default-features = false }
+
+# Codex batch-3 r6 MAJOR 1: a surface that exists only behind a dependency feature is proven where
+# that feature is resolved. The gate passes `seal-signer` exactly in the configurations whose
+# inventoried packages resolve ioi-validator, with consensus-aft, as a dependency
+# (feature-scopes.tsv); there the build already enables consensus-aft, so the feature changes
+# nothing but this canary.
+[features]
+seal-signer = ["ioi-validator/consensus-aft"]

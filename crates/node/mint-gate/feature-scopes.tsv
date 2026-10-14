@@ -1,0 +1,22 @@
+# THE FEATURE SCOPES (BUILD-DELTA #36; Codex batch-3 r6 MAJOR 1 and the IOI Director's amendment (2)): every conclusion of
+# DEPENDENCY-REVIEW.md that rests on a dependency FEATURE, re-derived by the gate in EVERY pinned configuration from cargo
+# metadata's resolved graph of that configuration, never from manifest text.
+# - A row with a canary feature is a surface that exists only behind that feature. It is ON in a configuration whose
+#   inventoried packages (ioi-node, ioi-services) resolve the package as a direct dependency with the feature: there the
+#   gate passes the canary feature and requires the canary to report each `deny-in <scope>` entry once; where it is OFF
+#   the inventoried code cannot name the surface and the canary lines are compiled out (0 reports).
+# - A row with `-` is a feature the review relies on being OFF (it lists nothing behind it): resolved for the package
+#   anywhere in the graph the inventoried build reaches, in any configuration, it FAILS until the review is re-opened.
+# scope<TAB>package<TAB>feature<TAB>canary feature (- = must be off)<TAB>what the review concludes
+seal-signer	ioi-validator	consensus-aft	seal-signer	the seal-signer key generators (SlhDsaSealKeyPair::generate, DurableSealSignerV2::provision) are deny-listed and proven on the canary wherever ioi-node depends on ioi-validator with consensus-aft
+uuid-v1	uuid	v1	-	uuid's v1 constructors (node id and clock) are not listed
+uuid-v6	uuid	v6	-	uuid's v6 constructors are not listed
+uuid-v7	uuid	v7	-	uuid's v7 constructors (random bits) are not listed
+libp2p-secp256k1	libp2p-identity	secp256k1	-	libp2p's secp256k1 keypair generation is not listed
+libp2p-ecdsa	libp2p-identity	ecdsa	-	libp2p's ecdsa keypair generation is not listed
+k256-ecdh	k256	ecdh	-	k256's ecdh ephemeral secrets are not listed
+k256-schnorr	k256	schnorr	-	k256's schnorr signing keys are not listed
+webauthn-conditional-ui	webauthn-rs	conditional-ui	-	webauthn's conditional-ui starts are not listed
+webauthn-resident-key	webauthn-rs	resident-key-support	-	webauthn's resident-key starts are not listed
+rcgen-aws-lc-rs	rcgen	aws_lc_rs	-	rcgen's RSA key generation (aws_lc_rs) is not listed
+reqwest-multipart	reqwest	multipart	-	reqwest's random multipart boundary is not listed

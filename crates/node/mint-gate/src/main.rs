@@ -95,6 +95,15 @@ const LINTS: [(&str, &str); 2] = [
     ("clippy::disallowed_methods", "disallowed_methods"),
 ];
 
+/// The feature scopes in effect (feature-scopes.tsv): per configuration, the scopes on and the
+/// canary features passed.
+#[derive(Default)]
+struct Scopes {
+    on: BTreeMap<String, BTreeSet<String>>,
+    extra: BTreeMap<String, Vec<String>>,
+    known: BTreeSet<String>,
+}
+
 #[derive(Default)]
 struct Verdicts {
     failed: usize,
@@ -596,10 +605,7 @@ fn canary_marks(text: &str) -> BTreeMap<usize, String> {
         }
         if let Some((_, mark)) = line.rsplit_once("// ") {
             let mark = mark.trim();
-            let deny = mark
-                .strip_prefix("deny: ")
-                .is_some_and(|path| !path.is_empty() && !path.contains(char::is_whitespace));
-            if deny || mark.starts_with("canary: ") {
+            if deny_mark(mark).is_some() || mark.starts_with("canary: ") {
                 out.insert(number + 1, mark.to_string());
             }
         }
@@ -614,20 +620,38 @@ fn layer1_canary(
     run: &Run,
     external: &[&Entry],
     marks: &BTreeMap<usize, String>,
+    scopes_on: &BTreeSet<String>,
+    scopes_known: &BTreeSet<String>,
 ) -> String {
     let at_canary: Vec<&Report> = run
         .reports
         .iter()
         .filter(|r| r.call_site.file == CANARY_BIN)
         .collect();
-    let deny_marks: BTreeMap<usize, String> = marks
+    let scoped: BTreeMap<usize, (String, Option<String>)> = marks
         .iter()
-        .filter_map(|(line, mark)| {
-            mark.strip_prefix("deny: ")
-                .map(|path| (*line, path.to_string()))
-        })
+        .filter_map(|(line, mark)| deny_mark(mark).map(|m| (*line, m)))
         .collect();
+    let deny_marks: BTreeMap<usize, String> = scoped
+        .iter()
+        .map(|(line, (path, _))| (*line, path.clone()))
+        .collect();
+    // A scoped entry (feature-scopes.tsv) is reported once where its scope is on, and is compiled
+    // out (0 reports) where it is off.
+    let want = |line: &usize| -> usize {
+        match scoped.get(line).and_then(|(_, scope)| scope.as_ref()) {
+            Some(scope) if !scopes_on.contains(scope) => 0,
+            _ => 1,
+        }
+    };
     let mut findings = Vec::new();
+    for (line, (path, scope)) in &scoped {
+        if let Some(scope) = scope.as_ref().filter(|s| !scopes_known.contains(*s)) {
+            findings.push(format!(
+                "line {line} ({path}) is scoped by {scope}, which feature-scopes.tsv does not define"
+            ));
+        }
+    }
     let mark_paths: Vec<&String> = deny_marks.values().collect();
     for entry in external {
         let marked = mark_paths.iter().filter(|p| ***p == entry.path).count();
@@ -650,9 +674,10 @@ fn layer1_canary(
             .iter()
             .filter(|r| r.call_site.line == *line && &r.what == path)
             .count();
-        if hits != 1 {
+        if hits != want(line) {
             findings.push(format!(
-                "line {line} (deny: {path}) reported {hits} times (want exactly 1: a mistyped, unresolved or silenced entry is 0)"
+                "line {line} (deny: {path}) reported {hits} times (want exactly {}: a mistyped, unresolved or silenced entry is 0; a scoped one off here is 0)",
+                want(line)
             ));
         }
     }
@@ -721,16 +746,22 @@ fn layer1_canary(
         &findings.join("\n"),
     );
     format!(
-        "CANARY {config}: deny entries {}/{} reported once each; production plant {production} reports (FOUND); external macro {external_macro} (FOUND at its invocation); cfg(test) plant {test_only} reports (IGNORED)",
+        "CANARY {config}: deny entries {}/{} reported once each ({} scoped out here, 0 reports each); production plant {production} reports (FOUND); external macro {external_macro} (FOUND at its invocation); cfg(test) plant {test_only} reports (IGNORED)",
         deny_marks
             .iter()
-            .filter(|(line, path)| at_canary
-                .iter()
-                .filter(|r| r.call_site.line == **line && &r.what == *path)
-                .count()
-                == 1)
+            .filter(|(line, path)| want(line) == 1
+                && at_canary
+                    .iter()
+                    .filter(|r| r.call_site.line == **line && &r.what == *path)
+                    .count()
+                    == 1)
             .count(),
-        external.len()
+        external.len(),
+        deny_marks
+            .keys()
+            .filter(|line| want(line) == 0
+                && !at_canary.iter().any(|r| r.call_site.line == **line))
+            .count()
     )
 }
 
@@ -739,6 +770,7 @@ fn clippy_run(
     gate: &Path,
     out_dir: &Path,
     config: &Config,
+    extra: &[String],
 ) -> Result<(String, Option<i32>, PathBuf), String> {
     let json_path = out_dir.join(format!("clippy-{}.json", config.name));
     let err_path = out_dir.join(format!("clippy-{}.stderr", config.name));
@@ -768,6 +800,7 @@ fn clippy_run(
         command.arg("--offline");
     }
     command.args(config.cargo_args());
+    command.args(extra);
     command
         .args([
             "--",
@@ -838,6 +871,8 @@ struct Registries {
     hand_outs: Vec<Vec<String>>,
     mints: Vec<Vec<String>>,
     prefixes: Vec<String>,
+    /// The reconcile's reviewed exclusions (file, item, sinks, reason).
+    exclusions: Vec<Vec<String>>,
 }
 
 fn registries(gate: &Path, configs: &[Config]) -> Result<Registries, String> {
@@ -860,6 +895,7 @@ fn registries(gate: &Path, configs: &[Config]) -> Result<Registries, String> {
         hand_outs: pins::read_table("hand-outs.tsv", &read("hand-outs.tsv")?, 4)?,
         mints: pins::read_table("mints.tsv", &read("mints.tsv")?, 6)?,
         prefixes,
+        exclusions: read_exclusions(&read("DEPENDENCY-REVIEW.md")?)?,
     })
 }
 
@@ -1133,9 +1169,185 @@ fn main() -> ExitCode {
         targets_unchecked.is_empty(),
         &format!("production targets no configuration checks: {targets_unchecked:?}"),
     );
+    // Codex batch-3 r6 MAJOR 2 (the IOI Director's amendment (2): every feature fact from cargo
+    // metadata's RESOLVED graph, never from manifest text): the dependency feature SELECTIONS and the
+    // feature FORWARDING of every workspace package the inventoried build reaches, and the RESOLVED
+    // features of every package it reaches, in EVERY pinned configuration (also under --configs).
+    let mut closures: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut facts: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    let mut reached: BTreeSet<String> = BTreeSet::new();
+    for config in &pin.configs {
+        let ids = match closure(&metas[&config.name]) {
+            Ok(ids) => ids,
+            Err(error) => return cannot(&error),
+        };
+        facts.insert(
+            config.name.clone(),
+            resolved_facts(&metas[&config.name], &ids),
+        );
+        reached.extend(ids.iter().cloned());
+        closures.insert(config.name.clone(), ids);
+    }
+    let (forwards, selects) = manifest_lines(&plain, &reached);
+    for (name, computed, pinned) in [
+        (
+            "feature_forwarding_equals_the_reviewed_pin",
+            &forwards,
+            &pin.forwards,
+        ),
+        (
+            "dependency_feature_selections_equal_the_reviewed_pin",
+            &selects,
+            &pin.selects,
+        ),
+    ] {
+        let mut lines: Vec<String> = computed
+            .difference(pinned)
+            .map(|line| format!("NOT REVIEWED: {line}"))
+            .collect();
+        lines.extend(
+            pinned
+                .difference(computed)
+                .map(|line| format!("PINNED BUT GONE: {line}")),
+        );
+        verdicts.check(
+            name,
+            lines.is_empty(),
+            &format!(
+                "{}\n(a dependency feature change re-opens DEPENDENCY-REVIEW.md: review what it enables, then regenerate deps.pin)",
+                lines.join("\n")
+            ),
+        );
+    }
+    let pinned_resolved = match pins::expand_resolved(&pin.resolved, &pin.configs) {
+        Ok(pinned) => pinned,
+        Err(error) => return cannot(&error),
+    };
+    let drift = resolved_drift(&pin.configs, &pinned_resolved, &facts);
+    verdicts.check(
+        "resolved_features_equal_the_reviewed_pin",
+        drift.is_empty(),
+        &format!(
+            "{}\n(a resolved feature change re-opens DEPENDENCY-REVIEW.md: review what it enables, then regenerate deps.pin)",
+            drift.join("\n")
+        ),
+    );
+    // Codex batch-3 r6 MAJOR 1: each feature scope (feature-scopes.tsv) re-derived in EVERY
+    // configuration from that configuration's resolved graph. A scope with a canary feature is ON
+    // where the inventoried packages resolve its package as a dependency with its feature: the
+    // canary feature is then passed, and the entries it guards must be reported on the canary. A
+    // scope without one is a feature the review relies on being OFF: resolved anywhere, it fails.
+    let scope_rows = match pins::read_file(&gate.join("feature-scopes.tsv"))
+        .and_then(|text| pins::read_table("feature-scopes.tsv", &text, 5))
+    {
+        Ok(rows) => rows,
+        Err(error) => return cannot(&error),
+    };
+    let canary_features: BTreeSet<String> = match package(&plain, CANARY) {
+        Ok(p) => p["features"]
+            .as_object()
+            .map(|f| f.keys().cloned().collect())
+            .unwrap_or_default(),
+        Err(error) => return cannot(&error),
+    };
+    let mut scopes = Scopes::default();
+    let mut findings = Vec::new();
+    let mut scope_lines = Vec::new();
+    for row in &scope_rows {
+        let (scope, package_name, feature, canary_feature, conclusion) =
+            (&row[0], &row[1], &row[2], &row[3], &row[4]);
+        if !scopes.known.insert(scope.clone()) {
+            findings.push(format!("feature-scopes.tsv repeats the scope {scope}"));
+        }
+        let declared = plain["packages"].as_array().is_some_and(|packages| {
+            packages.iter().any(|p| {
+                p["name"] == package_name.as_str() && p["features"].get(feature.as_str()).is_some()
+            })
+        });
+        if !declared {
+            findings.push(format!(
+                "{scope}: no package {package_name} declares a feature {feature}"
+            ));
+        }
+        if canary_feature == "-" {
+            let on_in: Vec<&str> = pin
+                .configs
+                .iter()
+                .filter(|c| {
+                    feature_resolved(&metas[&c.name], &closures[&c.name], package_name, feature)
+                })
+                .map(|c| c.name.as_str())
+                .collect();
+            scope_lines.push(format!(
+                "SCOPE {scope}: {package_name}/{feature} resolved in {} of {} configurations{}; the review excludes: {conclusion}",
+                on_in.len(),
+                pin.configs.len(),
+                if on_in.is_empty() { String::new() } else { format!(" ({})", on_in.join(",")) }
+            ));
+            if !on_in.is_empty() {
+                findings.push(format!(
+                    "{scope}: {package_name}/{feature} is RESOLVED in {}, but the review excludes what it enables because it is off ({conclusion}): re-open DEPENDENCY-REVIEW.md",
+                    on_in.join(",")
+                ));
+            }
+        } else {
+            if !canary_features.contains(canary_feature) {
+                findings.push(format!(
+                    "{scope}: the canary declares no feature {canary_feature}"
+                ));
+            }
+            for config in &pin.configs {
+                let (on, why) = scope_state(&metas[&config.name], package_name, feature);
+                scope_lines.push(format!(
+                    "SCOPE {scope} {}: {} ({why})",
+                    config.name,
+                    if on {
+                        "ON: its entries are named and must be reported on the canary"
+                    } else {
+                        "OFF: its entries cannot be named by the inventoried code here"
+                    }
+                ));
+                if on {
+                    scopes
+                        .on
+                        .entry(config.name.clone())
+                        .or_default()
+                        .insert(scope.clone());
+                    scopes
+                        .extra
+                        .entry(config.name.clone())
+                        .or_default()
+                        .extend([
+                            "--features".to_string(),
+                            format!("{CANARY}/{canary_feature}"),
+                        ]);
+                }
+            }
+        }
+    }
+    for line in &scope_lines {
+        println!("{line}");
+    }
+    verdicts.check(
+        "every_feature_scope_is_resolved_as_reviewed",
+        findings.is_empty(),
+        &findings.join("\n"),
+    );
     if options.plan {
         for config in &configs {
-            println!("PLAN {} {}", config.name, config.cargo_args().join(" "));
+            let mut args = config.cargo_args();
+            args.extend(scopes.extra.get(&config.name).cloned().unwrap_or_default());
+            println!("PLAN {} {}", config.name, args.join(" "));
+        }
+        if options.print {
+            println!("MINT-GATE PRINT deps.pin");
+            for line in forwards.iter().chain(selects.iter()) {
+                println!("{line}");
+            }
+            for line in resolved_lines(&pin.configs, &facts) {
+                println!("{line}");
+            }
+            println!("MINT-GATE PRINT end");
         }
         return ExitCode::SUCCESS;
     }
@@ -1176,6 +1388,8 @@ fn main() -> ExitCode {
             &witnessed,
             &own_entries,
             &marks,
+            &scopes,
+            options.subset.is_none(),
             options.print,
         ),
         Some(dir) => layer2(
@@ -1185,6 +1399,7 @@ fn main() -> ExitCode {
             &expected,
             &registries,
             dir,
+            options.subset.is_none(),
             options.print,
         ),
     };
@@ -1227,6 +1442,8 @@ fn layer1(
     witnessed: &[&Entry],
     own_entries: &[&Entry],
     marks: &BTreeMap<usize, String>,
+    scopes: &Scopes,
+    full: bool,
     print: bool,
 ) -> Result<(), String> {
     let target_dir = std::env::var("CARGO_TARGET_DIR")
@@ -1246,7 +1463,8 @@ fn layer1(
     let mut canary_lines = Vec::new();
     for config in configs {
         let names = names(&metas[&config.name]);
-        let (json, code, err_path) = clippy_run(root, gate, &out_dir, config)?;
+        let extra = scopes.extra.get(&config.name).cloned().unwrap_or_default();
+        let (json, code, err_path) = clippy_run(root, gate, &out_dir, config, &extra)?;
         let run = read_run(root, &names, &json)?;
         println!(
             "MINT-GATE {}: clippy exit {code:?}; {} force-warned reports; targets checked {}",
@@ -1288,7 +1506,16 @@ fn layer1(
             foreign.is_empty(),
             &format!("reports from other packages (--no-deps must keep the lints off them): {foreign:#?}"),
         );
-        canary_lines.push(layer1_canary(verdicts, &config.name, &run, external, marks));
+        let no_scope = BTreeSet::new();
+        canary_lines.push(layer1_canary(
+            verdicts,
+            &config.name,
+            &run,
+            external,
+            marks,
+            scopes.on.get(&config.name).unwrap_or(&no_scope),
+            &scopes.known,
+        ));
         for report in run.reports.iter().filter(|r| !in_canary(r)) {
             reported_paths.insert(report.what.clone());
         }
@@ -1365,6 +1592,13 @@ fn layer1(
         findings.is_empty(),
         &findings.join("\n"),
     );
+    // Codex batch-3 r6 MAJOR 3: the hand-out reconcile (handouts.rs) over every reported holder.
+    let (findings, candidate_lines) = reconcile(&mut sources, &positions, registries, full)?;
+    verdicts.check(
+        "every_hand_out_candidate_is_registered_or_excluded",
+        findings.is_empty(),
+        &findings.join("\n"),
+    );
     // The mints' regions.
     let mut findings = Vec::new();
     let mut regions = Vec::new();
@@ -1433,6 +1667,10 @@ fn layer1(
         for line in regions {
             println!("{line}");
         }
+        println!("MINT-GATE PRINT hand-out candidates");
+        for line in candidate_lines {
+            println!("{line}");
+        }
         println!("MINT-GATE PRINT end");
     }
     Ok(())
@@ -1446,6 +1684,7 @@ fn layer2(
     expected: &BTreeMap<String, BTreeSet<String>>,
     registries: &Registries,
     dir: &Path,
+    full: bool,
     print: bool,
 ) -> Result<(), String> {
     let mut per_config: BTreeMap<String, Found> = BTreeMap::new();
@@ -1564,6 +1803,58 @@ fn layer2(
         drift.is_empty(),
         &drift.join("\n"),
     );
+    // Codex batch-3 r6 MAJOR 3 (layer 2): a function holding a primitive that layer 1 does not
+    // report there is a hand-out candidate until reviewed (no sink is derived for it: it is read
+    // from the expansion, not the source).
+    let mut layer2_only: BTreeMap<(String, String, String), Vec<String>> = BTreeMap::new();
+    for config in configs {
+        for key in per_config[&config.name].keys() {
+            if key[2] != "primitive" {
+                continue;
+            }
+            let Some(item) = expanded_holder(&key[1]) else {
+                continue;
+            };
+            let covered = registries.draw_rows.iter().any(|row| {
+                row.key[0] == key[0]
+                    && (item == row.key[2] || item.ends_with(&format!(" > {}", row.key[2])))
+            });
+            if !covered {
+                layer2_only
+                    .entry((key[0].clone(), item, key[3].clone()))
+                    .or_default()
+                    .push(config.name.clone());
+            }
+        }
+    }
+    let mut findings = Vec::new();
+    for ((target, item, what), names) in &layer2_only {
+        if !registries
+            .exclusions
+            .iter()
+            .any(|row| row[0] == "-" && &row[1] == item)
+        {
+            findings.push(format!(
+                "LAYER-2-ONLY DRAW HOLDER (a hand-out candidate until reviewed): {target} | {item} | primitive {what} [{}]",
+                names.join(",")
+            ));
+        }
+    }
+    if full {
+        for row in registries.exclusions.iter().filter(|row| row[0] == "-") {
+            if !layer2_only.keys().any(|(_, item, _)| item == &row[1]) {
+                findings.push(format!(
+                    "STALE EXCLUSION: - | {} is excluded but no layer-2-only holder",
+                    row[1]
+                ));
+            }
+        }
+    }
+    verdicts.check(
+        "every_expanded_draw_holder_is_reconciled",
+        findings.is_empty(),
+        &findings.join("\n"),
+    );
     if print {
         println!("MINT-GATE PRINT expanded-sites.tsv");
         let rows = pins::rows_for(configs, &per_config, &|config: &str, key: &[String]| {
@@ -1612,61 +1903,477 @@ fn layer2_canary(verdicts: &mut Verdicts, config: &str, hits: &expanded::Hits) -
     )
 }
 
-// ---- Codex batch-3 r6: TESTS FIRST (these stubs are what the tests fail against) ----
+// =================================================================================================
+// CODEX BATCH-3 r6: the dependency feature selections, forwarding and resolved features (MAJOR 2),
+// the feature scopes (MAJOR 1) and the hand-out reconcile (MAJOR 3)
+// =================================================================================================
 
-fn closure(_meta: &Value) -> Result<BTreeSet<String>, String> {
-    Ok(BTreeSet::new())
+/// The roots of the inventoried build: the inventoried packages and the canary.
+const ROOTS: [&str; 3] = [NODE, SERVICES, CANARY];
+/// The reviewed exclusions of the hand-out reconcile live in DEPENDENCY-REVIEW.md between these.
+const EXCLUSIONS_BEGIN: &str = "<!-- reconcile-exclusions begin -->";
+const EXCLUSIONS_END: &str = "<!-- reconcile-exclusions end -->";
+
+/// A resolve edge that is part of a normal or a build-script build (a dev edge is test-only).
+fn is_build_edge(dep: &Value) -> bool {
+    dep["dep_kinds"].as_array().is_some_and(|kinds| {
+        kinds
+            .iter()
+            .any(|kind| kind["kind"].is_null() || kind["kind"] == "build")
+    })
 }
 
-fn manifest_lines(_meta: &Value, _ids: &BTreeSet<String>) -> (BTreeSet<String>, BTreeSet<String>) {
-    (BTreeSet::new(), BTreeSet::new())
+fn strings(value: &Value) -> Vec<String> {
+    value
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
-fn resolved_facts(_meta: &Value, _ids: &BTreeSet<String>) -> BTreeMap<String, String> {
-    BTreeMap::new()
+fn list_or_dash(mut items: Vec<String>) -> String {
+    items.sort();
+    items.dedup();
+    if items.is_empty() {
+        "-".to_string()
+    } else {
+        items.join(",")
+    }
 }
 
+/// The package ids a resolve reaches from the roots over normal and build edges.
+fn closure(meta: &Value) -> Result<BTreeSet<String>, String> {
+    let nodes: BTreeMap<String, &Value> = meta["resolve"]["nodes"]
+        .as_array()
+        .ok_or("cargo metadata has no resolve graph")?
+        .iter()
+        .map(|node| (node["id"].as_str().unwrap_or_default().to_string(), node))
+        .collect();
+    let mut todo: Vec<String> = Vec::new();
+    for name in ROOTS {
+        todo.push(
+            package(meta, name)?["id"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+        );
+    }
+    let mut out = BTreeSet::new();
+    while let Some(id) = todo.pop() {
+        if !out.insert(id.clone()) {
+            continue;
+        }
+        let node = nodes
+            .get(&id)
+            .ok_or_else(|| format!("{id} is not in the resolve graph"))?;
+        for dep in node["deps"].as_array().cloned().unwrap_or_default() {
+            if is_build_edge(&dep) {
+                todo.push(dep["pkg"].as_str().unwrap_or_default().to_string());
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// The feature FORWARDING (`forward`) and the dependency feature SELECTIONS (`select`) of every
+/// workspace package in `ids`, as cargo metadata reports them, normalized (sorted; a platform
+/// target without whitespace; `-` for none).
+fn manifest_lines(meta: &Value, ids: &BTreeSet<String>) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut forwards = BTreeSet::new();
+    let mut selects = BTreeSet::new();
+    for p in meta["packages"].as_array().cloned().unwrap_or_default() {
+        if !p["source"].is_null() || !ids.contains(p["id"].as_str().unwrap_or_default()) {
+            continue;
+        }
+        let name = p["name"].as_str().unwrap_or_default();
+        if let Some(features) = p["features"].as_object() {
+            for (feature, entries) in features {
+                forwards.insert(format!(
+                    "forward {name} {feature} {}",
+                    list_or_dash(strings(entries))
+                ));
+            }
+        }
+        for dep in p["dependencies"].as_array().cloned().unwrap_or_default() {
+            let kind = match dep["kind"].as_str() {
+                None => "normal",
+                Some("build") => "build",
+                Some(_) => continue,
+            };
+            let dep_name = dep["name"].as_str().unwrap_or_default();
+            let named = match dep["rename"].as_str() {
+                Some(rename) => format!("{rename}={dep_name}"),
+                None => dep_name.to_string(),
+            };
+            let target: String = dep["target"]
+                .as_str()
+                .map(|t| t.split_whitespace().collect())
+                .unwrap_or_else(|| "*".to_string());
+            let optional = if dep["optional"].as_bool() == Some(true) {
+                "optional"
+            } else {
+                "required"
+            };
+            let default = if dep["uses_default_features"].as_bool() == Some(false) {
+                "no"
+            } else {
+                "yes"
+            };
+            selects.insert(format!(
+                "select {name} {named} {kind} {target} {optional} default-features={default} {}",
+                list_or_dash(strings(&dep["features"]))
+            ));
+        }
+    }
+    (forwards, selects)
+}
+
+/// The RESOLVED features of every package in `ids`: `name@version` -> `f,g` (or `-`).
+fn resolved_facts(meta: &Value, ids: &BTreeSet<String>) -> BTreeMap<String, String> {
+    let mut labels: BTreeMap<String, String> = BTreeMap::new();
+    for p in meta["packages"].as_array().cloned().unwrap_or_default() {
+        labels.insert(
+            p["id"].as_str().unwrap_or_default().to_string(),
+            format!(
+                "{}@{}",
+                p["name"].as_str().unwrap_or_default(),
+                p["version"].as_str().unwrap_or_default()
+            ),
+        );
+    }
+    let mut out = BTreeMap::new();
+    for node in meta["resolve"]["nodes"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+    {
+        let id = node["id"].as_str().unwrap_or_default();
+        if !ids.contains(id) {
+            continue;
+        }
+        let mut label = labels.get(id).cloned().unwrap_or_else(|| id.to_string());
+        if out.contains_key(&label) {
+            // The same name and version from two sources: name the second by its id.
+            label = format!("{label}+{id}");
+        }
+        out.insert(label, list_or_dash(strings(&node["features"])));
+    }
+    out
+}
+
+/// deps.pin's `resolved` lines: one `*` line for a package resolved the same way in every
+/// configuration, otherwise one line per distinct feature set naming its configurations.
 fn resolved_lines(
-    _configs: &[Config],
-    _facts: &BTreeMap<String, BTreeMap<String, String>>,
+    configs: &[Config],
+    facts: &BTreeMap<String, BTreeMap<String, String>>,
 ) -> Vec<String> {
-    Vec::new()
+    let keys: BTreeSet<&String> = facts.values().flat_map(|found| found.keys()).collect();
+    let mut out = Vec::new();
+    for key in keys {
+        let mut groups: Vec<(String, Vec<String>)> = Vec::new();
+        for config in configs {
+            let Some(features) = facts.get(&config.name).and_then(|found| found.get(key)) else {
+                continue;
+            };
+            match groups.iter_mut().find(|(f, _)| f == features) {
+                Some((_, names)) => names.push(config.name.clone()),
+                None => groups.push((features.clone(), vec![config.name.clone()])),
+            }
+        }
+        if groups.len() == 1 && groups[0].1.len() == configs.len() {
+            out.push(format!("resolved * {key} {}", groups[0].0));
+        } else {
+            for (features, names) in groups {
+                out.push(format!("resolved {} {key} {features}", names.join(",")));
+            }
+        }
+    }
+    out
 }
 
+/// The differences between the pinned and the computed resolved features, per configuration.
 fn resolved_drift(
-    _configs: &[Config],
-    _pinned: &BTreeMap<(String, String), String>,
-    _facts: &BTreeMap<String, BTreeMap<String, String>>,
+    configs: &[Config],
+    pinned: &BTreeMap<(String, String), String>,
+    facts: &BTreeMap<String, BTreeMap<String, String>>,
 ) -> Vec<String> {
-    Vec::new()
+    let empty = BTreeMap::new();
+    let mut out = Vec::new();
+    for config in configs {
+        let computed = facts.get(&config.name).unwrap_or(&empty);
+        for (key, features) in computed {
+            match pinned.get(&(config.name.clone(), key.clone())) {
+                None => out.push(format!("NEW [{}] {key} {features}", config.name)),
+                Some(was) if was != features => out.push(format!(
+                    "CHANGED [{}] {key}: now {features} (pinned {was})",
+                    config.name
+                )),
+                Some(_) => {}
+            }
+        }
+        for ((name, key), was) in pinned {
+            if name == &config.name && !computed.contains_key(key) {
+                out.push(format!("GONE [{name}] {key} (pinned {was})"));
+            }
+        }
+    }
+    out
 }
 
-fn scope_state(_meta: &Value, _package: &str, _feature: &str) -> (bool, String) {
-    (false, String::new())
+/// A feature scope in one configuration: is `package` a resolved (normal or build) dependency of
+/// an inventoried package, with `feature` resolved? (The inventoried code can only name items of
+/// its direct dependencies.)
+fn scope_state(meta: &Value, package_name: &str, feature: &str) -> (bool, String) {
+    let names = names(meta);
+    let nodes = meta["resolve"]["nodes"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let mut dependents = Vec::new();
+    let mut features: Option<Vec<String>> = None;
+    for who in [NODE, SERVICES] {
+        let Ok(p) = package(meta, who) else {
+            continue;
+        };
+        let Some(node) = nodes.iter().find(|n| n["id"] == p["id"]) else {
+            continue;
+        };
+        for dep in node["deps"].as_array().cloned().unwrap_or_default() {
+            let id = dep["pkg"].as_str().unwrap_or_default();
+            if is_build_edge(&dep) && names.get(id).map(String::as_str) == Some(package_name) {
+                dependents.push(who);
+                features = nodes
+                    .iter()
+                    .find(|n| n["id"] == id)
+                    .map(|n| strings(&n["features"]));
+            }
+        }
+    }
+    match features {
+        None => (
+            false,
+            format!("{package_name} is not a resolved dependency of {NODE} or {SERVICES}"),
+        ),
+        Some(features) if features.iter().any(|f| f == feature) => (
+            true,
+            format!(
+                "{package_name} is a resolved dependency of {} with {feature}",
+                dependents.join(" and ")
+            ),
+        ),
+        Some(_) => (
+            false,
+            format!(
+                "{feature} is not resolved for {package_name} (a dependency of {})",
+                dependents.join(" and ")
+            ),
+        ),
+    }
 }
 
+/// Is `feature` resolved for any package named `package_name` in `ids`?
 fn feature_resolved(
-    _meta: &Value,
-    _ids: &BTreeSet<String>,
-    _package: &str,
-    _feature: &str,
+    meta: &Value,
+    ids: &BTreeSet<String>,
+    package_name: &str,
+    feature: &str,
 ) -> bool {
-    false
+    let names = names(meta);
+    meta["resolve"]["nodes"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .any(|node| {
+            let id = node["id"].as_str().unwrap_or_default();
+            ids.contains(id)
+                && names.get(id).map(String::as_str) == Some(package_name)
+                && strings(&node["features"]).iter().any(|f| f == feature)
+        })
 }
 
+/// The hand-out reconcile of one file: each holder (item -> the reported positions in it) to the
+/// sinks its drawn value reaches; only candidates (some sink) are returned.
 fn reconcile_file(
-    _file: &SourceFile,
-    _holders: &BTreeMap<String, Vec<LineColumn>>,
+    file: &SourceFile,
+    holders: &BTreeMap<String, Vec<LineColumn>>,
 ) -> Result<BTreeMap<String, handouts::Sinks>, String> {
-    Ok(BTreeMap::new())
+    let is_fn = |item: &str| item.rsplit(" > ").next().unwrap_or(item).starts_with("fn ");
+    let wanted: BTreeSet<String> = holders.keys().filter(|i| is_fn(i)).cloned().collect();
+    let asts = file.functions(&wanted)?;
+    let mut out = BTreeMap::new();
+    for (item, at) in holders {
+        let line = at.iter().map(|p| p.line).min().unwrap_or(0);
+        let sinks = match asts.get(item) {
+            Some((sig, Some(block))) => Some(handouts::analyze(sig, block, at)),
+            _ => handouts::item_sinks(item, line),
+        };
+        if let Some(sinks) = sinks.filter(|s| !s.is_empty()) {
+            out.insert(item.clone(), sinks);
+        }
+    }
+    Ok(out)
 }
 
-fn read_exclusions(_text: &str) -> Result<Vec<Vec<String>>, String> {
-    Ok(Vec::new())
+/// The reviewed exclusions (DEPENDENCY-REVIEW.md, between the markers): `| file | item | sinks |
+/// reason |` rows after a header and a separator row; `-` as the file is a layer-2-only holder,
+/// by its expanded item path.
+fn read_exclusions(text: &str) -> Result<Vec<Vec<String>>, String> {
+    let (_, rest) = text
+        .split_once(EXCLUSIONS_BEGIN)
+        .ok_or("DEPENDENCY-REVIEW.md has no reconcile-exclusions table")?;
+    let (table, _) = rest
+        .split_once(EXCLUSIONS_END)
+        .ok_or("DEPENDENCY-REVIEW.md's reconcile-exclusions table is not closed")?;
+    let mut out = Vec::new();
+    for (n, line) in table
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .enumerate()
+    {
+        if n < 2 {
+            continue;
+        }
+        let cells: Vec<String> = line
+            .trim_matches('|')
+            .split('|')
+            .map(|c| c.trim().to_string())
+            .collect();
+        if !line.starts_with('|') || cells.len() != 4 || cells.iter().any(String::is_empty) {
+            return Err(format!(
+                "a reconcile-exclusions row is not `| file | item | sinks | reason |`: {line}"
+            ));
+        }
+        out.push(cells);
+    }
+    Ok(out)
 }
 
-fn deny_mark(_mark: &str) -> Option<(String, Option<String>)> {
-    None
+/// A canary deny mark: `deny: <path>` (every configuration) or `deny-in <scope>: <path>` (the
+/// configurations where feature-scopes.tsv's scope is on).
+fn deny_mark(mark: &str) -> Option<(String, Option<String>)> {
+    let word = |s: &str| !s.is_empty() && !s.contains(char::is_whitespace);
+    if let Some(path) = mark.strip_prefix("deny: ") {
+        return word(path).then(|| (path.to_string(), None));
+    }
+    let (scope, path) = mark.strip_prefix("deny-in ")?.split_once(": ")?;
+    (word(scope) && word(path)).then(|| (path.to_string(), Some(scope.to_string())))
+}
+
+/// The layer-1 hand-out reconcile over every reported holder, against hand-outs.tsv and the
+/// reviewed exclusions. `full`: every configuration ran (a subset cannot show a row is stale).
+fn reconcile(
+    sources: &mut Sources,
+    positions: &BTreeMap<(String, String, String), Vec<LineColumn>>,
+    registries: &Registries,
+    full: bool,
+) -> Result<(Vec<String>, Vec<String>), String> {
+    let mut by_file: BTreeMap<String, BTreeMap<String, Vec<LineColumn>>> = BTreeMap::new();
+    for ((_, file, item), at) in positions {
+        let entry = by_file
+            .entry(file.clone())
+            .or_default()
+            .entry(item.clone())
+            .or_default();
+        entry.extend(at.iter().copied());
+        entry.sort_by_key(|p| (p.line, p.column));
+        entry.dedup();
+    }
+    let mut candidates: BTreeMap<(String, String), handouts::Sinks> = BTreeMap::new();
+    for (file, holders) in &by_file {
+        let parsed = sources.file(file)?;
+        for (item, sinks) in reconcile_file(parsed, holders)? {
+            candidates.insert((file.clone(), item), sinks);
+        }
+    }
+    let registered: BTreeSet<(String, String)> = registries
+        .hand_outs
+        .iter()
+        .map(|r| (r[0].clone(), r[1].clone()))
+        .collect();
+    let mut findings = Vec::new();
+    let mut lines = Vec::new();
+    for ((file, item), sinks) in &candidates {
+        let kinds = handouts::kinds(sinks);
+        let excluded = registries
+            .exclusions
+            .iter()
+            .find(|r| &r[0] == file && &r[1] == item);
+        let status = match (registered.contains(&(file.clone(), item.clone())), excluded) {
+            (true, Some(_)) => {
+                findings.push(format!("BOTH REGISTERED AND EXCLUDED: {file} | {item}"));
+                "BOTH"
+            }
+            (true, None) => "REGISTERED",
+            (false, Some(row)) if row[2] == kinds => "EXCLUDED",
+            (false, Some(row)) => {
+                findings.push(format!(
+                    "EXCLUSION CHANGED: {file} | {item}: its sinks are now {kinds} (reviewed {}): {}",
+                    row[2],
+                    handouts::render(sinks)
+                ));
+                "EXCLUSION CHANGED"
+            }
+            (false, None) => {
+                findings.push(format!(
+                    "UNREVIEWED HAND-OUT CANDIDATE: {file} | {item}: {} (register it in hand-outs.tsv and clippy.toml, or exclude it with its reason in DEPENDENCY-REVIEW.md)",
+                    handouts::render(sinks)
+                ));
+                "UNREVIEWED"
+            }
+        };
+        lines.push(format!(
+            "{file}\t{item}\t{kinds}\t{}\t{status}",
+            handouts::render(sinks)
+        ));
+    }
+    if full {
+        for (file, item) in &registered {
+            if !candidates.contains_key(&(file.clone(), item.clone())) {
+                findings.push(format!(
+                    "REGISTERED BUT NOT DERIVED: {file} | {item} is in hand-outs.tsv, but the reconcile finds no sink (name the sink it cannot see as a limit, or drop the row)"
+                ));
+            }
+        }
+        for row in registries.exclusions.iter().filter(|r| r[0] != "-") {
+            if !candidates.contains_key(&(row[0].clone(), row[1].clone())) {
+                findings.push(format!(
+                    "STALE EXCLUSION: {} | {} is excluded but is no candidate",
+                    row[0], row[1]
+                ));
+            }
+        }
+    }
+    let mut keys: Vec<(String, String)> = registries
+        .exclusions
+        .iter()
+        .map(|r| (r[0].clone(), r[1].clone()))
+        .collect();
+    keys.sort();
+    for pair in keys.windows(2).filter(|pair| pair[0] == pair[1]) {
+        findings.push(format!(
+            "an exclusion is listed twice: {} | {}",
+            pair[0].0, pair[0].1
+        ));
+    }
+    Ok((findings, lines))
+}
+
+/// A layer-2 primitive's holder: its item without trailing `use` segments, if a function holds it.
+fn expanded_holder(item: &str) -> Option<String> {
+    let mut segments: Vec<&str> = item.split(" > ").collect();
+    while segments.last().is_some_and(|s| s.starts_with("use ")) {
+        segments.pop();
+    }
+    segments
+        .iter()
+        .any(|s| s.starts_with("fn "))
+        .then(|| segments.join(" > "))
 }
 
 #[cfg(test)]
