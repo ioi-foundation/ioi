@@ -1401,7 +1401,7 @@ impl RuntimeFinalityCoordinator {
         domain_id: String,
         configured_profile: RuntimeFinalityProfile,
         writer_identity: String,
-        initial_canonical_head: String,
+        initial_canonical_head: impl FnOnce() -> Result<String>,
         issuer_key_id: String,
         signing_seed: &[u8],
     ) -> Result<Self> {
@@ -1426,7 +1426,7 @@ impl RuntimeFinalityCoordinator {
                     identity: profile_identity(configured_profile)?,
                     writer_identity: writer_identity.clone(),
                     fence_token: INITIAL_FENCE_TOKEN,
-                    initial_canonical_head,
+                    initial_canonical_head: initial_canonical_head()?,
                     bindings,
                     authority,
                 },
@@ -2717,18 +2717,47 @@ pub(crate) fn canonical_block_head(block: &Block<ChainTransaction>) -> Result<St
     Ok(format!("sha256:{}", hex::encode(block_hash(block)?)))
 }
 
-/// Selects the Agentgres canonical head from which runtime admission begins.
+/// The committed cursor (`last_committed_block`) a restart starts from: the block the Agentgres
+/// canonical head names, and nothing else (FU-N11-RESTART-HYDRATION-1). The durable tip is NOT a
+/// committed cursor: the workload's durable status counts a signed but not-yet-committed block.
+pub(crate) fn restart_committed_cursor(
+    admitted: Option<Block<ChainTransaction>>,
+    _durable_tip: Option<Block<ChainTransaction>>,
+) -> Option<Block<ChainTransaction>> {
+    admitted
+}
+
+/// Selects the Agentgres canonical head a NEW spine starts from (evaluated by `open` only when no
+/// spine exists; `RecognizedEffectStore::open_existing` stays authoritative otherwise).
 ///
-/// On a fresh chain, height one names the all-zero protocol parent rather than
-/// the separately stored genesis-state container. On recovery without an
-/// existing Agentgres spine, the durable chain tip is the next effect's exact
-/// parent. `RecognizedEffectStore::open_existing` remains authoritative when a
-/// spine already exists; this value can only seed a new one.
+/// On a fresh chain (no durable tip), height one names the all-zero protocol parent rather than the
+/// separately stored genesis-state container. A workload that already holds blocks is REFUSED
+/// (FU-N11-RESTART-HYDRATION-1): its durable status counts a signed but not-yet-committed block, so
+/// it is not admission evidence and cannot seed canonical authority. The refusal names the only
+/// recovery that exists today (restore ordering-finality from a backup taken with the workload
+/// state, leaving every configured signing-safety location current and in place) and otherwise
+/// keeps the node stopped; it never advises deleting, emptying or rolling back signing-safety
+/// state. A validated same-identity rebuild, enrollment of a replacement identity and an explicit
+/// spine-recovery command are FU-N11-SPINE-RECOVERY-1.
 pub(crate) fn runtime_finality_initial_head(
     durable_tip: Option<&Block<ChainTransaction>>,
 ) -> Result<String> {
     match durable_tip {
-        Some(block) => canonical_block_head(block),
+        Some(block) => Err(anyhow!(
+            "the Agentgres finality spine (the node's ordering-finality directory) is missing while \
+             the workload holds blocks to height {}; its canonical head cannot be taken from the \
+             workload's durable status, which counts uncommitted blocks. The node stays stopped. The \
+             only supported recovery is to restore the ordering-finality directory from a backup \
+             taken together with this workload state (state.db), leaving every configured \
+             signing-safety location current and in place: the signing and custody journals, the \
+             AFT post-quantum outbox, the external-anchor directories and any signer state. Never \
+             delete, empty or roll back any of those to match the backup or to resync: that removes \
+             this identity's guard against conflicting signatures, and peers cannot restore it. If \
+             no such backup exists or those locations cannot be confirmed intact, keep the node \
+             stopped; a validated same-identity rebuild, enrollment of a replacement identity and an \
+             explicit spine-recovery command are FU-N11-SPINE-RECOVERY-1",
+            block.header.height
+        )),
         None => Ok(format!("sha256:{}", hex::encode([0_u8; 32]))),
     }
 }
@@ -3303,7 +3332,7 @@ mod tests {
             "chain://test/1".into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             "writer://test/1".into(),
-            initial,
+            || Ok(initial),
             issuer,
             &seed,
         )
@@ -3334,7 +3363,7 @@ mod tests {
             "chain://test/fresh".into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             "writer://test/fresh".into(),
-            initial,
+            || Ok(initial),
             issuer,
             &seed,
         )
@@ -3371,7 +3400,7 @@ mod tests {
             "chain://test/effect".into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             "writer://test/effect".into(),
-            runtime_finality_initial_head(None).unwrap(),
+            || runtime_finality_initial_head(None),
             issuer,
             &seed,
         )
@@ -3405,7 +3434,7 @@ mod tests {
                 "chain://test/index".into(),
                 RuntimeFinalityProfile::SingleAuthorityV1,
                 "writer://test/index".into(),
-                runtime_finality_initial_head(None).unwrap(),
+                || runtime_finality_initial_head(None),
                 issuer.clone(),
                 &seed,
             )
@@ -3502,12 +3531,80 @@ mod tests {
         assert_eq!(coordinator.staged_reads.load(Ordering::Relaxed), 1);
     }
 
+    /// FU-N11-RESTART-HYDRATION-1 RED (plans/ioi-network/records/port/restart-hydration/DESIGN.md;
+    /// the durable-status review's BLOCKER 1). This REPLACES the test that pinned the old behaviour
+    /// (`missing_spine_on_nonempty_chain_seeds_the_exact_durable_tip`). The workload's durable status
+    /// counts a signed but not-yet-committed block, so a missing spine must not take its canonical head
+    /// from it: the seed for a non-genesis workload is a refusal (restore or recover the spine).
     #[test]
-    fn missing_spine_on_nonempty_chain_seeds_the_exact_durable_tip() {
+    fn missing_spine_on_nonempty_chain_refuses_the_durable_tip() {
         let block = empty_block([3; 32], 7);
+        let seed = runtime_finality_initial_head(Some(&block));
+        assert!(
+            seed.is_err(),
+            "a missing spine must not be seeded from the durable tip (height 7), got {seed:?}"
+        );
         assert_eq!(
-            runtime_finality_initial_head(Some(&block)).unwrap(),
-            canonical_block_head(&block).unwrap()
+            runtime_finality_initial_head(None).unwrap(),
+            format!("sha256:{}", hex::encode([0_u8; 32])),
+            "a genesis workload still seeds the zero head"
+        );
+    }
+
+    /// FU-N11-RESTART-HYDRATION-1 GREEN: the seed is consulted ONLY to create a missing spine. A
+    /// restart over an existing spine never evaluates it, so the refusing seed of a non-genesis
+    /// workload cannot stop an ordinary restart.
+    #[test]
+    fn an_existing_spine_never_consults_the_restart_seed() {
+        let dir = tempdir().unwrap();
+        let seed = [9_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let created = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/restart-seed".into(),
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            "writer://test/restart-seed".into(),
+            || runtime_finality_initial_head(None),
+            issuer.clone(),
+            &seed,
+        )
+        .expect("a genesis spine is created from the zero head");
+        let head = created.store.canonical_head().to_string();
+        drop(created);
+
+        let reopened = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/restart-seed".into(),
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            "writer://test/restart-seed".into(),
+            || Err(anyhow!("the restart seed must not be consulted for an existing spine")),
+            issuer,
+            &seed,
+        )
+        .expect("an existing spine reopens without consulting the seed");
+        assert_eq!(reopened.store.canonical_head(), head);
+    }
+
+    /// FU-N11-RESTART-HYDRATION-1 RED: the committed cursor comes from admission evidence only. With
+    /// no admitted block, a restart has no committed cursor; it never adopts the durable tip, which
+    /// may be uncommitted.
+    #[test]
+    fn restart_committed_cursor_never_falls_back_to_the_durable_tip() {
+        let admitted = empty_block([3; 32], 4);
+        let tip = empty_block([4; 32], 7);
+        assert_eq!(
+            restart_committed_cursor(None, Some(tip.clone())),
+            None,
+            "with no admitted block the committed cursor must stay empty, not take the durable tip"
+        );
+        assert_eq!(
+            restart_committed_cursor(Some(admitted.clone()), Some(tip)),
+            Some(admitted),
+            "the admitted block is the committed cursor"
         );
     }
 
@@ -3543,7 +3640,7 @@ mod tests {
             "chain://test/pending-native".into(),
             RuntimeFinalityProfile::BftConsensusAftV1,
             "writer://test/pending-native".into(),
-            format!("sha256:{}", hex::encode([0_u8; 32])),
+            || Ok(format!("sha256:{}", hex::encode([0_u8; 32]))),
             issuer,
             &seed,
         )
@@ -3647,7 +3744,7 @@ mod tests {
             "chain://test/staged-fence".into(),
             RuntimeFinalityProfile::BftConsensusAftV1,
             "writer://test/staged-fence".into(),
-            initial.clone(),
+            || Ok(initial.clone()),
             issuer.clone(),
             &seed,
         )
@@ -3663,7 +3760,7 @@ mod tests {
             "chain://test/staged-fence".into(),
             RuntimeFinalityProfile::BftConsensusAftV1,
             "writer://test/staged-fence".into(),
-            initial,
+            || Ok(initial),
             issuer,
             &seed,
         )
@@ -3702,7 +3799,7 @@ mod tests {
             "chain://test/replaced-fence".into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             "writer://test/replaced-fence".into(),
-            initial,
+            || Ok(initial),
             issuer,
             &seed,
         )
@@ -3740,7 +3837,7 @@ mod tests {
             "chain://test/1".into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             "writer://test/1".into(),
-            initial,
+            || Ok(initial),
             issuer.clone(),
             &seed,
         )
@@ -3777,7 +3874,7 @@ mod tests {
             "chain://test/1".into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             "writer://test/1".into(),
-            "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into(),
+            || Ok("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into()),
             issuer,
             &seed,
         )
@@ -3825,7 +3922,7 @@ mod tests {
             domain.into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             writer.into(),
-            initial,
+            || Ok(initial),
             issuer.clone(),
             &seed,
         )
@@ -3856,7 +3953,7 @@ mod tests {
                     domain.into(),
                     RuntimeFinalityProfile::SingleAuthorityV1,
                     writer.into(),
-                    format!("sha256:{}", hex::encode(parent)),
+                    || Ok(format!("sha256:{}", hex::encode(parent))),
                     issuer.clone(),
                     &seed,
                 )
@@ -3918,7 +4015,7 @@ mod tests {
             domain.into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             writer.into(),
-            "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into(),
+            || Ok("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into()),
             issuer,
             &seed,
         )
@@ -3966,7 +4063,7 @@ mod tests {
             domain.into(),
             RuntimeFinalityProfile::BftConsensusAftV1,
             writer.into(),
-            format!("sha256:{}", hex::encode(parent)),
+            || Ok(format!("sha256:{}", hex::encode(parent))),
             issuer.clone(),
             &seed,
         )
@@ -4087,7 +4184,7 @@ mod tests {
             domain.into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             writer.into(),
-            format!("sha256:{}", hex::encode(parent)),
+            || Ok(format!("sha256:{}", hex::encode(parent))),
             issuer,
             &seed,
         )
@@ -4111,7 +4208,7 @@ mod tests {
             domain.into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
             writer.into(),
-            runtime_finality_initial_head(None).unwrap(),
+            || runtime_finality_initial_head(None),
             format!(
                 "key://test/{}",
                 hex::encode(key.public_key().unwrap().as_bytes())
