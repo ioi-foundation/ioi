@@ -42,6 +42,20 @@ pub struct Pin {
     pub configs: Vec<Config>,
     /// `package dependency version`.
     pub deps: BTreeSet<String>,
+    /// `forward <package> <feature> <forwarded,...|->` (Codex batch-3 r6 MAJOR 2: tests first).
+    pub forwards: BTreeSet<String>,
+    /// `select <package> <dependency> <kind> <target> <optional|required> default-features=<yes|no> <features|->`.
+    pub selects: BTreeSet<String>,
+    /// `resolved <configurations|*> <package@version> <features|->`, as written.
+    pub resolved: Vec<(String, String, String)>,
+}
+
+/// The `resolved` lines per (configuration, package@version) (tests first: none yet).
+pub fn expand_resolved(
+    _lines: &[(String, String, String)],
+    _configs: &[Config],
+) -> Result<BTreeMap<(String, String), String>, String> {
+    Ok(BTreeMap::new())
 }
 
 pub fn read_pin(text: &str) -> Result<Pin, String> {

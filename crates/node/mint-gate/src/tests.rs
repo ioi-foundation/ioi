@@ -361,3 +361,352 @@ fn a_binary_named_like_a_dependency_is_not_own_code() {
     });
     assert_eq!(own_bin_crates(&node), ["hypervisor_daemon"]);
 }
+
+// ---- Codex batch-3 r6 (BUILD-DELTA #36): the hand-out reconcile, the resolved-feature pin and the feature scopes ----
+
+const SINKS_SOURCE: &str = r#"
+fn ret() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+fn mut_param(out: &mut String) {
+    *out = uuid::Uuid::new_v4().to_string();
+}
+fn field(holder: &std::sync::Mutex<Vec<String>>) {
+    let fresh = uuid::Uuid::new_v4().to_string();
+    holder.lock().unwrap().push(fresh);
+}
+fn channel(tx: std::sync::mpsc::Sender<String>) {
+    let fresh = uuid::Uuid::new_v4().to_string();
+    let _ = tx.send(fresh);
+}
+fn stat() {
+    let fresh = uuid::Uuid::new_v4().to_string();
+    *SINK.lock().unwrap() = Some(fresh);
+}
+fn capture() {
+    let fresh = uuid::Uuid::new_v4().to_string();
+    std::thread::spawn(move || drop(fresh));
+}
+fn fill(out: &mut [u8]) {
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, out);
+}
+impl S {
+    fn through_a_lock(&self) {
+        let id = uuid::Uuid::new_v4();
+        let mut map = self.sessions.write().unwrap();
+        map.insert(id, 1);
+    }
+}
+fn once() -> &'static str {
+    static NONCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    NONCE.get_or_init(|| uuid::Uuid::new_v4().to_string())
+}
+fn through_out_parameter() -> [u8; 16] {
+    let mut secret = [0u8; 16];
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut secret);
+    secret
+}
+fn local_only() {
+    let fresh = uuid::Uuid::new_v4().to_string();
+    let _n = fresh.len();
+}
+fn logged() {
+    let fresh = uuid::Uuid::new_v4();
+    println!("{fresh}");
+}
+"#;
+
+/// Every draw position in a fixture: the start of each `uuid::Uuid::new_v4` and `rand::RngCore::fill_bytes` path,
+/// grouped by enclosing item as the gate groups clippy's reports.
+fn fixture_holders(parsed: &SourceFile, text: &str) -> BTreeMap<String, Vec<LineColumn>> {
+    let mut out: BTreeMap<String, Vec<LineColumn>> = BTreeMap::new();
+    for (number, line) in text.lines().enumerate() {
+        for needle in ["uuid::Uuid::new_v4", "rand::RngCore::fill_bytes"] {
+            for (column, _) in line.match_indices(needle) {
+                let at = LineColumn {
+                    line: number + 1,
+                    column,
+                };
+                let item = parsed.enclosing(at).expect("an item").path.clone();
+                out.entry(item).or_default().push(at);
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn every_sink_kind_makes_a_hand_out_candidate() {
+    let parsed = SourceFile::parse("s.rs", SINKS_SOURCE.to_string()).expect("parse");
+    let holders = fixture_holders(&parsed, SINKS_SOURCE);
+    assert_eq!(holders.len(), 12, "{holders:?}");
+    let found = reconcile_file(&parsed, &holders).expect("reconcile");
+    let kinds = |item: &str| found.get(item).map(handouts::kinds);
+    assert_eq!(kinds("fn ret").as_deref(), Some(handouts::RETURN));
+    assert_eq!(kinds("fn mut_param").as_deref(), Some(handouts::MUT_PARAM));
+    assert_eq!(kinds("fn field").as_deref(), Some(handouts::NON_LOCAL));
+    assert_eq!(kinds("fn channel").as_deref(), Some(handouts::CHANNEL));
+    assert_eq!(kinds("fn stat").as_deref(), Some(handouts::STATIC));
+    assert_eq!(kinds("fn capture").as_deref(), Some(handouts::CAPTURE));
+    assert_eq!(kinds("fn fill").as_deref(), Some(handouts::MUT_PARAM));
+    assert_eq!(
+        kinds("impl S > fn through_a_lock").as_deref(),
+        Some(handouts::NON_LOCAL)
+    );
+    assert_eq!(
+        kinds("fn once").as_deref(),
+        Some(format!("{},{}", handouts::RETURN, handouts::STATIC).as_str())
+    );
+    assert_eq!(
+        kinds("fn through_out_parameter").as_deref(),
+        Some(handouts::RETURN)
+    );
+    assert_eq!(kinds("fn local_only"), None, "{found:?}");
+    assert_eq!(kinds("fn logged"), None, "I/O is a named limit: {found:?}");
+    // The evidence names the line of each sink.
+    let ret = handouts::render(&found["fn ret"]);
+    assert_eq!(ret, "return@3", "{ret}");
+}
+
+#[test]
+fn a_holder_that_is_not_a_function_is_reviewed_as_it_is() {
+    assert_eq!(handouts::item_sinks("use rand::RngCore", 3), None);
+    assert_eq!(
+        handouts::item_sinks("fn f > static KEY", 4).map(|s| handouts::kinds(&s)),
+        Some(handouts::STATIC.to_string())
+    );
+    assert_eq!(
+        handouts::item_sinks(source::FRAGMENT, 1).map(|s| handouts::kinds(&s)),
+        Some(handouts::UNANALYZED.to_string())
+    );
+}
+
+#[test]
+fn the_reviewed_exclusions_read_strictly_from_the_dependency_review() {
+    let text = "# x\n\n<!-- reconcile-exclusions begin -->\n| file | item | sinks | reason |\n|---|---|---|---|\n| a.rs | fn f | return | a name, not a credential |\n| b.rs | impl X > fn g | closure capture,return | compared only |\n<!-- reconcile-exclusions end -->\n| c.rs | fn h | return | outside the markers |\n";
+    let rows = read_exclusions(text).expect("exclusions");
+    assert_eq!(rows.len(), 2);
+    assert_eq!(
+        rows[1],
+        [
+            "b.rs",
+            "impl X > fn g",
+            "closure capture,return",
+            "compared only"
+        ]
+    );
+    assert!(read_exclusions("<!-- reconcile-exclusions begin -->\n| h | h | h | h |\n|-|-|-|-|\n| a.rs | fn f | return |\n<!-- reconcile-exclusions end -->\n").is_err());
+    assert!(read_exclusions("no markers").is_err());
+}
+
+/// A resolved graph: ioi-node depends (optionally) on ioi-validator and on rand, and (dev) on tempfile.
+fn pin_meta(
+    node_depends_on_validator: bool,
+    validator: &[&str],
+    edge: &[&str],
+    vm_wasm: &[&str],
+) -> Value {
+    let dep = |name: &str, kind: Option<&str>, optional: bool, default: bool, features: &[&str]| {
+        serde_json::json!({"name": name, "rename": null, "kind": kind, "target": null, "optional": optional,
+            "uses_default_features": default, "features": features})
+    };
+    let mut node_deps = vec![
+        serde_json::json!({"pkg": "r", "dep_kinds": [{"kind": null, "target": null}]}),
+        serde_json::json!({"pkg": "t", "dep_kinds": [{"kind": "dev", "target": null}]}),
+    ];
+    if node_depends_on_validator {
+        node_deps
+            .push(serde_json::json!({"pkg": "v", "dep_kinds": [{"kind": null, "target": null}]}));
+    }
+    serde_json::json!({
+        "packages": [
+            {"name": "ioi-node", "id": "n", "version": "0.1.0", "source": null,
+             "features": {"default": [], "vm-wasm": vm_wasm, "consensus-aft": ["ioi-validator/consensus-aft"]},
+             "dependencies": [dep("ioi-validator", None, true, false, edge), dep("rand", None, false, true, &[]),
+                dep("tempfile", Some("dev"), false, true, &[])], "targets": []},
+            {"name": "ioi-services", "id": "s", "version": "0.1.0", "source": null, "features": {}, "dependencies": [], "targets": []},
+            {"name": "ioi-node-mint-gate-canary", "id": "c", "version": "0.1.0", "source": null,
+             "features": {"seal-signer": ["ioi-validator/consensus-aft"]},
+             "dependencies": [dep("ioi-validator", None, false, false, &[])], "targets": []},
+            {"name": "ioi-validator", "id": "v", "version": "0.1.0", "source": null,
+             "features": {"consensus-aft": [], "consensus-pos": []}, "dependencies": [], "targets": []},
+            {"name": "rand", "id": "r", "version": "0.8.5", "source": "registry+x", "features": {"std": []}, "dependencies": [], "targets": []},
+            {"name": "tempfile", "id": "t", "version": "3.0.0", "source": "registry+x", "features": {}, "dependencies": [], "targets": []},
+            {"name": "unrelated", "id": "u", "version": "1.0.0", "source": "registry+x", "features": {}, "dependencies": [], "targets": []}
+        ],
+        "resolve": {"nodes": [
+            {"id": "n", "features": ["default"], "deps": node_deps},
+            {"id": "s", "features": [], "deps": []},
+            {"id": "c", "features": [], "deps": [{"pkg": "v", "dep_kinds": [{"kind": null, "target": null}]}]},
+            {"id": "v", "features": validator, "deps": []},
+            {"id": "r", "features": ["std"], "deps": []},
+            {"id": "t", "features": [], "deps": []},
+            {"id": "u", "features": [], "deps": []}
+        ]}
+    })
+}
+
+#[test]
+fn the_pin_records_dependency_selections_forwarding_and_resolved_features() {
+    let base = pin_meta(true, &["consensus-aft"], &[], &["ioi-validator/vm-wasm"]);
+    let ids = closure(&base).expect("closure");
+    assert_eq!(
+        ids.iter().map(String::as_str).collect::<Vec<_>>(),
+        ["c", "n", "r", "s", "v"],
+        "normal and build edges from the inventoried packages and the canary; dev edges and unreached packages are out"
+    );
+    let (forwards, selects) = manifest_lines(&base, &ids);
+    assert!(
+        forwards.contains("forward ioi-node consensus-aft ioi-validator/consensus-aft"),
+        "{forwards:?}"
+    );
+    assert!(
+        forwards.contains("forward ioi-node default -"),
+        "{forwards:?}"
+    );
+    assert!(
+        selects.contains("select ioi-node ioi-validator normal * optional default-features=no -"),
+        "{selects:?}"
+    );
+    assert!(
+        !selects.iter().any(|s| s.contains("tempfile")),
+        "dev dependencies are not selections: {selects:?}"
+    );
+    // Codex r6 MAJOR 2's plant: the validator line requests consensus-aft; names, versions and feature names unchanged.
+    let planted = pin_meta(
+        true,
+        &["consensus-aft"],
+        &["consensus-aft"],
+        &["ioi-validator/vm-wasm"],
+    );
+    let (planted_forwards, planted_selects) =
+        manifest_lines(&planted, &closure(&planted).expect("closure"));
+    assert_eq!(planted_forwards, forwards);
+    let added: Vec<&String> = planted_selects.difference(&selects).collect();
+    assert_eq!(
+        added,
+        ["select ioi-node ioi-validator normal * optional default-features=no consensus-aft"]
+    );
+    // A new forward changes the forwarding line by name.
+    let forwarded = pin_meta(
+        true,
+        &["consensus-aft", "consensus-pos"],
+        &[],
+        &["ioi-validator/vm-wasm", "ioi-validator/consensus-pos"],
+    );
+    let (forwarded_lines, _) = manifest_lines(&forwarded, &closure(&forwarded).expect("closure"));
+    let added: Vec<&String> = forwarded_lines.difference(&forwards).collect();
+    assert_eq!(
+        added,
+        ["forward ioi-node vm-wasm ioi-validator/consensus-pos,ioi-validator/vm-wasm"]
+    );
+    // Resolved features per configuration, grouped, read back and compared both ways.
+    let known = configs();
+    let mut facts: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    for config in &known {
+        let meta = if config.name == "p" {
+            &forwarded
+        } else {
+            &base
+        };
+        facts.insert(
+            config.name.clone(),
+            resolved_facts(meta, &closure(meta).expect("closure")),
+        );
+    }
+    assert_eq!(
+        facts["default"].get("rand@0.8.5").map(String::as_str),
+        Some("std")
+    );
+    assert_eq!(
+        facts["default"]
+            .get("ioi-services@0.1.0")
+            .map(String::as_str),
+        Some("-")
+    );
+    assert!(!facts["default"].contains_key("tempfile@3.0.0"));
+    let lines = resolved_lines(&known, &facts);
+    assert!(
+        lines.contains(&"resolved * rand@0.8.5 std".to_string()),
+        "{lines:?}"
+    );
+    assert!(
+        lines.contains(&"resolved default,all ioi-validator@0.1.0 consensus-aft".to_string()),
+        "{lines:?}"
+    );
+    assert!(
+        lines.contains(&"resolved p ioi-validator@0.1.0 consensus-aft,consensus-pos".to_string()),
+        "{lines:?}"
+    );
+    let pin_text = format!(
+        "confirmed-deny-list-sha256 x\nfeature ioi-node a\nconfig default default\nconfig all all\nconfig p ioi-node/a\n{}\n{}\n{}\n",
+        forwards.iter().cloned().collect::<Vec<_>>().join("\n"),
+        selects.iter().cloned().collect::<Vec<_>>().join("\n"),
+        lines.join("\n")
+    );
+    let pin = read_pin(&pin_text).expect("the pin reads its own lines back");
+    assert_eq!(pin.forwards, forwards);
+    assert_eq!(pin.selects, selects);
+    let pinned = pins::expand_resolved(&pin.resolved, &known).expect("expand");
+    assert!(resolved_drift(&known, &pinned, &facts).is_empty());
+    let mut moved = facts.clone();
+    moved.get_mut("default").expect("default").insert(
+        "ioi-validator@0.1.0".into(),
+        "consensus-aft,consensus-pos".into(),
+    );
+    let drift = resolved_drift(&known, &pinned, &moved).join("\n");
+    assert!(
+        drift.contains("CHANGED [default] ioi-validator@0.1.0"),
+        "{drift}"
+    );
+}
+
+#[test]
+fn a_feature_scope_follows_each_configurations_resolved_graph() {
+    let on = pin_meta(true, &["consensus-aft"], &[], &[]);
+    let (state, why) = scope_state(&on, "ioi-validator", "consensus-aft");
+    assert!(state, "{why}");
+    // The default build: only the canary depends on ioi-validator, so the inventoried code cannot name it.
+    let (state, why) = scope_state(
+        &pin_meta(false, &["consensus-aft"], &[], &[]),
+        "ioi-validator",
+        "consensus-aft",
+    );
+    assert!(!state && why.contains("not a resolved dependency"), "{why}");
+    let (state, why) = scope_state(
+        &pin_meta(true, &[], &[], &[]),
+        "ioi-validator",
+        "consensus-aft",
+    );
+    assert!(!state && why.contains("not resolved"), "{why}");
+    let ids = closure(&on).expect("closure");
+    assert!(feature_resolved(
+        &on,
+        &ids,
+        "ioi-validator",
+        "consensus-aft"
+    ));
+    assert!(!feature_resolved(
+        &on,
+        &ids,
+        "ioi-validator",
+        "consensus-pos"
+    ));
+    assert!(!feature_resolved(&on, &ids, "rand", "small_rng"));
+}
+
+#[test]
+fn a_scoped_canary_mark_names_its_scope() {
+    let marks = canary_marks("fn a() {\n    let _ = k::g; // deny-in seal-signer: k::g\n    let _ = k::h; // deny-in : k::h\n}\n");
+    assert_eq!(
+        marks.get(&2).map(String::as_str),
+        Some("deny-in seal-signer: k::g")
+    );
+    assert_eq!(marks.len(), 1, "{marks:?}");
+    assert_eq!(
+        deny_mark("deny-in seal-signer: k::g"),
+        Some(("k::g".to_string(), Some("seal-signer".to_string())))
+    );
+    assert_eq!(deny_mark("deny: k::g"), Some(("k::g".to_string(), None)));
+    assert_eq!(deny_mark("canary: production"), None);
+}

@@ -60,6 +60,7 @@
 //! 1 FAIL; 3 CANNOT RUN. `--configs` runs a subset: never a pass (`MINT-GATE PARTIAL`).
 
 mod expanded;
+mod handouts;
 mod pins;
 mod source;
 
@@ -1609,6 +1610,63 @@ fn layer2_canary(verdicts: &mut Verdicts, config: &str, hits: &expanded::Hits) -
     format!(
         "CANARY {config} (expanded): production plant {production_prefix} prefix + {production_draw} primitive (FOUND); external macro {external} (FOUND); cfg(test) plant {test_only} (IGNORED)"
     )
+}
+
+// ---- Codex batch-3 r6: TESTS FIRST (these stubs are what the tests fail against) ----
+
+fn closure(_meta: &Value) -> Result<BTreeSet<String>, String> {
+    Ok(BTreeSet::new())
+}
+
+fn manifest_lines(_meta: &Value, _ids: &BTreeSet<String>) -> (BTreeSet<String>, BTreeSet<String>) {
+    (BTreeSet::new(), BTreeSet::new())
+}
+
+fn resolved_facts(_meta: &Value, _ids: &BTreeSet<String>) -> BTreeMap<String, String> {
+    BTreeMap::new()
+}
+
+fn resolved_lines(
+    _configs: &[Config],
+    _facts: &BTreeMap<String, BTreeMap<String, String>>,
+) -> Vec<String> {
+    Vec::new()
+}
+
+fn resolved_drift(
+    _configs: &[Config],
+    _pinned: &BTreeMap<(String, String), String>,
+    _facts: &BTreeMap<String, BTreeMap<String, String>>,
+) -> Vec<String> {
+    Vec::new()
+}
+
+fn scope_state(_meta: &Value, _package: &str, _feature: &str) -> (bool, String) {
+    (false, String::new())
+}
+
+fn feature_resolved(
+    _meta: &Value,
+    _ids: &BTreeSet<String>,
+    _package: &str,
+    _feature: &str,
+) -> bool {
+    false
+}
+
+fn reconcile_file(
+    _file: &SourceFile,
+    _holders: &BTreeMap<String, Vec<LineColumn>>,
+) -> Result<BTreeMap<String, handouts::Sinks>, String> {
+    Ok(BTreeMap::new())
+}
+
+fn read_exclusions(_text: &str) -> Result<Vec<Vec<String>>, String> {
+    Ok(Vec::new())
+}
+
+fn deny_mark(_mark: &str) -> Option<(String, Option<String>)> {
+    None
 }
 
 #[cfg(test)]
