@@ -1,3 +1,107 @@
 # THE EXPANDED-SOURCE REGISTRY of layer 2 (BUILD-DELTA #36): every registered credential prefix, randomness primitive and
 # credential-shaped literal in the expanded production source of each target and configuration, by enclosing item.
 # target<TAB>item<TAB>kind (prefix|primitive|shaped)<TAB>what<TAB>configurations<TAB>count<TAB>label
+ioi-node bin hypervisor-daemon	fn async_main	prefix	idisp_	*	1	MINT per-boot internal dispatch secret (idisp_)
+ioi-node bin hypervisor-daemon	fn async_main	primitive	new_v4	*	3	MINT per-boot internal dispatch secret and boot id: three UUIDv4
+ioi-node bin hypervisor-daemon	mod authority_challenge_routes > fn begin_deciding	primitive	rand::	*	1	DRAW decision attempt id (rand::random)
+ioi-node bin hypervisor-daemon	mod authority_challenge_routes > fn claim_approval_ref	primitive	rand::	*	1	DRAW approval claim nonce (rand::random)
+ioi-node bin hypervisor-daemon	mod authority_challenge_routes > fn process_nonce	primitive	rand::	*	1	DRAW per-process nonce (rand::random) (hand-out)
+ioi-node bin hypervisor-daemon	mod authority_challenge_routes > fn process_nonce	shaped	dp_	*	1	SHAPED the per-process nonce's dp_ prefix (a nonce, not a credential)
+ioi-node bin hypervisor-daemon	mod authority_routes > fn issue_bearer_capability_lease	prefix	ioi_lease_	*	1	MINT env-ops capability lease bearer (ioi_lease_)
+ioi-node bin hypervisor-daemon	mod authority_routes > fn issue_bearer_capability_lease	primitive	OsRng	*	1	MINT env-ops capability lease bearer: OsRng
+ioi-node bin hypervisor-daemon	mod authority_routes > fn issue_bearer_capability_lease	primitive	rand::	*	1	MINT env-ops capability lease bearer: RngCore::fill_bytes
+ioi-node bin hypervisor-daemon	mod authority_routes > fn issue_bearer_capability_lease > use rand::RngCore	primitive	rand::	*	1	IMPORT rand::RngCore for the lease bearer mint
+ioi-node bin hypervisor-daemon	mod device_custody_routes > fn handle_authority_start	primitive	new_v4	*	1	DRAW passkey ceremony id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod device_custody_routes > fn handle_login_start	primitive	new_v4	*	1	DRAW passkey ceremony id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod device_custody_routes > fn handle_registration_start	primitive	new_v4	*	1	DRAW passkey ceremony id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod editor_host > fn start_oss_runtime	primitive	OsRng	*	2	MINT editor runtime connection token and nonce: OsRng
+ioi-node bin hypervisor-daemon	mod editor_host > fn start_oss_runtime	primitive	rand::	*	2	MINT editor runtime connection token and nonce: RngCore::fill_bytes
+ioi-node bin hypervisor-daemon	mod editor_host > fn start_oss_runtime > use rand::RngCore	primitive	rand::	*	1	IMPORT rand::RngCore for the editor token mint
+ioi-node bin hypervisor-daemon	mod editor_proxy > fn bind_editor_proxy	primitive	rand::	*	1	DRAW editor proxy host label (rand::random)
+ioi-node bin hypervisor-daemon	mod editor_proxy > fn is_daemon_cookie	prefix	ioi_lease_	*	1	NON-MINT ioi_lease_ compared: is this cookie a daemon cookie
+ioi-node bin hypervisor-daemon	mod editor_proxy > fn lease_cookie_name	prefix	ioi_lease_	*	1	NON-MINT ioi_lease_ cookie name for a public port (a name, not the bearer)
+ioi-node bin hypervisor-daemon	mod justification_checkpoint_routes > fn fresh_interaction	primitive	new_v4	*	1	DRAW interaction id (UUIDv4) (hand-out)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn build_agent_candidate	primitive	new_v4	*	1	DRAW agent id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn commit_connector_invoke_receipt	primitive	new_v4	*	1	DRAW connector invoke receipt nonce (UUIDv4)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn create_agent_run	primitive	new_v4	*	1	DRAW agent run id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn gen_opaque	primitive	new_v4	*	2	MINT the gen_opaque hand-out: two UUIDv4
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_api_token_create	prefix	ioi_pat_	*	1	MINT personal access token (ioi_pat_)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_api_token_create	primitive	new_v4	*	2	MINT personal access token: two UUIDv4
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_api_token_create	shaped	pat_	*	1	SHAPED pat_ token id (pat_ + a short hash of the token hash; an id, not the token)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_secret_create	shaped	sec_	*	1	SHAPED sec_ secret record id (a short hash of scope and name)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn handle_subagent_spawn	primitive	new_v4	*	1	DRAW sub-agent run id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn import_guest_workspace	primitive	new_v4	*	1	DRAW imported guest workspace id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn launch_record_key	shaped	launch_	*	1	SHAPED launch_ record key
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn random_token	primitive	rand::	*	2	MINT the random_token hand-out: rand:: sampling
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn random_token	primitive	thread_rng	*	1	MINT the random_token hand-out: thread_rng
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn random_token > use rand::Rng	primitive	rand::	*	1	IMPORT rand::Rng for random_token
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn session_create_intent_key	shaped	session_create_	*	1	SHAPED session_create_ intent key
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn session_receipt_key	shaped	session_receipt_	*	1	SHAPED session_receipt_ record key
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn session_record_key	shaped	session_	*	1	SHAPED session_ record key
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn standing_draw_nonce	primitive	rand::	*	2	DRAW standing-authority draw nonce: rand:: fill_bytes (hand-out)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn standing_draw_nonce	primitive	thread_rng	*	1	DRAW standing-authority draw nonce: thread_rng (hand-out)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn standing_draw_nonce	shaped	sdn_	*	1	SHAPED the standing draw nonce's sdn_ prefix (a nonce, not a credential)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > fn subagent_run_control	primitive	new_v4	*	1	DRAW sub-agent run control id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod lifecycle_routes > mod runtime_host > impl DaemonHostStateAccess > fn persist_key	primitive	new_v4	*	1	DRAW temporary file name of an atomic state write (UUIDv4)
+ioi-node bin hypervisor-daemon	mod machine_routes > fn mint_operation_ref	primitive	new_v4	*	1	DRAW machine operation ref (UUIDv4) (hand-out)
+ioi-node bin hypervisor-daemon	mod managed_runtime_routes > fn build_export_bundle	primitive	new_v4	*	1	DRAW export staging directory name (UUIDv4)
+ioi-node bin hypervisor-daemon	mod managed_runtime_routes > fn handle_backup_export	primitive	new_v4	*	1	MINT managed backup export download token (UUIDv4)
+ioi-node bin hypervisor-daemon	mod managed_runtime_routes > fn handle_backup_import	primitive	new_v4	*	1	DRAW import staging directory name (UUIDv4)
+ioi-node bin hypervisor-daemon	mod microvm > fn hostile_guest_proposal_roundtrip	prefix	wec_	*	1	NON-MINT wec_ compared: the roundtrip filters values that start with wec_
+ioi-node bin hypervisor-daemon	mod microvm > fn hostile_guest_proposal_roundtrip	primitive	new_v4	*	1	DRAW roundtrip socket path (UUIDv4)
+ioi-node bin hypervisor-daemon	mod microvm > fn stage_and_start_model_proxy	primitive	new_v4	*	1	DRAW model proxy staging name (UUIDv4)
+ioi-node bin hypervisor-daemon	mod microvm > impl HostileGuestRoundtripDir > fn create	primitive	new_v4	*	1	DRAW roundtrip temporary directory name (UUIDv4)
+ioi-node bin hypervisor-daemon	mod operability_routes > const ROUTER_SOURCE	prefix	idisp_	*	1	NON-MINT idisp_ inside the daemon's own source text (include_str!, read by an operability check)
+ioi-node bin hypervisor-daemon	mod orchestration_routes > fn handle_automation_webhook	prefix	whk_	*	1	NON-MINT whk_ in the webhook event id (whk_evt_ + UUIDv4), not the webhook token
+ioi-node bin hypervisor-daemon	mod orchestration_routes > fn handle_automation_webhook	primitive	new_v4	*	2	DRAW webhook request id and event id (UUIDv4)
+ioi-node bin hypervisor-daemon	mod orchestration_routes > fn new_webhook_token	prefix	whk_	*	1	MINT automation webhook token (whk_)
+ioi-node bin hypervisor-daemon	mod orchestration_routes > fn new_webhook_token	primitive	new_v4	*	2	MINT automation webhook token: two UUIDv4
+ioi-node bin hypervisor-daemon	mod portal_session_exchange_routes > fn exchange_assertion	primitive	new_v4	*	1	DRAW portal session exchange attempt ref (UUIDv4)
+ioi-node bin hypervisor-daemon	mod provider_routes > fn random_proposal_nonce	primitive	rand::	*	1	DRAW provider operation proposal nonce: rand:: sampling (hand-out)
+ioi-node bin hypervisor-daemon	mod provider_routes > fn random_proposal_nonce	primitive	thread_rng	*	1	DRAW provider operation proposal nonce: thread_rng (hand-out)
+ioi-node bin hypervisor-daemon	mod provider_routes > fn random_proposal_nonce > use rand::{distributions::Alphanumeric,Rng}	primitive	rand::	*	1	IMPORT rand::{distributions::Alphanumeric, Rng} for the proposal nonce
+ioi-node bin hypervisor-daemon	mod provider_routes > fn validate_akash_sdl_secret_refs	shaped	conn_	*	1	SHAPED conn_ secret reference prefix, validated in an Akash SDL
+ioi-node bin hypervisor-daemon	mod provider_spend_reconciliation_routes > fn handle_provider_billing_statement_admit	shaped	pbs_	*	1	SHAPED pbs_ provider billing statement id
+ioi-node bin hypervisor-daemon	mod standing_envelope_routes > fn create_standing_envelope	primitive	rand::	*	2	DRAW standing envelope marker and id (rand::random)
+ioi-node bin hypervisor-daemon	mod standing_envelope_routes > fn derive_standing_evidence	primitive	rand::	*	1	DRAW standing evidence nonce (rand::random)
+ioi-node bin hypervisor-daemon	mod standing_envelope_routes > impl StandingAuthority > fn record	primitive	rand::	*	1	DRAW standing evidence temporary directory name (rand::random)
+ioi-node bin hypervisor-daemon	mod state_machine_routes > fn handle_state_machine_create	shaped	sm_	*	1	SHAPED sm_ state machine id
+ioi-node bin hypervisor-daemon	mod system_activation_routes > fn canonical_system_key	shaped	asg_	*	1	SHAPED asg_ canonical system key
+ioi-node bin hypervisor-daemon	mod work_result_routes > fn goal_run_work_truth_record_key	shaped	m3_goal_run_	*	1	SHAPED m3_goal_run_ work truth record key
+ioi-node bin hypervisor-daemon	mod workload_effect_boundary > fn mint_guest_effect_capability	prefix	wec_	*	2	MINT guest effect capability (wec_) (hand-out)
+ioi-node bin hypervisor-daemon	mod workload_effect_boundary > fn mint_guest_effect_capability	primitive	OsRng	*	1	MINT guest effect capability: OsRng
+ioi-node bin hypervisor-daemon	mod workload_effect_boundary > fn mint_guest_governed_provider_effect_capability	prefix	wbt_	*	1	MINT governed provider effect capability host trigger (wbt_) (hand-out)
+ioi-node bin hypervisor-daemon	mod workload_effect_boundary > fn mint_guest_governed_provider_effect_capability	primitive	OsRng	*	1	MINT governed provider effect capability: OsRng
+ioi-node bin hypervisor-daemon	mod workload_effect_boundary > fn record_id_from_capability_ref	prefix	wec_	*	1	NON-MINT wec_ parsed: the record id is read back from a capability ref
+ioi-node bin hypervisor-daemon	mod workload_effect_boundary > fn verify_host_trigger	prefix	wbt_	*	1	NON-MINT wbt_ compared: a host trigger is verified to carry the prefix
+ioi-node bin hypervisor-daemon	mod workload_effect_boundary > use rand::{rngs::OsRng,RngCore}	primitive	OsRng	*	1	IMPORT rand::rngs::OsRng for the effect-capability mints
+ioi-node bin hypervisor-daemon	mod workload_effect_boundary > use rand::{rngs::OsRng,RngCore}	primitive	rand::	*	1	IMPORT rand::RngCore for the effect-capability mints
+ioi-services lib ioi_services	mod agentic > mod automation > fn monitor_workflow_id_from_keywords	shaped	monitor_hacker_news_	*	1	SHAPED monitor_hacker_news_ workflow id
+ioi-services lib ioi_services	mod agentic > mod intent > impl IntentResolver > fn resolve_intent	primitive	rand::	*	2	DRAW intent session id: rand:: fill_bytes
+ioi-services lib ioi_services	mod agentic > mod intent > impl IntentResolver > fn resolve_intent	primitive	thread_rng	*	2	DRAW intent session id: thread_rng
+ioi-services lib ioi_services	mod agentic > mod intent > use rand::RngCore	primitive	rand::	*	1	IMPORT rand::RngCore for the intent session id
+ioi-services lib ioi_services	mod agentic > mod runtime > mod connectors > mod google_auth > fn random_url_safe_token	primitive	rand::	*	1	MINT the random_url_safe_token hand-out: rand:: fill_bytes
+ioi-services lib ioi_services	mod agentic > mod runtime > mod connectors > mod google_auth > fn random_url_safe_token	primitive	thread_rng	*	1	MINT the random_url_safe_token hand-out: thread_rng
+ioi-services lib ioi_services	mod agentic > mod runtime > mod connectors > mod google_auth > use rand::RngCore	primitive	rand::	*	1	IMPORT rand::RngCore for random_url_safe_token
+ioi-services lib ioi_services	mod agentic > mod runtime > mod execution > mod system > mod evidence > fn looks_like_known_secret_token	shaped	sk_live_	*	1	SHAPED sk_live_ in a recognizer of known secret token formats (redaction), not minted
+ioi-services lib ioi_services	mod agentic > mod runtime > mod execution > mod system > mod evidence > fn looks_like_known_secret_token	shaped	sk_test_	*	1	SHAPED sk_test_ in a recognizer of known secret token formats (redaction), not minted
+ioi-services lib ioi_services	mod agentic > mod runtime > mod kernel > mod approval > fn approval_state_update_thread_id_for_agent_id	shaped	agent_	*	1	SHAPED agent_ thread id prefix for approval state
+ioi-services lib ioi_services	mod agentic > mod runtime > mod kernel > mod approval > fn approval_state_update_thread_id_for_agent_id	shaped	thread_	*	1	SHAPED thread_ thread id prefix for approval state
+ioi-services lib ioi_services	mod agentic > mod runtime > mod kernel > mod model_mount > mod capability_token_control > fn plan_capability_token_control	prefix	ioi_mnt_	*	1	MINT model-mount capability token (ioi_mnt_) (hand-out)
+ioi-services lib ioi_services	mod agentic > mod runtime > mod kernel > mod model_mount > mod capability_token_control > fn plan_capability_token_control	primitive	OsRng	*	2	MINT model-mount capability token secret and id: OsRng
+ioi-services lib ioi_services	mod agentic > mod runtime > mod kernel > mod model_mount > mod capability_token_control > use rand::{rngs::OsRng,RngCore}	primitive	OsRng	*	1	IMPORT rand::rngs::OsRng for the model-mount token mint
+ioi-services lib ioi_services	mod agentic > mod runtime > mod kernel > mod model_mount > mod capability_token_control > use rand::{rngs::OsRng,RngCore}	primitive	rand::	*	1	IMPORT rand::RngCore for the model-mount token mint
+ioi-services lib ioi_services	mod agentic > mod runtime > mod managed_session_snapshot > fn browser_signal_from_agent_state	shaped	browser__	*	5	SHAPED browser__ tool-name prefix in a browser signal
+ioi-services lib ioi_services	mod agentic > mod runtime > mod service > mod decision_loop > mod cognition > mod final_reply_product_handoff > fn internal_runtime_token	shaped	receipt_	*	1	SHAPED receipt_ id prefix recognized as an internal runtime token (a classifier, not a credential)
+ioi-services lib ioi_services	mod agentic > mod runtime > mod service > mod decision_loop > mod cognition > mod final_reply_product_handoff > fn internal_runtime_token	shaped	request_	*	1	SHAPED request_ id prefix recognized as an internal runtime token (a classifier, not a credential)
+ioi-services lib ioi_services	mod agentic > mod runtime > mod service > mod decision_loop > mod cognition > mod final_reply_product_handoff > fn internal_runtime_token	shaped	thread_	*	1	SHAPED thread_ id prefix recognized as an internal runtime token (a classifier, not a credential)
+ioi-services lib ioi_services	mod agentic > mod runtime > mod service > mod decision_loop > mod cognition > mod final_reply_product_handoff > fn internal_runtime_token	shaped	trace_	*	1	SHAPED trace_ id prefix recognized as an internal runtime token (a classifier, not a credential)
+ioi-services lib ioi_services	mod agentic > mod runtime > mod service > mod decision_loop > mod cognition > mod final_reply_product_handoff > fn internal_runtime_token	shaped	turn_	*	1	SHAPED turn_ id prefix recognized as an internal runtime token (a classifier, not a credential)
+ioi-services lib ioi_services	mod agentic > mod runtime > mod substrate > fn drift_signal_for_state	shaped	connector__	*	1	SHAPED connector__ tool-name prefix in a drift signal
+ioi-services lib ioi_services	mod agentic > mod runtime > mod substrate > fn file_observations_for_state	shaped	file__	*	1	SHAPED file__ tool-name prefix in file observations
+ioi-services lib ioi_services	mod agentic > mod runtime > mod substrate > mod semantic_impact > fn semantic_impact_for_state	shaped	connector__	*	1	SHAPED connector__ tool-name prefix in a semantic impact
+ioi-services lib ioi_services	mod agentic > mod runtime > mod substrate > mod semantic_impact > fn semantic_impact_for_state	shaped	memory__	*	1	SHAPED memory__ tool-name prefix in a semantic impact
+ioi-services lib ioi_services	mod agentic > mod runtime > mod substrate > mod semantic_impact > fn semantic_impact_for_state	shaped	shell__	*	1	SHAPED shell__ tool-name prefix in a semantic impact
+ioi-services lib ioi_services	mod agentic > mod web > mod transport > fn selected_browser_http_user_agent	primitive	rand::	*	1	DRAW random browser User-Agent choice: rand::seq (hand-out)
+ioi-services lib ioi_services	mod agentic > mod web > mod transport > fn selected_browser_http_user_agent	primitive	thread_rng	*	1	DRAW random browser User-Agent choice: thread_rng (hand-out)
+ioi-services lib ioi_services	mod agentic > mod web > mod transport > use rand::seq::SliceRandom	primitive	rand::	*	1	IMPORT rand::seq::SliceRandom for the User-Agent choice
