@@ -193,4 +193,10 @@ disallowed-methods = [
   { path = "hypervisor_daemon::provider_routes::handle_provider_op_internal", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
   { path = "hypervisor_daemon::provider_transport::resolve_route_credential", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
   { path = "hypervisor_daemon::storage_backend_routes::storage_lease", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::lifecycle_routes::locate_backing_credential", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::provider_routes::invoke_failover_run_provider_operation", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::provider_routes::invoke_workload_brokered_provider_operation", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::storage_backend_routes::op_export", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::storage_backend_routes::op_repair", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::storage_backend_routes::op_restore", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
 ]
