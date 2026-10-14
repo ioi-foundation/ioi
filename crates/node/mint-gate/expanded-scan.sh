@@ -46,11 +46,19 @@ echo "SHA256 $(sha256sum "$HERE/expand-wrapper.sh" | cut -c1-64) expand-wrapper.
 ( cd "$WT" && cargo run --locked -q -p ioi-node-mint-gate -- --plan ) > "$OUT/plan.txt" 2> "$OUT/plan.err" || fail "the gate's --plan failed: $(tail -3 "$OUT/plan.err" | tr '\n' ' ')"
 grep -q '^PLAN ' "$OUT/plan.txt" || fail "the gate printed no plan: $(tail -5 "$OUT/plan.txt" | tr '\n' ' ')"
 TARGET=${EXP_TARGET:-$WT/target/mint-gate-expand}
+# EVERY INVENTORIED UNIT IS RE-EXPANDED IN EVERY RUN (ticket b3r-t2: cargo does not re-run a FRESH unit, so a second
+# scan over the same target dir found no expansion for it and could not run). Before each configuration's build, the
+# root of every lib and bin target of the inventoried packages is touched (mtime only: the content and git status do
+# not change), so cargo re-runs every inventoried unit and the wrapper re-expands it into THIS run's out dir; after
+# the build, an inventoried unit cargo still reports fresh is CANNOT RUN, by name. No cached expansion is ever judged.
+ROOTS=$( cd "$WT" && "$N/bin/cargo" metadata --no-deps --offline --locked --format-version 1 2> "$OUT/metadata.err" | python3 -I -c 'import json, sys; m = json.load(sys.stdin); P = {"ioi-node", "ioi-services", "ioi-node-mint-gate-canary"}; print("\n".join(t["src_path"] for p in m["packages"] if p["name"] in P for t in p["targets"] if set(t["kind"]) & {"bin", "lib", "rlib"}))' ) || fail "cannot list the inventoried target roots: $(tail -3 "$OUT/metadata.err" | tr '\n' ' ')"
+[ "$(printf '%s\n' "$ROOTS" | grep -c .)" -ge 3 ] || fail "too few inventoried target roots: [$ROOTS]"
 configs=()
 while read -r tag name args; do
   [ "$tag" = PLAN ] || continue
   if [ -n "$SUBSET" ] && ! printf ' %s ' "$SUBSET" | grep -q " $name "; then continue; fi
   configs+=("$name")
+  printf '%s\n' "$ROOTS" | while IFS= read -r root; do touch -c -- "$root" || exit 1; done || fail "cannot touch the inventoried target roots"
   start=$(date +%s)
   # shellcheck disable=SC2086
   ( cd "$WT" && env -i HOME="$HOME" XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}" CARGO_HOME="${CARGO_HOME:-/home/heathledger/.cargo}" \
@@ -61,6 +69,19 @@ while read -r tag name args; do
   rc=$?
   echo "EXPANDED $name: cargo check exit $rc in $(( $(date +%s) - start )) s; units now $(ls "$OUT/units" | grep -c '\.rs$')"
   [ "$rc" -eq 0 ] || fail "configuration $name: the expansion build failed: $(grep -v '^ *\(Checking\|Compiling\|Finished\|Blocking\)' "$OUT/$name.err" | tail -8 | tr '\n' ' ')"
+  fresh=$(python3 -I -c 'import json, sys
+bad = []
+for line in open(sys.argv[1]):
+    try:
+        d = json.loads(line)
+    except ValueError:
+        continue
+    if d.get("reason") != "compiler-artifact" or "custom-build" in d["target"]["kind"]:
+        continue
+    if d.get("manifest_path", "").endswith(("/crates/node/Cargo.toml", "/crates/services/Cargo.toml", "/crates/node/mint-gate/canary/Cargo.toml")) and d.get("fresh"):
+        bad.append(d["target"]["name"])
+print(" ".join(bad))' "$OUT/$name.json") || fail "configuration $name: cannot read its build messages"
+  [ -z "$fresh" ] || fail "configuration $name: inventoried units were not re-run (fresh), so not re-expanded in this run: $fresh"
 done < "$OUT/plan.txt"
 [ "${#configs[@]}" -gt 0 ] || fail "no configuration selected"
 [ "$(git -C "$WT" status --porcelain | tr '\n' ' ')" = "$P0" ] || fail "the subject's worktree changed during the expansion"
