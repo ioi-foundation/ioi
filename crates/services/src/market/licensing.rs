@@ -66,7 +66,7 @@ pub(crate) async fn license_currently_valid(
     if license.expiry == 0 {
         return Ok(true);
     }
-    let status = client.get_status().await?;
+    let status = client.get_committed_status().await?;
     Ok(status.height < license.expiry)
 }
 

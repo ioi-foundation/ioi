@@ -10,7 +10,7 @@ use crate::metrics::metrics;
 use crate::wal::{StateDiff, WalWriter};
 use async_trait::async_trait;
 use ioi_api::storage::{
-    be32, be64, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
+    be32, be64, AdmittedTip, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
 use ioi_types::app::{Block, ChainTransaction};
 use ioi_types::codec;
@@ -27,6 +27,9 @@ const ROOT_INDEX: TableDefinition<&[u8; 32], &[u8; 16]> = TableDefinition::new("
 const HEAD: TableDefinition<&[u8; 4], &[u8; 16]> = TableDefinition::new("HEAD"); // key=b"HEAD", value=[height_be(8)][epoch_be(8)]
 const MANIFEST: TableDefinition<&[u8; 8], &[u8; 17]> = TableDefinition::new("EPOCH_MANIFEST"); // value = [first(8)][last(8)][sealed(1)]
 const BLOCKS: TableDefinition<&[u8; 8], &[u8]> = TableDefinition::new("BLOCKS");
+// FU-N11-DURABLE-STATUS-1 D2a: key=b"TIP", value=[height_be(8)][block_hash(32)][state_root...]
+const ADMITTED_TIP: TableDefinition<&[u8; 3], &[u8]> = TableDefinition::new("ADMITTED_TIP");
+const ADMITTED_TIP_KEY: [u8; 3] = *b"TIP";
 
 // Sharded (prefix-encoded) - Keys are variable-length slices
 const VERSIONS: TableDefinition<&[u8], &[u8; 32]> = TableDefinition::new("VERSIONS");
@@ -36,6 +39,30 @@ const NODES: TableDefinition<&[u8], &[u8]> = TableDefinition::new("NODES");
 
 fn key_head() -> [u8; 4] {
     *b"HEAD"
+}
+fn encode_admitted_tip(tip: &AdmittedTip) -> Vec<u8> {
+    let mut out = Vec::with_capacity(40 + tip.state_root.len());
+    out.extend_from_slice(&tip.height.to_be_bytes());
+    out.extend_from_slice(&tip.block_hash);
+    out.extend_from_slice(&tip.state_root);
+    out
+}
+fn decode_admitted_tip(bytes: &[u8]) -> Result<AdmittedTip, StorageError> {
+    if bytes.len() < 40 {
+        return Err(StorageError::Decode(format!(
+            "admitted-tip marker is {} bytes, below the 40-byte header",
+            bytes.len()
+        )));
+    }
+    let (height, rest) = bytes.split_at(8);
+    let (hash, root) = rest.split_at(32);
+    let mut block_hash = [0u8; 32];
+    block_hash.copy_from_slice(hash);
+    Ok(AdmittedTip {
+        height: parse_u64(height),
+        block_hash,
+        state_root: root.to_vec(),
+    })
 }
 fn enc_epoch(e: Epoch) -> [u8; 8] {
     be64(e)
@@ -138,6 +165,8 @@ impl RedbEpochStore {
                 w.open_table(NODES)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
                 w.open_table(BLOCKS)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                w.open_table(ADMITTED_TIP)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
             }
             w.commit()
@@ -1105,6 +1134,52 @@ impl NodeStore for RedbEpochStore {
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
         }
 
+        w.commit().map_err(|e| StorageError::Backend(e.to_string()))
+    }
+
+    fn get_admitted_tip(&self) -> Result<Option<AdmittedTip>, StorageError> {
+        let r = self.read_txn()?;
+        let t = r
+            .open_table(ADMITTED_TIP)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+        let bytes = t
+            .get(&ADMITTED_TIP_KEY)
+            .map_err(|e| StorageError::Backend(e.to_string()))?
+            .map(|v| v.value().to_vec());
+        bytes.map(|bytes| decode_admitted_tip(&bytes)).transpose()
+    }
+
+    fn put_admitted_tip(&self, tip: &AdmittedTip) -> Result<(), StorageError> {
+        let w = self.write_txn()?;
+        {
+            let mut t = w
+                .open_table(ADMITTED_TIP)
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+            let current = t
+                .get(&ADMITTED_TIP_KEY)
+                .map_err(|e| StorageError::Backend(e.to_string()))?
+                .map(|v| v.value().to_vec());
+            if let Some(bytes) = current {
+                let current = decode_admitted_tip(&bytes)?;
+                if tip.height < current.height {
+                    return Err(StorageError::Backend(format!(
+                        "admitted-tip marker cannot move back from height {} to {}",
+                        current.height, tip.height
+                    )));
+                }
+                if tip.height == current.height {
+                    if *tip == current {
+                        return Ok(());
+                    }
+                    return Err(StorageError::Backend(format!(
+                        "a different admitted tip is already recorded at height {}",
+                        tip.height
+                    )));
+                }
+            }
+            t.insert(&ADMITTED_TIP_KEY, encode_admitted_tip(tip).as_slice())
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+        }
         w.commit().map_err(|e| StorageError::Backend(e.to_string()))
     }
 }

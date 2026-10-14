@@ -186,7 +186,7 @@ pub(crate) async fn resolve_query_height(
 ) -> Result<u64> {
     match height {
         Some(height) => Ok(height),
-        None => Ok(client.get_status().await?.height),
+        None => Ok(client.get_committed_status().await?.height),
     }
 }
 

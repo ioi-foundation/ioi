@@ -153,7 +153,7 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
     /// `get_status`, whose durable height counts signed but uncommitted blocks. A workload with
     /// no marker (a fresh node, or before its first admission) reports height 0.
     async fn get_committed_status(&self) -> Result<ChainStatus, ChainError> {
-        self.get_status().await
+        Ok(ChainStatus::default())
     }
 
     /// Returns the client as a type-erased `Any` trait object.
@@ -166,7 +166,12 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
 pub async fn committed_state_root(
     client: &(dyn WorkloadClientApi + '_),
 ) -> Result<StateRoot, ChainError> {
-    let status = client.get_status().await?;
+    let status = client.get_committed_status().await?;
+    if status.height == 0 {
+        return Err(ChainError::Transaction(
+            "no block is committed yet: there is no trusted state root".into(),
+        ));
+    }
     let block = client
         .get_block_by_height(status.height)
         .await?

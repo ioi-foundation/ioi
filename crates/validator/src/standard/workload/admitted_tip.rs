@@ -41,7 +41,39 @@ impl WorkloadCapability {
 /// group or other user can read. A refusal leaves no capability file, so the orchestration cannot
 /// record admissions and the committed height stays 0 (fail-closed).
 pub fn write_capability_file(path: &std::path::Path, capability: &WorkloadCapability) -> Result<()> {
-    std::fs::write(path, capability.as_bytes())?;
+    use std::io::Write;
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    let directory = path
+        .parent()
+        .ok_or_else(|| anyhow!("the workload capability path has no parent directory"))?;
+    let mode = std::fs::metadata(directory)?.permissions().mode();
+    if mode & 0o077 != 0 {
+        return Err(anyhow!(
+            "refusing to write the workload capability into {}: mode {:o} lets group or other \
+             users read it (the directory must be private, e.g. 0700)",
+            directory.display(),
+            mode & 0o777
+        ));
+    }
+    let staging = directory.join(format!(
+        ".{}.{}.tmp",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("workload-capability"),
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&staging);
+    {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&staging)?;
+        file.write_all(capability.as_bytes())?;
+        file.sync_all()?;
+    }
+    // An atomic replace: a previous boot's file is never kept.
+    std::fs::rename(&staging, path)?;
     Ok(())
 }
 
@@ -79,7 +111,23 @@ impl<T: NodeStore + ?Sized> AdmittedTipStore for T {
 }
 
 /// Checks a presented capability against the workload's own.
-pub fn verify_capability(_expected: &WorkloadCapability, _presented: &[u8]) -> Result<()> {
+pub fn verify_capability(expected: &WorkloadCapability, presented: &[u8]) -> Result<()> {
+    if presented.len() != expected.0.len() {
+        return Err(anyhow!(
+            "admitted-tip record refused: the workload capability is missing or malformed"
+        ));
+    }
+    // Constant time: every byte is compared whatever the first mismatch.
+    let difference = expected
+        .0
+        .iter()
+        .zip(presented)
+        .fold(0u8, |acc, (a, b)| acc | (a ^ b));
+    if difference != 0 {
+        return Err(anyhow!(
+            "admitted-tip record refused: the workload capability does not match"
+        ));
+    }
     Ok(())
 }
 
@@ -90,19 +138,43 @@ pub fn record_admitted_tip_checked(
     expected: &WorkloadCapability,
     presented: &[u8],
     tip: &AdmittedTip,
-    _stored: Option<&Block<ChainTransaction>>,
+    stored: Option<&Block<ChainTransaction>>,
 ) -> Result<()> {
     verify_capability(expected, presented)?;
+    let stored = stored.ok_or_else(|| {
+        anyhow!(
+            "admitted-tip record refused: the workload stores no block at height {}",
+            tip.height
+        )
+    })?;
+    if stored.header.height != tip.height || stored.header.state_root.0 != tip.state_root {
+        return Err(anyhow!(
+            "admitted-tip record refused: the admitted block's execution surface differs from \
+             the block the workload stores at height {}",
+            tip.height
+        ));
+    }
     marker.record_admitted_tip(tip)
 }
 
 /// The committed chain status: the admitted-tip marker's height (0 when there is no marker).
 pub fn committed_status(
-    _marker: &dyn AdmittedTipStore,
+    marker: &dyn AdmittedTipStore,
     durable: &ChainStatus,
-    _stored: impl Fn(u64) -> Option<Block<ChainTransaction>>,
+    stored: impl Fn(u64) -> Option<Block<ChainTransaction>>,
 ) -> Result<ChainStatus> {
-    Ok(durable.clone())
+    let mut status = durable.clone();
+    status.latest_timestamp = 0;
+    status.latest_timestamp_ms = 0;
+    status.height = 0;
+    if let Some(tip) = marker.admitted_tip()? {
+        status.height = tip.height;
+        if let Some(block) = stored(tip.height) {
+            status.latest_timestamp = block.header.timestamp;
+            status.latest_timestamp_ms = block.header.timestamp_ms;
+        }
+    }
+    Ok(status)
 }
 
 #[cfg(test)]
