@@ -230,6 +230,39 @@ fn direct_deps(meta: &Value) -> Result<BTreeSet<String>, String> {
     Ok(out)
 }
 
+/// The crate names of ioi-node's binaries that name OWN code in a deny-list path. A binary whose
+/// crate name is also a dependency's extern name is not one: the `ioi-validator` binary's crate is
+/// `ioi_validator`, the ioi-validator dependency's name, and a path `ioi_validator::...` in the
+/// deny list names the dependency (the canary proves it there), not a hand-out of the binary.
+fn own_bin_crates(node: &Value) -> Vec<String> {
+    let dependency_names: BTreeSet<String> = node["dependencies"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|dep| dep["rename"].as_str().or(dep["name"].as_str()))
+        .map(|name| name.replace('-', "_"))
+        .collect();
+    node["targets"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter(|target| {
+            target["kind"]
+                .as_array()
+                .is_some_and(|k| k.iter().any(|k| k == "bin"))
+        })
+        .map(|target| {
+            target["name"]
+                .as_str()
+                .unwrap_or_default()
+                .replace('-', "_")
+        })
+        .filter(|name| !dependency_names.contains(name))
+        .collect()
+}
+
 /// The enabled features of a workspace package in a resolve, by name.
 fn enabled_features(meta: &Value, name: &str) -> Result<BTreeSet<String>, String> {
     let package = package(meta, name)?;
@@ -953,19 +986,7 @@ fn main() -> ExitCode {
             }
         }
         if name == NODE {
-            for target in p["targets"].as_array().cloned().unwrap_or_default() {
-                if target["kind"]
-                    .as_array()
-                    .is_some_and(|k| k.iter().any(|k| k == "bin"))
-                {
-                    own_crates.push(
-                        target["name"]
-                            .as_str()
-                            .unwrap_or_default()
-                            .replace('-', "_"),
-                    );
-                }
-            }
+            own_crates.extend(own_bin_crates(p));
         }
     }
     let added: Vec<&String> = features.difference(&pin.features).collect();

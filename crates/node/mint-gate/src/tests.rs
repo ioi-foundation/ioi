@@ -344,3 +344,20 @@ fn a_configuration_lists_its_targets_and_the_features_it_enables() {
     );
     assert_eq!(every.len(), targets.len() + 1);
 }
+
+#[test]
+fn a_binary_named_like_a_dependency_is_not_own_code() {
+    let node = serde_json::json!({
+        "targets": [
+            {"kind": ["bin"], "name": "hypervisor-daemon"},
+            {"kind": ["bin"], "name": "ioi-validator"},
+            {"kind": ["lib"], "name": "not_a_bin"},
+        ],
+        "dependencies": [
+            {"name": "ioi-validator", "rename": null},
+            {"name": "rand", "rename": null},
+            {"name": "getrandom", "rename": "getrandom02"},
+        ]
+    });
+    assert_eq!(own_bin_crates(&node), ["hypervisor_daemon"]);
+}
