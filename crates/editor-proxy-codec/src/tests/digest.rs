@@ -100,6 +100,19 @@ fn t_digest_any_match_compares_every_presented_digest() {
         }
         _ => panic!("a valid ADMIT"),
     }
+    for order in [[&b"valid"[..], b"a", b"b"], [&b"a"[..], b"valid", b"b"]] {
+        let blocks: Vec<[u8; 32]> = order
+            .iter()
+            .map(|t| *Sha256Digest::of(t).as_bytes())
+            .collect();
+        match decode_p2d(&admit_bytes(3, 1, &blocks)) {
+            Ok(InboundP2d::Admit(admit)) => assert!(
+                admit.any_matches_stored_hex(&stored),
+                "any position matches, not only the last"
+            ),
+            _ => panic!("a valid ADMIT"),
+        }
+    }
     let empty = admit_bytes(2, 1, &[]);
     match decode_p2d(&empty) {
         Ok(InboundP2d::Admit(admit)) => {

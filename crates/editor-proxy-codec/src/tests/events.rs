@@ -223,6 +223,22 @@ fn t_event_proxy_final_flush_is_bounded() {
         ProxyStepKind::Close,
         "flushed, then closed"
     );
+    // A code already offered in this window is still flushed at Stopping (the final flush ignores
+    // the per-window marks).
+    let mut p = proxy_active(&pool, ModeKind::ForwardTcp);
+    let _ = p.step(ProxyInput::Observe(EventCode::HostRefused, 1));
+    assert_eq!(p.step(ProxyInput::Tick(T0)).kind(), ProxyStepKind::Send);
+    assert_eq!(pwhole(&mut p), ProxyStepKind::Idle);
+    let _ = p.step(ProxyInput::Observe(EventCode::HostRefused, 2));
+    let _ = p.step(ProxyInput::Terminate(StopReason::Shutdown));
+    assert_eq!(
+        p.step(ProxyInput::Tick(T0)).kind(),
+        ProxyStepKind::Send,
+        "the final flush sends a code already offered in this window"
+    );
+    assert_eq!(prepared_event(&p), (EventCode::HostRefused, 2));
+    assert_eq!(pwhole(&mut p), ProxyStepKind::Idle);
+    assert_eq!(p.step(ProxyInput::Tick(T0)).kind(), ProxyStepKind::Close);
     let mut p = proxy_active(&pool, ModeKind::ForwardTcp);
     let _ = p.step(ProxyInput::Observe(EventCode::ProxyStarted, 1));
     let _ = p.step(ProxyInput::Terminate(StopReason::Shutdown));
@@ -287,6 +303,11 @@ fn t_candidates_a_ninth_occurrence_refuses_before_any_ipc() {
         c.push(b"more"),
         Err(TooManyLeaseCandidates),
         "and stays refused"
+    );
+    assert_eq!(
+        c.push(b""),
+        Err(TooManyLeaseCandidates),
+        "even for an empty candidate"
     );
     let mut dup = LeaseCandidates::new();
     for _ in 0..8 {

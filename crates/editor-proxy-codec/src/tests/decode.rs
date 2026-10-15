@@ -55,6 +55,11 @@ fn t_decode_header_rows_in_order() {
         Some(BadMagic)
     );
     assert_eq!(
+        p2d_err(&with_header(ready.clone(), 1, b'X')),
+        Some(BadMagic),
+        "the magic's second byte"
+    );
+    assert_eq!(
         p2d_err(&with_header(ready.clone(), 2, 1)),
         Some(BadVersion),
         "no version-1 path"
@@ -74,9 +79,21 @@ fn t_decode_header_rows_in_order() {
         Some(ReservedNonzero)
     );
     assert_eq!(
+        p2d_err(&with_header(ready.clone(), 7, 1)),
+        Some(ReservedNonzero),
+        "the reserved u16's high byte"
+    );
+    assert_eq!(
         p2d_err(&with_header(ready.clone(), 4, 1)),
         Some(LengthMismatch),
         "body_len"
+    );
+    let mut longer = ready.clone();
+    longer.push(0);
+    assert_eq!(
+        p2d_err(&longer),
+        Some(LengthMismatch),
+        "body_len shorter than the received body"
     );
     // Multidefect pairs: each earlier field wins.
     let both = with_header(with_header(ready.clone(), 0, b'X'), 2, 9);
@@ -154,6 +171,14 @@ fn t_decode_p2d_body_rows_in_wire_order() {
     long_event.push(0);
     long_event[4] += 1;
     assert_eq!(p2d_err(&long_event), Some(LengthMismatch), "EVENT exact");
+    let mut long_bad_event = event_bytes(0, 1, 0);
+    long_bad_event.push(0);
+    long_bad_event[4] += 1;
+    assert_eq!(
+        p2d_err(&long_bad_event),
+        Some(BadEventCount),
+        "EVENT fields before the exact length"
+    );
     assert!(
         p2d_err(&event_bytes(0, 1, u32::MAX)).is_none(),
         "count u32::MAX is valid"
@@ -172,15 +197,17 @@ fn t_decode_d2p_body_rows_in_wire_order() {
         Some(LengthMismatch),
         "WELCOME minimum"
     );
-    for (mode, upstream, has_token) in [
-        (1u8, 1u8, 1u8),
-        (1, 2, 0),
-        (2, 1, 0),
-        (2, 0, 1),
-        (0, 0, 0),
-        (3, 1, 0),
+    for (mode, upstream, has_token, token) in [
+        (1u8, 1u8, 1u8, TOKEN),
+        (1, 1, 1, [0; 64]),
+        (1, 2, 0, [0; 64]),
+        (1, 2, 0, TOKEN),
+        (2, 1, 0, [0; 64]),
+        (2, 0, 1, TOKEN),
+        (2, 0, 1, [0; 64]),
+        (0, 0, 0, [0; 64]),
+        (3, 1, 0, [0; 64]),
     ] {
-        let token = if has_token == 1 { TOKEN } else { [0; 64] };
         let frame = welcome_bytes(mode, upstream, PORT, &LABEL, has_token, &token);
         assert_eq!(
             d2p_err(&frame),
@@ -219,12 +246,28 @@ fn t_decode_d2p_body_rows_in_wire_order() {
     long.push(0);
     long[4] += 1;
     assert_eq!(d2p_err(&long), Some(LengthMismatch), "WELCOME exact");
+    let mut long_bad = welcome_bytes(1, 1, 0, &LABEL, 0, &[0; 64]);
+    long_bad.push(0);
+    long_bad[4] += 1;
+    assert_eq!(
+        d2p_err(&long_bad),
+        Some(BadWelcome),
+        "WELCOME fields before the exact length"
+    );
     assert_eq!(
         d2p_err(&raw_frame(0x82, &[0; 4])),
         Some(LengthMismatch),
         "VERDICT minimum"
     );
     assert_eq!(d2p_err(&verdict_bytes(1, 4)), Some(BadOutcome));
+    let mut long_ok_verdict = verdict_bytes(1, 0);
+    long_ok_verdict.push(0);
+    long_ok_verdict[4] += 1;
+    assert_eq!(
+        d2p_err(&long_ok_verdict),
+        Some(LengthMismatch),
+        "VERDICT exact"
+    );
     let mut long_verdict = verdict_bytes(1, 9);
     long_verdict.push(0);
     long_verdict[4] += 1;

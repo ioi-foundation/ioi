@@ -14,7 +14,7 @@ use ProxyStepKind as Pk;
 #[test]
 fn t_d2p_welcome_listener_rules() {
     let inet = FdFacts::connected_upstream(SocketClass::InetStream);
-    let cases: [(&[FdFacts], Pk); 9] = [
+    let cases: [(&[FdFacts], Pk); 10] = [
         (&[], Pk::Refused(BadFdCount)),
         (&[listener(), listener()], Pk::Refused(BadFdCount)),
         (
@@ -32,6 +32,13 @@ fn t_d2p_welcome_listener_rules() {
             Pk::Refused(BadFdKind),
         ),
         (&[inet], Pk::Refused(BadListener)),
+        (
+            &[FdFacts {
+                accept_conn: false,
+                ..listener()
+            }],
+            Pk::Refused(BadListener),
+        ),
         (
             &[FdFacts {
                 pending_error: true,
@@ -150,6 +157,145 @@ fn t_d2p_verdict_upstream_rules_per_mode() {
         Pk::Refused(BadFdCount)
     );
     assert_eq!(pool.live(), 0);
+}
+
+/// Row 7's INTERNAL order with two defects at once (Codex #85 U1 r1 MAJOR 2): the count, then
+/// the socket class, then (WELCOME) the listener facts or (VERDICT) the connection state, then the
+/// endpoint. Each case carries the earlier defect AND a later one; the earlier refusal must win.
+#[test]
+fn t_d2p_row_7_internal_precedence_multi_defect() {
+    let inet = FdFacts::connected_upstream(SocketClass::InetStream);
+    let unix = FdFacts::connected_upstream(SocketClass::UnixStream);
+    let not_listening_unix = FdFacts {
+        class: SocketClass::UnixStream,
+        accept_conn: false,
+        pending_error: true,
+        ..listener()
+    };
+    let welcome_cases: [(&str, &[FdFacts], Pk); 3] = [
+        (
+            "WELCOME count before kind (two descriptors, the first a UNIX socket)",
+            &[not_listening_unix, listener()],
+            Pk::Refused(BadFdCount),
+        ),
+        (
+            "WELCOME kind before listener (a UNIX socket that is not listening, with an error)",
+            &[not_listening_unix],
+            Pk::Refused(BadFdKind),
+        ),
+        (
+            "WELCOME kind before listener (an Other socket on the wrong port)",
+            &[FdFacts {
+                class: SocketClass::Other,
+                ..FdFacts::loopback_listener(PORT + 1)
+            }],
+            Pk::Refused(BadFdKind),
+        ),
+    ];
+    for (what, facts, want) in welcome_cases.iter() {
+        let pool = Pool::new();
+        let mut p = proxy_awaiting_welcome();
+        let got = precv_k(&mut p, &pool, &welcome_for(ModeKind::ForwardTcp), facts);
+        assert_eq!(got, *want, "T-D2P row 7 order: {}", what);
+        assert_eq!(pool.live(), 0, "T-D2P row 7 order: {}: closed", what);
+    }
+    let unconnected_mismatch = FdFacts {
+        connected: false,
+        peer_matches_spec: false,
+        ..inet
+    };
+    let verdict_cases: [(&str, ModeKind, u8, &[FdFacts], Pk); 9] = [
+        (
+            "VERDICT count before kind (outcome 1, two descriptors, the first UNIX on TCP)",
+            ModeKind::ForwardTcp,
+            1,
+            &[unix, inet],
+            Pk::Refused(BadFdCount),
+        ),
+        (
+            "VERDICT kind before connection state (UNIX on TCP, unconnected, peer mismatch)",
+            ModeKind::ForwardTcp,
+            1,
+            &[FdFacts {
+                connected: false,
+                peer_matches_spec: false,
+                ..unix
+            }],
+            Pk::Refused(BadFdKind),
+        ),
+        (
+            "VERDICT connection state before endpoint (unconnected, peer mismatch)",
+            ModeKind::ForwardTcp,
+            1,
+            &[unconnected_mismatch],
+            Pk::Refused(NotConnected),
+        ),
+        (
+            "VERDICT connection state before endpoint (listening, peer mismatch)",
+            ModeKind::ForwardTcp,
+            1,
+            &[FdFacts {
+                accept_conn: true,
+                peer_matches_spec: false,
+                ..inet
+            }],
+            Pk::Refused(NotConnected),
+        ),
+        (
+            "VERDICT connection state before endpoint (pending error, peer mismatch)",
+            ModeKind::ForwardTcp,
+            1,
+            &[FdFacts {
+                pending_error: true,
+                peer_matches_spec: false,
+                ..inet
+            }],
+            Pk::Refused(NotConnected),
+        ),
+        (
+            "VERDICT connection state before endpoint (UNIX mode, unconnected, peer mismatch)",
+            ModeKind::ForwardUnix,
+            1,
+            &[FdFacts {
+                connected: false,
+                peer_matches_spec: false,
+                ..unix
+            }],
+            Pk::Refused(NotConnected),
+        ),
+        (
+            "VERDICT outcome 0 count before kind (one descriptor of the wrong class)",
+            ModeKind::ForwardTcp,
+            0,
+            &[FdFacts {
+                class: SocketClass::Other,
+                ..unconnected_mismatch
+            }],
+            Pk::Refused(BadFdCount),
+        ),
+        (
+            "VERDICT static count before the static kind rule (outcome 1, two descriptors)",
+            ModeKind::Static,
+            1,
+            &[inet, inet],
+            Pk::Refused(BadFdCount),
+        ),
+        (
+            "VERDICT static kind before connection state (outcome 1, one unconnected)",
+            ModeKind::Static,
+            1,
+            &[unconnected_mismatch],
+            Pk::Refused(BadFdKind),
+        ),
+    ];
+    for (what, mode, outcome, facts, want) in verdict_cases.iter() {
+        let pool = Pool::new();
+        let mut p = proxy_active(&pool, *mode);
+        let id = proxy_send_admit(&mut p, Purpose::Forward, 1).expect("sent");
+        let got = precv_k(&mut p, &pool, &verdict_bytes(id.get(), *outcome), facts);
+        assert_eq!(got, *want, "T-D2P row 7 order: {}", what);
+        assert_eq!(pool.live(), 0, "T-D2P row 7 order: {}: closed", what);
+    }
 }
 
 #[test]
