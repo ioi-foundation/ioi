@@ -331,6 +331,15 @@ impl ModelMountCore {
         capability_token_control::plan_capability_token_control(request)
     }
 
+    /// The run-scoped capability tokens not yet revoked under `state_dir` (BUILD-DELTA #21(c): the daemon's startup
+    /// sweep revokes each, since no run is live in a process that has just started).
+    pub fn unrevoked_run_scoped_capability_token_ids(
+        &self,
+        state_dir: &str,
+    ) -> Result<Vec<String>, ModelMountError> {
+        capability_token_control::unrevoked_run_scoped_token_ids(state_dir)
+    }
+
     pub fn plan_vault_control(
         &self,
         request: &ModelMountVaultControlRequest,

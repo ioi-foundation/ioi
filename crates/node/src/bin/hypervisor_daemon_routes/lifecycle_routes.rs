@@ -28586,9 +28586,12 @@ pub(crate) async fn handle_session_execute(
     // for this run's session, scoped to `model.chat:*`, revoked when the lane returns. It is the
     // estate's own revocable capability primitive, never a provider credential; the provider's
     // sealed key never leaves the daemon. A local (ollama) route keeps the credential-free env.
+    // BUILD-DELTA #21(c): the run OWNS the token, so it is revoked however the run ends here (the
+    // lane returning, or this request's future dropped or unwinding); a run that ends with the
+    // process is revoked by the next process's startup sweep.
     let run_model_token = if model_transport.as_deref() == Some("openai_compatible") {
         match crate::mint_run_scoped_model_token(&st, &session_id, &lane_receipt_ref) {
-            Ok(minted) => Some(minted),
+            Ok(minted) => Some(crate::RunScopedModelToken::own(&st.data_dir, minted)),
             Err(detail) => {
                 return session_execution_failure_response(format!(
                     "run-scoped model-mount token could not be minted for the remote route: {detail}"
@@ -28626,15 +28629,13 @@ pub(crate) async fn handle_session_execute(
             &workspace_root,
             &intent,
             model_endpoint.as_deref(),
-            run_model_token.as_ref().map(|(token, _)| token.as_str()),
+            run_model_token.as_ref().map(|minted| minted.token.as_str()),
         )
         .await
     };
-    if let Some((_, token_id)) = run_model_token.as_ref() {
-        // Best effort: the token also carries its own expiry, so a failed revoke narrows nothing
-        // permanently; the revoke is recorded by the kernel when it lands.
-        let _ = crate::revoke_run_scoped_model_token(&st, token_id);
-    }
+    // The lane returned: dropping the token revokes it (best effort: its persisted expiry and the
+    // next startup sweep bound it if the revoke cannot be written).
+    drop(run_model_token);
     let finished_at = iso_now();
 
     // Real workspace diff — whatever the harness actually wrote (git or walk).
