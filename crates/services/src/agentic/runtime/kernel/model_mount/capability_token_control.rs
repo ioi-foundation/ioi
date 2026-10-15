@@ -1,7 +1,10 @@
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use std::{fs, path::Path};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use super::{
     non_empty_string, push_unique_ref, require_non_empty, sha256_hex, trimmed_string,
@@ -201,7 +204,9 @@ fn issue_record_value(
     })
 }
 
-/// A token's issue record read back from disk; anything malformed reads as absent (and is refused).
+/// A token's issue record read back from disk; anything malformed reads as absent (and is refused). Every field a
+/// create writes is read: each must be present with its type, the TTL must be the expiry less the issue instant (both
+/// null when the create requested no expiry), and the audience is null or a name.
 fn issue_record_from(value: Option<&Value>) -> Option<IssueRecord> {
     let value = value?.as_object()?;
     if value.get("schema_version").and_then(Value::as_str)
@@ -222,6 +227,21 @@ fn issue_record_from(value: Option<&Value>) -> Option<IssueRecord> {
                 .filter(|expires| *expires > issued_at_unix_secs)?,
         ),
     };
+    let ttl_secs = match value.get("ttl_secs") {
+        None => return None,
+        Some(Value::Null) => None,
+        Some(ttl) => Some(ttl.as_i64()?),
+    };
+    if ttl_secs != expires_at_unix_secs.map(|expires| expires - issued_at_unix_secs) {
+        return None;
+    }
+    match value.get("audience") {
+        None => return None,
+        Some(Value::Null) => {}
+        Some(audience) => {
+            audience.as_str().and_then(non_empty_string)?;
+        }
+    }
     let run_session_ref = match value.get("run_session_ref") {
         None => return None,
         Some(Value::Null) => None,
@@ -249,11 +269,13 @@ fn token_is_current(token: &CapabilityTokenRecord, now: i64) -> Result<(), Model
 }
 
 /// The run-scoped tokens not yet revoked. At its startup the daemon revokes every one: no run is live in a process
-/// that has just started (BUILD-DELTA #21(c)).
+/// that has just started (BUILD-DELTA #21(c)). The inventory is STRICT: only a token directory that does not exist is
+/// empty, and a directory, entry or record that cannot be read is returned as an error (the daemon's readiness stays
+/// blocked on it), so a token whose record cannot be read now is never passed over and honoured once it reads again.
 pub(super) fn unrevoked_run_scoped_token_ids(
     state_dir: &str,
 ) -> Result<Vec<String>, ModelMountError> {
-    Ok(load_capability_tokens(Some(state_dir))?
+    Ok(load_capability_tokens_strict(state_dir)?
         .into_iter()
         .filter(|token| {
             !token.revoked
@@ -532,6 +554,9 @@ fn capability_token_control_evidence_refs() -> Vec<String> {
     ]
 }
 
+/// The token records for authorize, list and revoke. A token directory, entry or record that cannot be read is
+/// passed over, so a token whose own record cannot be read is not honoured. The startup sweep reads strictly instead
+/// (load_capability_tokens_strict).
 fn load_capability_tokens(
     state_dir: Option<&str>,
 ) -> Result<Vec<CapabilityTokenRecord>, ModelMountError> {
@@ -542,19 +567,92 @@ fn load_capability_tokens(
     let Ok(entries) = fs::read_dir(dir) else {
         return Ok(Vec::new());
     };
-    let mut creates = Vec::new();
-    let mut revoked = Vec::new();
-    for entry in entries.flatten() {
+    let records = entries.flatten().filter_map(|entry| {
         let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+        if !is_token_record_path(&path) {
+            return None;
+        }
+        let bytes = fs::read(path).ok()?;
+        serde_json::from_slice::<Value>(&bytes).ok()
+    });
+    Ok(capability_tokens_from(records))
+}
+
+/// The startup sweep's inventory: every record the lenient reader could ever read, or an error. Only a token
+/// directory that does not exist (nothing was ever minted under `state_dir`) is empty; a symlink in its place that
+/// names nothing is not absent.
+fn load_capability_tokens_strict(
+    state_dir: &str,
+) -> Result<Vec<CapabilityTokenRecord>, ModelMountError> {
+    let state_dir =
+        non_empty_string(state_dir).ok_or(ModelMountError::MissingField("state_dir"))?;
+    let dir = Path::new(&state_dir).join("capability-tokens");
+    let entries = match fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound && nothing_at(&dir) => {
+            return Ok(Vec::new());
+        }
+        Err(error) => return Err(inventory_unreadable("directory", &dir, error)),
+    };
+    let paths = entries.map(|entry| entry.map(|entry| entry.path()));
+    Ok(capability_tokens_from(strict_token_records(&dir, paths)?))
+}
+
+/// Whether nothing at all is at `path`, not even a symlink that names nothing.
+fn nothing_at(path: &Path) -> bool {
+    matches!(fs::symlink_metadata(path), Err(error) if error.kind() == io::ErrorKind::NotFound)
+}
+
+/// Every record among `entries` (the paths the listing of `dir` returned), each read in full and parsed. The first
+/// entry that cannot be listed, resolved to a regular file, read or parsed is the error.
+fn strict_token_records(
+    dir: &Path,
+    entries: impl Iterator<Item = io::Result<PathBuf>>,
+) -> Result<Vec<Value>, ModelMountError> {
+    let mut records = Vec::new();
+    for entry in entries {
+        let path = entry.map_err(|error| inventory_unreadable("entry", dir, error))?;
+        if !is_token_record_path(&path) {
             continue;
         }
-        let Ok(bytes) = fs::read(path) else {
-            continue;
-        };
-        let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
-            continue;
-        };
+        let metadata =
+            fs::metadata(&path).map_err(|error| inventory_unreadable("entry", &path, error))?;
+        if !metadata.is_file() {
+            return Err(inventory_unreadable("entry", &path, "not a regular file"));
+        }
+        let bytes =
+            fs::read(&path).map_err(|error| inventory_unreadable("record", &path, error))?;
+        records.push(
+            serde_json::from_slice::<Value>(&bytes)
+                .map_err(|error| inventory_unreadable("record", &path, error))?,
+        );
+    }
+    Ok(records)
+}
+
+fn inventory_unreadable(
+    stage: &'static str,
+    path: &Path,
+    error: impl std::fmt::Display,
+) -> ModelMountError {
+    ModelMountError::CapabilityTokenInventoryUnreadable {
+        stage,
+        path: path.display().to_string(),
+        error: error.to_string(),
+    }
+}
+
+/// The entries either reader treats as token records: `*.json`.
+fn is_token_record_path(path: &Path) -> bool {
+    path.extension().and_then(|value| value.to_str()) == Some("json")
+}
+
+/// The token records among parsed records: each create with a usable shape, marked revoked when a revoke record
+/// names it. Anything else is not a token record and is passed over by both readers.
+fn capability_tokens_from(records: impl IntoIterator<Item = Value>) -> Vec<CapabilityTokenRecord> {
+    let mut creates = Vec::new();
+    let mut revoked = Vec::new();
+    for value in records {
         if value.get("rust_core_boundary").and_then(Value::as_str)
             != Some("model_mount.capability_token")
         {
@@ -615,7 +713,7 @@ fn load_capability_tokens(
     for token in &mut creates {
         token.revoked = revoked.iter().any(|token_id| token_id == &token.token_id);
     }
-    Ok(creates)
+    creates
 }
 
 fn public_token_list(tokens: &[CapabilityTokenRecord]) -> Vec<Value> {
@@ -1536,6 +1634,25 @@ mod tests {
             authorize_at(&state, token, Some(T0 + 1)).is_ok(),
             "the token's own record decides"
         );
+    }
+
+    /// An entry the directory listing itself cannot return (an I/O error from the listing, which no file a test can
+    /// make produces) is an inventory error too, before any later entry is looked at.
+    #[test]
+    fn an_entry_the_listing_cannot_return_is_an_inventory_error() {
+        let dir = scratch_state().join("capability-tokens");
+        let entries = vec![
+            Err(io::Error::other("the listing failed")),
+            Ok(dir.join("never-read.json")),
+        ];
+        match strict_token_records(&dir, entries.into_iter()) {
+            Err(ModelMountError::CapabilityTokenInventoryUnreadable { stage, path, error }) => {
+                assert_eq!(stage, "entry");
+                assert_eq!(path, dir.display().to_string());
+                assert!(error.contains("the listing failed"), "{error}");
+            }
+            other => panic!("a listing error is an inventory error: {other:?}"),
+        }
     }
 }
 
