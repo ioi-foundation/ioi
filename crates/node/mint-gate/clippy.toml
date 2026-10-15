@@ -204,4 +204,5 @@ disallowed-methods = [
   { path = "hypervisor_daemon::workload_effect_boundary::consume_guest_governed_provider_operation_bytes", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
   { path = "hypervisor_daemon::placement_failover_routes::failover_run_core", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
   { path = "hypervisor_daemon::placement_failover_routes::evaluate_plan", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
+  { path = "hypervisor_daemon::placement_failover_routes::evaluate_all", reason = "hands a drawn value out (hand-outs.tsv): every caller is an inventoried draw site of the mint gate (BUILD-DELTA #36)" },
 ]
