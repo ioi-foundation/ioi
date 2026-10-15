@@ -224,6 +224,9 @@ where
 }
 
 /// The committed chain status: the admitted-tip marker's height (0 when there is no marker).
+/// `total_transactions` is NOT tracked for the committed tip and is always 0
+/// (FU-N11-DURABLE-STATUS-1 D2a round 2, m5): the durable count includes executed but
+/// uncommitted blocks, so it is never reported as committed.
 pub fn committed_status<M: AdmittedTipStore + ?Sized>(
     marker: &M,
     durable: &ChainStatus,
@@ -233,6 +236,7 @@ pub fn committed_status<M: AdmittedTipStore + ?Sized>(
     status.latest_timestamp = 0;
     status.latest_timestamp_ms = 0;
     status.height = 0;
+    status.total_transactions = 0;
     if let Some(tip) = marker.admitted_tip()? {
         status.height = tip.height;
         if let Some(block) = stored(tip.height) {
@@ -241,6 +245,26 @@ pub fn committed_status<M: AdmittedTipStore + ?Sized>(
         }
     }
     Ok(status)
+}
+
+/// The committed tip as GetCommittedTip serves it (FU-N11-DURABLE-STATUS-1 D2a round 2, B1): the
+/// height, block hash and state root FROM THE MARKER, and the committed block's timestamp. With no
+/// marker every field is empty or 0 (an empty block hash means no tip).
+pub fn committed_tip_response<M: AdmittedTipStore + ?Sized>(
+    marker: &M,
+    stored: impl Fn(u64) -> Option<Block<ChainTransaction>>,
+) -> Result<ioi_ipc::blockchain::GetCommittedTipResponse> {
+    Ok(match marker.admitted_tip()? {
+        None => ioi_ipc::blockchain::GetCommittedTipResponse::default(),
+        Some(tip) => ioi_ipc::blockchain::GetCommittedTipResponse {
+            height: tip.height,
+            block_hash: tip.block_hash.to_vec(),
+            latest_timestamp: stored(tip.height)
+                .map(|block| block.header.timestamp)
+                .unwrap_or(0),
+            state_root: tip.state_root,
+        },
+    })
 }
 
 /// The admission gate's CANARY (test code only): the gate's clippy run over the test target must
@@ -504,6 +528,30 @@ mod tests {
         )
         .expect("the workload's capability advances the marker");
         assert_eq!(marker.admitted_tip().unwrap(), Some(tip(4, 0xB4)));
+    }
+
+    /// GREEN-3 PIN (the GetCommittedTip proto surface did not exist at RED-3, so it has no RED):
+    /// the committed tip is served FROM THE MARKER (height, block hash, state root), with the
+    /// committed block's timestamp, and is empty before the first admission. An M-tip-reread
+    /// mutant that serves the stored block's root instead fails here.
+    #[test]
+    fn the_committed_tip_response_is_the_marker_not_the_stored_block() {
+        let empty = MemoryMarker::default();
+        let none = committed_tip_response(&empty, |h| Some(stored_block(h, 0xB4))).unwrap();
+        assert!(none.block_hash.is_empty(), "no marker: no tip");
+        assert_eq!(none.height, 0);
+
+        let marked = MemoryMarker::default();
+        marked.record_admitted_tip(&tip(3, 0xA3)).unwrap();
+        let response = committed_tip_response(&marked, |h| Some(stored_block(h, 0xB4))).unwrap();
+        assert_eq!(response.height, 3);
+        assert_eq!(response.block_hash, vec![3u8; 32]);
+        assert_eq!(
+            response.state_root,
+            vec![0xA3; 32],
+            "the marker's root, never the stored block's (0xB4)"
+        );
+        assert_eq!(response.latest_timestamp, stored_block(3, 0xB4).header.timestamp);
     }
 
     /// M3, GUARD (passes at RED-3; pins the height conjunct of the execution-surface check,

@@ -1,8 +1,12 @@
-# FU-N11-DURABLE-STATUS-1 D2a admission gate. Loaded ONLY through CLIPPY_CONF_DIR by NET's gate step
-# (the per-gate pattern; there is no workspace-root clippy.toml). The AdmissionWitness constructor is
-# the only way to call WorkloadClientApi::record_admitted_tip; only the orchestration's Agentgres
-# admission may build one (runtime_finality.rs record_workload_admitted_tip, which carries the single
-# #[allow]). The canary (workload/admitted_tip.rs admission_gate_canary, test code) must be flagged.
+# FU-N11-DURABLE-STATUS-1 D2a admission gate. Loaded ONLY through CLIPPY_CONF_DIR by NET's gate steps
+# (the per-gate pattern; there is no workspace-root clippy.toml), run over EVERY crate that can see
+# the witness: ioi-validator, ioi-client, ioi-services, transport-verifier and the ioi-node bins in
+# both feature sets (production count 0). The AdmissionWitness constructor is the only way to call
+# WorkloadClientApi::record_admitted_tip_with_capability; only the orchestration's admitted-tip
+# publisher may build one (runtime_finality.rs AdmittedTipPublisher::present, which carries the single
+# #[allow]). Defence in depth: the capability itself lives only in that privately owned publisher.
+# Two canaries (test code) must be flagged: workload/admitted_tip.rs admission_gate_canary
+# (ioi-validator) and workload_client/mod.rs admitted_tip_client_tests::admission_gate_canary (ioi-client).
 disallowed-methods = [
   { path = "ioi_api::chain::AdmissionWitness::from_agentgres_admission", reason = "only the orchestration's Agentgres admission may advance the workload's admitted-tip marker (FU-N11-DURABLE-STATUS-1 D2a)" },
 ]

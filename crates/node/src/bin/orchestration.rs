@@ -292,25 +292,38 @@ where
         }
     }
 
-    // FU-N11-DURABLE-STATUS-1 D2a: attach this boot's workload admission capability (the workload
-    // writes it before it serves). Without it, admitted tips are not recorded (fail-closed).
-    match ioi_validator::standard::workload::admitted_tip::capability_file_path_from_env() {
-        Some(path) => {
-            match ioi_validator::standard::workload::admitted_tip::read_capability_file(&path) {
-                Ok(capability) => workload_client.set_admission_capability(*capability.as_bytes()),
-                Err(error) => tracing::warn!(
-                    target: "orchestration",
-                    path = %path.display(),
-                    error = %error,
-                    "Workload admission capability unavailable; admitted tips will not be recorded."
-                ),
+    // FU-N11-DURABLE-STATUS-1 D2a (round 2): this boot's workload admission capability goes ONLY to
+    // the orchestration's admitted-tip publisher (the shared workload client stores none). The
+    // publisher reads the private file the workload writes before it serves, and re-reads it once
+    // after a refusal (a restarted workload rotates it). Without it, admitted tips are not recorded
+    // (fail-closed).
+    let admitted_tip_publisher =
+        match ioi_validator::standard::workload::admitted_tip::capability_file_path_from_env() {
+            Some(path) => {
+                if let Err(error) =
+                    ioi_validator::standard::workload::admitted_tip::read_capability_file(&path)
+                {
+                    tracing::warn!(
+                        target: "orchestration",
+                        path = %path.display(),
+                        error = %error,
+                        "Workload admission capability unavailable yet; the publisher re-reads it before its first record."
+                    );
+                }
+                Some(
+                    ioi_validator::standard::orchestration::AdmittedTipPublisher::from_capability_file(
+                        path,
+                    ),
+                )
             }
-        }
-        None => tracing::warn!(
-            target: "orchestration",
-            "Neither IOI_WORKLOAD_CAPABILITY_FILE nor CERTS_DIR is set; admitted tips will not be recorded."
-        ),
-    }
+            None => {
+                tracing::warn!(
+                    target: "orchestration",
+                    "Neither IOI_WORKLOAD_CAPABILITY_FILE nor CERTS_DIR is set; admitted tips will not be recorded."
+                );
+                None
+            }
+        };
 
     let (
         syncer,
@@ -473,6 +486,9 @@ where
     };
 
     let orchestration = Arc::new(Orchestrator::new(&config, deps, commitment_scheme.clone())?);
+    if let Some(publisher) = admitted_tip_publisher {
+        orchestration.set_admitted_tip_publisher(publisher);
+    }
 
     // [FIX] Create ExecutionMachine with OS Driver
     let consensus_for_chain = consensus_engine.clone();

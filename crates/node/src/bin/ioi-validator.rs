@@ -236,7 +236,7 @@ async fn main() -> Result<()> {
     let server_addr = workload_ipc_addr.to_string();
 
     // FU-N11-DURABLE-STATUS-1 D2a: one per-boot admission capability, shared in memory by the
-    // in-process workload server and its orchestration client.
+    // in-process workload server and the orchestration's admitted-tip publisher (round 2).
     let admission_capability =
         ioi_validator::standard::workload::admitted_tip::WorkloadCapability::generate();
     let server_admission_capability = admission_capability.clone();
@@ -268,7 +268,6 @@ async fn main() -> Result<()> {
         )
         .await?,
     );
-    workload_client.set_admission_capability(*admission_capability.as_bytes());
 
     // Full P2P Sync
     let (syncer, swarm_commander, quv_swarm_commander, network_events, quv_network_events) =
@@ -311,6 +310,13 @@ async fn main() -> Result<()> {
 
     let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);
     orchestrator.set_chain_and_workload_client(machine.clone(), workload_client);
+    // FU-N11-DURABLE-STATUS-1 D2a round 2: the per-boot admission capability goes ONLY to the
+    // orchestration's admitted-tip publisher (the shared workload client stores none).
+    orchestrator.set_admitted_tip_publisher(
+        ioi_validator::standard::orchestration::AdmittedTipPublisher::in_process(
+            admission_capability,
+        ),
+    );
 
     println!("\n✅ IOI Validator Node (Type A) Started.");
     println!("   - Consensus: Aft deterministic (Active)");

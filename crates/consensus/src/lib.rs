@@ -13,6 +13,9 @@
 
 #[cfg(feature = "aft")]
 pub mod aft;
+/// Self-contained header-evidence verification shared by the AFT engine and the workload's
+/// admission-floor fence (FU-N11-DURABLE-STATUS-1 D2a round 2); compiled whatever the features.
+pub mod aft_evidence;
 pub mod common;
 #[cfg(feature = "poa")]
 pub mod proof_of_authority;

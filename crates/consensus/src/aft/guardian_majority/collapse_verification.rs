@@ -2209,16 +2209,7 @@ impl GuardianMajorityEngine {
             ));
         }
         verify_sealed_finality_proof_signature(header, proof)?;
-        if proof.guardian_manifest_hash != certificate.manifest_hash
-            || proof.guardian_decision_hash != certificate.decision_hash
-            || proof.guardian_counter != certificate.counter
-            || proof.guardian_trace_hash != certificate.trace_hash
-            || proof.guardian_measurement_root != certificate.measurement_root
-        {
-            return Err(ConsensusError::BlockVerificationFailed(
-                "sealed finality proof is not bound to the guardian certificate".into(),
-            ));
-        }
+        crate::aft_evidence::verify_sealed_finality_proof_certificate_binding(proof, certificate)?;
         if proof.policy_hash != manifest.policy_hash {
             return Err(ConsensusError::BlockVerificationFailed(
                 "sealed finality policy hash does not match guardian manifest policy".into(),

@@ -145,10 +145,6 @@ pub struct WorkloadClient {
     data_plane: Mutex<Option<Arc<DataPlane>>>,
     shmem_id: String,
 
-    // The workload's per-boot admission capability (FU-N11-DURABLE-STATUS-1 D2a); None until the
-    // binary attaches it, and then RecordAdmittedTip is refused (fail-closed).
-    admission_capability: std::sync::RwLock<Option<[u8; 32]>>,
-
     // Stored address for logging/debugging
     addr: String,
 }
@@ -322,20 +318,12 @@ impl WorkloadClient {
             system: Mutex::new(SystemControlClient::new(channel)),
             data_plane: Mutex::new(data_plane),
             shmem_id,
-            admission_capability: std::sync::RwLock::new(None),
             addr: addr.to_string(),
         })
     }
 
     pub fn destination_addr(&self) -> &str {
         &self.addr
-    }
-
-    /// Attaches the workload's per-boot admission capability (FU-N11-DURABLE-STATUS-1 D2a).
-    pub fn set_admission_capability(&self, capability: [u8; 32]) {
-        if let Ok(mut slot) = self.admission_capability.write() {
-            *slot = Some(capability);
-        }
     }
 
     /// The COMMITTED chain status: the workload's Agentgres-admitted tip marker (height 0 with
@@ -360,15 +348,38 @@ impl WorkloadClient {
         })
     }
 
-    async fn record_admitted_tip_ipc(&self, tip: &AdmittedTip) -> Result<()> {
-        let capability = self
-            .admission_capability
-            .read()
-            .ok()
-            .and_then(|slot| *slot)
-            .ok_or_else(|| {
-                anyhow!("no workload admission capability is attached; the admitted tip is not recorded")
-            })?;
+    /// The COMMITTED tip as the workload's admitted-tip marker holds it (FU-N11-DURABLE-STATUS-1
+    /// D2a round 2): height, block hash and state root from the marker; `None` before the first
+    /// admission.
+    pub async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>> {
+        let mut client = self.clone_chain_client().await;
+        let resp = timeout(
+            workload_grpc_request_timeout(),
+            client.get_committed_tip(GetStatusRequest {}),
+        )
+        .await
+        .map_err(|_| workload_timeout_anyhow("get_committed_tip"))?
+        .map_err(|e| anyhow!("gRPC get_committed_tip failed: {}", e))?
+        .into_inner();
+        if resp.block_hash.is_empty() {
+            return Ok(None);
+        }
+        let block_hash: [u8; 32] = resp
+            .block_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("the committed tip's block hash is not 32 bytes"))?;
+        Ok(Some(AdmittedTip {
+            height: resp.height,
+            block_hash,
+            state_root: resp.state_root,
+        }))
+    }
+
+    /// Sends a RecordAdmittedTip presenting exactly `capability` (FU-N11-DURABLE-STATUS-1 D2a round
+    /// 2, B2): the shared client stores no capability; only the orchestration's admitted-tip
+    /// publisher holds one.
+    async fn record_admitted_tip_ipc(&self, capability: &[u8; 32], tip: &AdmittedTip) -> Result<()> {
         let mut client = self.clone_chain_client().await;
         timeout(
             workload_grpc_request_timeout(),
@@ -1135,27 +1146,20 @@ impl WorkloadClientApi for WorkloadClient {
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }
 
-    async fn record_admitted_tip(
-        &self,
-        _witness: AdmissionWitness,
-        tip: AdmittedTip,
-    ) -> std::result::Result<(), ChainError> {
-        self.record_admitted_tip_ipc(&tip)
+    async fn get_committed_tip(&self) -> std::result::Result<Option<AdmittedTip>, ChainError> {
+        self.get_committed_tip()
             .await
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }
 
-    // RED-3 SCAFFOLD (FU-N11-DURABLE-STATUS-1 D2a round 2, B2): 079937616's behaviour under the
-    // round-2 signature. The explicit capability is IGNORED and only the capability attached to
-    // this shared client is sent. GREEN-3 sends exactly the caller's capability and removes the
-    // attached one (the field and set_admission_capability).
+    // FU-N11-DURABLE-STATUS-1 D2a round 2, B2: presents exactly the caller's capability.
     async fn record_admitted_tip_with_capability(
         &self,
         _witness: AdmissionWitness,
-        _capability: &[u8; 32],
+        capability: &[u8; 32],
         tip: AdmittedTip,
     ) -> std::result::Result<(), ChainError> {
-        self.record_admitted_tip_ipc(&tip)
+        self.record_admitted_tip_ipc(capability, &tip)
             .await
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }
@@ -1177,7 +1181,8 @@ mod admitted_tip_client_tests {
     use ioi_api::storage::AdmittedTip;
     use ioi_ipc::blockchain::chain_control_server::{ChainControl, ChainControlServer};
     use ioi_ipc::blockchain::{
-        GetBlocksRangeRequest, GetBlocksRangeResponse, GetGenesisStatusRequest,
+        GetBlocksRangeRequest, GetBlocksRangeResponse, GetCommittedTipResponse,
+        GetGenesisStatusRequest,
         GetGenesisStatusResponse, GetStatusRequest, GetStatusResponse, ProcessBlockRequest,
         ProcessBlockResponse, RecordAdmittedTipRequest, RecordAdmittedTipResponse,
         ReplaceUnfinalizedTipRequest, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
@@ -1288,6 +1293,21 @@ mod admitted_tip_client_tests {
             *self.marker.lock().unwrap() = Some(request.height);
             Ok(Response::new(RecordAdmittedTipResponse {}))
         }
+        // GREEN-3 (the GetCommittedTip proto change): served from the mock's marker.
+        async fn get_committed_tip(
+            &self,
+            _request: Request<GetStatusRequest>,
+        ) -> Result<Response<GetCommittedTipResponse>, Status> {
+            Ok(Response::new(match self.marker() {
+                None => GetCommittedTipResponse::default(),
+                Some(height) => GetCommittedTipResponse {
+                    height,
+                    block_hash: vec![height as u8; 32],
+                    state_root: vec![height as u8; 32],
+                    latest_timestamp: 0,
+                },
+            }))
+        }
     }
 
     /// Serves `mock` on an ephemeral loopback port and returns its address.
@@ -1367,5 +1387,34 @@ mod admitted_tip_client_tests {
             "each record presents exactly its caller's capability; the shared client keeps none"
         );
         assert_eq!(mock.marker(), Some(3), "the refused record leaves the marker unchanged");
+    }
+
+    /// GREEN-3 PIN (the GetCommittedTip proto surface did not exist at RED-3, so it has no RED):
+    /// the shared client reads the committed tip FROM THE WORKLOAD'S MARKER, through the trait, and
+    /// reports none before the first admission.
+    #[tokio::test]
+    async fn the_shared_client_reads_the_committed_tip_from_the_workload_marker() {
+        let mock = Arc::new(MockWorkload {
+            accepted: CAPABILITY,
+            presented: Mutex::new(Vec::new()),
+            marker: Mutex::new(None),
+        });
+        let address = serve(mock.clone()).await;
+        let client = shared_client(&address).await;
+        let api: &dyn WorkloadClientApi = &client;
+        assert_eq!(
+            api.get_committed_tip().await.expect("committed tip"),
+            None,
+            "no admission yet: no committed tip"
+        );
+        *mock.marker.lock().unwrap() = Some(3);
+        assert_eq!(
+            api.get_committed_tip().await.expect("committed tip"),
+            Some(AdmittedTip {
+                height: 3,
+                block_hash: [3; 32],
+                state_root: vec![3; 32],
+            })
+        );
     }
 }

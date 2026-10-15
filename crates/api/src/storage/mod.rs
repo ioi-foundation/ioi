@@ -182,7 +182,17 @@ pub trait NodeStore: Send + Sync {
 
     /// Persists the Agentgres-admitted tip marker. Monotone: a lower height, or the same height
     /// with a different block hash or state root, is refused and leaves the marker unchanged.
-    /// Backends without a marker refuse every record.
+    /// The record is checked against the block the store holds at the tip's height (same height
+    /// and state root) in the same write as the marker, so a block write cannot interleave into a
+    /// marker over a different block (FU-N11-DURABLE-STATUS-1 D2a round 2). Backends without a
+    /// marker refuse every record.
+    ///
+    /// THE ADMISSION FLOOR: once a marker exists, every block or state-version write at a height
+    /// at or below it (`put_block`, `commit_block`, `commit_block_with_payload`) is refused unless
+    /// it keeps the committed block: the same identity hash, execution surface and transactions,
+    /// no stripped evidence (signature, sealed finality proof, guardian certificate) and unchanged
+    /// committee certificates; a state version keeps its root. A refusal leaves the store as it
+    /// was.
     fn put_admitted_tip(&self, _tip: &AdmittedTip) -> Result<(), StorageError> {
         Err(StorageError::Backend(
             "this node store keeps no admitted-tip marker".into(),

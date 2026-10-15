@@ -189,20 +189,17 @@ pub(crate) struct RuntimeFinalityCoordinator {
     /// The orchestration's admitted-tip publisher (FU-N11-DURABLE-STATUS-1 D2a round 2, B2): the
     /// only holder of the workload admission capability, installed once at startup and reachable
     /// only from this module.
-    #[allow(dead_code)] // RED-3 scaffold: the admission path reads it from GREEN-3 on.
     admitted_tip_publisher: Option<Arc<AdmittedTipPublisher>>,
 }
 
 /// The orchestration's ONLY holder of the workload's admission capability (FU-N11-DURABLE-STATUS-1
 /// D2a round 2, B2). The binary builds it once at startup (in-process: the capability it shares
 /// with its in-process workload server; split-process: the workload's private capability file)
-/// and hands it to the runtime-finality coordinator, which owns it privately. The shared workload
-/// client stores no capability. Agentgres admission publishes each admitted tip through it,
-/// presenting the capability explicitly.
+/// and hands it to the orchestrator, which installs it in the runtime-finality coordinator; the
+/// coordinator owns it privately. The shared workload client stores no capability. Agentgres
+/// admission publishes each admitted tip through it, presenting the capability explicitly.
 pub struct AdmittedTipPublisher {
-    #[allow(dead_code)] // RED-3 scaffold: read by publish from GREEN-3 on.
     capability: std::sync::Mutex<Option<crate::standard::workload::admitted_tip::WorkloadCapability>>,
-    #[allow(dead_code)] // RED-3 scaffold: re-read after a refusal from GREEN-3 on (m4).
     capability_file: Option<PathBuf>,
 }
 
@@ -214,7 +211,6 @@ impl std::fmt::Debug for AdmittedTipPublisher {
 
 impl AdmittedTipPublisher {
     /// For an in-process binary: the capability it shares with its in-process workload server.
-    #[cfg_attr(not(test), allow(dead_code))] // RED-3 scaffold: the node bins call it from GREEN-3 on.
     pub fn in_process(
         capability: crate::standard::workload::admitted_tip::WorkloadCapability,
     ) -> Self {
@@ -227,8 +223,7 @@ impl AdmittedTipPublisher {
     /// For a split-process orchestration: reads the workload's capability file now. After a
     /// refusal (a restarted workload rotates its capability), publishing re-reads the file once and
     /// retries. A missing or malformed file leaves the publisher without a capability (fail-closed:
-    /// nothing is recorded and the committed height stays where it is).
-    #[cfg_attr(not(test), allow(dead_code))] // RED-3 scaffold: orchestration.rs calls it from GREEN-3 on.
+    /// nothing is recorded and the committed height stays where it is) until a re-read finds one.
     pub fn from_capability_file(path: PathBuf) -> Self {
         let capability = crate::standard::workload::admitted_tip::read_capability_file(&path).ok();
         Self {
@@ -237,38 +232,96 @@ impl AdmittedTipPublisher {
         }
     }
 
+    fn current_capability(
+        &self,
+    ) -> Option<crate::standard::workload::admitted_tip::WorkloadCapability> {
+        self.capability
+            .lock()
+            .ok()
+            .and_then(|capability| capability.clone())
+    }
+
+    /// Re-reads a file-backed publisher's capability file, keeping what it finds. `None` for an
+    /// in-process publisher or an unreadable file.
+    fn reread_capability(
+        &self,
+    ) -> Option<crate::standard::workload::admitted_tip::WorkloadCapability> {
+        let path = self.capability_file.as_ref()?;
+        let fresh = crate::standard::workload::admitted_tip::read_capability_file(path).ok()?;
+        if let Ok(mut capability) = self.capability.lock() {
+            *capability = Some(fresh.clone());
+        }
+        Some(fresh)
+    }
+
+    /// Presents `capability` for `tip`, with the one sanctioned AdmissionWitness construction.
+    async fn present(
+        workload: &dyn ioi_api::chain::WorkloadClientApi,
+        capability: &crate::standard::workload::admitted_tip::WorkloadCapability,
+        tip: ioi_api::storage::AdmittedTip,
+    ) -> Result<()> {
+        // The ONLY sanctioned construction of an AdmissionWitness (the admission gate bans it
+        // everywhere else).
+        #[allow(clippy::disallowed_methods)]
+        let witness = ioi_api::chain::AdmissionWitness::from_agentgres_admission();
+        workload
+            .record_admitted_tip_with_capability(witness, capability.as_bytes(), tip)
+            .await
+            .map_err(|error| anyhow!(error.to_string()))
+    }
+
     /// Publishes an admitted tip to the workload, presenting this publisher's capability
-    /// explicitly; on a refusal, a file-backed publisher re-reads its capability file ONCE and
-    /// retries (m4). Without a capability nothing is sent.
-    ///
-    /// RED-3 STUB: publishes nothing (GREEN-3 implements it).
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// explicitly. On a refusal (or with no capability yet), a file-backed publisher re-reads its
+    /// capability file ONCE and, when that yields a different capability (a restarted workload
+    /// rotated it), retries once (m4). Without any capability nothing is sent.
     pub(crate) async fn publish(
         &self,
         workload: &dyn ioi_api::chain::WorkloadClientApi,
         tip: ioi_api::storage::AdmittedTip,
     ) -> Result<()> {
-        let _ = (workload, tip);
-        Err(anyhow!(
-            "RED-3 stub: the admitted-tip publisher does not publish yet"
-        ))
+        let Some(capability) = self.current_capability().or_else(|| self.reread_capability())
+        else {
+            return Err(anyhow!(
+                "no workload admission capability is available; the admitted tip is not recorded"
+            ));
+        };
+        let first = match Self::present(workload, &capability, tip.clone()).await {
+            Ok(()) => return Ok(()),
+            Err(error) => error,
+        };
+        match self.reread_capability() {
+            Some(fresh) if fresh != capability => Self::present(workload, &fresh, tip)
+                .await
+                .map_err(|second| {
+                    anyhow!(
+                        "the admitted-tip record was refused with the re-read capability: {second:#} (first refusal: {first:#})"
+                    )
+                }),
+            _ => Err(first),
+        }
     }
 
     /// Reconciles the workload's committed marker with the latest Agentgres-admitted block (m4):
     /// publishes that block's tip (a no-op without an admitted block).
-    ///
-    /// RED-3 STUB: publishes nothing (GREEN-3 implements it).
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) async fn reconcile(
         &self,
         workload: &dyn ioi_api::chain::WorkloadClientApi,
         latest_admitted: Option<&Block<ChainTransaction>>,
     ) -> Result<()> {
-        let _ = (workload, latest_admitted);
-        Err(anyhow!(
-            "RED-3 stub: the admitted-tip publisher does not reconcile yet"
-        ))
+        let Some(block) = latest_admitted else {
+            return Ok(());
+        };
+        self.publish(workload, admitted_tip_of(block)?).await
     }
+}
+
+/// The tip Agentgres admission publishes for `block`: its height, admitted hash and state root.
+fn admitted_tip_of(block: &Block<ChainTransaction>) -> Result<ioi_api::storage::AdmittedTip> {
+    Ok(ioi_api::storage::AdmittedTip {
+        height: block.header.height,
+        block_hash: block_hash(block)?,
+        state_root: block.header.state_root.0.clone(),
+    })
 }
 
 /// Staged envelopes the integrity scrub re-reads and re-verifies per admission,
@@ -1226,7 +1279,9 @@ where
                     )
                     .await,
                 );
+                let publisher = coordinator_ref.lock().await.admitted_tip_publisher();
                 record_workload_admitted_tip(
+                    publisher.as_deref(),
                     context.view_resolver.workload_client().as_ref(),
                     &admission.block,
                 )
@@ -1274,15 +1329,26 @@ where
 }
 
 /// Records the Agentgres-admitted block as the workload's committed tip (FU-N11-DURABLE-STATUS-1
-/// D2a): the source of every committed read in the workload (IBC latest height, licence expiry, a
-/// trusted state root). A refused or failed record is logged, never fatal: the marker is monotone,
-/// the next admission advances it, and a node without the capability reports committed height 0.
+/// D2a): the source of every committed read in the workload (IBC latest anchor, licence expiry, a
+/// trusted state root). It goes through the coordinator's privately owned publisher, the only
+/// holder of the workload capability (round 2, B2). A refused or failed record is logged, never
+/// fatal: the marker is monotone, the next admission (or the startup reconciliation) advances it,
+/// and a node without a publisher reports committed height 0.
 async fn record_workload_admitted_tip(
+    publisher: Option<&AdmittedTipPublisher>,
     workload: &dyn ioi_api::chain::WorkloadClientApi,
     block: &Block<ChainTransaction>,
 ) {
-    let block_hash = match block_hash(block) {
-        Ok(hash) => hash,
+    let Some(publisher) = publisher else {
+        tracing::warn!(
+            target: "consensus",
+            height = block.header.height,
+            "No admitted-tip publisher is installed; the workload's admitted tip is not recorded."
+        );
+        return;
+    };
+    let tip = match admitted_tip_of(block) {
+        Ok(tip) => tip,
         Err(error) => {
             tracing::warn!(
                 target: "consensus",
@@ -1293,15 +1359,7 @@ async fn record_workload_admitted_tip(
             return;
         }
     };
-    let tip = ioi_api::storage::AdmittedTip {
-        height: block.header.height,
-        block_hash,
-        state_root: block.header.state_root.0.clone(),
-    };
-    // The ONLY sanctioned construction of an AdmissionWitness (the admission gate bans it elsewhere).
-    #[allow(clippy::disallowed_methods)]
-    let witness = ioi_api::chain::AdmissionWitness::from_agentgres_admission();
-    if let Err(error) = workload.record_admitted_tip(witness, tip).await {
+    if let Err(error) = publisher.publish(workload, tip).await {
         tracing::warn!(
             target: "consensus",
             height = block.header.height,
@@ -1316,9 +1374,7 @@ async fn record_workload_admitted_tip(
 /// reconnect, the coordinator's publisher publishes the latest admitted tip, so a publication
 /// missed while the workload was down or rotating its capability is not stale forever.
 ///
-/// RED-3 STUB: does nothing and is not yet called (GREEN-3 implements it and calls it at startup
-/// and after a workload reconnect).
-#[cfg_attr(not(test), allow(dead_code))]
+/// Called by the orchestration at startup (lifecycle), after the committed-outbox redrive.
 pub(crate) async fn reconcile_workload_admitted_tip<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
 ) -> Result<()>
@@ -1348,8 +1404,21 @@ where
         + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    let _ = context;
-    Ok(())
+    let (publisher, latest) = {
+        let coordinator = context.runtime_finality.lock().await;
+        (
+            coordinator.admitted_tip_publisher(),
+            coordinator.last_admitted_block()?,
+        )
+    };
+    let Some(publisher) = publisher else {
+        return Err(anyhow!(
+            "no admitted-tip publisher is installed; the workload's marker is not reconciled"
+        ));
+    };
+    publisher
+        .reconcile(context.view_resolver.workload_client().as_ref(), latest.as_ref())
+        .await
 }
 
 /// A committed effect whose ordered consequences cannot be recovered is a
@@ -1668,7 +1737,6 @@ impl RuntimeFinalityCoordinator {
     /// Installs the orchestration's admitted-tip publisher, ONCE, at startup
     /// (FU-N11-DURABLE-STATUS-1 D2a round 2, B2). The coordinator owns it privately; a second
     /// install is refused.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn install_admitted_tip_publisher(
         &mut self,
         publisher: AdmittedTipPublisher,
@@ -1680,6 +1748,12 @@ impl RuntimeFinalityCoordinator {
         }
         self.admitted_tip_publisher = Some(Arc::new(publisher));
         Ok(())
+    }
+
+    /// The installed publisher. Private to this module: only the admission path and its
+    /// reconciliation reach the capability holder.
+    fn admitted_tip_publisher(&self) -> Option<Arc<AdmittedTipPublisher>> {
+        self.admitted_tip_publisher.clone()
     }
 
     pub(crate) fn active_profile(&self) -> Result<RuntimeFinalityProfile> {

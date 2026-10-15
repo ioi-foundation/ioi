@@ -43,6 +43,12 @@ service ChainControl {
   // admitted tip; refused without the workload's per-boot capability, or when the tip's execution
   // surface differs from the stored block. Never exposed on public.v1.
   rpc RecordAdmittedTip (RecordAdmittedTipRequest) returns (RecordAdmittedTipResponse);
+
+  // FU-N11-DURABLE-STATUS-1 D2a round 2: the COMMITTED tip itself, read FROM THE ADMITTED-TIP
+  // MARKER (never re-read from the block stored at that height). Every trusted root (the IBC
+  // host's latest anchor, the agent's trusted state root) keys on this. An empty block_hash means
+  // no tip has been admitted yet.
+  rpc GetCommittedTip (GetStatusRequest) returns (GetCommittedTipResponse);
 }
 
 // Services for state queries and transaction pre-checks
@@ -221,6 +227,18 @@ message RecordAdmittedTipRequest {
 }
 
 message RecordAdmittedTipResponse {}
+
+// FU-N11-DURABLE-STATUS-1 D2a round 2: the Agentgres-admitted tip as the workload's marker holds it.
+// No marker (a fresh node, or before the first admission): every field is empty or 0.
+message GetCommittedTipResponse {
+  uint64 height = 1;
+  // The admitted (certified) block hash, 32 bytes; empty when no tip has been admitted.
+  bytes block_hash = 2;
+  // The admitted block's post-state root, from the marker.
+  bytes state_root = 3;
+  // The admitted block's timestamp (seconds), from the committed block the workload stores.
+  uint64 latest_timestamp = 4;
+}
 
 // --- StateQuery Messages ---
 

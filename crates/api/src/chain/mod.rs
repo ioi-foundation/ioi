@@ -157,18 +157,6 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         Ok(ChainStatus::default())
     }
 
-    /// Records the Agentgres-admitted tip in the workload (FU-N11-DURABLE-STATUS-1 D2a). INTERNAL:
-    /// only the orchestration's Agentgres admission holds an [`AdmissionWitness`].
-    async fn record_admitted_tip(
-        &self,
-        _witness: AdmissionWitness,
-        _tip: AdmittedTip,
-    ) -> Result<(), ChainError> {
-        Err(ChainError::Transaction(
-            "this workload client has no admitted-tip surface".into(),
-        ))
-    }
-
     /// The COMMITTED tip itself (FU-N11-DURABLE-STATUS-1 D2a round 2, B1): the height, block hash
     /// and state root held BY THE WORKLOAD'S ADMITTED-TIP MARKER, never re-read from the block
     /// stored at that height (a stored block is mutable storage; the marker is what Agentgres
@@ -199,8 +187,11 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
 }
 
 /// The proof that a call comes from the orchestration's Agentgres admission: the only sanctioned
-/// caller of [`WorkloadClientApi::record_admitted_tip`]. Its constructor is banned everywhere else
-/// by NET's admission gate (crates/validator/admission-gate/clippy.toml, FU-N11-DURABLE-STATUS-1 D2a).
+/// caller of [`WorkloadClientApi::record_admitted_tip_with_capability`]. Its constructor is banned
+/// everywhere else by NET's admission gate (crates/validator/admission-gate/clippy.toml,
+/// FU-N11-DURABLE-STATUS-1 D2a); the one sanctioned construction is in the orchestration's
+/// privately owned admitted-tip publisher. Defence in depth only: without the workload's
+/// capability, which no shared client stores, a witness records nothing.
 #[derive(Debug)]
 pub struct AdmissionWitness(());
 
@@ -212,24 +203,19 @@ impl AdmissionWitness {
 }
 
 /// The state root of the latest COMMITTED block (the Agentgres-admitted tip), for callers that
-/// need a trusted root. It errors when no block is committed yet or the committed block is not
-/// stored, rather than falling back to an uncommitted tip.
+/// need a trusted root. It is the root the workload's admitted-tip MARKER holds
+/// (FU-N11-DURABLE-STATUS-1 D2a round 2, B1): never a re-read of the block stored at that height,
+/// which is mutable storage. It errors when no tip is committed yet, rather than falling back to
+/// any stored block.
 pub async fn committed_state_root(
     client: &(dyn WorkloadClientApi + '_),
 ) -> Result<StateRoot, ChainError> {
-    let status = client.get_committed_status().await?;
-    if status.height == 0 {
-        return Err(ChainError::Transaction(
+    match client.get_committed_tip().await? {
+        Some(tip) if tip.height > 0 => Ok(StateRoot(tip.state_root)),
+        _ => Err(ChainError::Transaction(
             "no block is committed yet: there is no trusted state root".into(),
-        ));
+        )),
     }
-    let block = client
-        .get_block_by_height(status.height)
-        .await?
-        .ok_or_else(|| {
-            ChainError::Transaction(format!("committed block {} is not stored", status.height))
-        })?;
-    Ok(block.header.state_root)
 }
 
 /// A base trait for a read-only, proof-verifying view of the world state.

@@ -64,6 +64,201 @@ fn decode_admitted_tip(bytes: &[u8]) -> Result<AdmittedTip, StorageError> {
         state_root: root.to_vec(),
     })
 }
+// --- FU-N11-DURABLE-STATUS-1 D2a round 2: the admission floor ----------------------------------
+// A block at or below the persisted Agentgres-admitted marker is committed. Every write into BLOCKS
+// (WriteBlock, CommitStateAndBlock) or into a state version (CommitState, CommitStateAndBlock, the
+// WAL replay) at such a height is checked against what is stored, inside the write's own
+// transaction (the marker's record needs the same write lock, so the two cannot interleave).
+
+/// Why rewriting the committed block `stored` with `incoming` is refused, or `None` when it is
+/// permitted: identical bytes, or the same block with its post-signing evidence changed but never
+/// downgraded (see [`committed_block_change_refusal`]).
+pub fn committed_block_rewrite_refusal(stored: &[u8], incoming: &[u8]) -> Option<String> {
+    if stored == incoming {
+        return None;
+    }
+    let stored = match codec::from_bytes_canonical::<Block<ChainTransaction>>(stored) {
+        Ok(block) => block,
+        Err(error) => return Some(format!("the committed block does not decode: {error}")),
+    };
+    let incoming = match codec::from_bytes_canonical::<Block<ChainTransaction>>(incoming) {
+        Ok(block) => block,
+        Err(error) => return Some(format!("the rewritten block does not decode: {error}")),
+    };
+    committed_block_change_refusal(&stored, &incoming)
+}
+
+/// The STRUCTURAL admission-floor rule for changing a committed block (FU-N11-DURABLE-STATUS-1 D2a
+/// round 2, the Director's rule and its no-downgrade condition): the new block must have the same
+/// identity hash (the BlockHeader hash preimage), execution surface (height, parent hash, state
+/// root, transactions root) and transactions; it may not strip the producer signature, the sealed
+/// finality proof or the guardian certificate; and it may not change the guardian or
+/// canonical-order certificate. `None` when permitted. It cannot verify an ADDED or REPLACED
+/// signature or proof (that needs the producer's key): the workload's fence verifies those with
+/// `ioi_consensus::aft_evidence`.
+pub fn committed_block_change_refusal(
+    stored: &Block<ChainTransaction>,
+    incoming: &Block<ChainTransaction>,
+) -> Option<String> {
+    let (old, new) = (&stored.header, &incoming.header);
+    let same_identity = match (old.hash(), new.hash()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    };
+    if !same_identity {
+        return Some(format!(
+            "a different consensus identity at committed height {}",
+            old.height
+        ));
+    }
+    if old.height != new.height
+        || old.parent_hash != new.parent_hash
+        || old.state_root != new.state_root
+        || old.transactions_root != new.transactions_root
+        || stored.transactions != incoming.transactions
+    {
+        return Some(format!(
+            "a different execution surface at committed height {}",
+            old.height
+        ));
+    }
+    if !old.signature.is_empty() && new.signature.is_empty() {
+        return Some(format!(
+            "it strips the producer signature of committed block {}",
+            old.height
+        ));
+    }
+    if old.sealed_finality_proof.is_some() && new.sealed_finality_proof.is_none() {
+        return Some(format!(
+            "it strips the sealed finality proof of committed block {}",
+            old.height
+        ));
+    }
+    if old.guardian_certificate != new.guardian_certificate {
+        return Some(format!(
+            "it strips or changes the guardian certificate of committed block {}",
+            old.height
+        ));
+    }
+    if old.canonical_order_certificate != new.canonical_order_certificate {
+        return Some(format!(
+            "it strips or changes the canonical-order certificate of committed block {}",
+            old.height
+        ));
+    }
+    None
+}
+
+/// Why recording `incoming` as the state version of committed height `height` is refused, or
+/// `None`: a committed version never changes its root (a missing version may be re-created).
+fn committed_root_refusal(
+    height: Height,
+    existing: Option<[u8; 32]>,
+    incoming: &[u8; 32],
+) -> Option<String> {
+    match existing {
+        Some(existing) if &existing != incoming => Some(format!(
+            "a different state root at committed height {height}"
+        )),
+        _ => None,
+    }
+}
+
+/// The admission-floor check of a write, inside that write's own transaction. `root` is the state
+/// version a state write records at `height`; `block` the bytes a block write stores there.
+fn admission_floor_refusal_in_txn(
+    w: &WriteTransaction,
+    epoch: Epoch,
+    height: Height,
+    root: Option<&[u8; 32]>,
+    block: Option<&[u8]>,
+) -> Result<Option<String>, redb::Error> {
+    let marker = {
+        let table = w.open_table(ADMITTED_TIP)?;
+        let bytes = table.get(&ADMITTED_TIP_KEY)?.map(|v| v.value().to_vec());
+        bytes
+    };
+    let Some(marker) = marker else {
+        return Ok(None);
+    };
+    let marker = match decode_admitted_tip(&marker) {
+        Ok(marker) => marker,
+        Err(error) => return Ok(Some(error.to_string())),
+    };
+    if height > marker.height {
+        return Ok(None);
+    }
+    if let Some(incoming) = block {
+        let stored = {
+            let table = w.open_table(BLOCKS)?;
+            let bytes = table.get(&height.to_be_bytes())?.map(|v| v.value().to_vec());
+            bytes
+        };
+        let Some(stored) = stored else {
+            return Ok(Some(format!(
+                "no block is stored at height {height}, at or below the admitted tip {}",
+                marker.height
+            )));
+        };
+        if let Some(why) = committed_block_rewrite_refusal(&stored, incoming) {
+            return Ok(Some(why));
+        }
+    }
+    if let Some(root) = root {
+        let table = w.open_table(VERSIONS)?;
+        let existing = table
+            .get(k_versions(epoch, height).as_slice())?
+            .map(|v| *v.value());
+        if let Some(why) = committed_root_refusal(height, existing, root) {
+            return Ok(Some(why));
+        }
+    }
+    Ok(None)
+}
+
+/// The state rows a CommitState records (nodes, refs, changes, version, root index, head).
+fn insert_state_commit(
+    w: &WriteTransaction,
+    epoch: Epoch,
+    commit: &AsyncCommit,
+) -> Result<(), redb::Error> {
+    let mut nodes_tbl = w.open_table(NODES)?;
+    let mut refs_tbl = w.open_table(REFS)?;
+
+    for (nh, bytes) in &commit.new_nodes {
+        let k = k_nodes(epoch, nh);
+        // Only insert if not present (dedup)
+        if nodes_tbl.get(k.as_slice())?.is_none() {
+            nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
+            let rk = k_refs(epoch, nh);
+            // Init refcount 1
+            refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
+        }
+    }
+
+    let mut ch = w.open_table(CHANGES)?;
+    for (i, nh) in commit.unique_nodes.iter().enumerate() {
+        ch.insert(k_changes(epoch, commit.height, i as u32).as_slice(), &nh.0)?;
+    }
+
+    let mut ver = w.open_table(VERSIONS)?;
+    ver.insert(k_versions(epoch, commit.height).as_slice(), &commit.root.0)?;
+
+    let mut ri = w.open_table(ROOT_INDEX)?;
+    let mut meta = [0u8; 16];
+    meta[..8].copy_from_slice(&enc_epoch(epoch));
+    meta[8..].copy_from_slice(&enc_height(commit.height));
+    ri.insert(&commit.root.0, &meta)?;
+
+    // Write head
+    let mut head_buf = [0u8; 16];
+    head_buf[..8].copy_from_slice(&enc_height(commit.height));
+    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
+    let mut t_head = w.open_table(HEAD)?;
+    t_head.insert(&key_head(), &head_buf)?;
+    Ok(())
+}
+
 fn enc_epoch(e: Epoch) -> [u8; 8] {
     be64(e)
 }
@@ -205,6 +400,22 @@ impl RedbEpochStore {
                 .begin_write()
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
 
+            // FU-N11-DURABLE-STATUS-1 D2a round 2: the admission floor. A replayed entry at or
+            // below the persisted admitted tip never changes a committed state version.
+            let replay_floor = {
+                let t = w
+                    .open_table(ADMITTED_TIP)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                let bytes = t
+                    .get(&ADMITTED_TIP_KEY)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?
+                    .map(|v| v.value().to_vec());
+                bytes
+                    .map(|bytes| decode_admitted_tip(&bytes))
+                    .transpose()?
+                    .map(|tip| tip.height)
+            };
+
             {
                 let mut nodes_tbl = w
                     .open_table(NODES)
@@ -240,6 +451,20 @@ impl RedbEpochStore {
                     } else {
                         height / epoch_size
                     };
+
+                    if replay_floor.is_some_and(|floor| height <= floor) {
+                        let committed = ver
+                            .get(k_versions(epoch, height).as_slice())
+                            .map_err(|e| StorageError::Backend(e.to_string()))?
+                            .map(|v| *v.value());
+                        if committed_root_refusal(height, committed, &root).is_some() {
+                            eprintln!(
+                                "[Storage] WAL replay skipped height {}: at or below the admitted tip, its root differs from the committed state version",
+                                height
+                            );
+                            continue;
+                        }
+                    }
 
                     // Apply Diff
                     for (nh, bytes) in diff.new_nodes {
@@ -318,8 +543,6 @@ impl RedbEpochStore {
             while let Some(op) = rx.blocking_recv() {
                 match op {
                     PersistenceOp::CommitState(commit, ack_tx) => {
-                        let mut result = Ok(());
-
                         // 1. Prepare Diff for WAL
                         let diff = StateDiff {
                             new_nodes: commit
@@ -330,76 +553,40 @@ impl RedbEpochStore {
                             touched_nodes: commit.unique_nodes.iter().map(|h| h.0).collect(),
                         };
 
-                        // 2. Write to WAL in background (offloading sync I/O)
-                        if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff)
-                        {
-                            eprintln!("[Storage] Async WAL Write Failed: {}", e);
-                            result = Err(e.to_string());
-                        }
-
                         let epoch = if epoch_size_clone == 0 {
                             0
                         } else {
                             commit.height / epoch_size_clone
                         };
 
-                        // Perform Redb write
-                        // Only proceed with DB write if WAL write succeeded (or if we want best effort)
-                        // Here we proceed but track error.
-                        if result.is_ok() {
-                            let write_res = (|| -> Result<(), redb::Error> {
-                                let w = db_clone.begin_write()?;
-                                {
-                                    let mut nodes_tbl = w.open_table(NODES)?;
-                                    let mut refs_tbl = w.open_table(REFS)?;
-
-                                    for (nh, bytes) in &commit.new_nodes {
-                                        let k = k_nodes(epoch, nh);
-                                        // Only insert if not present (dedup)
-                                        if nodes_tbl.get(k.as_slice())?.is_none() {
-                                            nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
-                                            let rk = k_refs(epoch, nh);
-                                            // Init refcount 1
-                                            refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
-                                        }
-                                    }
-
-                                    let mut ch = w.open_table(CHANGES)?;
-                                    for (i, nh) in commit.unique_nodes.iter().enumerate() {
-                                        ch.insert(
-                                            k_changes(epoch, commit.height, i as u32).as_slice(),
-                                            &nh.0,
-                                        )?;
-                                    }
-
-                                    let mut ver = w.open_table(VERSIONS)?;
-                                    ver.insert(
-                                        k_versions(epoch, commit.height).as_slice(),
-                                        &commit.root.0,
-                                    )?;
-
-                                    let mut ri = w.open_table(ROOT_INDEX)?;
-                                    let mut meta = [0u8; 16];
-                                    meta[..8].copy_from_slice(&enc_epoch(epoch));
-                                    meta[8..].copy_from_slice(&enc_height(commit.height));
-                                    ri.insert(&commit.root.0, &meta)?;
-
-                                    // Write head
-                                    let mut head_buf = [0u8; 16];
-                                    head_buf[..8].copy_from_slice(&enc_height(commit.height));
-                                    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
-                                    let mut t_head = w.open_table(HEAD)?;
-                                    t_head.insert(&key_head(), &head_buf)?;
-                                }
-                                w.commit()?;
-                                Ok(())
-                            })();
-
-                            if let Err(e) = write_res {
-                                eprintln!("[Storage] Async DB Write Failed (State): {}", e);
-                                result = Err(e.to_string());
+                        // 2. One write transaction: the admission floor (FU-N11-DURABLE-STATUS-1 D2a
+                        // round 2) is checked FIRST, so a refused commit never reaches the WAL;
+                        // then the WAL append (only a WAL-durable commit is written); then the rows.
+                        let write_res = (|| -> Result<(), String> {
+                            let w = db_clone.begin_write().map_err(|e| e.to_string())?;
+                            if let Some(why) = admission_floor_refusal_in_txn(
+                                &w,
+                                epoch,
+                                commit.height,
+                                Some(&commit.root.0),
+                                None,
+                            )
+                            .map_err(|e| e.to_string())?
+                            {
+                                let _ = w.abort();
+                                return Err(format!("admission floor refused the state commit: {why}"));
                             }
-                        }
+                            wal_clone
+                                .append_block(commit.height, commit.root.0, &diff)
+                                .map_err(|e| format!("WAL write failed: {e}"))?;
+                            insert_state_commit(&w, epoch, &commit).map_err(|e| e.to_string())?;
+                            w.commit().map_err(|e| e.to_string())?;
+                            Ok(())
+                        })();
+                        let result = write_res.map_err(|e| {
+                            eprintln!("[Storage] Async DB Write Failed (State): {}", e);
+                            e
+                        });
 
                         // Cleanup memtable
                         {
@@ -419,8 +606,6 @@ impl RedbEpochStore {
                         let _ = ack_tx.send(result);
                     }
                     PersistenceOp::CommitStateAndBlock(commit, block_bytes, ack_tx) => {
-                        let mut result = Ok(());
-
                         let diff = StateDiff {
                             new_nodes: commit
                                 .new_nodes
@@ -430,75 +615,48 @@ impl RedbEpochStore {
                             touched_nodes: commit.unique_nodes.iter().map(|h| h.0).collect(),
                         };
 
-                        if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff)
-                        {
-                            eprintln!("[Storage] Async WAL Write Failed: {}", e);
-                            result = Err(e.to_string());
-                        }
-
                         let epoch = if epoch_size_clone == 0 {
                             0
                         } else {
                             commit.height / epoch_size_clone
                         };
 
-                        if result.is_ok() {
-                            let write_res = (|| -> Result<(), redb::Error> {
-                                let w = db_clone.begin_write()?;
-                                {
-                                    let mut nodes_tbl = w.open_table(NODES)?;
-                                    let mut refs_tbl = w.open_table(REFS)?;
-
-                                    for (nh, bytes) in &commit.new_nodes {
-                                        let k = k_nodes(epoch, nh);
-                                        if nodes_tbl.get(k.as_slice())?.is_none() {
-                                            nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
-                                            let rk = k_refs(epoch, nh);
-                                            refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
-                                        }
-                                    }
-
-                                    let mut ch = w.open_table(CHANGES)?;
-                                    for (i, nh) in commit.unique_nodes.iter().enumerate() {
-                                        ch.insert(
-                                            k_changes(epoch, commit.height, i as u32).as_slice(),
-                                            &nh.0,
-                                        )?;
-                                    }
-
-                                    let mut ver = w.open_table(VERSIONS)?;
-                                    ver.insert(
-                                        k_versions(epoch, commit.height).as_slice(),
-                                        &commit.root.0,
-                                    )?;
-
-                                    let mut ri = w.open_table(ROOT_INDEX)?;
-                                    let mut meta = [0u8; 16];
-                                    meta[..8].copy_from_slice(&enc_epoch(epoch));
-                                    meta[8..].copy_from_slice(&enc_height(commit.height));
-                                    ri.insert(&commit.root.0, &meta)?;
-
-                                    let mut t_head = w.open_table(HEAD)?;
-                                    let mut head_buf = [0u8; 16];
-                                    head_buf[..8].copy_from_slice(&enc_height(commit.height));
-                                    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
-                                    t_head.insert(&key_head(), &head_buf)?;
-
-                                    let mut blocks_tbl = w.open_table(BLOCKS)?;
-                                    blocks_tbl.insert(
-                                        &commit.height.to_be_bytes(),
-                                        block_bytes.as_slice(),
-                                    )?;
-                                }
-                                w.commit()?;
-                                Ok(())
-                            })();
-
-                            if let Err(e) = write_res {
-                                eprintln!("[Storage] Async DB Write Failed (State+Block): {}", e);
-                                result = Err(e.to_string());
+                        // The admission floor first (state version AND block), then the WAL, then
+                        // the rows, in one write transaction.
+                        let write_res = (|| -> Result<(), String> {
+                            let w = db_clone.begin_write().map_err(|e| e.to_string())?;
+                            if let Some(why) = admission_floor_refusal_in_txn(
+                                &w,
+                                epoch,
+                                commit.height,
+                                Some(&commit.root.0),
+                                Some(block_bytes.as_slice()),
+                            )
+                            .map_err(|e| e.to_string())?
+                            {
+                                let _ = w.abort();
+                                return Err(format!(
+                                    "admission floor refused the state-and-block commit: {why}"
+                                ));
                             }
-                        }
+                            wal_clone
+                                .append_block(commit.height, commit.root.0, &diff)
+                                .map_err(|e| format!("WAL write failed: {e}"))?;
+                            (|| -> Result<(), redb::Error> {
+                                insert_state_commit(&w, epoch, &commit)?;
+                                let mut blocks_tbl = w.open_table(BLOCKS)?;
+                                blocks_tbl
+                                    .insert(&commit.height.to_be_bytes(), block_bytes.as_slice())?;
+                                Ok(())
+                            })()
+                            .map_err(|e| e.to_string())?;
+                            w.commit().map_err(|e| e.to_string())?;
+                            Ok(())
+                        })();
+                        let result = write_res.map_err(|e| {
+                            eprintln!("[Storage] Async DB Write Failed (State+Block): {}", e);
+                            e
+                        });
 
                         {
                             let mut guard = memtable_clone.write().unwrap();
@@ -520,22 +678,39 @@ impl RedbEpochStore {
                         let _ = ack_tx.send(result);
                     }
                     PersistenceOp::WriteBlock(height, block_bytes, ack_tx) => {
-                        let write_res = (|| -> Result<(), redb::Error> {
-                            let w = db_clone.begin_write()?;
+                        let epoch = if epoch_size_clone == 0 {
+                            0
+                        } else {
+                            height / epoch_size_clone
+                        };
+                        let write_res = (|| -> Result<(), String> {
+                            let w = db_clone.begin_write().map_err(|e| e.to_string())?;
+                            if let Some(why) = admission_floor_refusal_in_txn(
+                                &w,
+                                epoch,
+                                height,
+                                None,
+                                Some(block_bytes.as_slice()),
+                            )
+                            .map_err(|e| e.to_string())?
                             {
-                                let mut table = w.open_table(BLOCKS)?;
-                                table.insert(&height.to_be_bytes(), block_bytes.as_slice())?;
+                                let _ = w.abort();
+                                return Err(format!("admission floor refused the block write: {why}"));
                             }
-                            w.commit()?;
+                            {
+                                let mut table = w.open_table(BLOCKS).map_err(|e| e.to_string())?;
+                                table
+                                    .insert(&height.to_be_bytes(), block_bytes.as_slice())
+                                    .map_err(|e| e.to_string())?;
+                            }
+                            w.commit().map_err(|e| e.to_string())?;
                             Ok(())
                         })();
 
-                        let result = if let Err(e) = write_res {
+                        let result = write_res.map_err(|e| {
                             eprintln!("[Storage] Async DB Write Failed (Block): {}", e);
-                            Err(e.to_string())
-                        } else {
-                            Ok(())
-                        };
+                            e
+                        });
 
                         // Cleanup pending_blocks
                         {
@@ -618,6 +793,60 @@ impl RedbEpochStore {
         write
             .commit()
             .map_err(|e| StorageError::Backend(e.to_string()))?;
+        Ok(())
+    }
+
+    /// The block bytes stored at `height`, the read-your-writes cache first.
+    fn stored_block_bytes(&self, height: Height) -> Result<Option<Vec<u8>>, StorageError> {
+        {
+            let guard = self.pending_blocks.read().unwrap();
+            if let Some(bytes) = guard.get(&height) {
+                return Ok(Some(bytes.clone()));
+            }
+        }
+        let r = self.read_txn()?;
+        let table = r
+            .open_table(BLOCKS)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+        let bytes = table
+            .get(&height.to_be_bytes())
+            .map_err(|e| StorageError::Backend(e.to_string()))?
+            .map(|v| v.value().to_vec());
+        Ok(bytes)
+    }
+
+    /// The admission floor (FU-N11-DURABLE-STATUS-1 D2a round 2), checked before an async write
+    /// touches the read-your-writes caches, so a refused write is never readable. The write's own
+    /// transaction checks again, authoritatively.
+    fn admission_floor_precheck(
+        &self,
+        height: Height,
+        root: Option<&RootHash>,
+        block: Option<&[u8]>,
+    ) -> Result<(), StorageError> {
+        let Some(marker) = self.get_admitted_tip()? else {
+            return Ok(());
+        };
+        if height > marker.height {
+            return Ok(());
+        }
+        if let Some(incoming) = block {
+            let Some(stored) = self.stored_block_bytes(height)? else {
+                return Err(StorageError::Backend(format!(
+                    "admission floor: no block is stored at height {height}, at or below the admitted tip {}",
+                    marker.height
+                )));
+            };
+            if let Some(why) = committed_block_rewrite_refusal(&stored, incoming) {
+                return Err(StorageError::Backend(format!("admission floor: {why}")));
+            }
+        }
+        if let Some(root) = root {
+            let existing = self.root_for_height(height)?.map(|existing| existing.0);
+            if let Some(why) = committed_root_refusal(height, existing, &root.0) {
+                return Err(StorageError::Backend(format!("admission floor: {why}")));
+            }
+        }
         Ok(())
     }
 
@@ -754,6 +983,7 @@ impl NodeStore for RedbEpochStore {
     }
 
     async fn commit_block(&self, input: CommitInput) -> Result<(), StorageError> {
+        self.admission_floor_precheck(input.height, Some(&input.root), None)?;
         let bytes_written: u64 = input
             .new_nodes
             .iter()
@@ -810,6 +1040,7 @@ impl NodeStore for RedbEpochStore {
         input: CommitInput,
         block_bytes: &[u8],
     ) -> Result<(), StorageError> {
+        self.admission_floor_precheck(input.height, Some(&input.root), Some(block_bytes))?;
         let bytes_written: u64 = input
             .new_nodes
             .iter()
@@ -866,6 +1097,7 @@ impl NodeStore for RedbEpochStore {
     }
 
     async fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError> {
+        self.admission_floor_precheck(height, None, Some(block_bytes))?;
         // Cache synchronously for read-your-writes
         {
             let mut guard = self.pending_blocks.write().unwrap();
@@ -1176,6 +1408,33 @@ impl NodeStore for RedbEpochStore {
                         tip.height
                     )));
                 }
+            }
+            // FU-N11-DURABLE-STATUS-1 D2a round 2 (B1 iii): the marker is recorded only over the
+            // block it names, checked in the marker's own write transaction, so no block write
+            // can interleave between the check and the record.
+            let stored = {
+                let blocks = w
+                    .open_table(BLOCKS)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                let bytes = blocks
+                    .get(&tip.height.to_be_bytes())
+                    .map_err(|e| StorageError::Backend(e.to_string()))?
+                    .map(|v| v.value().to_vec());
+                bytes
+            };
+            let stored = stored.ok_or_else(|| {
+                StorageError::Backend(format!(
+                    "admitted-tip record refused: no block is stored at height {}",
+                    tip.height
+                ))
+            })?;
+            let stored: Block<ChainTransaction> =
+                codec::from_bytes_canonical(&stored).map_err(StorageError::Decode)?;
+            if stored.header.height != tip.height || stored.header.state_root.0 != tip.state_root {
+                return Err(StorageError::Backend(format!(
+                    "admitted-tip record refused: the block stored at height {} has a different execution surface",
+                    tip.height
+                )));
             }
             t.insert(&ADMITTED_TIP_KEY, encode_admitted_tip(tip).as_slice())
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
@@ -1583,3 +1842,8 @@ mod admitted_tip_tests {
 // FU-N11-DURABLE-STATUS-1 D2a round 2, RED-3b: the no-downgrade condition at the block store (redb_epoch_store/admitted_tip_no_downgrade_tests.rs).
 #[cfg(test)]
 mod admitted_tip_no_downgrade_tests;
+
+// FU-N11-DURABLE-STATUS-1 D2a round 2, GREEN-3 pins: the in-transaction fence and the WAL replay
+// fence, reached directly (redb_epoch_store/admitted_tip_txn_fence_tests.rs).
+#[cfg(test)]
+mod admitted_tip_txn_fence_tests;

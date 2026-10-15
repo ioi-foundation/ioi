@@ -741,7 +741,7 @@ async fn async_main() -> Result<()> {
     let server_addr = workload_ipc_addr.to_string();
 
     // FU-N11-DURABLE-STATUS-1 D2a: one per-boot admission capability, shared in memory by the
-    // in-process workload server and its orchestration client.
+    // in-process workload server and the orchestration's admitted-tip publisher (round 2).
     let admission_capability =
         ioi_validator::standard::workload::admitted_tip::WorkloadCapability::generate();
     let server_admission_capability = admission_capability.clone();
@@ -771,7 +771,6 @@ async fn async_main() -> Result<()> {
         )
         .await?,
     );
-    workload_client.set_admission_capability(*admission_capability.as_bytes());
 
     let syncer = Arc::new(NoOpBlockSync::new());
 
@@ -886,6 +885,13 @@ async fn async_main() -> Result<()> {
     >::new(&config, deps, scheme)?);
 
     orchestrator.set_chain_and_workload_client(machine.clone(), workload_client);
+    // FU-N11-DURABLE-STATUS-1 D2a round 2: the per-boot admission capability goes ONLY to the
+    // orchestration's admitted-tip publisher (the shared workload client stores none).
+    orchestrator.set_admitted_tip_publisher(
+        ioi_validator::standard::orchestration::AdmittedTipPublisher::in_process(
+            admission_capability,
+        ),
+    );
 
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     if local_gpu_dev_mode {

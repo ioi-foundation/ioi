@@ -191,16 +191,20 @@ pub(crate) async fn resolve_query_height(
 }
 
 /// The state root and height an IBC query or commitment root is served at (FU-N11-DURABLE-STATUS-1
-/// D2a round 2, C5; both `query` and `commitment_root` go through it). For an explicit height,
-/// that stored block's root. For "latest", the committed tip.
-///
-/// RED-3 SCAFFOLD (a behaviour-preserving extraction of 079937616's two host methods): "latest"
-/// still resolves the committed height and re-reads the block stored there. GREEN-3 serves
-/// "latest" from the marker's own root (`get_committed_tip`), never a re-read block.
+/// D2a round 2, C5; both `query` and `commitment_root` go through it). For "latest", the
+/// COMMITTED tip's root as the workload's admitted-tip marker holds it, never a re-read of the
+/// block stored at that height. Before any admission (no tip) and for an explicit height, the
+/// root of the block stored at the resolved height (the committed height 0, genesis, before the
+/// first admission).
 pub(crate) async fn resolve_query_anchor(
     client: &(dyn WorkloadClientApi + '_),
     height: Option<u64>,
 ) -> Result<(StateRoot, u64)> {
+    if height.is_none() {
+        if let Some(tip) = client.get_committed_tip().await? {
+            return Ok((StateRoot(tip.state_root), tip.height));
+        }
+    }
     let query_height = resolve_query_height(client, height).await?;
     let block = client
         .get_block_by_height(query_height)

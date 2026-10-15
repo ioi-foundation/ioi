@@ -154,6 +154,20 @@ export interface RecordAdmittedTipRequest {
 export interface RecordAdmittedTipResponse {
 }
 
+/**
+ * FU-N11-DURABLE-STATUS-1 D2a round 2: the Agentgres-admitted tip as the workload's marker holds it.
+ * No marker (a fresh node, or before the first admission): every field is empty or 0.
+ */
+export interface GetCommittedTipResponse {
+  height: number;
+  /** The admitted (certified) block hash, 32 bytes; empty when no tip has been admitted. */
+  blockHash: Uint8Array;
+  /** The admitted block's post-state root, from the marker. */
+  stateRoot: Uint8Array;
+  /** The admitted block's timestamp (seconds), from the committed block the workload stores. */
+  latestTimestamp: number;
+}
+
 export interface CheckTransactionsRequest {
   /** StateAnchor (32 bytes) */
   anchor: Uint8Array;
@@ -1703,6 +1717,126 @@ export const RecordAdmittedTipResponse: MessageFns<RecordAdmittedTipResponse> = 
   },
   fromPartial<I extends Exact<DeepPartial<RecordAdmittedTipResponse>, I>>(_: I): RecordAdmittedTipResponse {
     const message = createBaseRecordAdmittedTipResponse();
+    return message;
+  },
+};
+
+function createBaseGetCommittedTipResponse(): GetCommittedTipResponse {
+  return { height: 0, blockHash: new Uint8Array(0), stateRoot: new Uint8Array(0), latestTimestamp: 0 };
+}
+
+export const GetCommittedTipResponse: MessageFns<GetCommittedTipResponse> = {
+  encode(message: GetCommittedTipResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.height !== 0) {
+      writer.uint32(8).uint64(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      writer.uint32(18).bytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      writer.uint32(26).bytes(message.stateRoot);
+    }
+    if (message.latestTimestamp !== 0) {
+      writer.uint32(32).uint64(message.latestTimestamp);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetCommittedTipResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetCommittedTipResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.blockHash = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.stateRoot = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.latestTimestamp = longToNumber(reader.uint64());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetCommittedTipResponse {
+    return {
+      height: isSet(object.height) ? globalThis.Number(object.height) : 0,
+      blockHash: isSet(object.blockHash)
+        ? bytesFromBase64(object.blockHash)
+        : isSet(object.block_hash)
+        ? bytesFromBase64(object.block_hash)
+        : new Uint8Array(0),
+      stateRoot: isSet(object.stateRoot)
+        ? bytesFromBase64(object.stateRoot)
+        : isSet(object.state_root)
+        ? bytesFromBase64(object.state_root)
+        : new Uint8Array(0),
+      latestTimestamp: isSet(object.latestTimestamp)
+        ? globalThis.Number(object.latestTimestamp)
+        : isSet(object.latest_timestamp)
+        ? globalThis.Number(object.latest_timestamp)
+        : 0,
+    };
+  },
+
+  toJSON(message: GetCommittedTipResponse): unknown {
+    const obj: any = {};
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      obj.blockHash = base64FromBytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      obj.stateRoot = base64FromBytes(message.stateRoot);
+    }
+    if (message.latestTimestamp !== 0) {
+      obj.latestTimestamp = Math.round(message.latestTimestamp);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetCommittedTipResponse>, I>>(base?: I): GetCommittedTipResponse {
+    return GetCommittedTipResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetCommittedTipResponse>, I>>(object: I): GetCommittedTipResponse {
+    const message = createBaseGetCommittedTipResponse();
+    message.height = object.height ?? 0;
+    message.blockHash = object.blockHash ?? new Uint8Array(0);
+    message.stateRoot = object.stateRoot ?? new Uint8Array(0);
+    message.latestTimestamp = object.latestTimestamp ?? 0;
     return message;
   },
 };
@@ -3859,6 +3993,22 @@ export const ChainControlService = {
       Buffer.from(RecordAdmittedTipResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): RecordAdmittedTipResponse => RecordAdmittedTipResponse.decode(value),
   },
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a round 2: the COMMITTED tip itself, read FROM THE ADMITTED-TIP
+   * MARKER (never re-read from the block stored at that height). Every trusted root (the IBC
+   * host's latest anchor, the agent's trusted state root) keys on this. An empty block_hash means
+   * no tip has been admitted yet.
+   */
+  getCommittedTip: {
+    path: "/ioi.blockchain.v1.ChainControl/GetCommittedTip",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetStatusRequest): Buffer => Buffer.from(GetStatusRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetStatusRequest => GetStatusRequest.decode(value),
+    responseSerialize: (value: GetCommittedTipResponse): Buffer =>
+      Buffer.from(GetCommittedTipResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetCommittedTipResponse => GetCommittedTipResponse.decode(value),
+  },
 } as const;
 
 export interface ChainControlServer extends UntypedServiceImplementation {
@@ -3892,6 +4042,13 @@ export interface ChainControlServer extends UntypedServiceImplementation {
    * surface differs from the stored block. Never exposed on public.v1.
    */
   recordAdmittedTip: handleUnaryCall<RecordAdmittedTipRequest, RecordAdmittedTipResponse>;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a round 2: the COMMITTED tip itself, read FROM THE ADMITTED-TIP
+   * MARKER (never re-read from the block stored at that height). Every trusted root (the IBC
+   * host's latest anchor, the agent's trusted state root) keys on this. An empty block_hash means
+   * no tip has been admitted yet.
+   */
+  getCommittedTip: handleUnaryCall<GetStatusRequest, GetCommittedTipResponse>;
 }
 
 export interface ChainControlClient extends Client {
@@ -4050,6 +4207,27 @@ export interface ChainControlClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: RecordAdmittedTipResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a round 2: the COMMITTED tip itself, read FROM THE ADMITTED-TIP
+   * MARKER (never re-read from the block stored at that height). Every trusted root (the IBC
+   * host's latest anchor, the agent's trusted state root) keys on this. An empty block_hash means
+   * no tip has been admitted yet.
+   */
+  getCommittedTip(
+    request: GetStatusRequest,
+    callback: (error: ServiceError | null, response: GetCommittedTipResponse) => void,
+  ): ClientUnaryCall;
+  getCommittedTip(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetCommittedTipResponse) => void,
+  ): ClientUnaryCall;
+  getCommittedTip(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetCommittedTipResponse) => void,
   ): ClientUnaryCall;
 }
 

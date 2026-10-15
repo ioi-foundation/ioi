@@ -108,6 +108,10 @@ mod events;
 mod finalize;
 mod lifecycle;
 pub(crate) mod runtime_finality;
+/// The orchestration's admitted-tip publisher, the only holder of the workload admission
+/// capability (FU-N11-DURABLE-STATUS-1 D2a round 2); the node binaries build one and hand it to the
+/// orchestrator with [`Orchestrator::set_admitted_tip_publisher`].
+pub use runtime_finality::AdmittedTipPublisher;
 
 /// Transition logic
 pub mod transition;
@@ -309,6 +313,9 @@ where
     /// Shared event broadcaster.
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
     runtime_finality_root: PathBuf,
+    /// The admitted-tip publisher the binary set (FU-N11-DURABLE-STATUS-1 D2a round 2), until the
+    /// runtime-finality coordinator takes it at startup and owns it privately.
+    admitted_tip_publisher: std::sync::Mutex<Option<AdmittedTipPublisher>>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -389,7 +396,27 @@ where
             memory_runtime: deps.memory_runtime,
             event_broadcaster: deps.event_broadcaster,
             runtime_finality_root: deps.runtime_finality_root,
+            admitted_tip_publisher: std::sync::Mutex::new(None),
         })
+    }
+
+    /// Hands the orchestrator the admitted-tip publisher (FU-N11-DURABLE-STATUS-1 D2a round 2): the
+    /// only holder of the workload admission capability. Set once, before start; the
+    /// runtime-finality coordinator takes it when it opens. Without one, admitted tips are not
+    /// recorded in the workload (its committed height stays at its last record, 0 on a fresh node).
+    pub fn set_admitted_tip_publisher(&self, publisher: AdmittedTipPublisher) {
+        match self.admitted_tip_publisher.lock() {
+            Ok(mut slot) if slot.is_none() => *slot = Some(publisher),
+            _ => log::warn!("Attempted to set the admitted-tip publisher more than once."),
+        }
+    }
+
+    /// Takes the publisher for the runtime-finality coordinator (startup only).
+    pub(crate) fn take_admitted_tip_publisher(&self) -> Option<AdmittedTipPublisher> {
+        self.admitted_tip_publisher
+            .lock()
+            .ok()
+            .and_then(|mut slot| slot.take())
     }
 
     /// Execute an online-QUV effect through the sole Agentgres mutation
