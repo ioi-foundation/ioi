@@ -177,30 +177,11 @@ fn compute_root_from_commitment_proof(cp: &CommitmentProof) -> Result<Vec<u8>> {
         .map_err(|e| anyhow!("calculate_existence_root: {e}"))
 }
 
-/// The height an IBC query or commitment root is served at: the caller's height, or else the
-/// latest COMMITTED (Agentgres-admitted) height, never the durable status, which counts signed but
-/// uncommitted blocks (FU-N11-DURABLE-STATUS-1 D2a, C5). Since D2a RED-4 the anchor resolution
-/// below runs `ioi_api::chain::committed_query_anchor`, which inlines this same rule, so only this
-/// crate's tests still call it.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) async fn resolve_query_height(
-    client: &(dyn WorkloadClientApi + '_),
-    height: Option<u64>,
-) -> Result<u64> {
-    match height {
-        Some(height) => Ok(height),
-        None => Ok(client.get_committed_status().await?.height),
-    }
-}
-
 /// The state root and height an IBC query or commitment root is served at (FU-N11-DURABLE-STATUS-1
-/// D2a round 2, C5; both `query` and `commitment_root` go through it). For "latest", the
-/// COMMITTED tip's root as the workload's admitted-tip marker holds it, never a re-read of the
-/// block stored at that height. Before any admission (no tip) and for an explicit height, the
-/// root of the block stored at the resolved height (the committed height 0, genesis, before the
-/// first admission). FU-N11-DURABLE-STATUS-1 D2a RED-4: the logic MOVED unchanged to
-/// `ioi_api::chain::committed_query_anchor` (the admitted-index harness reads C5 through it); the
-/// one visible difference is the not-found error's text, now prefixed by ChainError's display.
+/// D2a, C5; both `query` and `commitment_root` go through it): ONE record of the workload's
+/// admitted index, through `ioi_api::chain::committed_query_anchor`. An explicit height is served
+/// from its record and refused when it is not admitted; "latest" is the max record and refused
+/// before the first admission. No stored block is ever read.
 pub(crate) async fn resolve_query_anchor(
     client: &(dyn WorkloadClientApi + '_),
     height: Option<u64>,
@@ -351,8 +332,8 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
 #[cfg(test)]
 mod committed_height_tests {
     //! FU-N11-DURABLE-STATUS-1 D2a RED-C5: the IBC host serves "latest" at the COMMITTED height.
-    use super::{resolve_query_anchor, resolve_query_height};
-    use ioi_api::storage::AdmittedTip;
+    use super::resolve_query_anchor;
+    use ioi_api::storage::{AdmittedRecord, AdmittedTip};
     use ioi_api::chain::{BlockExecutionReceipt, QueryStateResponse, WorkloadClientApi};
     use ioi_types::app::{AccountId, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot};
     use ioi_types::error::ChainError;
@@ -448,11 +429,31 @@ mod committed_height_tests {
                 ..Default::default()
             })
         }
+        // GREEN-4: the workload's admitted index holds rows 1..=committed (root [h; 32]).
+        async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>, ChainError> {
+            Ok((self.committed > 0).then(|| AdmittedTip {
+                height: self.committed,
+                block_hash: [self.committed as u8; 32],
+                state_root: vec![self.committed as u8; 32],
+            }))
+        }
+        async fn get_admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>, ChainError> {
+            Ok((height >= 1 && height <= self.committed).then(|| AdmittedRecord {
+                height,
+                block_hash: [height as u8; 32],
+                state_root: vec![height as u8; 32],
+                timestamp: 1_700_000_000 + height,
+            }))
+        }
         fn as_any(&self) -> &dyn std::any::Any {
             self
         }
     }
 
+    /// RED-C5, INVERTED at GREEN-4 (it asserted, through `resolve_query_height`, that an explicit
+    /// height is "served as asked" and that "latest" is the committed status height). "Latest" is
+    /// served at the max admitted record (height 4, its root), never the durable height 9; an
+    /// explicit height above the max (7) is now REFUSED, not served as asked.
     #[test]
     fn an_ibc_query_without_a_height_is_served_at_the_committed_height() {
         let client = StatusOnlyClient {
@@ -460,13 +461,12 @@ mod committed_height_tests {
             committed: 4,
         };
         assert_eq!(
-            block_on(resolve_query_height(&client, None)).expect("latest height"),
-            4
+            block_on(resolve_query_anchor(&client, None)).expect("latest anchor"),
+            (StateRoot(vec![4; 32]), 4)
         );
-        assert_eq!(
-            block_on(resolve_query_height(&client, Some(7))).expect("explicit height"),
-            7,
-            "an explicit height is served as asked"
+        assert!(
+            block_on(resolve_query_anchor(&client, Some(7))).is_err(),
+            "an explicit height above the admitted max is refused"
         );
     }
 
@@ -594,6 +594,17 @@ mod committed_height_tests {
                 state_root: vec![0xA3; 32],
             }))
         }
+        // GREEN-4: the admitted index holds rows 1..=3; row 3's root is the admitted 0xA3, while
+        // the block stored at 3 was rewritten to 0xB4.
+        async fn get_admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>, ChainError> {
+            let root = if height == ADMITTED_HEIGHT { 0xA3 } else { height as u8 };
+            Ok((height >= 1 && height <= ADMITTED_HEIGHT).then(|| AdmittedRecord {
+                height,
+                block_hash: [root; 32],
+                state_root: vec![root; 32],
+                timestamp: 1_700_000_000 + height,
+            }))
+        }
         fn as_any(&self) -> &dyn std::any::Any {
             self
         }
@@ -613,12 +624,25 @@ mod committed_height_tests {
         );
     }
 
-    /// CONTROL (passes at RED-3): an explicit height is anchored at that stored block, as asked.
+    /// RED-3's T2 CONTROL, INVERTED at GREEN-4 (renamed from
+    /// `an_explicit_ibc_height_is_anchored_at_that_stored_block`, which asserted the stored
+    /// block's root). An explicit height is anchored at ITS ADMITTED RECORD: height 2 at its
+    /// record; height 3 at the admitted 0xA3 although the stored block now says 0xB4; height 4
+    /// (above the admitted max) REFUSED, although a block is stored there.
     #[test]
-    fn an_explicit_ibc_height_is_anchored_at_that_stored_block() {
+    fn an_explicit_ibc_height_is_anchored_at_its_admitted_record_never_the_stored_block() {
         assert_eq!(
             block_on(resolve_query_anchor(&RewrittenStoreClient, Some(2))).expect("explicit anchor"),
             (StateRoot(vec![2; 32]), 2)
+        );
+        assert_eq!(
+            block_on(resolve_query_anchor(&RewrittenStoreClient, Some(3))).expect("explicit anchor"),
+            (StateRoot(vec![0xA3; 32]), 3),
+            "the admitted root, never the rewritten stored block's 0xB4"
+        );
+        assert!(
+            block_on(resolve_query_anchor(&RewrittenStoreClient, Some(4))).is_err(),
+            "a height that is not admitted is refused, although a block is stored there"
         );
     }
 }

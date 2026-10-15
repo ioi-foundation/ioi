@@ -1514,9 +1514,10 @@ where
                     "runtime finality committed-workload recovery refusal: {error}"
                 ))
             })?;
-        // FU-N11-DURABLE-STATUS-1 D2a round 2 (m4): reconcile the workload's committed marker with
-        // the latest Agentgres-admitted block, so a publication missed while the workload was down
-        // or rotating its capability is not stale. Never fatal: the next admission also advances it.
+        // FU-N11-DURABLE-STATUS-1 D2a (m4): reconcile the workload's admitted index with the
+        // Agentgres ledger (its head, and any gap below it by the parent_hash walk), so a
+        // publication missed while the workload was down or rotating its capability is not stale.
+        // Never fatal: the next admission publishes again.
         if let Err(error) = super::runtime_finality::reconcile_workload_admitted_tip(&context).await {
             tracing::warn!(
                 target: "orchestration",

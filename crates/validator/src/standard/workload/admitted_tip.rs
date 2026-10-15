@@ -2,14 +2,16 @@
 
 //! The workload's Agentgres-admitted tip marker (FU-N11-DURABLE-STATUS-1 D2a).
 //!
-//! The orchestration's Agentgres admission records each admitted block here. Every COMMITTED read
-//! (the IBC host's latest height, licence expiry, a trusted state root) reports this marker, never
-//! the durable status, which counts signed but uncommitted blocks. Only the admission path may
-//! advance it: a record must present the workload's per-boot capability, and the admitted block's
-//! execution surface must match the block the workload stores at that height.
+//! The orchestration's Agentgres admission publication records each admitted block here, in the
+//! workload store's ADMITTED INDEX (one row per height, written once). Every COMMITTED read (the
+//! IBC host's explicit and latest heights, licence expiry, a trusted state root, GetCommittedTip)
+//! is served from ONE row, never from the durable status (which counts signed but uncommitted
+//! blocks) and never from a stored block. Only the publication writes the index: a record must
+//! present the workload's per-boot capability, and its execution surface must match the block the
+//! workload stores at that height.
 
 use anyhow::{anyhow, Result};
-use ioi_api::storage::{AdmittedTip, NodeStore};
+use ioi_api::storage::{AdmittedRecord, NodeStore};
 use ioi_types::app::{Block, ChainStatus, ChainTransaction};
 
 /// The per-boot capability that authorizes advancing the admitted-tip marker.
@@ -128,21 +130,27 @@ impl std::fmt::Debug for WorkloadCapability {
     }
 }
 
-/// The marker half of a node store.
+/// The admitted-index half of a node store (FU-N11-DURABLE-STATUS-1 D2a GREEN-4).
 pub trait AdmittedTipStore {
-    /// The persisted marker, or `None` before the first admission.
-    fn admitted_tip(&self) -> Result<Option<AdmittedTip>>;
-    /// Persists the marker (the store enforces monotonicity).
-    fn record_admitted_tip(&self, tip: &AdmittedTip) -> Result<()>;
+    /// The index's max row (the committed tip), or `None` before the first admission.
+    fn latest_admitted_record(&self) -> Result<Option<AdmittedRecord>>;
+    /// The index's row for `height`, or `None` when the height is not admitted.
+    fn admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>>;
+    /// Writes one row (the store enforces write-once per height).
+    fn record_admitted(&self, record: &AdmittedRecord) -> Result<()>;
 }
 
 impl<T: NodeStore + ?Sized> AdmittedTipStore for T {
-    fn admitted_tip(&self) -> Result<Option<AdmittedTip>> {
-        Ok(self.get_admitted_tip()?)
+    fn latest_admitted_record(&self) -> Result<Option<AdmittedRecord>> {
+        Ok(self.get_latest_admitted_record()?)
     }
 
-    fn record_admitted_tip(&self, tip: &AdmittedTip) -> Result<()> {
-        Ok(self.put_admitted_tip(tip)?)
+    fn admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>> {
+        Ok(self.get_admitted_record(height)?)
+    }
+
+    fn record_admitted(&self, record: &AdmittedRecord) -> Result<()> {
+        Ok(self.put_admitted_record(record)?)
     }
 }
 
@@ -167,37 +175,37 @@ pub fn verify_capability(expected: &WorkloadCapability, presented: &[u8]) -> Res
     Ok(())
 }
 
-/// Records an admitted tip for an authorized caller whose tip matches the stored block's
-/// execution surface. A refusal leaves the marker unchanged.
+/// Records one admitted block for an authorized caller whose record matches the stored block's
+/// execution surface (a consistency check that fails closed). A refusal leaves the index unchanged.
 pub fn record_admitted_tip_checked<M: AdmittedTipStore + ?Sized>(
     marker: &M,
     expected: &WorkloadCapability,
     presented: &[u8],
-    tip: &AdmittedTip,
+    record: &AdmittedRecord,
     stored: Option<&Block<ChainTransaction>>,
 ) -> Result<()> {
     verify_capability(expected, presented)?;
     let stored = stored.ok_or_else(|| {
         anyhow!(
             "admitted-tip record refused: the workload stores no block at height {}",
-            tip.height
+            record.height
         )
     })?;
-    if stored.header.height != tip.height || stored.header.state_root.0 != tip.state_root {
+    if stored.header.height != record.height || stored.header.state_root.0 != record.state_root {
         return Err(anyhow!(
             "admitted-tip record refused: the admitted block's execution surface differs from \
              the block the workload stores at height {}",
-            tip.height
+            record.height
         ));
     }
-    marker.record_admitted_tip(tip)
+    marker.record_admitted(record)
 }
 
-/// The RecordAdmittedTip handler's logic as a pure function (FU-N11-DURABLE-STATUS-1 D2a round 2,
-/// M3; extracted unchanged from workload/ipc/grpc_blockchain.rs, which now only calls it): decodes
-/// the request, reads the block the workload stores at the tip's height, and records the tip only
-/// for the workload's own capability and a stored block with the same execution surface (height
-/// and state root). Every refusal leaves the marker unchanged.
+/// The RecordAdmittedTip handler's logic as a pure function: decodes the request into an admitted
+/// record (its timestamp is the ADMITTED header's, from the request; the workload never fills it
+/// from the block it stores), reads the block the workload stores at that height, and records it
+/// only for the workload's own capability and a stored block with the same execution surface
+/// (height and state root). Every refusal leaves the index unchanged.
 pub fn handle_record_admitted_tip<M, F>(
     marker: &M,
     expected: &WorkloadCapability,
@@ -213,83 +221,91 @@ where
         .as_slice()
         .try_into()
         .map_err(|_| tonic::Status::invalid_argument("block_hash must be 32 bytes"))?;
-    let tip = AdmittedTip {
+    let record = AdmittedRecord {
         height: request.height,
         block_hash,
         state_root: request.state_root,
+        timestamp: request.timestamp,
     };
-    let stored = stored_block(tip.height).map_err(|e| tonic::Status::internal(e.to_string()))?;
-    record_admitted_tip_checked(marker, expected, &request.capability, &tip, stored.as_ref())
+    let stored = stored_block(record.height).map_err(|e| tonic::Status::internal(e.to_string()))?;
+    record_admitted_tip_checked(marker, expected, &request.capability, &record, stored.as_ref())
         .map_err(|e| tonic::Status::permission_denied(e.to_string()))
 }
 
-/// The committed chain status: the admitted-tip marker's height (0 when there is no marker).
-/// `total_transactions` is NOT tracked for the committed tip and is always 0
-/// (FU-N11-DURABLE-STATUS-1 D2a round 2, m5): the durable count includes executed but
-/// uncommitted blocks, so it is never reported as committed.
+/// The committed chain status: the height and timestamp of the admitted index's MAX ROW (height 0
+/// when nothing is admitted), from that one record. `total_transactions` is NOT tracked for the
+/// committed tip and is always 0 (the durable count includes executed but uncommitted blocks).
 pub fn committed_status<M: AdmittedTipStore + ?Sized>(
     marker: &M,
     durable: &ChainStatus,
-    stored: impl Fn(u64) -> Option<Block<ChainTransaction>>,
 ) -> Result<ChainStatus> {
     let mut status = durable.clone();
+    status.height = 0;
     status.latest_timestamp = 0;
     status.latest_timestamp_ms = 0;
-    status.height = 0;
     status.total_transactions = 0;
-    if let Some(tip) = marker.admitted_tip()? {
-        status.height = tip.height;
-        if let Some(block) = stored(tip.height) {
-            status.latest_timestamp = block.header.timestamp;
-            status.latest_timestamp_ms = block.header.timestamp_ms;
-        }
+    if let Some(record) = marker.latest_admitted_record()? {
+        status.height = record.height;
+        status.latest_timestamp = record.timestamp;
+        status.latest_timestamp_ms = record.timestamp.saturating_mul(1_000);
     }
     Ok(status)
 }
 
-/// The committed tip as GetCommittedTip serves it (FU-N11-DURABLE-STATUS-1 D2a round 2, B1): the
-/// height, block hash and state root FROM THE MARKER, and the committed block's timestamp. With no
-/// marker every field is empty or 0 (an empty block hash means no tip).
+/// The committed tip as GetCommittedTip serves it: height, block hash, state root and timestamp,
+/// all from the admitted index's MAX ROW. With nothing admitted every field is empty or 0 (an
+/// empty block hash means no tip).
 pub fn committed_tip_response<M: AdmittedTipStore + ?Sized>(
     marker: &M,
-    stored: impl Fn(u64) -> Option<Block<ChainTransaction>>,
 ) -> Result<ioi_ipc::blockchain::GetCommittedTipResponse> {
-    Ok(match marker.admitted_tip()? {
+    Ok(match marker.latest_admitted_record()? {
         None => ioi_ipc::blockchain::GetCommittedTipResponse::default(),
-        Some(tip) => ioi_ipc::blockchain::GetCommittedTipResponse {
-            height: tip.height,
-            block_hash: tip.block_hash.to_vec(),
-            latest_timestamp: stored(tip.height)
-                .map(|block| block.header.timestamp)
-                .unwrap_or(0),
-            state_root: tip.state_root,
+        Some(record) => ioi_ipc::blockchain::GetCommittedTipResponse {
+            height: record.height,
+            block_hash: record.block_hash.to_vec(),
+            state_root: record.state_root,
+            latest_timestamp: record.timestamp,
         },
     })
 }
 
-/// The admission gate's CANARY (test code only): the gate's clippy run over the test target must
-/// flag exactly this one construction, proving the AdmissionWitness ban fires.
-#[cfg(test)]
-#[allow(dead_code)]
-pub(crate) fn admission_gate_canary() -> ioi_api::chain::AdmissionWitness {
-    ioi_api::chain::AdmissionWitness::from_agentgres_admission()
+/// One admitted index row as GetAdmittedRecord serves it. A height that is not admitted gets an
+/// empty response (an empty block hash): the caller refuses; nothing comes from a stored block.
+pub fn admitted_record_response<M: AdmittedTipStore + ?Sized>(
+    marker: &M,
+    height: u64,
+) -> Result<ioi_ipc::blockchain::GetAdmittedRecordResponse> {
+    Ok(match marker.admitted_record(height)? {
+        None => ioi_ipc::blockchain::GetAdmittedRecordResponse::default(),
+        Some(record) => ioi_ipc::blockchain::GetAdmittedRecordResponse {
+            height: record.height,
+            block_hash: record.block_hash.to_vec(),
+            state_root: record.state_root,
+            timestamp: record.timestamp,
+        },
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    //! RED-W1b (execution surface), RED-W2 (capability), RED-W3 (no marker = height 0).
+    //! RED-W1b (execution surface), RED-W2 (capability), RED-W3 (no admission = height 0), the
+    //! RED-3 handler pins, and the GREEN-4 record pins, over an in-memory admitted index.
     use super::*;
     use std::cell::RefCell;
+    use std::collections::BTreeMap;
 
     #[derive(Default)]
-    struct MemoryMarker(RefCell<Option<AdmittedTip>>);
+    struct MemoryMarker(RefCell<BTreeMap<u64, AdmittedRecord>>);
 
     impl AdmittedTipStore for MemoryMarker {
-        fn admitted_tip(&self) -> Result<Option<AdmittedTip>> {
-            Ok(self.0.borrow().clone())
+        fn latest_admitted_record(&self) -> Result<Option<AdmittedRecord>> {
+            Ok(self.0.borrow().values().next_back().cloned())
         }
-        fn record_admitted_tip(&self, tip: &AdmittedTip) -> Result<()> {
-            *self.0.borrow_mut() = Some(tip.clone());
+        fn admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>> {
+            Ok(self.0.borrow().get(&height).cloned())
+        }
+        fn record_admitted(&self, record: &AdmittedRecord) -> Result<()> {
+            self.0.borrow_mut().insert(record.height, record.clone());
             Ok(())
         }
     }
@@ -331,11 +347,14 @@ mod tests {
         }
     }
 
-    fn tip(height: u64, root: u8) -> AdmittedTip {
-        AdmittedTip {
+    /// The admission record of height `height` with root `[root; 32]`; its timestamp is the
+    /// admitted header's (`1_700_000_000 + height`, as `stored_block`'s).
+    fn tip(height: u64, root: u8) -> AdmittedRecord {
+        AdmittedRecord {
             height,
             block_hash: [height as u8; 32],
             state_root: vec![root; 32],
+            timestamp: 1_700_000_000 + height,
         }
     }
 
@@ -350,11 +369,11 @@ mod tests {
                     .is_err(),
                 "a missing, wrong or short capability is refused"
             );
-            assert_eq!(marker.admitted_tip().unwrap(), None, "the marker is unchanged");
+            assert_eq!(marker.latest_admitted_record().unwrap(), None, "the index is unchanged");
         }
         record_admitted_tip_checked(&marker, &expected, &CAPABILITY, &tip(3, 0xB3), Some(&block))
             .expect("the workload capability records the admitted tip");
-        assert_eq!(marker.admitted_tip().unwrap(), Some(tip(3, 0xB3)));
+        assert_eq!(marker.latest_admitted_record().unwrap(), Some(tip(3, 0xB3)));
     }
 
     #[test]
@@ -372,7 +391,7 @@ mod tests {
                 .is_err(),
             "a tip whose block the workload does not store is refused"
         );
-        assert_eq!(marker.admitted_tip().unwrap(), None, "the marker is unchanged");
+        assert_eq!(marker.latest_admitted_record().unwrap(), None, "the index is unchanged");
     }
 
     #[test]
@@ -409,7 +428,7 @@ mod tests {
             .is_err(),
             "a stale capability from a previous boot is refused"
         );
-        assert_eq!(marker.admitted_tip().unwrap(), None);
+        assert_eq!(marker.latest_admitted_record().unwrap(), None);
     }
 
     #[test]
@@ -435,28 +454,17 @@ mod tests {
         };
         let empty = MemoryMarker::default();
         assert_eq!(
-            committed_status(&empty, &durable, |h| Some(stored_block(h, h as u8)))
-                .unwrap()
-                .height,
+            committed_status(&empty, &durable).unwrap().height,
             0,
-            "no marker (a fresh node, or before the first admission) reports height 0"
+            "no admission (a fresh node, or before the first admission) reports height 0"
         );
         let marked = MemoryMarker::default();
-        marked.record_admitted_tip(&tip(3, 3)).unwrap();
-        assert_eq!(
-            committed_status(&marked, &durable, |h| Some(stored_block(h, h as u8)))
-                .unwrap()
-                .height,
-            3
-        );
+        marked.record_admitted(&tip(3, 3)).unwrap();
+        assert_eq!(committed_status(&marked, &durable).unwrap().height, 3);
     }
 
-    // --- D2a round 2 (RED-3) ----------------------------------------------------------------------
-
-    /// m5, RED-3 (fails at 079937616: committed_status clones the durable status and keeps its
-    /// executed total_transactions, admitted_tip.rs:202). The committed status does not track a
-    /// transaction count for the committed tip: it reports 0, never the executed (possibly
-    /// uncommitted) count, with or without a marker.
+    /// m5, RED-3. The committed status does not track a transaction count for the committed tip:
+    /// it reports 0, never the executed (possibly uncommitted) count, with or without a record.
     #[test]
     fn the_committed_status_reports_no_executed_transaction_count() {
         let durable = ChainStatus {
@@ -465,24 +473,17 @@ mod tests {
             ..Default::default()
         };
         let marked = MemoryMarker::default();
-        marked.record_admitted_tip(&tip(3, 3)).unwrap();
+        marked.record_admitted(&tip(3, 3)).unwrap();
         assert_eq!(
-            committed_status(&marked, &durable, |h| Some(stored_block(h, h as u8)))
-                .unwrap()
-                .total_transactions,
+            committed_status(&marked, &durable).unwrap().total_transactions,
             0,
             "the executed count (which includes uncommitted blocks) is not reported as committed"
         );
         let empty = MemoryMarker::default();
-        assert_eq!(
-            committed_status(&empty, &durable, |h| Some(stored_block(h, h as u8)))
-                .unwrap()
-                .total_transactions,
-            0
-        );
+        assert_eq!(committed_status(&empty, &durable).unwrap().total_transactions, 0);
     }
 
-    /// A RecordAdmittedTip request as the orchestration's client encodes it.
+    /// A RecordAdmittedTip request as the orchestration's publisher encodes it.
     fn record_request(
         height: u64,
         root: u8,
@@ -493,17 +494,16 @@ mod tests {
             block_hash: vec![height as u8; 32],
             state_root: vec![root; 32],
             capability,
+            timestamp: 1_700_000_000 + height,
         }
     }
 
-    /// M3, GUARD (passes at RED-3, where the handler logic is extracted unchanged; pins the
-    /// handler's authentication, which no 079937616 test reached: removing it from the handler
-    /// fails here). No, wrong or short capability: refused with PermissionDenied, and an EXISTING
-    /// marker stays unchanged; the workload's capability then advances it (the control).
+    /// M3, GUARD (RED-3). No, wrong or short capability: refused with PermissionDenied, and an
+    /// EXISTING row stays; the workload's capability then records the next height.
     #[test]
     fn the_record_handler_refuses_a_missing_or_wrong_capability_and_keeps_the_existing_marker() {
         let marker = MemoryMarker::default();
-        marker.record_admitted_tip(&tip(3, 0xB3)).unwrap();
+        marker.record_admitted(&tip(3, 0xB3)).unwrap();
         let expected = WorkloadCapability::from_bytes(CAPABILITY);
         for presented in [Vec::new(), vec![0x00; 32], vec![0x5A; 31]] {
             let status = handle_record_admitted_tip(
@@ -515,9 +515,9 @@ mod tests {
             .expect_err("a missing, wrong or short capability is refused");
             assert_eq!(status.code(), tonic::Code::PermissionDenied);
             assert_eq!(
-                marker.admitted_tip().unwrap(),
+                marker.latest_admitted_record().unwrap(),
                 Some(tip(3, 0xB3)),
-                "the existing marker is unchanged"
+                "the existing row is unchanged"
             );
         }
         handle_record_admitted_tip(
@@ -526,42 +526,46 @@ mod tests {
             record_request(4, 0xB4, CAPABILITY.to_vec()),
             |height| Ok(Some(stored_block(height, 0xB4))),
         )
-        .expect("the workload's capability advances the marker");
-        assert_eq!(marker.admitted_tip().unwrap(), Some(tip(4, 0xB4)));
+        .expect("the workload's capability records the next height");
+        assert_eq!(marker.latest_admitted_record().unwrap(), Some(tip(4, 0xB4)));
     }
 
-    /// GREEN-3 PIN (the GetCommittedTip proto surface did not exist at RED-3, so it has no RED):
-    /// the committed tip is served FROM THE MARKER (height, block hash, state root), with the
-    /// committed block's timestamp, and is empty before the first admission. An M-tip-reread
-    /// mutant that serves the stored block's root instead fails here.
+    /// GREEN-3 PIN, INVERTED at GREEN-4 (it asserted the response's timestamp came from the stored
+    /// block). The committed tip is served from the admitted index's max row ALONE: height, block
+    /// hash, state root and TIMESTAMP from the record; there is no stored-block input at all. Empty
+    /// before the first admission.
     #[test]
     fn the_committed_tip_response_is_the_marker_not_the_stored_block() {
         let empty = MemoryMarker::default();
-        let none = committed_tip_response(&empty, |h| Some(stored_block(h, 0xB4))).unwrap();
-        assert!(none.block_hash.is_empty(), "no marker: no tip");
+        let none = committed_tip_response(&empty).unwrap();
+        assert!(none.block_hash.is_empty(), "nothing admitted: no tip");
         assert_eq!(none.height, 0);
 
         let marked = MemoryMarker::default();
-        marked.record_admitted_tip(&tip(3, 0xA3)).unwrap();
-        let response = committed_tip_response(&marked, |h| Some(stored_block(h, 0xB4))).unwrap();
+        let admitted = AdmittedRecord {
+            timestamp: 1_699_999_999,
+            ..tip(3, 0xA3)
+        };
+        marked.record_admitted(&admitted).unwrap();
+        let response = committed_tip_response(&marked).unwrap();
         assert_eq!(response.height, 3);
         assert_eq!(response.block_hash, vec![3u8; 32]);
+        assert_eq!(response.state_root, vec![0xA3; 32], "the record's root");
         assert_eq!(
-            response.state_root,
-            vec![0xA3; 32],
-            "the marker's root, never the stored block's (0xB4)"
+            response.latest_timestamp, 1_699_999_999,
+            "the RECORD's timestamp (the admitted header's), never a stored block's"
         );
-        assert_eq!(response.latest_timestamp, stored_block(3, 0xB4).header.timestamp);
+        let status = committed_status(&marked, &ChainStatus::default()).unwrap();
+        assert_eq!(status.latest_timestamp, 1_699_999_999, "the committed status agrees");
     }
 
-    /// M3, GUARD (passes at RED-3; pins the height conjunct of the execution-surface check,
-    /// admitted_tip.rs:186, which no 079937616 test isolated). The workload's lookup at the tip's
-    /// height 4 yields a block whose header says height 3 with the SAME root: refused, and the
-    /// existing marker stays.
+    /// M3, GUARD (RED-3; the height conjunct of the execution-surface check). The workload's lookup
+    /// at the record's height 4 yields a block whose header says height 3 with the SAME root:
+    /// refused, and the existing row stays.
     #[test]
     fn the_record_handler_refuses_a_tip_at_the_wrong_height_with_the_same_root() {
         let marker = MemoryMarker::default();
-        marker.record_admitted_tip(&tip(3, 0xB3)).unwrap();
+        marker.record_admitted(&tip(3, 0xB3)).unwrap();
         let expected = WorkloadCapability::from_bytes(CAPABILITY);
         let status = handle_record_admitted_tip(
             &marker,
@@ -571,6 +575,32 @@ mod tests {
         )
         .expect_err("a stored block at another height is refused even with the same root");
         assert_eq!(status.code(), tonic::Code::PermissionDenied);
-        assert_eq!(marker.admitted_tip().unwrap(), Some(tip(3, 0xB3)));
+        assert_eq!(marker.latest_admitted_record().unwrap(), Some(tip(3, 0xB3)));
+    }
+
+    /// GREEN-4 PIN (no RED: the request had no timestamp before GREEN-4). The handler records the
+    /// ADMITTED header's timestamp from the request, even when the block the workload stores at
+    /// that height carries another one (the workload never fills it from BLOCKS[h], CRITIC F8).
+    #[test]
+    fn the_record_handler_records_the_admitted_headers_timestamp_from_the_request() {
+        let marker = MemoryMarker::default();
+        let expected = WorkloadCapability::from_bytes(CAPABILITY);
+        let mut request = record_request(4, 0xB4, CAPABILITY.to_vec());
+        request.timestamp = 1_234;
+        handle_record_admitted_tip(&marker, &expected, request, |height| {
+            Ok(Some(stored_block(height, 0xB4)))
+        })
+        .expect("recorded");
+        assert_eq!(
+            marker.admitted_record(4).unwrap().map(|record| record.timestamp),
+            Some(1_234),
+            "the request's timestamp, not the stored block's (1_700_000_004)"
+        );
+        let response = admitted_record_response(&marker, 4).unwrap();
+        assert_eq!(response.timestamp, 1_234);
+        assert!(
+            admitted_record_response(&marker, 5).unwrap().block_hash.is_empty(),
+            "a height that is not admitted gets an empty record"
+        );
     }
 }

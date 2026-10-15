@@ -46,9 +46,9 @@ pub struct AdmittedTip {
     pub state_root: Vec<u8>,
 }
 
-/// One row of the workload's ADMITTED INDEX (FU-N11-DURABLE-STATUS-1 D2a RED-4 scaffold; the index
-/// replaces the admission-floor fence at GREEN-4): what the Agentgres admission publication
-/// recorded for `height`. Every committed read (the by-height record, the IBC explicit and latest
+/// One row of the workload's ADMITTED INDEX (FU-N11-DURABLE-STATUS-1 D2a; it replaced the
+/// admission-floor fence at GREEN-4): what the Agentgres admission publication recorded for
+/// `height`. Every committed read (the by-height record, the IBC explicit and latest
 /// heights, licence expiry, a trusted root) is served from ONE such record and nothing else. The
 /// index is written once per height, only by the publication; its max entry is the committed tip.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -193,41 +193,35 @@ pub trait NodeStore: Send + Sync {
         max_bytes: u32,
     ) -> Result<Vec<Block<ChainTransaction>>, StorageError>;
 
-    /// The persisted Agentgres-admitted tip marker, or `None` before the first admission.
+    /// The committed tip (FU-N11-DURABLE-STATUS-1 D2a): the MAX ROW of the admitted index, or
+    /// `None` before the first admission.
     fn get_admitted_tip(&self) -> Result<Option<AdmittedTip>, StorageError> {
-        Ok(None)
+        Ok(self.get_latest_admitted_record()?.map(|record| AdmittedTip {
+            height: record.height,
+            block_hash: record.block_hash,
+            state_root: record.state_root,
+        }))
     }
 
-    /// Persists the Agentgres-admitted tip marker. Monotone: a lower height, or the same height
-    /// with a different block hash or state root, is refused and leaves the marker unchanged.
-    /// The record is checked against the block the store holds at the tip's height (same height
-    /// and state root) in the same write as the marker, so a block write cannot interleave into a
-    /// marker over a different block (FU-N11-DURABLE-STATUS-1 D2a round 2). Backends without a
-    /// marker refuse every record.
-    ///
-    /// THE ADMISSION FLOOR: once a marker exists, every block or state-version write at a height
-    /// at or below it (`put_block`, `commit_block`, `commit_block_with_payload`) is refused unless
-    /// it keeps the committed block: the same identity hash, execution surface and transactions,
-    /// no stripped evidence (signature, sealed finality proof, guardian certificate) and unchanged
-    /// committee certificates; a state version keeps its root. A refusal leaves the store as it
-    /// was.
-    fn put_admitted_tip(&self, _tip: &AdmittedTip) -> Result<(), StorageError> {
-        Err(StorageError::Backend(
-            "this node store keeps no admitted-tip marker".into(),
-        ))
-    }
-
-    /// The ADMITTED INDEX row for `height` (FU-N11-DURABLE-STATUS-1 D2a RED-4 scaffold): what the
-    /// admission publication recorded there, or `None` (not admitted, or above the max entry): a
-    /// committed read then refuses, never falls back to a stored block. The default keeps no
-    /// index and returns `None`, as every store does before GREEN-4.
+    /// THE ADMITTED INDEX (FU-N11-DURABLE-STATUS-1 D2a GREEN-4): the row the admission publication
+    /// recorded for `height`, or `None` (not admitted, or above the max row): a committed read at
+    /// that height then refuses; it never falls back to a stored block. The default keeps no index.
     fn get_admitted_record(&self, _height: Height) -> Result<Option<AdmittedRecord>, StorageError> {
         Ok(None)
     }
 
-    /// The ADMITTED INDEX's own writer (FU-N11-DURABLE-STATUS-1 D2a RED-4 scaffold): writes one row,
-    /// once per height. A different record at an existing height is refused and the row stays as
-    /// it was; the identical record is an idempotent no-op; no prune or epoch drop removes a row.
+    /// The admitted index's MAX row (the committed tip with its timestamp), or `None` before the
+    /// first admission. The default keeps no index.
+    fn get_latest_admitted_record(&self) -> Result<Option<AdmittedRecord>, StorageError> {
+        Ok(None)
+    }
+
+    /// The admitted index's ONLY writer, called only by the admission publication's handler. It is
+    /// written once per height: the identical record is an idempotent no-op; a different record at
+    /// a present height is refused and the row stays; an absent height is written whether it is
+    /// above the max or below it (a gap fill). No other write path (blocks, state versions, the
+    /// WAL replay, prune, epoch drop) reads or changes a row, and committed reads come from one
+    /// row each, so writes to the mutable block and state store never change a committed read.
     /// The default keeps no index and refuses every write.
     fn put_admitted_record(&self, _record: &AdmittedRecord) -> Result<(), StorageError> {
         Err(StorageError::Backend(

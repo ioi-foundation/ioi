@@ -142,30 +142,51 @@ export interface GetStatusResponse {
   isRunning: boolean;
 }
 
-/** FU-N11-DURABLE-STATUS-1 D2a: an Agentgres-admitted tip, recorded by the orchestration only. */
+/** FU-N11-DURABLE-STATUS-1 D2a: one Agentgres-admitted block, recorded by the orchestration only. */
 export interface RecordAdmittedTipRequest {
   height: number;
   blockHash: Uint8Array;
   stateRoot: Uint8Array;
   /** The workload's per-boot admission capability (32 bytes). */
   capability: Uint8Array;
+  /**
+   * GREEN-4: the admitted header's timestamp (seconds), from the ledger's staged block. The index
+   * records it; the workload never fills it from the block it stores.
+   */
+  timestamp: number;
 }
 
 export interface RecordAdmittedTipResponse {
 }
 
 /**
- * FU-N11-DURABLE-STATUS-1 D2a round 2: the Agentgres-admitted tip as the workload's marker holds it.
- * No marker (a fresh node, or before the first admission): every field is empty or 0.
+ * FU-N11-DURABLE-STATUS-1 D2a: the Agentgres-admitted tip, the max row of the workload's admitted
+ * index. Nothing admitted yet: every field is empty or 0.
  */
 export interface GetCommittedTipResponse {
   height: number;
-  /** The admitted (certified) block hash, 32 bytes; empty when no tip has been admitted. */
+  /** The admitted (certified) block hash, 32 bytes; empty when nothing has been admitted. */
   blockHash: Uint8Array;
-  /** The admitted block's post-state root, from the marker. */
+  /** The admitted block's post-state root, from the record. */
   stateRoot: Uint8Array;
-  /** The admitted block's timestamp (seconds), from the committed block the workload stores. */
+  /** The admitted header's timestamp (seconds), from the record (never from a stored block). */
   latestTimestamp: number;
+}
+
+/** FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index row asked for. */
+export interface GetAdmittedRecordRequest {
+  height: number;
+}
+
+/** One admitted index row. An empty block_hash means the height is not admitted. */
+export interface GetAdmittedRecordResponse {
+  height: number;
+  /** The admitted (certified) block hash, 32 bytes; empty when the height is not admitted. */
+  blockHash: Uint8Array;
+  /** The admitted block's post-state root. */
+  stateRoot: Uint8Array;
+  /** The admitted header's timestamp (seconds). */
+  timestamp: number;
 }
 
 export interface CheckTransactionsRequest {
@@ -1563,7 +1584,13 @@ export const GetStatusResponse: MessageFns<GetStatusResponse> = {
 };
 
 function createBaseRecordAdmittedTipRequest(): RecordAdmittedTipRequest {
-  return { height: 0, blockHash: new Uint8Array(0), stateRoot: new Uint8Array(0), capability: new Uint8Array(0) };
+  return {
+    height: 0,
+    blockHash: new Uint8Array(0),
+    stateRoot: new Uint8Array(0),
+    capability: new Uint8Array(0),
+    timestamp: 0,
+  };
 }
 
 export const RecordAdmittedTipRequest: MessageFns<RecordAdmittedTipRequest> = {
@@ -1579,6 +1606,9 @@ export const RecordAdmittedTipRequest: MessageFns<RecordAdmittedTipRequest> = {
     }
     if (message.capability.length !== 0) {
       writer.uint32(34).bytes(message.capability);
+    }
+    if (message.timestamp !== 0) {
+      writer.uint32(40).uint64(message.timestamp);
     }
     return writer;
   },
@@ -1622,6 +1652,14 @@ export const RecordAdmittedTipRequest: MessageFns<RecordAdmittedTipRequest> = {
           message.capability = reader.bytes();
           continue;
         }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.timestamp = longToNumber(reader.uint64());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1645,6 +1683,7 @@ export const RecordAdmittedTipRequest: MessageFns<RecordAdmittedTipRequest> = {
         ? bytesFromBase64(object.state_root)
         : new Uint8Array(0),
       capability: isSet(object.capability) ? bytesFromBase64(object.capability) : new Uint8Array(0),
+      timestamp: isSet(object.timestamp) ? globalThis.Number(object.timestamp) : 0,
     };
   },
 
@@ -1662,6 +1701,9 @@ export const RecordAdmittedTipRequest: MessageFns<RecordAdmittedTipRequest> = {
     if (message.capability.length !== 0) {
       obj.capability = base64FromBytes(message.capability);
     }
+    if (message.timestamp !== 0) {
+      obj.timestamp = Math.round(message.timestamp);
+    }
     return obj;
   },
 
@@ -1674,6 +1716,7 @@ export const RecordAdmittedTipRequest: MessageFns<RecordAdmittedTipRequest> = {
     message.blockHash = object.blockHash ?? new Uint8Array(0);
     message.stateRoot = object.stateRoot ?? new Uint8Array(0);
     message.capability = object.capability ?? new Uint8Array(0);
+    message.timestamp = object.timestamp ?? 0;
     return message;
   },
 };
@@ -1837,6 +1880,180 @@ export const GetCommittedTipResponse: MessageFns<GetCommittedTipResponse> = {
     message.blockHash = object.blockHash ?? new Uint8Array(0);
     message.stateRoot = object.stateRoot ?? new Uint8Array(0);
     message.latestTimestamp = object.latestTimestamp ?? 0;
+    return message;
+  },
+};
+
+function createBaseGetAdmittedRecordRequest(): GetAdmittedRecordRequest {
+  return { height: 0 };
+}
+
+export const GetAdmittedRecordRequest: MessageFns<GetAdmittedRecordRequest> = {
+  encode(message: GetAdmittedRecordRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.height !== 0) {
+      writer.uint32(8).uint64(message.height);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetAdmittedRecordRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetAdmittedRecordRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetAdmittedRecordRequest {
+    return { height: isSet(object.height) ? globalThis.Number(object.height) : 0 };
+  },
+
+  toJSON(message: GetAdmittedRecordRequest): unknown {
+    const obj: any = {};
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetAdmittedRecordRequest>, I>>(base?: I): GetAdmittedRecordRequest {
+    return GetAdmittedRecordRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetAdmittedRecordRequest>, I>>(object: I): GetAdmittedRecordRequest {
+    const message = createBaseGetAdmittedRecordRequest();
+    message.height = object.height ?? 0;
+    return message;
+  },
+};
+
+function createBaseGetAdmittedRecordResponse(): GetAdmittedRecordResponse {
+  return { height: 0, blockHash: new Uint8Array(0), stateRoot: new Uint8Array(0), timestamp: 0 };
+}
+
+export const GetAdmittedRecordResponse: MessageFns<GetAdmittedRecordResponse> = {
+  encode(message: GetAdmittedRecordResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.height !== 0) {
+      writer.uint32(8).uint64(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      writer.uint32(18).bytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      writer.uint32(26).bytes(message.stateRoot);
+    }
+    if (message.timestamp !== 0) {
+      writer.uint32(32).uint64(message.timestamp);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetAdmittedRecordResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetAdmittedRecordResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.blockHash = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.stateRoot = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.timestamp = longToNumber(reader.uint64());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetAdmittedRecordResponse {
+    return {
+      height: isSet(object.height) ? globalThis.Number(object.height) : 0,
+      blockHash: isSet(object.blockHash)
+        ? bytesFromBase64(object.blockHash)
+        : isSet(object.block_hash)
+        ? bytesFromBase64(object.block_hash)
+        : new Uint8Array(0),
+      stateRoot: isSet(object.stateRoot)
+        ? bytesFromBase64(object.stateRoot)
+        : isSet(object.state_root)
+        ? bytesFromBase64(object.state_root)
+        : new Uint8Array(0),
+      timestamp: isSet(object.timestamp) ? globalThis.Number(object.timestamp) : 0,
+    };
+  },
+
+  toJSON(message: GetAdmittedRecordResponse): unknown {
+    const obj: any = {};
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      obj.blockHash = base64FromBytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      obj.stateRoot = base64FromBytes(message.stateRoot);
+    }
+    if (message.timestamp !== 0) {
+      obj.timestamp = Math.round(message.timestamp);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetAdmittedRecordResponse>, I>>(base?: I): GetAdmittedRecordResponse {
+    return GetAdmittedRecordResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetAdmittedRecordResponse>, I>>(object: I): GetAdmittedRecordResponse {
+    const message = createBaseGetAdmittedRecordResponse();
+    message.height = object.height ?? 0;
+    message.blockHash = object.blockHash ?? new Uint8Array(0);
+    message.stateRoot = object.stateRoot ?? new Uint8Array(0);
+    message.timestamp = object.timestamp ?? 0;
     return message;
   },
 };
@@ -3964,9 +4181,9 @@ export const ChainControlService = {
     responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
   },
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status, i.e. the Agentgres-admitted tip
-   * marker the orchestration records. Height 0 when no tip has been admitted. Every "latest" or
-   * "trusted" read keys on this, never on GetStatus.
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status: the height and timestamp of the max
+   * row of the workload's admitted index. Height 0 when nothing has been admitted. Every "latest"
+   * or "trusted" read keys on this, never on GetStatus.
    */
   getCommittedStatus: {
     path: "/ioi.blockchain.v1.ChainControl/GetCommittedStatus",
@@ -3978,9 +4195,10 @@ export const ChainControlService = {
     responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
   },
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission. Records the
-   * admitted tip; refused without the workload's per-boot capability, or when the tip's execution
-   * surface differs from the stored block. Never exposed on public.v1.
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission publication,
+   * the admitted index's only writer. Records one admitted block (written once per height);
+   * refused without the workload's per-boot capability, or when the record's execution surface
+   * differs from the stored block. Never exposed on public.v1.
    */
   recordAdmittedTip: {
     path: "/ioi.blockchain.v1.ChainControl/RecordAdmittedTip",
@@ -3994,10 +4212,10 @@ export const ChainControlService = {
     responseDeserialize: (value: Buffer): RecordAdmittedTipResponse => RecordAdmittedTipResponse.decode(value),
   },
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a round 2: the COMMITTED tip itself, read FROM THE ADMITTED-TIP
-   * MARKER (never re-read from the block stored at that height). Every trusted root (the IBC
-   * host's latest anchor, the agent's trusted state root) keys on this. An empty block_hash means
-   * no tip has been admitted yet.
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED tip itself: the max row of the admitted index (never
+   * re-read from the block stored at that height). Every trusted root (the IBC host's latest
+   * anchor, the agent's trusted state root) keys on this. An empty block_hash means no block has
+   * been admitted yet.
    */
   getCommittedTip: {
     path: "/ioi.blockchain.v1.ChainControl/GetCommittedTip",
@@ -4008,6 +4226,22 @@ export const ChainControlService = {
     responseSerialize: (value: GetCommittedTipResponse): Buffer =>
       Buffer.from(GetCommittedTipResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetCommittedTipResponse => GetCommittedTipResponse.decode(value),
+  },
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index's row for one height (the IBC host's
+   * explicit-height anchor). An empty block_hash means the height is not admitted (absent, or above
+   * the max): the caller refuses; nothing is served from a stored block.
+   */
+  getAdmittedRecord: {
+    path: "/ioi.blockchain.v1.ChainControl/GetAdmittedRecord",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetAdmittedRecordRequest): Buffer =>
+      Buffer.from(GetAdmittedRecordRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetAdmittedRecordRequest => GetAdmittedRecordRequest.decode(value),
+    responseSerialize: (value: GetAdmittedRecordResponse): Buffer =>
+      Buffer.from(GetAdmittedRecordResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetAdmittedRecordResponse => GetAdmittedRecordResponse.decode(value),
   },
 } as const;
 
@@ -4031,24 +4265,31 @@ export interface ChainControlServer extends UntypedServiceImplementation {
    */
   getExecutionStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status, i.e. the Agentgres-admitted tip
-   * marker the orchestration records. Height 0 when no tip has been admitted. Every "latest" or
-   * "trusted" read keys on this, never on GetStatus.
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status: the height and timestamp of the max
+   * row of the workload's admitted index. Height 0 when nothing has been admitted. Every "latest"
+   * or "trusted" read keys on this, never on GetStatus.
    */
   getCommittedStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission. Records the
-   * admitted tip; refused without the workload's per-boot capability, or when the tip's execution
-   * surface differs from the stored block. Never exposed on public.v1.
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission publication,
+   * the admitted index's only writer. Records one admitted block (written once per height);
+   * refused without the workload's per-boot capability, or when the record's execution surface
+   * differs from the stored block. Never exposed on public.v1.
    */
   recordAdmittedTip: handleUnaryCall<RecordAdmittedTipRequest, RecordAdmittedTipResponse>;
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a round 2: the COMMITTED tip itself, read FROM THE ADMITTED-TIP
-   * MARKER (never re-read from the block stored at that height). Every trusted root (the IBC
-   * host's latest anchor, the agent's trusted state root) keys on this. An empty block_hash means
-   * no tip has been admitted yet.
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED tip itself: the max row of the admitted index (never
+   * re-read from the block stored at that height). Every trusted root (the IBC host's latest
+   * anchor, the agent's trusted state root) keys on this. An empty block_hash means no block has
+   * been admitted yet.
    */
   getCommittedTip: handleUnaryCall<GetStatusRequest, GetCommittedTipResponse>;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index's row for one height (the IBC host's
+   * explicit-height anchor). An empty block_hash means the height is not admitted (absent, or above
+   * the max): the caller refuses; nothing is served from a stored block.
+   */
+  getAdmittedRecord: handleUnaryCall<GetAdmittedRecordRequest, GetAdmittedRecordResponse>;
 }
 
 export interface ChainControlClient extends Client {
@@ -4169,9 +4410,9 @@ export interface ChainControlClient extends Client {
     callback: (error: ServiceError | null, response: GetStatusResponse) => void,
   ): ClientUnaryCall;
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status, i.e. the Agentgres-admitted tip
-   * marker the orchestration records. Height 0 when no tip has been admitted. Every "latest" or
-   * "trusted" read keys on this, never on GetStatus.
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status: the height and timestamp of the max
+   * row of the workload's admitted index. Height 0 when nothing has been admitted. Every "latest"
+   * or "trusted" read keys on this, never on GetStatus.
    */
   getCommittedStatus(
     request: GetStatusRequest,
@@ -4189,9 +4430,10 @@ export interface ChainControlClient extends Client {
     callback: (error: ServiceError | null, response: GetStatusResponse) => void,
   ): ClientUnaryCall;
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission. Records the
-   * admitted tip; refused without the workload's per-boot capability, or when the tip's execution
-   * surface differs from the stored block. Never exposed on public.v1.
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission publication,
+   * the admitted index's only writer. Records one admitted block (written once per height);
+   * refused without the workload's per-boot capability, or when the record's execution surface
+   * differs from the stored block. Never exposed on public.v1.
    */
   recordAdmittedTip(
     request: RecordAdmittedTipRequest,
@@ -4209,10 +4451,10 @@ export interface ChainControlClient extends Client {
     callback: (error: ServiceError | null, response: RecordAdmittedTipResponse) => void,
   ): ClientUnaryCall;
   /**
-   * FU-N11-DURABLE-STATUS-1 D2a round 2: the COMMITTED tip itself, read FROM THE ADMITTED-TIP
-   * MARKER (never re-read from the block stored at that height). Every trusted root (the IBC
-   * host's latest anchor, the agent's trusted state root) keys on this. An empty block_hash means
-   * no tip has been admitted yet.
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED tip itself: the max row of the admitted index (never
+   * re-read from the block stored at that height). Every trusted root (the IBC host's latest
+   * anchor, the agent's trusted state root) keys on this. An empty block_hash means no block has
+   * been admitted yet.
    */
   getCommittedTip(
     request: GetStatusRequest,
@@ -4228,6 +4470,26 @@ export interface ChainControlClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetCommittedTipResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index's row for one height (the IBC host's
+   * explicit-height anchor). An empty block_hash means the height is not admitted (absent, or above
+   * the max): the caller refuses; nothing is served from a stored block.
+   */
+  getAdmittedRecord(
+    request: GetAdmittedRecordRequest,
+    callback: (error: ServiceError | null, response: GetAdmittedRecordResponse) => void,
+  ): ClientUnaryCall;
+  getAdmittedRecord(
+    request: GetAdmittedRecordRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetAdmittedRecordResponse) => void,
+  ): ClientUnaryCall;
+  getAdmittedRecord(
+    request: GetAdmittedRecordRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetAdmittedRecordResponse) => void,
   ): ClientUnaryCall;
 }
 

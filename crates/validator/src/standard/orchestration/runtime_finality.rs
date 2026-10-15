@@ -192,15 +192,25 @@ pub(crate) struct RuntimeFinalityCoordinator {
     admitted_tip_publisher: Option<Arc<AdmittedTipPublisher>>,
 }
 
-/// The orchestration's ONLY holder of the workload's admission capability (FU-N11-DURABLE-STATUS-1
-/// D2a round 2, B2). The binary builds it once at startup (in-process: the capability it shares
-/// with its in-process workload server; split-process: the workload's private capability file)
-/// and hands it to the orchestrator, which installs it in the runtime-finality coordinator; the
-/// coordinator owns it privately. The shared workload client stores no capability. Agentgres
-/// admission publishes each admitted tip through it, presenting the capability explicitly.
+/// How long one admitted-index RPC to the workload may take. The publication never holds the
+/// coordinator's lock while it waits.
+const ADMITTED_PUBLICATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// The most heights one publication fills below the ledger head by its parent_hash walk.
+const ADMITTED_GAP_FILL_LIMIT: usize = 64;
+
+/// The orchestration's ONLY holder of the workload's admission capability and of the private gRPC
+/// channel through which the workload's admitted index is written (FU-N11-DURABLE-STATUS-1 D2a).
+/// The binary builds it once at startup (in-process: the capability it shares with its in-process
+/// workload server; split-process: the workload's private capability file) and hands it to the
+/// orchestrator, which installs it in the runtime-finality coordinator. It has NO operation of its
+/// own: the coordinator's [`RuntimeFinalityCoordinator::publish_admitted_head`], which reads the
+/// coordinator's own ledger, is the only thing that sends through it, so nothing can hand it a tip
+/// or a block to publish. The shared workload client has no way to write the index.
 pub struct AdmittedTipPublisher {
     capability: std::sync::Mutex<Option<crate::standard::workload::admitted_tip::WorkloadCapability>>,
     capability_file: Option<PathBuf>,
+    workload_endpoint: String,
+    channel: std::sync::Mutex<Option<tonic::transport::Channel>>,
 }
 
 impl std::fmt::Debug for AdmittedTipPublisher {
@@ -210,25 +220,32 @@ impl std::fmt::Debug for AdmittedTipPublisher {
 }
 
 impl AdmittedTipPublisher {
-    /// For an in-process binary: the capability it shares with its in-process workload server.
+    /// For an in-process binary: the capability it shares with its in-process workload server,
+    /// whose IPC listens on `workload_address`.
     pub fn in_process(
         capability: crate::standard::workload::admitted_tip::WorkloadCapability,
+        workload_address: &str,
     ) -> Self {
         Self {
             capability: std::sync::Mutex::new(Some(capability)),
             capability_file: None,
+            workload_endpoint: workload_endpoint(workload_address),
+            channel: std::sync::Mutex::new(None),
         }
     }
 
     /// For a split-process orchestration: reads the workload's capability file now. After a
-    /// refusal (a restarted workload rotates its capability), publishing re-reads the file once and
-    /// retries. A missing or malformed file leaves the publisher without a capability (fail-closed:
-    /// nothing is recorded and the committed height stays where it is) until a re-read finds one.
-    pub fn from_capability_file(path: PathBuf) -> Self {
+    /// refusal (a restarted workload rotates its capability), a publication re-reads the file once
+    /// and retries. A missing or malformed file leaves the publisher without a capability
+    /// (fail-closed: nothing is recorded and the committed height stays where it is) until a
+    /// re-read finds one.
+    pub fn from_capability_file(path: PathBuf, workload_address: &str) -> Self {
         let capability = crate::standard::workload::admitted_tip::read_capability_file(&path).ok();
         Self {
             capability: std::sync::Mutex::new(capability),
             capability_file: Some(path),
+            workload_endpoint: workload_endpoint(workload_address),
+            channel: std::sync::Mutex::new(None),
         }
     }
 
@@ -254,90 +271,116 @@ impl AdmittedTipPublisher {
         Some(fresh)
     }
 
-    /// Presents `capability` for `tip`, with the one sanctioned AdmissionWitness construction.
-    async fn present(
-        workload: &dyn ioi_api::chain::WorkloadClientApi,
-        capability: &crate::standard::workload::admitted_tip::WorkloadCapability,
-        tip: ioi_api::storage::AdmittedTip,
-    ) -> Result<()> {
-        // The ONLY sanctioned construction of an AdmissionWitness (the admission gate bans it
-        // everywhere else).
-        #[allow(clippy::disallowed_methods)]
-        let witness = ioi_api::chain::AdmissionWitness::from_agentgres_admission();
-        workload
-            .record_admitted_tip_with_capability(witness, capability.as_bytes(), tip)
-            .await
-            .map_err(|error| anyhow!(error.to_string()))
+    /// The private channel to the workload's IPC (created on first use, then reused).
+    fn channel(&self) -> Result<tonic::transport::Channel> {
+        let mut channel = self
+            .channel
+            .lock()
+            .map_err(|_| anyhow!("the admitted-tip publisher's channel lock is poisoned"))?;
+        if let Some(channel) = channel.as_ref() {
+            return Ok(channel.clone());
+        }
+        let fresh = tonic::transport::Channel::from_shared(self.workload_endpoint.clone())
+            .map_err(|error| anyhow!("invalid workload IPC endpoint: {error}"))?
+            .connect_lazy();
+        *channel = Some(fresh.clone());
+        Ok(fresh)
     }
 
-    /// Publishes an admitted tip to the workload, presenting this publisher's capability
-    /// explicitly. On a refusal (or with no capability yet), a file-backed publisher re-reads its
-    /// capability file ONCE and, when that yields a different capability (a restarted workload
-    /// rotated it), retries once (m4). Without any capability nothing is sent.
-    pub(crate) async fn publish(
-        &self,
-        workload: &dyn ioi_api::chain::WorkloadClientApi,
-        tip: ioi_api::storage::AdmittedTip,
-    ) -> Result<()> {
+    /// Sends one admitted record, presenting this publisher's capability. On a refusal (or with no
+    /// capability yet), a file-backed publisher re-reads its capability file ONCE and, when that
+    /// yields a different capability (a restarted workload rotated it), retries once (m4). Without
+    /// any capability nothing is sent.
+    async fn send(&self, record: &ioi_api::storage::AdmittedRecord) -> Result<()> {
         let Some(capability) = self.current_capability().or_else(|| self.reread_capability())
         else {
             return Err(anyhow!(
-                "no workload admission capability is available; the admitted tip is not recorded"
+                "no workload admission capability is available; the admitted block is not recorded"
             ));
         };
-        let first = match Self::present(workload, &capability, tip.clone()).await {
+        let first = match record_admitted_rpc(self.channel()?, &capability, record).await {
             Ok(()) => return Ok(()),
             Err(error) => error,
         };
         match self.reread_capability() {
-            Some(fresh) if fresh != capability => Self::present(workload, &fresh, tip)
-                .await
-                .map_err(|second| {
-                    anyhow!(
-                        "the admitted-tip record was refused with the re-read capability: {second:#} (first refusal: {first:#})"
-                    )
-                }),
+            Some(fresh) if fresh != capability => {
+                record_admitted_rpc(self.channel()?, &fresh, record)
+                    .await
+                    .map_err(|second| {
+                        anyhow!(
+                            "the admitted record was refused with the re-read capability: {second:#} (first refusal: {first:#})"
+                        )
+                    })
+            }
             _ => Err(first),
         }
     }
 
-    /// Reconciles the workload's committed marker with the latest Agentgres-admitted block (m4):
-    /// publishes that block's tip (a no-op without an admitted block).
-    pub(crate) async fn reconcile(
-        &self,
-        workload: &dyn ioi_api::chain::WorkloadClientApi,
-        latest_admitted: Option<&Block<ChainTransaction>>,
-    ) -> Result<()> {
-        let Some(block) = latest_admitted else {
-            return Ok(());
-        };
-        self.publish(workload, admitted_tip_of(block)?).await
-    }
-
-    /// FU-N11-DURABLE-STATUS-1 D2a RED-4 SCAFFOLD, the publisher's ONE operation under the
-    /// admitted index: it publishes the Agentgres ledger's canonical head, which it reads ITSELF
-    /// (or, at GREEN-4, a block reachable from that head by parent_hash). It takes no tip and no
-    /// block from its caller. At RED-4 its body is today's startup reconcile
-    /// (`reconcile_workload_admitted_tip`: the ledger's last admitted block, then `reconcile`);
-    /// nothing in production calls it yet. GREEN-4 makes it the publisher's only operation
-    /// (`publish` and `reconcile` go, and with them every caller-supplied tip).
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) async fn publish_admitted_head(
-        &self,
-        ledger: &tokio::sync::Mutex<RuntimeFinalityCoordinator>,
-        workload: &dyn ioi_api::chain::WorkloadClientApi,
-    ) -> Result<()> {
-        let latest = ledger.lock().await.last_admitted_block()?;
-        self.reconcile(workload, latest.as_ref()).await
+    /// Whether the workload's admitted index already holds `height`.
+    async fn workload_holds(&self, height: u64) -> Result<bool> {
+        admitted_record_present_rpc(self.channel()?, height).await
     }
 }
 
-/// The tip Agentgres admission publishes for `block`: its height, admitted hash and state root.
-fn admitted_tip_of(block: &Block<ChainTransaction>) -> Result<ioi_api::storage::AdmittedTip> {
-    Ok(ioi_api::storage::AdmittedTip {
+/// The workload IPC endpoint for `address` (as the shared workload client forms it).
+fn workload_endpoint(address: &str) -> String {
+    if address.starts_with("http") {
+        address.to_string()
+    } else {
+        format!("http://{address}")
+    }
+}
+
+/// THE ONLY TYPED PATH TO RecordAdmittedTip (FU-N11-DURABLE-STATUS-1 D2a GREEN-4): module-private,
+/// called only by the publisher's `send`, which only the coordinator's ledger-reading publication
+/// calls. The record carries the ADMITTED header's timestamp.
+async fn record_admitted_rpc(
+    channel: tonic::transport::Channel,
+    capability: &crate::standard::workload::admitted_tip::WorkloadCapability,
+    record: &ioi_api::storage::AdmittedRecord,
+) -> Result<()> {
+    let mut client = ioi_ipc::blockchain::chain_control_client::ChainControlClient::new(channel);
+    tokio::time::timeout(
+        ADMITTED_PUBLICATION_TIMEOUT,
+        client.record_admitted_tip(ioi_ipc::blockchain::RecordAdmittedTipRequest {
+            height: record.height,
+            block_hash: record.block_hash.to_vec(),
+            state_root: record.state_root.clone(),
+            capability: capability.as_bytes().to_vec(),
+            timestamp: record.timestamp,
+        }),
+    )
+    .await
+    .map_err(|_| anyhow!("the workload did not answer the admitted record in time"))?
+    .map_err(|status| anyhow!("the workload refused the admitted record: {status}"))?;
+    Ok(())
+}
+
+/// Whether the workload's admitted index holds `height` (the gap-fill walk's stop condition).
+async fn admitted_record_present_rpc(
+    channel: tonic::transport::Channel,
+    height: u64,
+) -> Result<bool> {
+    let mut client = ioi_ipc::blockchain::chain_control_client::ChainControlClient::new(channel);
+    let response = tokio::time::timeout(
+        ADMITTED_PUBLICATION_TIMEOUT,
+        client.get_admitted_record(ioi_ipc::blockchain::GetAdmittedRecordRequest { height }),
+    )
+    .await
+    .map_err(|_| anyhow!("the workload did not answer the admitted-record query in time"))?
+    .map_err(|status| anyhow!("the admitted-record query failed: {status}"))?
+    .into_inner();
+    Ok(!response.block_hash.is_empty())
+}
+
+/// The record Agentgres admission publishes for `block`: its height, admitted hash, state root and
+/// the admitted header's timestamp.
+fn admitted_record_of(block: &Block<ChainTransaction>) -> Result<ioi_api::storage::AdmittedRecord> {
+    Ok(ioi_api::storage::AdmittedRecord {
         height: block.header.height,
         block_hash: block_hash(block)?,
         state_root: block.header.state_root.0.clone(),
+        timestamp: block.header.timestamp,
     })
 }
 
@@ -1296,13 +1339,8 @@ where
                     )
                     .await,
                 );
-                let publisher = coordinator_ref.lock().await.admitted_tip_publisher();
-                record_workload_admitted_tip(
-                    publisher.as_deref(),
-                    context.view_resolver.workload_client().as_ref(),
-                    &admission.block,
-                )
-                .await;
+                record_workload_admitted_tip(&coordinator_ref, admission.block.header.height)
+                    .await;
             }
             "transaction_committed" => {
                 let hashes = match published_hashes.as_ref() {
@@ -1345,51 +1383,33 @@ where
     Ok(())
 }
 
-/// Records the Agentgres-admitted block as the workload's committed tip (FU-N11-DURABLE-STATUS-1
-/// D2a): the source of every committed read in the workload (IBC latest anchor, licence expiry, a
-/// trusted state root). It goes through the coordinator's privately owned publisher, the only
-/// holder of the workload capability (round 2, B2). A refused or failed record is logged, never
-/// fatal: the marker is monotone, the next admission (or the startup reconciliation) advances it,
+/// Publishes the Agentgres ledger's head into the workload's admitted index after an admission
+/// (FU-N11-DURABLE-STATUS-1 D2a): the source of every committed read in the workload (IBC explicit
+/// and latest anchors, licence expiry, a trusted state root). It is the coordinator's
+/// ledger-reading publication; the admitted block is NOT passed to it (the ledger's head is that
+/// block). A refused or failed publication is logged, never fatal: the next admission (or the
+/// startup reconciliation) publishes the head again and fills the gap by its parent_hash walk,
 /// and a node without a publisher reports committed height 0.
 async fn record_workload_admitted_tip(
-    publisher: Option<&AdmittedTipPublisher>,
-    workload: &dyn ioi_api::chain::WorkloadClientApi,
-    block: &Block<ChainTransaction>,
+    ledger: &tokio::sync::Mutex<RuntimeFinalityCoordinator>,
+    admitted_height: u64,
 ) {
-    let Some(publisher) = publisher else {
+    // Boxed: the publication's future carries tonic client futures, and inlining it into the
+    // admission future overflows the stack of deep callers (the gossip/sync paths).
+    if let Err(error) = Box::pin(RuntimeFinalityCoordinator::publish_admitted_head(ledger)).await {
         tracing::warn!(
             target: "consensus",
-            height = block.header.height,
-            "No admitted-tip publisher is installed; the workload's admitted tip is not recorded."
-        );
-        return;
-    };
-    let tip = match admitted_tip_of(block) {
-        Ok(tip) => tip,
-        Err(error) => {
-            tracing::warn!(
-                target: "consensus",
-                height = block.header.height,
-                error = %error,
-                "Admitted block has no hash; the workload's admitted tip is not recorded."
-            );
-            return;
-        }
-    };
-    if let Err(error) = publisher.publish(workload, tip).await {
-        tracing::warn!(
-            target: "consensus",
-            height = block.header.height,
+            height = admitted_height,
             error = %error,
-            "The workload refused or missed the admitted-tip record; its committed height stays at the last recorded admission."
+            "The admitted index was not updated; its committed height stays at the last recorded admission."
         );
     }
 }
 
-/// Reconciles the workload's committed marker with the latest Agentgres-admitted block
-/// (FU-N11-DURABLE-STATUS-1 D2a round 2, m4): at orchestration startup and after a workload
-/// reconnect, the coordinator's publisher publishes the latest admitted tip, so a publication
-/// missed while the workload was down or rotating its capability is not stale forever.
+/// Reconciles the workload's admitted index with the Agentgres ledger (FU-N11-DURABLE-STATUS-1 D2a,
+/// m4): at orchestration startup the coordinator's ledger-reading publication publishes the head
+/// and fills any gap below it, so a publication missed while the workload was down or rotating its
+/// capability is not stale forever.
 ///
 /// Called by the orchestration at startup (lifecycle), after the committed-outbox redrive.
 pub(crate) async fn reconcile_workload_admitted_tip<CS, ST, CE, V>(
@@ -1421,21 +1441,10 @@ where
         + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    let (publisher, latest) = {
-        let coordinator = context.runtime_finality.lock().await;
-        (
-            coordinator.admitted_tip_publisher(),
-            coordinator.last_admitted_block()?,
-        )
-    };
-    let Some(publisher) = publisher else {
-        return Err(anyhow!(
-            "no admitted-tip publisher is installed; the workload's marker is not reconciled"
-        ));
-    };
-    publisher
-        .reconcile(context.view_resolver.workload_client().as_ref(), latest.as_ref())
-        .await
+    Box::pin(RuntimeFinalityCoordinator::publish_admitted_head(
+        &context.runtime_finality,
+    ))
+    .await
 }
 
 /// A committed effect whose ordered consequences cannot be recovered is a
@@ -1767,10 +1776,61 @@ impl RuntimeFinalityCoordinator {
         Ok(())
     }
 
-    /// The installed publisher. Private to this module: only the admission path and its
-    /// reconciliation reach the capability holder.
+    /// The installed publisher. Private to this module: only the ledger-reading publication below
+    /// reaches the capability holder.
     fn admitted_tip_publisher(&self) -> Option<Arc<AdmittedTipPublisher>> {
         self.admitted_tip_publisher.clone()
+    }
+
+    /// THE admitted-index publication, the publisher's ONE operation (FU-N11-DURABLE-STATUS-1 D2a
+    /// GREEN-4; NET-DECISIONS 1). It reads THIS coordinator's own ledger: it publishes the
+    /// canonical head (`last_admitted_block`), then walks parent_hash down through the staged
+    /// envelopes and publishes each height the workload's index does not hold yet (a gap left by
+    /// a missed publication), stopping at the first height it holds, at height 1, at a parent
+    /// without a staged envelope, or after `ADMITTED_GAP_FILL_LIMIT` heights. It takes no tip and
+    /// no block from its caller, so it publishes only what Agentgres admitted. It is an associated
+    /// function over the coordinator's mutex so that the lock is held only to read the ledger,
+    /// never across an RPC to the workload. Nothing admitted yet (the genesis head): a no-op.
+    pub(crate) async fn publish_admitted_head(ledger: &tokio::sync::Mutex<Self>) -> Result<()> {
+        let (publisher, head) = {
+            let coordinator = ledger.lock().await;
+            let Some(publisher) = coordinator.admitted_tip_publisher() else {
+                return Err(anyhow!(
+                    "no admitted-tip publisher is installed; the admitted index is not updated"
+                ));
+            };
+            (publisher, coordinator.last_admitted_block()?)
+        };
+        let Some(head) = head else {
+            return Ok(());
+        };
+        publisher.send(&admitted_record_of(&head)?).await?;
+        let mut child = head;
+        for _ in 0..ADMITTED_GAP_FILL_LIMIT {
+            let Some(parent_height) = child.header.height.checked_sub(1).filter(|h| *h >= 1) else {
+                break;
+            };
+            if publisher.workload_holds(parent_height).await? {
+                break;
+            }
+            let parent = {
+                let coordinator = ledger.lock().await;
+                if !coordinator.has_staged_block(&child.header.parent_hash) {
+                    break;
+                }
+                coordinator.read_staged(&child.header.parent_hash)?.block
+            };
+            if parent.header.height != parent_height {
+                return Err(anyhow!(
+                    "the staged parent of admitted block {} is at height {}, not {parent_height}",
+                    child.header.height,
+                    parent.header.height
+                ));
+            }
+            publisher.send(&admitted_record_of(&parent)?).await?;
+            child = parent;
+        }
+        Ok(())
     }
 
     pub(crate) fn active_profile(&self) -> Result<RuntimeFinalityProfile> {

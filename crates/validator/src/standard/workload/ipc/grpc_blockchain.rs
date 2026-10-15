@@ -22,7 +22,7 @@ use ioi_ipc::blockchain::{
     QueryContractRequest, QueryContractResponse, QueryRawStateRequest, QueryRawStateResponse,
     QueryStateAtRequest, QueryStateAtResponse, RecordAdmittedTipRequest, RecordAdmittedTipResponse,
     ReplaceUnfinalizedTipRequest, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
-    GetCommittedTipResponse,
+    GetAdmittedRecordRequest, GetAdmittedRecordResponse, GetCommittedTipResponse,
 };
 use ioi_types::{
     app::{Block, ChainId, ChainStatus, ChainTransaction, Membership, StateRoot},
@@ -264,22 +264,6 @@ where
             ));
         }
 
-        // FU-N11-DURABLE-STATUS-1 D2a round 2: the admission floor is the persisted
-        // Agentgres-admitted tip, not only the caller's recognized height. A marker that advances
-        // after this check is still enforced by the store when the replacement commits.
-        let marker = self
-            .ctx
-            .workload
-            .store
-            .get_admitted_tip()
-            .map_err(|e| Status::internal(e.to_string()))?;
-        replacement_respects_admission_floor(
-            request.expected_tip_height,
-            request.recognized_height,
-            marker.as_ref(),
-        )
-        .map_err(Status::failed_precondition)?;
-
         // Bounded branch rollback, deterministic replay, and replacement
         // commit share one machine guard. No normal ProcessBlock call can
         // advance the branch or consume a snapshot between those boundaries.
@@ -437,24 +421,6 @@ where
             )));
         }
 
-        // FU-N11-DURABLE-STATUS-1 D2a round 2: the admission-floor fence (and its no-downgrade
-        // condition) for a block at or below the Agentgres-admitted tip. The store re-checks the
-        // structural rule in the write's own transaction.
-        let store = self.ctx.workload.store.clone();
-        let marker = store
-            .get_admitted_tip()
-            .map_err(|e| Status::internal(e.to_string()))?;
-        if let Some(marker) = marker
-            .as_ref()
-            .filter(|marker| block.header.height <= marker.height)
-        {
-            let stored = store
-                .get_block_by_height(block.header.height)
-                .map_err(|e| Status::internal(e.to_string()))?;
-            header_update_respects_admission_floor(Some(marker), stored.as_ref(), &block)
-                .map_err(Status::failed_precondition)?;
-        }
-
         let block_bytes = codec::to_bytes_canonical(&block).map_err(Status::internal)?;
 
         self.ctx
@@ -589,12 +555,8 @@ where
     ) -> Result<Response<GetStatusResponse>, Status> {
         let durable = self.ctx.machine.lock().await.status().clone();
         let store = self.ctx.workload.store.clone();
-        let status = crate::standard::workload::admitted_tip::committed_status(
-            &*store,
-            &durable,
-            |height| store.get_block_by_height(height).ok().flatten(),
-        )
-        .map_err(|e| Status::internal(e.to_string()))?;
+        let status = crate::standard::workload::admitted_tip::committed_status(&*store, &durable)
+            .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(GetStatusResponse {
             height: status.height,
             latest_timestamp: status.latest_timestamp,
@@ -624,225 +586,23 @@ where
         _request: Request<GetStatusRequest>,
     ) -> Result<Response<GetCommittedTipResponse>, Status> {
         let store = self.ctx.workload.store.clone();
-        let response = crate::standard::workload::admitted_tip::committed_tip_response(
-            &*store,
-            |height| store.get_block_by_height(height).ok().flatten(),
+        let response = crate::standard::workload::admitted_tip::committed_tip_response(&*store)
+            .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(response))
+    }
+
+    async fn get_admitted_record(
+        &self,
+        request: Request<GetAdmittedRecordRequest>,
+    ) -> Result<Response<GetAdmittedRecordResponse>, Status> {
+        // FU-N11-DURABLE-STATUS-1 D2a GREEN-4: one admitted index row; nothing from BLOCKS.
+        let height = request.into_inner().height;
+        let response = crate::standard::workload::admitted_tip::admitted_record_response(
+            &*self.ctx.workload.store,
+            height,
         )
         .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(response))
-    }
-}
-
-/// FU-N11-DURABLE-STATUS-1 D2a round 2, B1 (ii): the ADMISSION-FLOOR FENCE for UpdateBlockHeader.
-/// A block at or below the persisted Agentgres-admitted marker is committed. An update there must
-/// keep the stored block (the store's structural rule, `committed_block_change_refusal`: the same
-/// identity hash, execution surface and transactions; nothing stripped; the committee certificates
-/// unchanged), and its post-signing evidence may change only to evidence that VERIFIES (the IOI
-/// Director's no-downgrade condition): a changed signature or oracle counter/trace needs the block
-/// producer's verifying signature, and an added or changed sealed finality proof must verify for
-/// the block. Both checks are the consensus engine's own (`ioi_consensus::aft_evidence`). An
-/// update above the marker (or with no marker) is not fenced.
-fn header_update_respects_admission_floor(
-    marker: Option<&ioi_api::storage::AdmittedTip>,
-    stored: Option<&Block<ChainTransaction>>,
-    incoming: &Block<ChainTransaction>,
-) -> Result<(), String> {
-    let Some(marker) = marker else {
-        return Ok(());
-    };
-    let height = incoming.header.height;
-    if height > marker.height {
-        return Ok(());
-    }
-    let stored = stored.ok_or_else(|| {
-        format!(
-            "refusing to update block {height}: it is at or below the Agentgres-admitted tip {} and the workload stores no block there",
-            marker.height
-        )
-    })?;
-    if stored == incoming {
-        return Ok(());
-    }
-    if let Some(why) =
-        ioi_storage::redb_epoch_store::committed_block_change_refusal(stored, incoming)
-    {
-        return Err(format!(
-            "refusing to update committed block {height} (at or below the Agentgres-admitted tip {}): {why}",
-            marker.height
-        ));
-    }
-    let (old, new) = (&stored.header, &incoming.header);
-    let signing_changed = old.signature != new.signature
-        || old.oracle_counter != new.oracle_counter
-        || old.oracle_trace_hash != new.oracle_trace_hash;
-    if signing_changed {
-        ioi_consensus::aft_evidence::verify_block_header_signature(new).map_err(|error| {
-            format!(
-                "refusing to update committed block {height}: its new producer signature does not verify: {error}"
-            )
-        })?;
-    }
-    if let Some(proof) = new.sealed_finality_proof.as_ref() {
-        if signing_changed || old.sealed_finality_proof.as_ref() != Some(proof) {
-            ioi_consensus::aft_evidence::verify_sealed_finality_proof_for_block(new, proof)
-                .map_err(|error| {
-                    format!(
-                        "refusing to update committed block {height}: its sealed finality proof does not verify for the block: {error}"
-                    )
-                })?;
-        }
-    }
-    Ok(())
-}
-
-/// FU-N11-DURABLE-STATUS-1 D2a round 2, B1 (ii): the ADMISSION-FLOOR FENCE for
-/// ReplaceUnfinalizedTip. The replacement target must lie strictly above the persisted
-/// Agentgres-admitted marker, whatever recognized height the caller supplies (079937616 trusted
-/// request.recognized_height alone). Checked before any rollback.
-fn replacement_respects_admission_floor(
-    target_height: u64,
-    recognized_height: u64,
-    marker: Option<&ioi_api::storage::AdmittedTip>,
-) -> Result<(), String> {
-    match marker {
-        Some(marker) if target_height <= marker.height => Err(format!(
-            "refusing to replace block {target_height}: it is at or below the Agentgres-admitted tip {} (the caller recognized height {recognized_height})",
-            marker.height
-        )),
-        _ => Ok(()),
-    }
-}
-
-#[cfg(test)]
-mod admission_floor_tests {
-    //! FU-N11-DURABLE-STATUS-1 D2a round 2 (RED-3), B1 (ii): the workload handlers' admission-floor
-    //! fence. (The block store's own fence, which every write path reaches, is pinned in
-    //! ioi-storage redb_epoch_store::admitted_tip_tests.)
-    use super::{header_update_respects_admission_floor, replacement_respects_admission_floor};
-    use ioi_api::storage::AdmittedTip;
-    use ioi_types::app::{
-        AccountId, Block, BlockHeader, ChainTransaction, QuorumCertificate, SignatureSuite,
-        StateRoot,
-    };
-
-    fn block(height: u64, root: u8, parent: u8) -> Block<ChainTransaction> {
-        Block {
-            header: BlockHeader {
-                height,
-                view: 0,
-                parent_hash: [parent; 32],
-                parent_state_root: StateRoot(vec![0x22; 32]),
-                state_root: StateRoot(vec![root; 32]),
-                transactions_root: vec![0x44; 32],
-                timestamp: 1,
-                timestamp_ms: 1_000,
-                gas_used: 0,
-                validator_set: Vec::new(),
-                producer_account_id: AccountId::default(),
-                producer_key_suite: SignatureSuite::ED25519,
-                producer_pubkey_hash: [0; 32],
-                producer_pubkey: Vec::new(),
-                oracle_counter: 0,
-                oracle_trace_hash: [0; 32],
-                guardian_certificate: None,
-                sealed_finality_proof: None,
-                canonical_order_certificate: None,
-                timeout_certificate: None,
-                aft_timeout_certificate: None,
-                parent_qc: QuorumCertificate::default(),
-                previous_canonical_collapse_commitment_hash: [0; 32],
-                canonical_collapse_extension_certificate: None,
-                publication_frontier: None,
-                signature: Vec::new(),
-            },
-            transactions: Vec::new(),
-        }
-    }
-
-    /// The marker the admission recorded: height 3, root 0xA3.
-    fn marker() -> AdmittedTip {
-        AdmittedTip {
-            height: 3,
-            block_hash: [0xAD; 32],
-            state_root: vec![0xA3; 32],
-        }
-    }
-
-    /// RED-3 (fails at 079937616: update_block_header guards only the live height and writes any
-    /// historical height, grpc_blockchain.rs:395-428; the RED-3 stub permits everything). An update
-    /// at or below the marker that changes the stored block is refused: a different root (e.g.
-    /// height 4's uncommitted root) at the marker's height or below it, or a different consensus
-    /// identity at the marker's height.
-    #[test]
-    fn a_header_update_at_or_below_the_admitted_tip_is_refused() {
-        let m = marker();
-        let (a2, a3) = (block(2, 0xA2, 0x11), block(3, 0xA3, 0x11));
-        assert!(
-            header_update_respects_admission_floor(Some(&m), Some(&a3), &block(3, 0xB4, 0x11))
-                .is_err(),
-            "a different root at the admitted height is refused"
-        );
-        assert!(
-            header_update_respects_admission_floor(Some(&m), Some(&a2), &block(2, 0xB2, 0x11))
-                .is_err(),
-            "a different root below the admitted height is refused"
-        );
-        assert!(
-            header_update_respects_admission_floor(Some(&m), Some(&a3), &block(3, 0xA3, 0x99))
-                .is_err(),
-            "a different consensus identity (parent) at the admitted height is refused"
-        );
-    }
-
-    /// CONTROL (passes at RED-3): a redelivered update that leaves the stored block unchanged is
-    /// accepted at or below the marker.
-    #[test]
-    fn an_identical_header_rewrite_at_or_below_the_admitted_tip_is_accepted() {
-        let m = marker();
-        let a3 = block(3, 0xA3, 0x11);
-        assert!(header_update_respects_admission_floor(Some(&m), Some(&a3), &a3.clone()).is_ok());
-        let a2 = block(2, 0xA2, 0x11);
-        assert!(header_update_respects_admission_floor(Some(&m), Some(&a2), &a2.clone()).is_ok());
-    }
-
-    /// CONTROL (passes at RED-3): above the marker, and with no marker, updates are not fenced.
-    #[test]
-    fn a_header_update_above_the_admitted_tip_or_without_a_marker_is_not_fenced() {
-        let m = marker();
-        let a4 = block(4, 0xA4, 0x11);
-        assert!(
-            header_update_respects_admission_floor(Some(&m), Some(&a4), &block(4, 0xB4, 0x11))
-                .is_ok()
-        );
-        let a3 = block(3, 0xA3, 0x11);
-        assert!(
-            header_update_respects_admission_floor(None, Some(&a3), &block(3, 0xB4, 0x11)).is_ok()
-        );
-    }
-
-    /// RED-3 (fails at 079937616: the replacement floor is the caller's request.recognized_height
-    /// alone, grpc_blockchain.rs:276 and execution app/mod.rs:185; the RED-3 stub permits
-    /// everything). A replacement whose target is at or below the persisted marker is refused even
-    /// when the caller claims a lower recognized height.
-    #[test]
-    fn a_tip_replacement_at_or_below_the_admitted_tip_is_refused_whatever_the_caller_recognizes() {
-        let m = marker();
-        assert!(
-            replacement_respects_admission_floor(3, 1, Some(&m)).is_err(),
-            "the admitted height itself is refused"
-        );
-        assert!(
-            replacement_respects_admission_floor(2, 1, Some(&m)).is_err(),
-            "a height below the admitted one is refused"
-        );
-    }
-
-    /// CONTROL (passes at RED-3): a target above the marker (or with no marker) is not fenced here.
-    #[test]
-    fn a_tip_replacement_above_the_admitted_tip_is_not_fenced() {
-        let m = marker();
-        assert!(replacement_respects_admission_floor(4, 1, Some(&m)).is_ok());
-        assert!(replacement_respects_admission_floor(4, 1, None).is_ok());
     }
 }
 
@@ -1669,7 +1429,3 @@ where
         }))
     }
 }
-
-// FU-N11-DURABLE-STATUS-1 D2a round 2, RED-3b: the no-downgrade condition on the fence (grpc_blockchain/admitted_tip_no_downgrade_tests.rs).
-#[cfg(test)]
-mod admitted_tip_no_downgrade_tests;

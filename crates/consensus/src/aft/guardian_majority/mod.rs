@@ -10,7 +10,9 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{
     CanonicalCollapseContinuityVerifier, ConsensusControl, NativeAftFinalizedEvidence,
 };
+use ioi_api::crypto::{SerializableKey, VerifyingKey};
 use ioi_api::state::{StateAccess, StateManager};
+use ioi_crypto::sign::dilithium::{MldsaPublicKey, MldsaSignature};
 use ioi_crypto::sign::guardian_committee::{verify_quorum_certificate, verify_witness_certificate};
 use ioi_crypto::sign::guardian_log::{
     canonical_log_leaf_hash, verify_checkpoint_proof, verify_checkpoint_signature,
@@ -33,7 +35,7 @@ use ioi_types::app::{
     canonical_collapse_commitment_hash_from_object, canonical_collapse_continuity_public_inputs,
     canonical_collapse_eq_on_header_surface, canonical_collapse_extension_certificate,
     canonical_order_certificate_hash, canonical_publication_frontier_hash,
-    compute_next_timestamp_ms,
+    canonical_sealed_finality_proof_signing_bytes, compute_next_timestamp_ms,
     derive_asymptote_observer_plan_entries, derive_canonical_sealing_collapse,
     derive_guardian_witness_assignment, derive_guardian_witness_assignments_for_strata,
     effective_set_for_height, guardian_registry_asymptote_policy_key,
@@ -148,10 +150,97 @@ impl MirrorStats {
     }
 }
 
-// The producer-signature and sealed-proof-signature checks live in the shared, always-compiled
-// `crate::aft_evidence` (FU-N11-DURABLE-STATUS-1 D2a round 2): the workload's admission-floor
-// fence calls the same implementation.
-use crate::aft_evidence::{verify_guardian_signature, verify_sealed_finality_proof_signature};
+/// Verifies the block producer's signature against the Oracle-anchored extended payload.
+fn verify_guardian_signature(
+    preimage: &[u8],
+    suite: ioi_types::app::SignatureSuite,
+    public_key: &[u8],
+    signature: &[u8],
+    oracle_counter: u64,
+    oracle_trace: &[u8; 32],
+) -> Result<(), ConsensusError> {
+    let header_hash = ioi_crypto::algorithms::hash::sha256(preimage).map_err(|e| {
+        warn!("Failed to hash header preimage: {}", e);
+        ConsensusError::InvalidSignature
+    })?;
+
+    let mut signed_payload = Vec::with_capacity(32 + 8 + 32);
+    signed_payload.extend_from_slice(&header_hash);
+    signed_payload.extend_from_slice(&oracle_counter.to_be_bytes());
+    signed_payload.extend_from_slice(oracle_trace);
+
+    match suite {
+        ioi_types::app::SignatureSuite::ED25519 => {
+            let pk = PublicKey::try_decode_protobuf(public_key)
+                .map_err(|_| ConsensusError::InvalidSignature)?;
+            pk.verify(&signed_payload, signature)
+                .then_some(())
+                .ok_or(ConsensusError::InvalidSignature)
+        }
+        ioi_types::app::SignatureSuite::ML_DSA_44 => {
+            if public_key.len() != 1312 {
+                return Err(ConsensusError::InvalidSignature);
+            }
+            let pk = MldsaPublicKey::from_bytes(public_key)
+                .map_err(|_| ConsensusError::InvalidSignature)?;
+            let signature = MldsaSignature::from_bytes(signature)
+                .map_err(|_| ConsensusError::InvalidSignature)?;
+            pk.verify(&signed_payload, &signature)
+                .map_err(|_| ConsensusError::InvalidSignature)
+        }
+        _ => Err(ConsensusError::InvalidSignature),
+    }
+}
+
+fn verify_sealed_finality_proof_signature(
+    header: &BlockHeader,
+    proof: &ioi_types::app::SealedFinalityProof,
+) -> Result<(), ConsensusError> {
+    if proof.proof_signature.public_key.is_empty() || proof.proof_signature.signature.is_empty() {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "sealed finality proof is missing its producer signature".into(),
+        ));
+    }
+    if proof.proof_signature.public_key != header.producer_pubkey {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "sealed finality proof signer does not match the block producer".into(),
+        ));
+    }
+    if proof.proof_signature.suite != header.producer_key_suite {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "sealed finality proof signer suite does not match the block producer".into(),
+        ));
+    }
+    let sign_bytes = canonical_sealed_finality_proof_signing_bytes(proof)
+        .map_err(ConsensusError::BlockVerificationFailed)?;
+    let valid = match header.producer_key_suite {
+        ioi_types::app::SignatureSuite::ED25519 => {
+            PublicKey::try_decode_protobuf(&proof.proof_signature.public_key)
+                .map(|key| key.verify(&sign_bytes, &proof.proof_signature.signature))
+                .unwrap_or(false)
+        }
+        ioi_types::app::SignatureSuite::ML_DSA_44 => {
+            if proof.proof_signature.public_key.len() != 1312 {
+                false
+            } else {
+                MldsaPublicKey::from_bytes(&proof.proof_signature.public_key)
+                    .and_then(|key| {
+                        MldsaSignature::from_bytes(&proof.proof_signature.signature)
+                            .and_then(|signature| key.verify(&sign_bytes, &signature))
+                    })
+                    .is_ok()
+            }
+        }
+        _ => false,
+    };
+    if !valid {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "sealed finality proof producer signature is invalid or uses an unsupported suite"
+                .into(),
+        ));
+    }
+    Ok(())
+}
 
 /// The Aft deterministic Consensus Engine.
 #[derive(Clone)]

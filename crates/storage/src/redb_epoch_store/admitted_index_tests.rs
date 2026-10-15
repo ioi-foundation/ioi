@@ -281,7 +281,11 @@ fn t5_prune_and_epoch_drop_never_remove_an_index_row() {
         "the prune removed the admitted heights' state versions ({} pruned)",
         pruned.heights_pruned
     );
-    store.drop_sealed_epoch(0).expect("drop epoch 0");
+    // GREEN-4 fixture correction: drop_sealed_epoch errors in this store today (it reopens the
+    // typed VERSIONS table through an untyped definition, a defect older than D2a; the GC keeps it
+    // disabled), so its result is ignored, as RED-3's S6 ignored it. The prune above is the
+    // effective removal here.
+    let _ = store.drop_sealed_epoch(0);
     store.override_head(1).expect("move HEAD below the max");
     assert_index_holds(
         &store,
@@ -432,4 +436,53 @@ fn t1_vii_a_replacement_of_the_max_in_flight_never_moves_the_latest_record() {
         .expect("the write's thread")
         .expect("the replacement commit SUCCEEDS: no fence is in its path");
     assert_index_holds(&store, &records, "after the replacement landed");
+}
+
+// --- GREEN-4 pin: the gap fill (NET-DECISIONS 4) ---------------------------------------------
+
+/// GREEN-4 PIN (no RED: the index did not exist at 5c77c9ca0). A publication was missed at height
+/// 3, so the index holds 1, 2 and 4. The index's writer accepts a write BELOW its max only for an
+/// ABSENT height (the publisher reaches it by a parent_hash walk from its ledger head): the gap
+/// fill of 3 is accepted without moving the max, and a different record at 3 is then refused.
+#[test]
+fn green4_a_gap_fill_of_an_absent_height_below_the_max_is_accepted_once() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
+    run(async {
+        for height in 1..=MAX + 1 {
+            store
+                .commit_block_with_payload(
+                    commit_input(height, 0xA0 + height as u8),
+                    &bytes(&admitted(height)),
+                )
+                .await
+                .expect("execute the height");
+        }
+    });
+    for height in [1, 2, 4] {
+        store
+            .put_admitted_record(&record_of(&admitted(height)))
+            .expect("index the published heights");
+    }
+    assert_eq!(store.get_admitted_record(3).expect("read"), None, "the missed height");
+    let gap = record_of(&admitted(3));
+    store
+        .put_admitted_record(&gap)
+        .expect("a gap fill of an ABSENT height below the max is accepted");
+    assert_eq!(store.get_admitted_record(3).expect("read"), Some(gap.clone()));
+    assert_eq!(
+        store.get_admitted_tip().expect("max"),
+        Some(tip_of(&record_of(&admitted(4)))),
+        "the gap fill does not move the max"
+    );
+    assert!(
+        store
+            .put_admitted_record(&AdmittedRecord {
+                block_hash: [0xEE; 32],
+                ..gap.clone()
+            })
+            .is_err(),
+        "once filled, the height is written: a different record there is refused"
+    );
+    assert_eq!(store.get_admitted_record(3).expect("read"), Some(gap));
 }

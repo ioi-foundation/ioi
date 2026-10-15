@@ -60,14 +60,6 @@ pub(super) type HarnessContext =
 #[derive(Debug, Default)]
 pub(super) struct HarnessWorkload {
     pub(super) blocks: std::sync::Mutex<BTreeMap<u64, Block<ChainTransaction>>>,
-    /// FU-N11-DURABLE-STATUS-1 D2a round 2 (RED-3): every admitted-tip record presented to this
-    /// workload, as (capability, tip), in order (the publisher spy).
-    pub(super) admitted_tip_records:
-        std::sync::Mutex<Vec<([u8; 32], ioi_api::storage::AdmittedTip)>>,
-    /// The admission capability this workload accepts (`None`: it accepts no record).
-    pub(super) accepted_capability: std::sync::Mutex<Option<[u8; 32]>>,
-    /// This workload's admitted-tip marker.
-    pub(super) committed_tip: std::sync::Mutex<Option<ioi_api::storage::AdmittedTip>>,
 }
 
 impl HarnessWorkload {
@@ -201,31 +193,6 @@ impl WorkloadClientApi for HarnessWorkload {
 
     async fn get_execution_status(&self) -> Result<ChainStatus, ChainError> {
         self.get_status().await
-    }
-
-    async fn get_committed_tip(
-        &self,
-    ) -> Result<Option<ioi_api::storage::AdmittedTip>, ChainError> {
-        Ok(self.committed_tip.lock().unwrap().clone())
-    }
-
-    async fn record_admitted_tip_with_capability(
-        &self,
-        _witness: ioi_api::chain::AdmissionWitness,
-        capability: &[u8; 32],
-        tip: ioi_api::storage::AdmittedTip,
-    ) -> Result<(), ChainError> {
-        self.admitted_tip_records
-            .lock()
-            .unwrap()
-            .push((*capability, tip.clone()));
-        if *self.accepted_capability.lock().unwrap() != Some(*capability) {
-            return Err(ChainError::Transaction(
-                "admitted-tip record refused: the workload capability does not match".into(),
-            ));
-        }
-        *self.committed_tip.lock().unwrap() = Some(tip);
-        Ok(())
     }
 
     fn as_any(&self) -> &dyn Any {

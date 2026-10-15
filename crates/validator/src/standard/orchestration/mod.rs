@@ -109,8 +109,9 @@ mod finalize;
 mod lifecycle;
 pub(crate) mod runtime_finality;
 /// The orchestration's admitted-tip publisher, the only holder of the workload admission
-/// capability (FU-N11-DURABLE-STATUS-1 D2a round 2); the node binaries build one and hand it to the
-/// orchestrator with [`Orchestrator::set_admitted_tip_publisher`].
+/// capability and of the private channel the admitted index is written through
+/// (FU-N11-DURABLE-STATUS-1 D2a); the node binaries build one and hand it to the orchestrator with
+/// [`Orchestrator::set_admitted_tip_publisher`].
 pub use runtime_finality::AdmittedTipPublisher;
 
 /// Transition logic

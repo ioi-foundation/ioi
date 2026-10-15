@@ -479,10 +479,21 @@ struct Workload {
     chain: Arc<ChainControlImpl<Cs, St>>,
     client: WorkloadClient,
     server: tokio::task::JoinHandle<()>,
+    address: String,
+    /// NET-DECISIONS 7: the harness SERIALIZES its tests with a process-wide lock, held for each
+    /// workload's lifetime, because it sets IOI_SHMEM_* process-wide for the shared client.
+    _serial: tokio::sync::MutexGuard<'static, ()>,
+}
+
+/// The process-wide lock that serializes this harness's tests (see `Workload::_serial`).
+fn harness_serial() -> &'static tokio::sync::Mutex<()> {
+    static SERIAL: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    SERIAL.get_or_init(|| tokio::sync::Mutex::new(()))
 }
 
 impl Workload {
     async fn start(store_path: &Path) -> Self {
+        let serial = harness_serial().lock().await;
         let store = Arc::new(open_store(store_path).await);
         let container = Arc::new(
             WorkloadContainer::new(
@@ -521,6 +532,8 @@ impl Workload {
             chain,
             client,
             server,
+            address,
+            _serial: serial,
         }
     }
 
@@ -531,12 +544,15 @@ impl Workload {
             chain,
             client,
             server,
+            address: _,
+            _serial,
         } = self;
         drop(client);
         server.abort();
         let _ = server.await;
         drop(chain);
         drop(store);
+        drop(_serial);
     }
 
     /// Executes `blocks` into the store as the workload's commit writes them (genesis by
@@ -579,7 +595,6 @@ impl Workload {
     /// Records `block` through the REAL RecordAdmittedTip handler, with the workload's capability:
     /// the call the orchestration's admitted-tip publisher makes over the IPC (the index's only
     /// writer).
-    #[allow(clippy::needless_update)]
     async fn admit(&self, block: &Block<ChainTransaction>) -> Result<(), tonic::Status> {
         self.chain
             .record_admitted_tip(Request::new(RecordAdmittedTipRequest {
@@ -587,9 +602,9 @@ impl Workload {
                 block_hash: hash_of(block).to_vec(),
                 state_root: block.header.state_root.0.clone(),
                 capability: CAPABILITY.to_vec(),
-                // GREEN-4: if the request gains the admitted header's timestamp, it is set here
-                // from `block.header.timestamp` (the one fixture line a proto change touches).
-                ..Default::default()
+                // GREEN-4 (the marked fixture line): the admitted header's timestamp, as the
+                // publisher sends it from the ledger's staged block.
+                timestamp: block.header.timestamp,
             }))
             .await
             .map(|_| ())
@@ -1252,8 +1267,9 @@ fn capability_file(dir: &Path) -> std::path::PathBuf {
 
 /// T2, RED-4 (round-2 BLOCKER 1 by construction). A module OUTSIDE the publisher's module (this
 /// one) builds a publisher from the workload's capability file and calls its ONE operation
-/// (`publish_admitted_head`, the RED-4 scaffold) while the workload's executed tip, and the
-/// ledger's newest STAGED block, is N+1, which Agentgres never admitted.
+/// (`RuntimeFinalityCoordinator::publish_admitted_head` since GREEN-4: the publisher is installed
+/// in the ledger, whose own head it publishes) while the workload's executed tip, and the ledger's
+/// newest STAGED block, is N+1, which Agentgres never admitted.
 /// - CONTROL: the operation publishes the ledger's canonical head N: index[N] is N's record.
 /// - THE CALL: the same operation again is refused or a no-op: index[N+1] stays empty, and
 ///   index[N] and the max entry are unchanged.
@@ -1284,10 +1300,18 @@ async fn t2_a_publisher_built_outside_its_module_publishes_only_the_ledger_head(
 
     let workload = Workload::start(&dir.path().join("state.db")).await;
     workload.execute(&blocks).await;
-    let publisher = AdmittedTipPublisher::from_capability_file(capability_file(dir.path()));
+    // Built HERE, outside runtime_finality, from the workload's capability file; installed in the
+    // ledger, whose ledger-reading publication is the publisher's only operation (GREEN-4,
+    // NET-DECISIONS 1; the declared T2 fixture line).
+    let publisher =
+        AdmittedTipPublisher::from_capability_file(capability_file(dir.path()), &workload.address);
+    ledger
+        .lock()
+        .await
+        .install_admitted_tip_publisher(publisher)
+        .expect("install the publisher");
 
-    publisher
-        .publish_admitted_head(&ledger, &workload.client)
+    RuntimeFinalityCoordinator::publish_admitted_head(&ledger)
         .await
         .expect("CONTROL: the ledger's canonical head publishes");
     let head = record_of(&blocks[N as usize]);
@@ -1297,9 +1321,7 @@ async fn t2_a_publisher_built_outside_its_module_publishes_only_the_ledger_head(
         "CONTROL: index[N] is the ledger head's record"
     );
 
-    let _ = publisher
-        .publish_admitted_head(&ledger, &workload.client)
-        .await;
+    let _ = RuntimeFinalityCoordinator::publish_admitted_head(&ledger).await;
     assert_eq!(
         workload.store.get_admitted_record(N + 1).ok().flatten(),
         None,

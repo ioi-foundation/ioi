@@ -10,7 +10,7 @@ use crate::metrics::metrics;
 use crate::wal::{StateDiff, WalWriter};
 use async_trait::async_trait;
 use ioi_api::storage::{
-    be32, be64, AdmittedTip, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
+    be32, be64, AdmittedRecord, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
 use ioi_types::app::{Block, ChainTransaction};
 use ioi_types::codec;
@@ -27,9 +27,10 @@ const ROOT_INDEX: TableDefinition<&[u8; 32], &[u8; 16]> = TableDefinition::new("
 const HEAD: TableDefinition<&[u8; 4], &[u8; 16]> = TableDefinition::new("HEAD"); // key=b"HEAD", value=[height_be(8)][epoch_be(8)]
 const MANIFEST: TableDefinition<&[u8; 8], &[u8; 17]> = TableDefinition::new("EPOCH_MANIFEST"); // value = [first(8)][last(8)][sealed(1)]
 const BLOCKS: TableDefinition<&[u8; 8], &[u8]> = TableDefinition::new("BLOCKS");
-// FU-N11-DURABLE-STATUS-1 D2a: key=b"TIP", value=[height_be(8)][block_hash(32)][state_root...]
-const ADMITTED_TIP: TableDefinition<&[u8; 3], &[u8]> = TableDefinition::new("ADMITTED_TIP");
-const ADMITTED_TIP_KEY: [u8; 3] = *b"TIP";
+// FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the ADMITTED INDEX. key = height_be(8), value =
+// [block_hash(32)][timestamp_be(8)][state_root...]. Written once per height, only by the admission
+// publication; its last (max) row is the committed tip. No other path writes or removes a row.
+const ADMITTED_INDEX: TableDefinition<&[u8; 8], &[u8]> = TableDefinition::new("ADMITTED_INDEX");
 
 // Sharded (prefix-encoded) - Keys are variable-length slices
 const VERSIONS: TableDefinition<&[u8], &[u8; 32]> = TableDefinition::new("VERSIONS");
@@ -40,225 +41,31 @@ const NODES: TableDefinition<&[u8], &[u8]> = TableDefinition::new("NODES");
 fn key_head() -> [u8; 4] {
     *b"HEAD"
 }
-fn encode_admitted_tip(tip: &AdmittedTip) -> Vec<u8> {
-    let mut out = Vec::with_capacity(40 + tip.state_root.len());
-    out.extend_from_slice(&tip.height.to_be_bytes());
-    out.extend_from_slice(&tip.block_hash);
-    out.extend_from_slice(&tip.state_root);
+fn encode_admitted_record(record: &AdmittedRecord) -> Vec<u8> {
+    let mut out = Vec::with_capacity(40 + record.state_root.len());
+    out.extend_from_slice(&record.block_hash);
+    out.extend_from_slice(&record.timestamp.to_be_bytes());
+    out.extend_from_slice(&record.state_root);
     out
 }
-fn decode_admitted_tip(bytes: &[u8]) -> Result<AdmittedTip, StorageError> {
+fn decode_admitted_record(height: Height, bytes: &[u8]) -> Result<AdmittedRecord, StorageError> {
     if bytes.len() < 40 {
         return Err(StorageError::Decode(format!(
-            "admitted-tip marker is {} bytes, below the 40-byte header",
+            "admitted record at height {height} is {} bytes, below the 40-byte header",
             bytes.len()
         )));
     }
-    let (height, rest) = bytes.split_at(8);
-    let (hash, root) = rest.split_at(32);
+    let (hash, rest) = bytes.split_at(32);
+    let (timestamp, root) = rest.split_at(8);
     let mut block_hash = [0u8; 32];
     block_hash.copy_from_slice(hash);
-    Ok(AdmittedTip {
-        height: parse_u64(height),
+    Ok(AdmittedRecord {
+        height,
         block_hash,
         state_root: root.to_vec(),
+        timestamp: parse_u64(timestamp),
     })
 }
-// --- FU-N11-DURABLE-STATUS-1 D2a round 2: the admission floor ----------------------------------
-// A block at or below the persisted Agentgres-admitted marker is committed. Every write into BLOCKS
-// (WriteBlock, CommitStateAndBlock) or into a state version (CommitState, CommitStateAndBlock, the
-// WAL replay) at such a height is checked against what is stored, inside the write's own
-// transaction (the marker's record needs the same write lock, so the two cannot interleave).
-
-/// Why rewriting the committed block `stored` with `incoming` is refused, or `None` when it is
-/// permitted: identical bytes, or the same block with its post-signing evidence changed but never
-/// downgraded (see [`committed_block_change_refusal`]).
-pub fn committed_block_rewrite_refusal(stored: &[u8], incoming: &[u8]) -> Option<String> {
-    if stored == incoming {
-        return None;
-    }
-    let stored = match codec::from_bytes_canonical::<Block<ChainTransaction>>(stored) {
-        Ok(block) => block,
-        Err(error) => return Some(format!("the committed block does not decode: {error}")),
-    };
-    let incoming = match codec::from_bytes_canonical::<Block<ChainTransaction>>(incoming) {
-        Ok(block) => block,
-        Err(error) => return Some(format!("the rewritten block does not decode: {error}")),
-    };
-    committed_block_change_refusal(&stored, &incoming)
-}
-
-/// The STRUCTURAL admission-floor rule for changing a committed block (FU-N11-DURABLE-STATUS-1 D2a
-/// round 2, the Director's rule and its no-downgrade condition): the new block must have the same
-/// identity hash (the BlockHeader hash preimage), execution surface (height, parent hash, state
-/// root, transactions root) and transactions; it may not strip the producer signature, the sealed
-/// finality proof or the guardian certificate; and it may not change the guardian or
-/// canonical-order certificate. `None` when permitted. It cannot verify an ADDED or REPLACED
-/// signature or proof (that needs the producer's key): the workload's fence verifies those with
-/// `ioi_consensus::aft_evidence`.
-pub fn committed_block_change_refusal(
-    stored: &Block<ChainTransaction>,
-    incoming: &Block<ChainTransaction>,
-) -> Option<String> {
-    let (old, new) = (&stored.header, &incoming.header);
-    let same_identity = match (old.hash(), new.hash()) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => false,
-    };
-    if !same_identity {
-        return Some(format!(
-            "a different consensus identity at committed height {}",
-            old.height
-        ));
-    }
-    if old.height != new.height
-        || old.parent_hash != new.parent_hash
-        || old.state_root != new.state_root
-        || old.transactions_root != new.transactions_root
-        || stored.transactions != incoming.transactions
-    {
-        return Some(format!(
-            "a different execution surface at committed height {}",
-            old.height
-        ));
-    }
-    if !old.signature.is_empty() && new.signature.is_empty() {
-        return Some(format!(
-            "it strips the producer signature of committed block {}",
-            old.height
-        ));
-    }
-    if old.sealed_finality_proof.is_some() && new.sealed_finality_proof.is_none() {
-        return Some(format!(
-            "it strips the sealed finality proof of committed block {}",
-            old.height
-        ));
-    }
-    if old.guardian_certificate != new.guardian_certificate {
-        return Some(format!(
-            "it strips or changes the guardian certificate of committed block {}",
-            old.height
-        ));
-    }
-    if old.canonical_order_certificate != new.canonical_order_certificate {
-        return Some(format!(
-            "it strips or changes the canonical-order certificate of committed block {}",
-            old.height
-        ));
-    }
-    None
-}
-
-/// Why recording `incoming` as the state version of committed height `height` is refused, or
-/// `None`: a committed version never changes its root (a missing version may be re-created).
-fn committed_root_refusal(
-    height: Height,
-    existing: Option<[u8; 32]>,
-    incoming: &[u8; 32],
-) -> Option<String> {
-    match existing {
-        Some(existing) if &existing != incoming => Some(format!(
-            "a different state root at committed height {height}"
-        )),
-        _ => None,
-    }
-}
-
-/// The admission-floor check of a write, inside that write's own transaction. `root` is the state
-/// version a state write records at `height`; `block` the bytes a block write stores there.
-fn admission_floor_refusal_in_txn(
-    w: &WriteTransaction,
-    epoch: Epoch,
-    height: Height,
-    root: Option<&[u8; 32]>,
-    block: Option<&[u8]>,
-) -> Result<Option<String>, redb::Error> {
-    let marker = {
-        let table = w.open_table(ADMITTED_TIP)?;
-        let bytes = table.get(&ADMITTED_TIP_KEY)?.map(|v| v.value().to_vec());
-        bytes
-    };
-    let Some(marker) = marker else {
-        return Ok(None);
-    };
-    let marker = match decode_admitted_tip(&marker) {
-        Ok(marker) => marker,
-        Err(error) => return Ok(Some(error.to_string())),
-    };
-    if height > marker.height {
-        return Ok(None);
-    }
-    if let Some(incoming) = block {
-        let stored = {
-            let table = w.open_table(BLOCKS)?;
-            let bytes = table.get(&height.to_be_bytes())?.map(|v| v.value().to_vec());
-            bytes
-        };
-        let Some(stored) = stored else {
-            return Ok(Some(format!(
-                "no block is stored at height {height}, at or below the admitted tip {}",
-                marker.height
-            )));
-        };
-        if let Some(why) = committed_block_rewrite_refusal(&stored, incoming) {
-            return Ok(Some(why));
-        }
-    }
-    if let Some(root) = root {
-        let table = w.open_table(VERSIONS)?;
-        let existing = table
-            .get(k_versions(epoch, height).as_slice())?
-            .map(|v| *v.value());
-        if let Some(why) = committed_root_refusal(height, existing, root) {
-            return Ok(Some(why));
-        }
-    }
-    Ok(None)
-}
-
-/// The state rows a CommitState records (nodes, refs, changes, version, root index, head).
-fn insert_state_commit(
-    w: &WriteTransaction,
-    epoch: Epoch,
-    commit: &AsyncCommit,
-) -> Result<(), redb::Error> {
-    let mut nodes_tbl = w.open_table(NODES)?;
-    let mut refs_tbl = w.open_table(REFS)?;
-
-    for (nh, bytes) in &commit.new_nodes {
-        let k = k_nodes(epoch, nh);
-        // Only insert if not present (dedup)
-        if nodes_tbl.get(k.as_slice())?.is_none() {
-            nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
-            let rk = k_refs(epoch, nh);
-            // Init refcount 1
-            refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
-        }
-    }
-
-    let mut ch = w.open_table(CHANGES)?;
-    for (i, nh) in commit.unique_nodes.iter().enumerate() {
-        ch.insert(k_changes(epoch, commit.height, i as u32).as_slice(), &nh.0)?;
-    }
-
-    let mut ver = w.open_table(VERSIONS)?;
-    ver.insert(k_versions(epoch, commit.height).as_slice(), &commit.root.0)?;
-
-    let mut ri = w.open_table(ROOT_INDEX)?;
-    let mut meta = [0u8; 16];
-    meta[..8].copy_from_slice(&enc_epoch(epoch));
-    meta[8..].copy_from_slice(&enc_height(commit.height));
-    ri.insert(&commit.root.0, &meta)?;
-
-    // Write head
-    let mut head_buf = [0u8; 16];
-    head_buf[..8].copy_from_slice(&enc_height(commit.height));
-    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
-    let mut t_head = w.open_table(HEAD)?;
-    t_head.insert(&key_head(), &head_buf)?;
-    Ok(())
-}
-
 fn enc_epoch(e: Epoch) -> [u8; 8] {
     be64(e)
 }
@@ -361,7 +168,7 @@ impl RedbEpochStore {
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
                 w.open_table(BLOCKS)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
-                w.open_table(ADMITTED_TIP)
+                w.open_table(ADMITTED_INDEX)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
             }
             w.commit()
@@ -400,22 +207,6 @@ impl RedbEpochStore {
                 .begin_write()
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
 
-            // FU-N11-DURABLE-STATUS-1 D2a round 2: the admission floor. A replayed entry at or
-            // below the persisted admitted tip never changes a committed state version.
-            let replay_floor = {
-                let t = w
-                    .open_table(ADMITTED_TIP)
-                    .map_err(|e| StorageError::Backend(e.to_string()))?;
-                let bytes = t
-                    .get(&ADMITTED_TIP_KEY)
-                    .map_err(|e| StorageError::Backend(e.to_string()))?
-                    .map(|v| v.value().to_vec());
-                bytes
-                    .map(|bytes| decode_admitted_tip(&bytes))
-                    .transpose()?
-                    .map(|tip| tip.height)
-            };
-
             {
                 let mut nodes_tbl = w
                     .open_table(NODES)
@@ -451,20 +242,6 @@ impl RedbEpochStore {
                     } else {
                         height / epoch_size
                     };
-
-                    if replay_floor.is_some_and(|floor| height <= floor) {
-                        let committed = ver
-                            .get(k_versions(epoch, height).as_slice())
-                            .map_err(|e| StorageError::Backend(e.to_string()))?
-                            .map(|v| *v.value());
-                        if committed_root_refusal(height, committed, &root).is_some() {
-                            eprintln!(
-                                "[Storage] WAL replay skipped height {}: at or below the admitted tip, its root differs from the committed state version",
-                                height
-                            );
-                            continue;
-                        }
-                    }
 
                     // Apply Diff
                     for (nh, bytes) in diff.new_nodes {
@@ -543,6 +320,8 @@ impl RedbEpochStore {
             while let Some(op) = rx.blocking_recv() {
                 match op {
                     PersistenceOp::CommitState(commit, ack_tx) => {
+                        let mut result = Ok(());
+
                         // 1. Prepare Diff for WAL
                         let diff = StateDiff {
                             new_nodes: commit
@@ -553,40 +332,76 @@ impl RedbEpochStore {
                             touched_nodes: commit.unique_nodes.iter().map(|h| h.0).collect(),
                         };
 
+                        // 2. Write to WAL in background (offloading sync I/O)
+                        if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff)
+                        {
+                            eprintln!("[Storage] Async WAL Write Failed: {}", e);
+                            result = Err(e.to_string());
+                        }
+
                         let epoch = if epoch_size_clone == 0 {
                             0
                         } else {
                             commit.height / epoch_size_clone
                         };
 
-                        // 2. One write transaction: the admission floor (FU-N11-DURABLE-STATUS-1 D2a
-                        // round 2) is checked FIRST, so a refused commit never reaches the WAL;
-                        // then the WAL append (only a WAL-durable commit is written); then the rows.
-                        let write_res = (|| -> Result<(), String> {
-                            let w = db_clone.begin_write().map_err(|e| e.to_string())?;
-                            if let Some(why) = admission_floor_refusal_in_txn(
-                                &w,
-                                epoch,
-                                commit.height,
-                                Some(&commit.root.0),
-                                None,
-                            )
-                            .map_err(|e| e.to_string())?
-                            {
-                                let _ = w.abort();
-                                return Err(format!("admission floor refused the state commit: {why}"));
+                        // Perform Redb write
+                        // Only proceed with DB write if WAL write succeeded (or if we want best effort)
+                        // Here we proceed but track error.
+                        if result.is_ok() {
+                            let write_res = (|| -> Result<(), redb::Error> {
+                                let w = db_clone.begin_write()?;
+                                {
+                                    let mut nodes_tbl = w.open_table(NODES)?;
+                                    let mut refs_tbl = w.open_table(REFS)?;
+
+                                    for (nh, bytes) in &commit.new_nodes {
+                                        let k = k_nodes(epoch, nh);
+                                        // Only insert if not present (dedup)
+                                        if nodes_tbl.get(k.as_slice())?.is_none() {
+                                            nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
+                                            let rk = k_refs(epoch, nh);
+                                            // Init refcount 1
+                                            refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
+                                        }
+                                    }
+
+                                    let mut ch = w.open_table(CHANGES)?;
+                                    for (i, nh) in commit.unique_nodes.iter().enumerate() {
+                                        ch.insert(
+                                            k_changes(epoch, commit.height, i as u32).as_slice(),
+                                            &nh.0,
+                                        )?;
+                                    }
+
+                                    let mut ver = w.open_table(VERSIONS)?;
+                                    ver.insert(
+                                        k_versions(epoch, commit.height).as_slice(),
+                                        &commit.root.0,
+                                    )?;
+
+                                    let mut ri = w.open_table(ROOT_INDEX)?;
+                                    let mut meta = [0u8; 16];
+                                    meta[..8].copy_from_slice(&enc_epoch(epoch));
+                                    meta[8..].copy_from_slice(&enc_height(commit.height));
+                                    ri.insert(&commit.root.0, &meta)?;
+
+                                    // Write head
+                                    let mut head_buf = [0u8; 16];
+                                    head_buf[..8].copy_from_slice(&enc_height(commit.height));
+                                    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
+                                    let mut t_head = w.open_table(HEAD)?;
+                                    t_head.insert(&key_head(), &head_buf)?;
+                                }
+                                w.commit()?;
+                                Ok(())
+                            })();
+
+                            if let Err(e) = write_res {
+                                eprintln!("[Storage] Async DB Write Failed (State): {}", e);
+                                result = Err(e.to_string());
                             }
-                            wal_clone
-                                .append_block(commit.height, commit.root.0, &diff)
-                                .map_err(|e| format!("WAL write failed: {e}"))?;
-                            insert_state_commit(&w, epoch, &commit).map_err(|e| e.to_string())?;
-                            w.commit().map_err(|e| e.to_string())?;
-                            Ok(())
-                        })();
-                        let result = write_res.map_err(|e| {
-                            eprintln!("[Storage] Async DB Write Failed (State): {}", e);
-                            e
-                        });
+                        }
 
                         // Cleanup memtable
                         {
@@ -606,6 +421,8 @@ impl RedbEpochStore {
                         let _ = ack_tx.send(result);
                     }
                     PersistenceOp::CommitStateAndBlock(commit, block_bytes, ack_tx) => {
+                        let mut result = Ok(());
+
                         let diff = StateDiff {
                             new_nodes: commit
                                 .new_nodes
@@ -615,48 +432,75 @@ impl RedbEpochStore {
                             touched_nodes: commit.unique_nodes.iter().map(|h| h.0).collect(),
                         };
 
+                        if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff)
+                        {
+                            eprintln!("[Storage] Async WAL Write Failed: {}", e);
+                            result = Err(e.to_string());
+                        }
+
                         let epoch = if epoch_size_clone == 0 {
                             0
                         } else {
                             commit.height / epoch_size_clone
                         };
 
-                        // The admission floor first (state version AND block), then the WAL, then
-                        // the rows, in one write transaction.
-                        let write_res = (|| -> Result<(), String> {
-                            let w = db_clone.begin_write().map_err(|e| e.to_string())?;
-                            if let Some(why) = admission_floor_refusal_in_txn(
-                                &w,
-                                epoch,
-                                commit.height,
-                                Some(&commit.root.0),
-                                Some(block_bytes.as_slice()),
-                            )
-                            .map_err(|e| e.to_string())?
-                            {
-                                let _ = w.abort();
-                                return Err(format!(
-                                    "admission floor refused the state-and-block commit: {why}"
-                                ));
-                            }
-                            wal_clone
-                                .append_block(commit.height, commit.root.0, &diff)
-                                .map_err(|e| format!("WAL write failed: {e}"))?;
-                            (|| -> Result<(), redb::Error> {
-                                insert_state_commit(&w, epoch, &commit)?;
-                                let mut blocks_tbl = w.open_table(BLOCKS)?;
-                                blocks_tbl
-                                    .insert(&commit.height.to_be_bytes(), block_bytes.as_slice())?;
+                        if result.is_ok() {
+                            let write_res = (|| -> Result<(), redb::Error> {
+                                let w = db_clone.begin_write()?;
+                                {
+                                    let mut nodes_tbl = w.open_table(NODES)?;
+                                    let mut refs_tbl = w.open_table(REFS)?;
+
+                                    for (nh, bytes) in &commit.new_nodes {
+                                        let k = k_nodes(epoch, nh);
+                                        if nodes_tbl.get(k.as_slice())?.is_none() {
+                                            nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
+                                            let rk = k_refs(epoch, nh);
+                                            refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
+                                        }
+                                    }
+
+                                    let mut ch = w.open_table(CHANGES)?;
+                                    for (i, nh) in commit.unique_nodes.iter().enumerate() {
+                                        ch.insert(
+                                            k_changes(epoch, commit.height, i as u32).as_slice(),
+                                            &nh.0,
+                                        )?;
+                                    }
+
+                                    let mut ver = w.open_table(VERSIONS)?;
+                                    ver.insert(
+                                        k_versions(epoch, commit.height).as_slice(),
+                                        &commit.root.0,
+                                    )?;
+
+                                    let mut ri = w.open_table(ROOT_INDEX)?;
+                                    let mut meta = [0u8; 16];
+                                    meta[..8].copy_from_slice(&enc_epoch(epoch));
+                                    meta[8..].copy_from_slice(&enc_height(commit.height));
+                                    ri.insert(&commit.root.0, &meta)?;
+
+                                    let mut t_head = w.open_table(HEAD)?;
+                                    let mut head_buf = [0u8; 16];
+                                    head_buf[..8].copy_from_slice(&enc_height(commit.height));
+                                    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
+                                    t_head.insert(&key_head(), &head_buf)?;
+
+                                    let mut blocks_tbl = w.open_table(BLOCKS)?;
+                                    blocks_tbl.insert(
+                                        &commit.height.to_be_bytes(),
+                                        block_bytes.as_slice(),
+                                    )?;
+                                }
+                                w.commit()?;
                                 Ok(())
-                            })()
-                            .map_err(|e| e.to_string())?;
-                            w.commit().map_err(|e| e.to_string())?;
-                            Ok(())
-                        })();
-                        let result = write_res.map_err(|e| {
-                            eprintln!("[Storage] Async DB Write Failed (State+Block): {}", e);
-                            e
-                        });
+                            })();
+
+                            if let Err(e) = write_res {
+                                eprintln!("[Storage] Async DB Write Failed (State+Block): {}", e);
+                                result = Err(e.to_string());
+                            }
+                        }
 
                         {
                             let mut guard = memtable_clone.write().unwrap();
@@ -678,39 +522,22 @@ impl RedbEpochStore {
                         let _ = ack_tx.send(result);
                     }
                     PersistenceOp::WriteBlock(height, block_bytes, ack_tx) => {
-                        let epoch = if epoch_size_clone == 0 {
-                            0
-                        } else {
-                            height / epoch_size_clone
-                        };
-                        let write_res = (|| -> Result<(), String> {
-                            let w = db_clone.begin_write().map_err(|e| e.to_string())?;
-                            if let Some(why) = admission_floor_refusal_in_txn(
-                                &w,
-                                epoch,
-                                height,
-                                None,
-                                Some(block_bytes.as_slice()),
-                            )
-                            .map_err(|e| e.to_string())?
+                        let write_res = (|| -> Result<(), redb::Error> {
+                            let w = db_clone.begin_write()?;
                             {
-                                let _ = w.abort();
-                                return Err(format!("admission floor refused the block write: {why}"));
+                                let mut table = w.open_table(BLOCKS)?;
+                                table.insert(&height.to_be_bytes(), block_bytes.as_slice())?;
                             }
-                            {
-                                let mut table = w.open_table(BLOCKS).map_err(|e| e.to_string())?;
-                                table
-                                    .insert(&height.to_be_bytes(), block_bytes.as_slice())
-                                    .map_err(|e| e.to_string())?;
-                            }
-                            w.commit().map_err(|e| e.to_string())?;
+                            w.commit()?;
                             Ok(())
                         })();
 
-                        let result = write_res.map_err(|e| {
+                        let result = if let Err(e) = write_res {
                             eprintln!("[Storage] Async DB Write Failed (Block): {}", e);
-                            e
-                        });
+                            Err(e.to_string())
+                        } else {
+                            Ok(())
+                        };
 
                         // Cleanup pending_blocks
                         {
@@ -793,60 +620,6 @@ impl RedbEpochStore {
         write
             .commit()
             .map_err(|e| StorageError::Backend(e.to_string()))?;
-        Ok(())
-    }
-
-    /// The block bytes stored at `height`, the read-your-writes cache first.
-    fn stored_block_bytes(&self, height: Height) -> Result<Option<Vec<u8>>, StorageError> {
-        {
-            let guard = self.pending_blocks.read().unwrap();
-            if let Some(bytes) = guard.get(&height) {
-                return Ok(Some(bytes.clone()));
-            }
-        }
-        let r = self.read_txn()?;
-        let table = r
-            .open_table(BLOCKS)
-            .map_err(|e| StorageError::Backend(e.to_string()))?;
-        let bytes = table
-            .get(&height.to_be_bytes())
-            .map_err(|e| StorageError::Backend(e.to_string()))?
-            .map(|v| v.value().to_vec());
-        Ok(bytes)
-    }
-
-    /// The admission floor (FU-N11-DURABLE-STATUS-1 D2a round 2), checked before an async write
-    /// touches the read-your-writes caches, so a refused write is never readable. The write's own
-    /// transaction checks again, authoritatively.
-    fn admission_floor_precheck(
-        &self,
-        height: Height,
-        root: Option<&RootHash>,
-        block: Option<&[u8]>,
-    ) -> Result<(), StorageError> {
-        let Some(marker) = self.get_admitted_tip()? else {
-            return Ok(());
-        };
-        if height > marker.height {
-            return Ok(());
-        }
-        if let Some(incoming) = block {
-            let Some(stored) = self.stored_block_bytes(height)? else {
-                return Err(StorageError::Backend(format!(
-                    "admission floor: no block is stored at height {height}, at or below the admitted tip {}",
-                    marker.height
-                )));
-            };
-            if let Some(why) = committed_block_rewrite_refusal(&stored, incoming) {
-                return Err(StorageError::Backend(format!("admission floor: {why}")));
-            }
-        }
-        if let Some(root) = root {
-            let existing = self.root_for_height(height)?.map(|existing| existing.0);
-            if let Some(why) = committed_root_refusal(height, existing, &root.0) {
-                return Err(StorageError::Backend(format!("admission floor: {why}")));
-            }
-        }
         Ok(())
     }
 
@@ -983,7 +756,6 @@ impl NodeStore for RedbEpochStore {
     }
 
     async fn commit_block(&self, input: CommitInput) -> Result<(), StorageError> {
-        self.admission_floor_precheck(input.height, Some(&input.root), None)?;
         let bytes_written: u64 = input
             .new_nodes
             .iter()
@@ -1040,7 +812,6 @@ impl NodeStore for RedbEpochStore {
         input: CommitInput,
         block_bytes: &[u8],
     ) -> Result<(), StorageError> {
-        self.admission_floor_precheck(input.height, Some(&input.root), Some(block_bytes))?;
         let bytes_written: u64 = input
             .new_nodes
             .iter()
@@ -1097,7 +868,6 @@ impl NodeStore for RedbEpochStore {
     }
 
     async fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError> {
-        self.admission_floor_precheck(height, None, Some(block_bytes))?;
         // Cache synchronously for read-your-writes
         {
             let mut guard = self.pending_blocks.write().unwrap();
@@ -1369,74 +1139,88 @@ impl NodeStore for RedbEpochStore {
         w.commit().map_err(|e| StorageError::Backend(e.to_string()))
     }
 
-    fn get_admitted_tip(&self) -> Result<Option<AdmittedTip>, StorageError> {
+    // --- FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the ADMITTED INDEX ---------------------------------
+
+    fn get_admitted_record(&self, height: Height) -> Result<Option<AdmittedRecord>, StorageError> {
         let r = self.read_txn()?;
         let t = r
-            .open_table(ADMITTED_TIP)
+            .open_table(ADMITTED_INDEX)
             .map_err(|e| StorageError::Backend(e.to_string()))?;
         let bytes = t
-            .get(&ADMITTED_TIP_KEY)
+            .get(&height.to_be_bytes())
             .map_err(|e| StorageError::Backend(e.to_string()))?
             .map(|v| v.value().to_vec());
-        bytes.map(|bytes| decode_admitted_tip(&bytes)).transpose()
+        bytes
+            .map(|bytes| decode_admitted_record(height, &bytes))
+            .transpose()
     }
 
-    fn put_admitted_tip(&self, tip: &AdmittedTip) -> Result<(), StorageError> {
+    fn get_latest_admitted_record(&self) -> Result<Option<AdmittedRecord>, StorageError> {
+        let r = self.read_txn()?;
+        let t = r
+            .open_table(ADMITTED_INDEX)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+        let last = t
+            .last()
+            .map_err(|e| StorageError::Backend(e.to_string()))?
+            .map(|(key, value)| (parse_u64(key.value()), value.value().to_vec()));
+        last.map(|(height, bytes)| decode_admitted_record(height, &bytes))
+            .transpose()
+    }
+
+    fn put_admitted_record(&self, record: &AdmittedRecord) -> Result<(), StorageError> {
+        let key = record.height.to_be_bytes();
         let w = self.write_txn()?;
         {
             let mut t = w
-                .open_table(ADMITTED_TIP)
+                .open_table(ADMITTED_INDEX)
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
-            let current = t
-                .get(&ADMITTED_TIP_KEY)
+            let existing = t
+                .get(&key)
                 .map_err(|e| StorageError::Backend(e.to_string()))?
                 .map(|v| v.value().to_vec());
-            if let Some(bytes) = current {
-                let current = decode_admitted_tip(&bytes)?;
-                if tip.height < current.height {
-                    return Err(StorageError::Backend(format!(
-                        "admitted-tip marker cannot move back from height {} to {}",
-                        current.height, tip.height
-                    )));
+            // Written once per height: the identical record is a no-op, any other is refused. An
+            // ABSENT height is written whether it is above the max or below it (a gap fill: the
+            // publisher reaches it by a parent_hash walk from its ledger head).
+            if let Some(bytes) = existing {
+                if decode_admitted_record(record.height, &bytes)? == *record {
+                    return Ok(());
                 }
-                if tip.height == current.height {
-                    if *tip == current {
-                        return Ok(());
-                    }
-                    return Err(StorageError::Backend(format!(
-                        "a different admitted tip is already recorded at height {}",
-                        tip.height
-                    )));
-                }
+                return Err(StorageError::Backend(format!(
+                    "the admitted index already holds a different record at height {}: it is written once per height",
+                    record.height
+                )));
             }
-            // FU-N11-DURABLE-STATUS-1 D2a round 2 (B1 iii): the marker is recorded only over the
-            // block it names, checked in the marker's own write transaction, so no block write
-            // can interleave between the check and the record.
+            // A consistency check, failing closed: the record is indexed only over the block the
+            // workload stores at that height (same height and state root), read in this write's
+            // own transaction. It protects no committed read (the record is the authority); it
+            // detects a workload that executed something other than what was admitted.
             let stored = {
                 let blocks = w
                     .open_table(BLOCKS)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
                 let bytes = blocks
-                    .get(&tip.height.to_be_bytes())
+                    .get(&key)
                     .map_err(|e| StorageError::Backend(e.to_string()))?
                     .map(|v| v.value().to_vec());
                 bytes
             };
             let stored = stored.ok_or_else(|| {
                 StorageError::Backend(format!(
-                    "admitted-tip record refused: no block is stored at height {}",
-                    tip.height
+                    "admitted record refused: no block is stored at height {}",
+                    record.height
                 ))
             })?;
             let stored: Block<ChainTransaction> =
                 codec::from_bytes_canonical(&stored).map_err(StorageError::Decode)?;
-            if stored.header.height != tip.height || stored.header.state_root.0 != tip.state_root {
+            if stored.header.height != record.height || stored.header.state_root.0 != record.state_root
+            {
                 return Err(StorageError::Backend(format!(
-                    "admitted-tip record refused: the block stored at height {} has a different execution surface",
-                    tip.height
+                    "admitted record refused: the block stored at height {} has a different execution surface",
+                    record.height
                 )));
             }
-            t.insert(&ADMITTED_TIP_KEY, encode_admitted_tip(tip).as_slice())
+            t.insert(&key, encode_admitted_record(record).as_slice())
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
         }
         w.commit().map_err(|e| StorageError::Backend(e.to_string()))
@@ -1445,18 +1229,11 @@ impl NodeStore for RedbEpochStore {
 
 #[cfg(test)]
 mod admitted_tip_tests {
-    //! FU-N11-DURABLE-STATUS-1 D2a RED-W1a: the Agentgres-admitted tip marker is persistent and
-    //! monotone in the node store.
+    //! FU-N11-DURABLE-STATUS-1 D2a RED-W1a, as GREEN-4 changed it: the Agentgres-admitted tip is the
+    //! MAX ROW of the admitted index, persistent and never moving back; a lower ABSENT height is a
+    //! gap fill. (Write-once per height, prune and restart are pinned in admitted_index_tests.)
     use super::RedbEpochStore;
-    use ioi_api::storage::{AdmittedTip, NodeStore};
-
-    fn tip(height: u64, hash: u8, root: u8) -> AdmittedTip {
-        AdmittedTip {
-            height,
-            block_hash: [hash; 32],
-            state_root: vec![root; 32],
-        }
-    }
+    use ioi_api::storage::{AdmittedRecord, AdmittedTip, NodeStore};
 
     // The background persistence thread releases its database handle after the store drops;
     // a bounded retry keeps the reopen deterministic.
@@ -1471,8 +1248,6 @@ mod admitted_tip_tests {
         }
         panic!("reopen failed: {last:?}");
     }
-
-    // --- D2a round 2 (RED-3) fixtures ------------------------------------------------------------
 
     /// A canonical block at `height` whose state root is `[root; 32]` and whose consensus
     /// identity varies with `salt`.
@@ -1526,327 +1301,116 @@ mod admitted_tip_tests {
             .block_on(future)
     }
 
-    fn commit_input(height: u64, root: u8) -> ioi_api::storage::CommitInput {
-        ioi_api::storage::CommitInput {
-            height,
-            root: ioi_api::storage::RootHash([root; 32]),
-            unique_nodes_for_height: Vec::new(),
-            new_nodes: Vec::new(),
-        }
-    }
-
-    /// The admitted tip naming `block`.
-    fn tip_of(block: &ioi_types::app::Block<ioi_types::app::ChainTransaction>) -> AdmittedTip {
-        AdmittedTip {
+    /// The admission record naming `block`, under the admitted hash `[hash; 32]`.
+    fn record_of(block: &ioi_types::app::Block<ioi_types::app::ChainTransaction>, hash: u8) -> AdmittedRecord {
+        AdmittedRecord {
             height: block.header.height,
-            block_hash: [0xAD; 32],
+            block_hash: [hash; 32],
             state_root: block.header.state_root.0.clone(),
+            timestamp: block.header.timestamp,
         }
     }
 
+    fn tip_of(record: &AdmittedRecord) -> AdmittedTip {
+        AdmittedTip {
+            height: record.height,
+            block_hash: record.block_hash,
+            state_root: record.state_root.clone(),
+        }
+    }
+
+    /// RED-W1a, INVERTED at GREEN-4 (it asserted that a lower height is refused; under the admitted
+    /// index a lower ABSENT height is a gap fill). The committed tip is the index's max row: none
+    /// before the first record; a re-record of the same row is accepted; another hash or root at a
+    /// recorded height is refused and leaves the row; a lower absent height is accepted WITHOUT
+    /// moving the max; a higher height advances it; the max survives a restart.
     #[test]
     fn admitted_tip_marker_is_persistent_and_monotone() {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("store.redb");
+        let (b2, b3, b5) = (block(2, 0xB2, 1), block(3, 0xB3, 1), block(5, 0xB5, 1));
         {
             let store = RedbEpochStore::open(&path, 1024).expect("open");
             assert_eq!(store.get_admitted_tip().expect("read empty"), None);
-            // D2a round 2 (RED-3 fixture change): the store holds the blocks the recorded tips name
-            // (heights 3 and 5 with roots 0xB3 and 0xB5), as the marker's own write transaction
-            // checks the stored block from GREEN-3 on (B1 (iii)). The assertions are unchanged.
             run(async {
-                store
-                    .put_block(3, &bytes(&block(3, 0xB3, 1)))
-                    .await
-                    .expect("store block 3");
-                store
-                    .put_block(5, &bytes(&block(5, 0xB5, 1)))
-                    .await
-                    .expect("store block 5");
+                for b in [&b2, &b3, &b5] {
+                    store
+                        .put_block(b.header.height, &bytes(b))
+                        .await
+                        .expect("store the block");
+                }
             });
             store
-                .put_admitted_tip(&tip(3, 0xA3, 0xB3))
+                .put_admitted_record(&record_of(&b3, 0xA3))
                 .expect("record height 3");
             store
-                .put_admitted_tip(&tip(3, 0xA3, 0xB3))
-                .expect("the same tip again (a restart redrive) is accepted");
+                .put_admitted_record(&record_of(&b3, 0xA3))
+                .expect("the same record again (a restart redrive) is accepted");
             assert!(
-                store.put_admitted_tip(&tip(2, 0xA2, 0xB2)).is_err(),
-                "a lower height is refused"
-            );
-            assert!(
-                store.put_admitted_tip(&tip(3, 0xEE, 0xB3)).is_err(),
+                store.put_admitted_record(&record_of(&b3, 0xEE)).is_err(),
                 "the same height with a different block hash is refused"
             );
             assert!(
-                store.put_admitted_tip(&tip(3, 0xA3, 0xEE)).is_err(),
+                store
+                    .put_admitted_record(&AdmittedRecord {
+                        state_root: vec![0xEE; 32],
+                        ..record_of(&b3, 0xA3)
+                    })
+                    .is_err(),
                 "the same height with a different state root is refused"
             );
             assert_eq!(
                 store.get_admitted_tip().expect("read"),
-                Some(tip(3, 0xA3, 0xB3)),
-                "a refused record leaves the marker unchanged"
+                Some(tip_of(&record_of(&b3, 0xA3))),
+                "a refused record leaves the max unchanged"
             );
             store
-                .put_admitted_tip(&tip(5, 0xA5, 0xB5))
+                .put_admitted_record(&record_of(&b2, 0xA2))
+                .expect("a lower ABSENT height is a gap fill");
+            assert_eq!(
+                store.get_admitted_tip().expect("read"),
+                Some(tip_of(&record_of(&b3, 0xA3))),
+                "a gap fill below the max never moves the max back"
+            );
+            store
+                .put_admitted_record(&record_of(&b5, 0xA5))
                 .expect("advance to height 5");
         }
         let reopened = reopen(&path);
         assert_eq!(
             reopened.get_admitted_tip().expect("read after reopen"),
-            Some(tip(5, 0xA5, 0xB5)),
-            "the marker survives a restart"
+            Some(tip_of(&record_of(&b5, 0xA5))),
+            "the max survives a restart"
         );
     }
 
-    // --- D2a round 2 (RED-3), B1 (ii): the ADMISSION-FLOOR FENCE in the block store ---------------
-    // A block at or below the persisted Agentgres-admitted marker is committed. Every write into
-    // BLOCKS (put_block's WriteBlock, commit_block_with_payload's CommitStateAndBlock) at a height
-    // <= the marker is refused unless it rewrites the stored bytes unchanged; the refusal leaves
-    // the stored block (and the read-your-writes cache) unchanged. A write above the marker is
-    // not fenced.
-
-    /// RED-3 (fails at 079937616: put_block caches and WriteBlock inserts unconditionally,
-    /// redb_epoch_store.rs:868-873 and :522-530).
-    #[test]
-    fn a_block_put_at_or_below_the_admitted_tip_is_refused_and_the_stored_block_is_unchanged() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
-        let (a2, a3) = (block(2, 0xA2, 1), block(3, 0xA3, 1));
-        run(async {
-            store.put_block(2, &bytes(&a2)).await.expect("store block 2");
-            store.put_block(3, &bytes(&a3)).await.expect("store block 3");
-        });
-        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
-
-        let at_the_marker = run(store.put_block(3, &bytes(&block(3, 0xB4, 1))));
-        assert!(
-            at_the_marker.is_err(),
-            "a different block at the admitted height (e.g. carrying height 4's uncommitted root) is refused"
-        );
-        assert_eq!(
-            store.get_block_by_height(3).expect("read 3"),
-            Some(a3.clone()),
-            "the refused write leaves the admitted block in place"
-        );
-        let below_the_marker = run(store.put_block(2, &bytes(&block(2, 0xB2, 1))));
-        assert!(
-            below_the_marker.is_err(),
-            "a different block below the admitted height is refused"
-        );
-        assert_eq!(store.get_block_by_height(2).expect("read 2"), Some(a2));
-        let identity_change = run(store.put_block(3, &bytes(&block(3, 0xA3, 9))));
-        assert!(
-            identity_change.is_err(),
-            "a different consensus identity at the admitted height is refused even with the same root"
-        );
-        assert_eq!(store.get_block_by_height(3).expect("read 3"), Some(a3));
-    }
-
-    /// RED-3 (fails at 079937616: CommitStateAndBlock inserts the block, the version and the head
-    /// unconditionally, redb_epoch_store.rs:487-491 and :808-866).
-    #[test]
-    fn a_state_and_block_commit_at_or_below_the_admitted_tip_is_refused() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
-        let a3 = block(3, 0xA3, 1);
-        run(store.commit_block_with_payload(commit_input(3, 0xA3), &bytes(&a3)))
-            .expect("commit height 3");
-        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
-
-        let replay = run(store.commit_block_with_payload(
-            commit_input(3, 0xB4),
-            &bytes(&block(3, 0xB4, 1)),
-        ));
-        assert!(
-            replay.is_err(),
-            "a state-and-block commit of a different block at the admitted height is refused"
-        );
-        assert_eq!(
-            store.get_block_by_height(3).expect("read 3"),
-            Some(a3),
-            "the admitted block is unchanged"
-        );
-        assert_eq!(
-            store.root_for_height(3).expect("root 3"),
-            Some(ioi_api::storage::RootHash([0xA3; 32])),
-            "the admitted height's state version is unchanged"
-        );
-    }
-
-    /// RED-3 (fails at 079937616: CommitState writes the version and the head unconditionally,
-    /// redb_epoch_store.rs:756-806 and :320-418, VERSIONS at :376). The state-only commit is the first half of the
-    /// default commit_version_persist_with_block (the verkle, sparse-merkle and flat backends:
-    /// CommitState, then put_block), so a different root at or below the marker is refused before
-    /// its block is written.
-    #[test]
-    fn a_state_commit_at_or_below_the_admitted_tip_with_a_different_root_is_refused() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
-        let a3 = block(3, 0xA3, 1);
-        run(store.commit_block_with_payload(commit_input(3, 0xA3), &bytes(&a3)))
-            .expect("commit height 3");
-        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
-
-        assert!(
-            run(store.commit_block(commit_input(3, 0xB4))).is_err(),
-            "a state commit of a different root at the admitted height is refused"
-        );
-        assert_eq!(
-            store.root_for_height(3).expect("root 3"),
-            Some(ioi_api::storage::RootHash([0xA3; 32])),
-            "the admitted height's state version is unchanged"
-        );
-        run(store.commit_block(commit_input(3, 0xA3)))
-            .expect("the identical state commit at the admitted height (a replay) is accepted");
-    }
-
-    /// CONTROL (passes at RED-3): rewriting the stored bytes unchanged at or below the marker (a
-    /// restart replay, a redelivered header update) is accepted, by either write path.
-    #[test]
-    fn an_identical_rewrite_at_or_below_the_admitted_tip_is_accepted() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
-        let (a2, a3) = (block(2, 0xA2, 1), block(3, 0xA3, 1));
-        run(async {
-            store.put_block(2, &bytes(&a2)).await.expect("store block 2");
-            store
-                .commit_block_with_payload(commit_input(3, 0xA3), &bytes(&a3))
-                .await
-                .expect("commit height 3");
-        });
-        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
-        run(async {
-            store
-                .put_block(2, &bytes(&a2))
-                .await
-                .expect("the identical block below the marker");
-            store
-                .put_block(3, &bytes(&a3))
-                .await
-                .expect("the identical block at the marker");
-            store
-                .commit_block_with_payload(commit_input(3, 0xA3), &bytes(&a3))
-                .await
-                .expect("the identical state-and-block commit at the marker");
-        });
-        assert_eq!(store.get_block_by_height(3).expect("read 3"), Some(a3));
-    }
-
-    /// CONTROL (passes at RED-3): the fence is the marker's height; above it every write path
-    /// works as before (and with no marker nothing is fenced).
-    #[test]
-    fn a_block_write_above_the_admitted_tip_is_not_fenced() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
-        let a3 = block(3, 0xA3, 1);
-        run(async {
-            store.put_block(3, &bytes(&a3)).await.expect("no marker: unfenced");
-            store
-                .put_block(3, &bytes(&block(3, 0xA3, 2)))
-                .await
-                .expect("no marker: a rewrite is unfenced");
-            store.put_block(3, &bytes(&a3)).await.expect("restore block 3");
-        });
-        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
-        let (b4, b5) = (block(4, 0xB4, 1), block(5, 0xB5, 1));
-        run(async {
-            store.put_block(4, &bytes(&b4)).await.expect("above the marker");
-            store
-                .put_block(4, &bytes(&block(4, 0xC4, 1)))
-                .await
-                .expect("an uncommitted height may still be rewritten");
-            store
-                .commit_block_with_payload(commit_input(5, 0xB5), &bytes(&b5))
-                .await
-                .expect("a commit above the marker");
-        });
-        assert_eq!(store.get_block_by_height(4).expect("read 4"), Some(block(4, 0xC4, 1)));
-        assert_eq!(store.get_block_by_height(5).expect("read 5"), Some(b5));
-    }
-
-    /// GUARD (passes at RED-3: no delete path touches BLOCKS). The store's delete, prune and
-    /// recovery paths — prune_batch (VERSIONS/CHANGES/ROOT_INDEX), drop_sealed_epoch
-    /// (VERSIONS/CHANGES/REFS/NODES/MANIFEST), override_head (HEAD) and the WAL replay at open
-    /// (state tables above HEAD) — never remove or rewrite a block at or below the marker.
-    #[test]
-    fn no_prune_epoch_drop_or_wal_replay_removes_or_rewrites_a_block_at_or_below_the_admitted_tip() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let path = dir.path().join("store.redb");
-        let blocks: Vec<_> = (1..=3).map(|h| block(h, 0xA0 + h as u8, 1)).collect();
-        {
-            let store = RedbEpochStore::open(&path, 1024).expect("open");
-            run(async {
-                for b in &blocks {
-                    store
-                        .commit_block_with_payload(
-                            commit_input(b.header.height, 0xA0 + b.header.height as u8),
-                            &bytes(b),
-                        )
-                        .await
-                        .expect("commit");
-                }
-            });
-            store.put_admitted_tip(&tip_of(&blocks[2])).expect("admit height 3");
-            let _ = store.prune_batch(10, &[], 1_000);
-            let _ = store.drop_sealed_epoch(0);
-            store.override_head(1).expect("move HEAD below the marker");
-            for b in &blocks {
-                assert_eq!(
-                    store.get_block_by_height(b.header.height).expect("read"),
-                    Some(b.clone()),
-                    "prune and epoch drop leave every block in place"
-                );
-            }
-        }
-        let reopened = reopen(&path);
-        for b in &blocks {
-            assert_eq!(
-                reopened.get_block_by_height(b.header.height).expect("read after replay"),
-                Some(b.clone()),
-                "the WAL replay above the overridden HEAD leaves every block in place"
-            );
-        }
-        assert_eq!(
-            reopened.get_admitted_tip().expect("marker after replay"),
-            Some(tip_of(&blocks[2]))
-        );
-    }
-
-    /// RED-3, B1 (iii) (fails at 079937616: put_admitted_tip checks only monotonicity, never the
-    /// stored block, redb_epoch_store.rs:1152-1183). The marker's own write transaction checks the
-    /// block it names (stored, same height and state root), so a block write and a marker record
-    /// cannot interleave into a marker over a different block (the reviewer's "serialize marker
-    /// validation with mutation").
+    /// RED-3, B1 (iii), ADAPTED at GREEN-4 to the index's writer (same assertions): a record is
+    /// indexed only over the block the store holds at its height (same height and state root),
+    /// checked in the index write's own transaction. A consistency check that fails closed: no
+    /// stored block, or another root, is refused and the index stays empty.
     #[test]
     fn the_marker_is_recorded_only_over_the_stored_block_it_names() {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
         let a3 = block(3, 0xA3, 1);
         assert!(
-            store.put_admitted_tip(&tip_of(&a3)).is_err(),
-            "no stored block at the tip's height: refused"
+            store.put_admitted_record(&record_of(&a3, 0xAD)).is_err(),
+            "no stored block at the record's height: refused"
         );
         run(store.put_block(3, &bytes(&a3))).expect("store block 3");
         assert!(
-            store.put_admitted_tip(&tip_of(&block(3, 0xB4, 1))).is_err(),
-            "a tip whose root differs from the stored block's: refused"
+            store
+                .put_admitted_record(&record_of(&block(3, 0xB4, 1), 0xAD))
+                .is_err(),
+            "a record whose root differs from the stored block's: refused"
         );
-        assert_eq!(store.get_admitted_tip().expect("read"), None, "the marker is unchanged");
+        assert_eq!(store.get_admitted_tip().expect("read"), None, "the index is unchanged");
         store
-            .put_admitted_tip(&tip_of(&a3))
-            .expect("the tip over the stored block it names");
+            .put_admitted_record(&record_of(&a3, 0xAD))
+            .expect("the record over the stored block it names");
+        assert_eq!(store.get_admitted_record(3).expect("read"), Some(record_of(&a3, 0xAD)));
     }
 }
-
-// FU-N11-DURABLE-STATUS-1 D2a round 2, RED-3b: the no-downgrade condition at the block store (redb_epoch_store/admitted_tip_no_downgrade_tests.rs).
-#[cfg(test)]
-mod admitted_tip_no_downgrade_tests;
-
-// FU-N11-DURABLE-STATUS-1 D2a round 2, GREEN-3 pins: the in-transaction fence and the WAL replay
-// fence, reached directly (redb_epoch_store/admitted_tip_txn_fence_tests.rs).
-#[cfg(test)]
-mod admitted_tip_txn_fence_tests;
 
 // FU-N11-DURABLE-STATUS-1 D2a RED-4: the ADMITTED INDEX that replaces the fence: write-once per
 // height (T5), durable across a reopen (T6), and never read from a write in flight (T1 vi/vii)

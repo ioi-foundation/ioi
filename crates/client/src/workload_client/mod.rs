@@ -3,8 +3,8 @@
 use crate::shmem::DataPlane;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use ioi_api::chain::{AdmissionWitness, QueryStateResponse, WorkloadClientApi};
-use ioi_api::storage::AdmittedTip;
+use ioi_api::chain::{QueryStateResponse, WorkloadClientApi};
+use ioi_api::storage::{AdmittedRecord, AdmittedTip};
 use ioi_api::vm::{ExecutionContext, ExecutionOutput};
 use ioi_types::{
     app::{AccountId, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot},
@@ -31,10 +31,11 @@ use ioi_ipc::blockchain::{
     get_blocks_range_response::Data as BlocksData,
     process_block_request::Payload as ProcessPayload, CallContractRequest,
     CheckAndTallyProposalsRequest, CheckTransactionsRequest, DebugPinHeightRequest,
-    DebugUnpinHeightRequest, DeployContractRequest, GetBlocksRangeRequest, GetGenesisStatusRequest,
+    DebugUnpinHeightRequest, DeployContractRequest, GetAdmittedRecordRequest, GetBlocksRangeRequest,
+    GetGenesisStatusRequest,
     GetNextStakedValidatorsRequest, GetStakedValidatorsRequest, GetStatusRequest,
     PrefixScanRequest, ProcessBlockRequest, QueryContractRequest, QueryRawStateRequest,
-    QueryStateAtRequest, RecordAdmittedTipRequest, ReplaceUnfinalizedTipRequest,
+    QueryStateAtRequest, ReplaceUnfinalizedTipRequest,
     SharedMemoryHandle, UpdateBlockHeaderRequest,
 };
 use serde::{Deserialize, Serialize};
@@ -376,24 +377,34 @@ impl WorkloadClient {
         }))
     }
 
-    /// Sends a RecordAdmittedTip presenting exactly `capability` (FU-N11-DURABLE-STATUS-1 D2a round
-    /// 2, B2): the shared client stores no capability; only the orchestration's admitted-tip
-    /// publisher holds one.
-    async fn record_admitted_tip_ipc(&self, capability: &[u8; 32], tip: &AdmittedTip) -> Result<()> {
+    /// One row of the workload's ADMITTED INDEX (FU-N11-DURABLE-STATUS-1 D2a GREEN-4): what the
+    /// admission publication recorded for `height`; `None` when the height is not admitted. The
+    /// shared client has no way to WRITE the index: the RecordAdmittedTip call is private to the
+    /// orchestration's runtime-finality module.
+    pub async fn get_admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>> {
         let mut client = self.clone_chain_client().await;
-        timeout(
+        let resp = timeout(
             workload_grpc_request_timeout(),
-            client.record_admitted_tip(RecordAdmittedTipRequest {
-                height: tip.height,
-                block_hash: tip.block_hash.to_vec(),
-                state_root: tip.state_root.clone(),
-                capability: capability.to_vec(),
-            }),
+            client.get_admitted_record(GetAdmittedRecordRequest { height }),
         )
         .await
-        .map_err(|_| workload_timeout_anyhow("record_admitted_tip"))?
-        .map_err(|e| anyhow!("gRPC record_admitted_tip refused: {}", e))?;
-        Ok(())
+        .map_err(|_| workload_timeout_anyhow("get_admitted_record"))?
+        .map_err(|e| anyhow!("gRPC get_admitted_record failed: {}", e))?
+        .into_inner();
+        if resp.block_hash.is_empty() {
+            return Ok(None);
+        }
+        let block_hash: [u8; 32] = resp
+            .block_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("the admitted record's block hash is not 32 bytes"))?;
+        Ok(Some(AdmittedRecord {
+            height: resp.height,
+            block_hash,
+            state_root: resp.state_root,
+            timestamp: resp.timestamp,
+        }))
     }
 
     pub async fn get_status(&self) -> Result<ChainStatus> {
@@ -1152,14 +1163,11 @@ impl WorkloadClientApi for WorkloadClient {
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }
 
-    // FU-N11-DURABLE-STATUS-1 D2a round 2, B2: presents exactly the caller's capability.
-    async fn record_admitted_tip_with_capability(
+    async fn get_admitted_record(
         &self,
-        _witness: AdmissionWitness,
-        capability: &[u8; 32],
-        tip: AdmittedTip,
-    ) -> std::result::Result<(), ChainError> {
-        self.record_admitted_tip_ipc(capability, &tip)
+        height: u64,
+    ) -> std::result::Result<Option<AdmittedRecord>, ChainError> {
+        self.get_admitted_record(height)
             .await
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }
@@ -1171,18 +1179,17 @@ impl WorkloadClientApi for WorkloadClient {
 
 #[cfg(test)]
 mod admitted_tip_client_tests {
-    //! FU-N11-DURABLE-STATUS-1 D2a round 2 (RED-3), B2: the SHARED workload client carries no
-    //! admission capability. A record presents exactly the capability its caller passes, so a
-    //! non-admission caller holding the shared client (even with a self-built witness) presents
-    //! nothing the workload accepts. Driven through the REAL client against a ChainControl mock
-    //! served over loopback gRPC.
+    //! FU-N11-DURABLE-STATUS-1 D2a: the SHARED workload client READS the workload's admitted index
+    //! (the committed tip and a row by height) and has NO way to write it (GREEN-4: the
+    //! RecordAdmittedTip call is private to the orchestration's runtime-finality module). Driven
+    //! through the REAL client against a ChainControl mock served over loopback gRPC.
     use super::WorkloadClient;
-    use ioi_api::chain::{AdmissionWitness, WorkloadClientApi};
-    use ioi_api::storage::AdmittedTip;
+    use ioi_api::chain::WorkloadClientApi;
+    use ioi_api::storage::{AdmittedRecord, AdmittedTip};
     use ioi_ipc::blockchain::chain_control_server::{ChainControl, ChainControlServer};
     use ioi_ipc::blockchain::{
-        GetBlocksRangeRequest, GetBlocksRangeResponse, GetCommittedTipResponse,
-        GetGenesisStatusRequest,
+        GetAdmittedRecordRequest, GetAdmittedRecordResponse, GetBlocksRangeRequest,
+        GetBlocksRangeResponse, GetCommittedTipResponse, GetGenesisStatusRequest,
         GetGenesisStatusResponse, GetStatusRequest, GetStatusResponse, ProcessBlockRequest,
         ProcessBlockResponse, RecordAdmittedTipRequest, RecordAdmittedTipResponse,
         ReplaceUnfinalizedTipRequest, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
@@ -1190,35 +1197,20 @@ mod admitted_tip_client_tests {
     use std::sync::{Arc, Mutex};
     use tonic::{Request, Response, Status};
 
-    /// The admission gate's SECOND CANARY (ioi-client test code; FU-N11-DURABLE-STATUS-1 D2a
-    /// round 2): the gate's clippy run over this crate's test target must flag exactly this one
-    /// construction. The tests below take their witnesses from here.
-    fn admission_gate_canary() -> AdmissionWitness {
-        AdmissionWitness::from_agentgres_admission()
-    }
-
-    /// The workload's capability in this test (the publisher's, in production).
-    const CAPABILITY: [u8; 32] = [0x5A; 32];
-
-    /// A ChainControl that records every capability presented to RecordAdmittedTip and advances
-    /// its marker only for `accepted`.
+    /// A ChainControl whose admitted index holds heights 1..=`marker` (row h: hash, root `[h; 32]`,
+    /// timestamp `1_700_000_000 + h`).
     struct MockWorkload {
-        accepted: [u8; 32],
-        presented: Mutex<Vec<Vec<u8>>>,
         marker: Mutex<Option<u64>>,
     }
 
     impl MockWorkload {
-        fn presented(&self) -> Vec<Vec<u8>> {
-            self.presented.lock().unwrap().clone()
-        }
         fn marker(&self) -> Option<u64> {
             *self.marker.lock().unwrap()
         }
     }
 
     fn unimplemented_rpc<T>() -> Result<Response<T>, Status> {
-        Err(Status::unimplemented("not served by the admitted-tip mock"))
+        Err(Status::unimplemented("not served by the admitted-index mock"))
     }
 
     #[tonic::async_trait]
@@ -1278,22 +1270,10 @@ mod admitted_tip_client_tests {
         }
         async fn record_admitted_tip(
             &self,
-            request: Request<RecordAdmittedTipRequest>,
+            _request: Request<RecordAdmittedTipRequest>,
         ) -> Result<Response<RecordAdmittedTipResponse>, Status> {
-            let request = request.into_inner();
-            self.presented
-                .lock()
-                .unwrap()
-                .push(request.capability.clone());
-            if request.capability.as_slice() != self.accepted.as_slice() {
-                return Err(Status::permission_denied(
-                    "the workload capability does not match",
-                ));
-            }
-            *self.marker.lock().unwrap() = Some(request.height);
-            Ok(Response::new(RecordAdmittedTipResponse {}))
+            unimplemented_rpc()
         }
-        // GREEN-3 (the GetCommittedTip proto change): served from the mock's marker.
         async fn get_committed_tip(
             &self,
             _request: Request<GetStatusRequest>,
@@ -1304,8 +1284,23 @@ mod admitted_tip_client_tests {
                     height,
                     block_hash: vec![height as u8; 32],
                     state_root: vec![height as u8; 32],
-                    latest_timestamp: 0,
+                    latest_timestamp: 1_700_000_000 + height,
                 },
+            }))
+        }
+        async fn get_admitted_record(
+            &self,
+            request: Request<GetAdmittedRecordRequest>,
+        ) -> Result<Response<GetAdmittedRecordResponse>, Status> {
+            let height = request.into_inner().height;
+            Ok(Response::new(match self.marker() {
+                Some(max) if height >= 1 && height <= max => GetAdmittedRecordResponse {
+                    height,
+                    block_hash: vec![height as u8; 32],
+                    state_root: vec![height as u8; 32],
+                    timestamp: 1_700_000_000 + height,
+                },
+                _ => GetAdmittedRecordResponse::default(),
             }))
         }
     }
@@ -1336,67 +1331,12 @@ mod admitted_tip_client_tests {
             .expect("workload client")
     }
 
-    fn tip(height: u64) -> AdmittedTip {
-        AdmittedTip {
-            height,
-            block_hash: [height as u8; 32],
-            state_root: vec![height as u8; 32],
-        }
-    }
-
-    /// RED-3 (fails at 079937616: the client presents only the capability ATTACHED to the shared
-    /// client and ignores the caller's, workload_client/mod.rs:363-371 and :1138-1146; the RED-3
-    /// scaffold keeps that). GREEN-3: the publisher's capability reaches the workload and records
-    /// the tip; then a non-admission caller on the SAME shared client presents only what it has
-    /// (here zeros), is refused, and the marker stays.
-    #[tokio::test]
-    async fn the_shared_client_presents_only_the_capability_its_caller_passes() {
-        let mock = Arc::new(MockWorkload {
-            accepted: CAPABILITY,
-            presented: Mutex::new(Vec::new()),
-            marker: Mutex::new(None),
-        });
-        let address = serve(mock.clone()).await;
-        let client = shared_client(&address).await;
-        // The harness control: the real client reaches the mock over loopback gRPC.
-        assert_eq!(
-            client
-                .get_committed_status()
-                .await
-                .expect("the mock workload serves the committed status")
-                .height,
-            0
-        );
-
-        client
-            .record_admitted_tip_with_capability(admission_gate_canary(), &CAPABILITY, tip(3))
-            .await
-            .expect("the publisher's capability records the admitted tip");
-        assert_eq!(mock.marker(), Some(3));
-
-        assert!(
-            client
-                .record_admitted_tip_with_capability(admission_gate_canary(), &[0u8; 32], tip(4))
-                .await
-                .is_err(),
-            "a non-admission caller on the shared client is refused"
-        );
-        assert_eq!(
-            mock.presented(),
-            vec![CAPABILITY.to_vec(), vec![0u8; 32]],
-            "each record presents exactly its caller's capability; the shared client keeps none"
-        );
-        assert_eq!(mock.marker(), Some(3), "the refused record leaves the marker unchanged");
-    }
-
-    /// GREEN-3 PIN (the GetCommittedTip proto surface did not exist at RED-3, so it has no RED):
-    /// the shared client reads the committed tip FROM THE WORKLOAD'S MARKER, through the trait, and
-    /// reports none before the first admission.
+    /// GREEN-3 PIN: the shared client reads the committed tip FROM THE WORKLOAD (the max row of its
+    /// admitted index since GREEN-4), through the trait, and reports none before the first
+    /// admission.
     #[tokio::test]
     async fn the_shared_client_reads_the_committed_tip_from_the_workload_marker() {
         let mock = Arc::new(MockWorkload {
-            accepted: CAPABILITY,
-            presented: Mutex::new(Vec::new()),
             marker: Mutex::new(None),
         });
         let address = serve(mock.clone()).await;
@@ -1415,6 +1355,33 @@ mod admitted_tip_client_tests {
                 block_hash: [3; 32],
                 state_root: vec![3; 32],
             })
+        );
+    }
+
+    /// GREEN-4 PIN (no RED: the by-height RPC is GREEN-4's). The shared client reads one admitted
+    /// index row by height, through the trait: the row with its timestamp for an admitted height,
+    /// and none for a height above the max.
+    #[tokio::test]
+    async fn the_shared_client_reads_an_admitted_record_by_height() {
+        let mock = Arc::new(MockWorkload {
+            marker: Mutex::new(Some(3)),
+        });
+        let address = serve(mock.clone()).await;
+        let client = shared_client(&address).await;
+        let api: &dyn WorkloadClientApi = &client;
+        assert_eq!(
+            api.get_admitted_record(2).await.expect("record 2"),
+            Some(AdmittedRecord {
+                height: 2,
+                block_hash: [2; 32],
+                state_root: vec![2; 32],
+                timestamp: 1_700_000_002,
+            })
+        );
+        assert_eq!(
+            api.get_admitted_record(4).await.expect("record 4"),
+            None,
+            "above the max: not admitted"
         );
     }
 }

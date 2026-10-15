@@ -157,64 +157,32 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         Ok(ChainStatus::default())
     }
 
-    /// The COMMITTED tip itself (FU-N11-DURABLE-STATUS-1 D2a round 2, B1): the height, block hash
-    /// and state root held BY THE WORKLOAD'S ADMITTED-TIP MARKER, never re-read from the block
-    /// stored at that height (a stored block is mutable storage; the marker is what Agentgres
-    /// admitted). `None` before the first admission, and on a client without the committed
-    /// surface: a trusted read then has no root, never the durable tip's.
+    /// The COMMITTED tip (FU-N11-DURABLE-STATUS-1 D2a): the height, block hash and state root of
+    /// the MAX ROW of the workload's admitted index, never re-read from the block stored at that
+    /// height (a stored block is mutable storage; the index is what Agentgres admitted). `None`
+    /// before the first admission, and on a client without the committed surface: a trusted read
+    /// then has no root, never the durable tip's.
     async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>, ChainError> {
         Ok(None)
     }
 
-    /// The workload's ADMITTED INDEX row for `height` (FU-N11-DURABLE-STATUS-1 D2a RED-4 scaffold;
-    /// GREEN-4 serves it over the workload IPC): what the admission publication recorded there.
-    /// `None` when the height is not admitted, or on a client without the committed surface: a
-    /// committed read at that height then refuses, never falls back to a stored block.
+    /// The workload's ADMITTED INDEX row for `height` (FU-N11-DURABLE-STATUS-1 D2a): what the
+    /// admission publication recorded there. `None` when the height is not admitted (or above the
+    /// max), or on a client without the committed surface: a committed read at that height then
+    /// refuses, never falls back to a stored block.
     async fn get_admitted_record(&self, _height: u64) -> Result<Option<AdmittedRecord>, ChainError> {
         Ok(None)
-    }
-
-    /// Records the Agentgres-admitted tip, presenting the workload's admission capability
-    /// EXPLICITLY (FU-N11-DURABLE-STATUS-1 D2a round 2, B2). Only the orchestration's privately
-    /// owned admitted-tip publisher holds the capability; a shared workload client stores none,
-    /// so a caller holding only the shared client (even with a self-built witness) presents
-    /// nothing the workload accepts.
-    async fn record_admitted_tip_with_capability(
-        &self,
-        _witness: AdmissionWitness,
-        _capability: &[u8; 32],
-        _tip: AdmittedTip,
-    ) -> Result<(), ChainError> {
-        Err(ChainError::Transaction(
-            "this workload client has no admitted-tip surface".into(),
-        ))
     }
 
     /// Returns the client as a type-erased `Any` trait object.
     fn as_any(&self) -> &dyn Any;
 }
 
-/// The proof that a call comes from the orchestration's Agentgres admission: the only sanctioned
-/// caller of [`WorkloadClientApi::record_admitted_tip_with_capability`]. Its constructor is banned
-/// everywhere else by NET's admission gate (crates/validator/admission-gate/clippy.toml,
-/// FU-N11-DURABLE-STATUS-1 D2a); the one sanctioned construction is in the orchestration's
-/// privately owned admitted-tip publisher. Defence in depth only: without the workload's
-/// capability, which no shared client stores, a witness records nothing.
-#[derive(Debug)]
-pub struct AdmissionWitness(());
-
-impl AdmissionWitness {
-    /// For the orchestration's Agentgres admission ONLY.
-    pub fn from_agentgres_admission() -> Self {
-        Self(())
-    }
-}
-
 /// The state root of the latest COMMITTED block (the Agentgres-admitted tip), for callers that
-/// need a trusted root. It is the root the workload's admitted-tip MARKER holds
-/// (FU-N11-DURABLE-STATUS-1 D2a round 2, B1): never a re-read of the block stored at that height,
-/// which is mutable storage. It errors when no tip is committed yet, rather than falling back to
-/// any stored block.
+/// need a trusted root (C7). It is the root of the MAX ROW of the workload's admitted index
+/// (FU-N11-DURABLE-STATUS-1 D2a): never a re-read of the block stored at that height, which is
+/// mutable storage. It errors when no tip is committed yet, rather than falling back to any
+/// stored block.
 pub async fn committed_state_root(
     client: &(dyn WorkloadClientApi + '_),
 ) -> Result<StateRoot, ChainError> {
@@ -226,33 +194,35 @@ pub async fn committed_state_root(
     }
 }
 
-/// The state root and height an IBC query or commitment root is served at (C5). MOVED here
-/// unchanged from transport-verifier's `resolve_query_anchor` (with its `resolve_query_height`
-/// inlined) at FU-N11-DURABLE-STATUS-1 D2a RED-4, so the admitted-index harness reads C5 through
-/// the code the IBC host runs; the logic and the order of the reads are unchanged. For "latest",
-/// the committed tip's root as the workload's marker holds it. Before any admission (no tip) and
-/// for an explicit height, the root of the block stored at the resolved height (the committed
-/// height, 0 before the first admission).
+/// The state root and height an IBC query or commitment root is served at (C5; the IBC host's
+/// `query` and `commitment_root` both go through it), FROM ONE ADMITTED-INDEX RECORD
+/// (FU-N11-DURABLE-STATUS-1 D2a GREEN-4):
+/// - an explicit height is served from that height's record, and REFUSED when the height is not
+///   admitted (above the max, or a gap);
+/// - "latest" is the max record, and REFUSED before the first admission.
+/// It never reads a stored block and never combines two observations.
 pub async fn committed_query_anchor(
     client: &(dyn WorkloadClientApi + '_),
     height: Option<u64>,
 ) -> Result<(StateRoot, u64), ChainError> {
-    if height.is_none() {
-        if let Some(tip) = client.get_committed_tip().await? {
-            return Ok((StateRoot(tip.state_root), tip.height));
-        }
+    match height {
+        Some(height) => match client.get_admitted_record(height).await? {
+            Some(record) if record.height == height => Ok((StateRoot(record.state_root), height)),
+            Some(record) => Err(ChainError::Transaction(format!(
+                "the admitted record served for height {height} names height {}",
+                record.height
+            ))),
+            None => Err(ChainError::Transaction(format!(
+                "height {height} is not admitted: no committed root is served for it"
+            ))),
+        },
+        None => match client.get_committed_tip().await? {
+            Some(tip) => Ok((StateRoot(tip.state_root), tip.height)),
+            None => Err(ChainError::Transaction(
+                "no block is committed yet: there is no latest committed root".into(),
+            )),
+        },
     }
-    let query_height = match height {
-        Some(height) => height,
-        None => client.get_committed_status().await?.height,
-    };
-    let block = client
-        .get_block_by_height(query_height)
-        .await?
-        .ok_or_else(|| {
-            ChainError::Transaction(format!("Block at height {} not found", query_height))
-        })?;
-    Ok((block.header.state_root, query_height))
 }
 
 /// A base trait for a read-only, proof-verifying view of the world state.

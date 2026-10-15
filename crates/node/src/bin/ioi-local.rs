@@ -885,11 +885,13 @@ async fn async_main() -> Result<()> {
     >::new(&config, deps, scheme)?);
 
     orchestrator.set_chain_and_workload_client(machine.clone(), workload_client);
-    // FU-N11-DURABLE-STATUS-1 D2a round 2: the per-boot admission capability goes ONLY to the
-    // orchestration's admitted-tip publisher (the shared workload client stores none).
+    // FU-N11-DURABLE-STATUS-1 D2a: the per-boot admission capability goes ONLY to the
+    // orchestration's admitted-tip publisher, with its own private channel to the workload IPC
+    // (the shared workload client has no way to write the admitted index).
     orchestrator.set_admitted_tip_publisher(
         ioi_validator::standard::orchestration::AdmittedTipPublisher::in_process(
             admission_capability,
+            workload_ipc_addr,
         ),
     );
 
