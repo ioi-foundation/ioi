@@ -2,7 +2,7 @@
 # statement or block of the minting function holding every draw clippy reports there and every literal carrying its
 # prefix (- = none). A change to how the credential is built from its draw changes the digest and re-opens the review.
 # target<TAB>file<TAB>item<TAB>prefix<TAB>region digest<TAB>what it mints
-ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor-daemon.rs	fn async_main	idisp_	99033f635c338364	per-boot internal dispatch secret: two UUIDv4, process memory only
+ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor-daemon.rs	fn async_main	idisp_	aae1859d44b50fc3	per-boot internal dispatch secret: two UUIDv4, process memory only
 ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/authority_routes.rs	fn issue_bearer_capability_lease	ioi_lease_	050f1aab52ce9438	env-ops capability lease bearer: 32 OsRng bytes, hex
 ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs	fn start_oss_runtime	-	457ac9511fb72ac8	editor runtime connection token (BUILD-DELTA #31(c)): hex of 32 OsRng bytes, no prefix
 ioi-node bin hypervisor-daemon	crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs	fn handle_api_token_create	ioi_pat_	b2b8daf457d514ff	API access token: two UUIDv4
