@@ -119,9 +119,7 @@ fn normalize_sys_exec_command_for_policy(raw: &str) -> Option<String> {
 
     // Allowlist entries identify the full command. Reducing them to basenames
     // would authorize same-named executables in other directories.
-    let command = trimmed
-        .trim_matches(|c: char| c == '"' || c == '\'')
-        .trim();
+    let command = trimmed.trim_matches(|c: char| c == '"' || c == '\'').trim();
     if command.is_empty() {
         return None;
     }
