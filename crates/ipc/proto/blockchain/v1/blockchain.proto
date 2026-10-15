@@ -33,6 +33,16 @@ service ChainControl {
   // demoted to the latest collapse-backed height and carries no finality
   // meaning.
   rpc GetExecutionStatus (GetStatusRequest) returns (GetStatusResponse);
+
+  // FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status, i.e. the Agentgres-admitted tip
+  // marker the orchestration records. Height 0 when no tip has been admitted. Every "latest" or
+  // "trusted" read keys on this, never on GetStatus.
+  rpc GetCommittedStatus (GetStatusRequest) returns (GetStatusResponse);
+
+  // FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission. Records the
+  // admitted tip; refused without the workload's per-boot capability, or when the tip's execution
+  // surface differs from the stored block. Never exposed on public.v1.
+  rpc RecordAdmittedTip (RecordAdmittedTipRequest) returns (RecordAdmittedTipResponse);
 }
 
 // Services for state queries and transaction pre-checks
@@ -200,6 +210,17 @@ message GetStatusResponse {
   uint64 total_transactions = 3;
   bool is_running = 4;
 }
+
+// FU-N11-DURABLE-STATUS-1 D2a: an Agentgres-admitted tip, recorded by the orchestration only.
+message RecordAdmittedTipRequest {
+  uint64 height = 1;
+  bytes block_hash = 2;
+  bytes state_root = 3;
+  // The workload's per-boot admission capability (32 bytes).
+  bytes capability = 4;
+}
+
+message RecordAdmittedTipResponse {}
 
 // --- StateQuery Messages ---
 

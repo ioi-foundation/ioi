@@ -1143,6 +1143,11 @@ where
                     )
                     .await,
                 );
+                record_workload_admitted_tip(
+                    context.view_resolver.workload_client().as_ref(),
+                    &admission.block,
+                )
+                .await;
             }
             "transaction_committed" => {
                 let hashes = match published_hashes.as_ref() {
@@ -1183,6 +1188,44 @@ where
         "Agentgres-admitted runtime finality effect published"
     );
     Ok(())
+}
+
+/// Records the Agentgres-admitted block as the workload's committed tip (FU-N11-DURABLE-STATUS-1
+/// D2a): the source of every committed read in the workload (IBC latest height, licence expiry, a
+/// trusted state root). A refused or failed record is logged, never fatal: the marker is monotone,
+/// the next admission advances it, and a node without the capability reports committed height 0.
+async fn record_workload_admitted_tip(
+    workload: &dyn ioi_api::chain::WorkloadClientApi,
+    block: &Block<ChainTransaction>,
+) {
+    let block_hash = match block_hash(block) {
+        Ok(hash) => hash,
+        Err(error) => {
+            tracing::warn!(
+                target: "consensus",
+                height = block.header.height,
+                error = %error,
+                "Admitted block has no hash; the workload's admitted tip is not recorded."
+            );
+            return;
+        }
+    };
+    let tip = ioi_api::storage::AdmittedTip {
+        height: block.header.height,
+        block_hash,
+        state_root: block.header.state_root.0.clone(),
+    };
+    // The ONLY sanctioned construction of an AdmissionWitness (the admission gate bans it elsewhere).
+    #[allow(clippy::disallowed_methods)]
+    let witness = ioi_api::chain::AdmissionWitness::from_agentgres_admission();
+    if let Err(error) = workload.record_admitted_tip(witness, tip).await {
+        tracing::warn!(
+            target: "consensus",
+            height = block.header.height,
+            error = %error,
+            "The workload refused or missed the admitted-tip record; its committed height stays at the last recorded admission."
+        );
+    }
 }
 
 /// A committed effect whose ordered consequences cannot be recovered is a

@@ -20,8 +20,8 @@ use ioi_ipc::blockchain::{
     GetStakedValidatorsRequest, GetStakedValidatorsResponse, GetStatusRequest, GetStatusResponse,
     KeyValuePair, PrefixScanRequest, PrefixScanResponse, ProcessBlockRequest, ProcessBlockResponse,
     QueryContractRequest, QueryContractResponse, QueryRawStateRequest, QueryRawStateResponse,
-    QueryStateAtRequest, QueryStateAtResponse, ReplaceUnfinalizedTipRequest,
-    UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
+    QueryStateAtRequest, QueryStateAtResponse, RecordAdmittedTipRequest, RecordAdmittedTipResponse,
+    ReplaceUnfinalizedTipRequest, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
 };
 use ioi_types::{
     app::{Block, ChainId, ChainStatus, ChainTransaction, Membership, StateRoot},
@@ -546,6 +546,56 @@ where
             total_transactions: status.total_transactions,
             is_running: status.is_running,
         }))
+    }
+
+    async fn get_committed_status(
+        &self,
+        _request: Request<GetStatusRequest>,
+    ) -> Result<Response<GetStatusResponse>, Status> {
+        let durable = self.ctx.machine.lock().await.status().clone();
+        let store = self.ctx.workload.store.clone();
+        let status = crate::standard::workload::admitted_tip::committed_status(
+            &*store,
+            &durable,
+            |height| store.get_block_by_height(height).ok().flatten(),
+        )
+        .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(GetStatusResponse {
+            height: status.height,
+            latest_timestamp: status.latest_timestamp,
+            total_transactions: status.total_transactions,
+            is_running: status.is_running,
+        }))
+    }
+
+    async fn record_admitted_tip(
+        &self,
+        request: Request<RecordAdmittedTipRequest>,
+    ) -> Result<Response<RecordAdmittedTipResponse>, Status> {
+        let request = request.into_inner();
+        let block_hash: [u8; 32] = request
+            .block_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| Status::invalid_argument("block_hash must be 32 bytes"))?;
+        let tip = ioi_api::storage::AdmittedTip {
+            height: request.height,
+            block_hash,
+            state_root: request.state_root,
+        };
+        let store = self.ctx.workload.store.clone();
+        let stored = store
+            .get_block_by_height(tip.height)
+            .map_err(|e| Status::internal(e.to_string()))?;
+        crate::standard::workload::admitted_tip::record_admitted_tip_checked(
+            &*store,
+            &self.ctx.admission_capability,
+            &request.capability,
+            &tip,
+            stored.as_ref(),
+        )
+        .map_err(|e| Status::permission_denied(e.to_string()))?;
+        Ok(Response::new(RecordAdmittedTipResponse {}))
     }
 }
 

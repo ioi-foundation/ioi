@@ -235,6 +235,11 @@ async fn main() -> Result<()> {
     let server_machine = machine.clone();
     let server_addr = workload_ipc_addr.to_string();
 
+    // FU-N11-DURABLE-STATUS-1 D2a: one per-boot admission capability, shared in memory by the
+    // in-process workload server and its orchestration client.
+    let admission_capability =
+        ioi_validator::standard::workload::admitted_tip::WorkloadCapability::generate();
+    let server_admission_capability = admission_capability.clone();
     let mut workload_server_handle = tokio::spawn(async move {
         let server = ioi_validator::standard::workload::ipc::WorkloadIpcServer::new(
             server_addr,
@@ -242,7 +247,8 @@ async fn main() -> Result<()> {
             server_machine,
         )
         .await
-        .map_err(|e| anyhow!(e))?;
+        .map_err(|e| anyhow!(e))?
+        .with_admission_capability(server_admission_capability);
         server.run().await.map_err(|e| anyhow!(e))
     });
 
@@ -262,6 +268,7 @@ async fn main() -> Result<()> {
         )
         .await?,
     );
+    workload_client.set_admission_capability(*admission_capability.as_bytes());
 
     // Full P2P Sync
     let (syncer, swarm_commander, quv_swarm_commander, network_events, quv_network_events) =

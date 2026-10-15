@@ -18,6 +18,7 @@ use ioi_execution::ExecutionMachine;
 use crate::standard::workload::ipc::grpc_blockchain::{
     ChainControlImpl, ContractControlImpl, StakingControlImpl, StateQueryImpl, SystemControlImpl,
 };
+use crate::standard::workload::admitted_tip::WorkloadCapability;
 use crate::standard::workload::ipc::grpc_control::WorkloadControlImpl; // [NEW]
 
 use ioi_ipc::blockchain::chain_control_server::ChainControlServer;
@@ -55,6 +56,8 @@ where
     /// [NEW] Access to the shared memory region for zero-copy data transfer.
     /// Optional because it might not be configured in all environments.
     pub data_plane: Option<Arc<DataPlane>>,
+    /// The per-boot capability that authorizes RecordAdmittedTip (FU-N11-DURABLE-STATUS-1 D2a).
+    pub admission_capability: WorkloadCapability,
 }
 
 /// Creates the mTLS server configuration for the IPC server.
@@ -102,6 +105,7 @@ where
     workload_container: Arc<WorkloadContainer<ST>>,
     machine_arc: Arc<Mutex<ExecutionMachine<CS, ST>>>,
     data_plane: Option<Arc<DataPlane>>,
+    admission_capability: WorkloadCapability,
 }
 
 impl<ST, CS> WorkloadIpcServer<ST, CS>
@@ -169,7 +173,21 @@ where
             workload_container,
             machine_arc,
             data_plane,
+            admission_capability: WorkloadCapability::generate(),
         })
+    }
+
+    /// Uses `capability` instead of the generated one (in-process binaries share one capability
+    /// between this server and their orchestration client).
+    pub fn with_admission_capability(mut self, capability: WorkloadCapability) -> Self {
+        self.admission_capability = capability;
+        self
+    }
+
+    /// This boot's admission capability (written to a private file for a split-process
+    /// orchestration).
+    pub fn admission_capability(&self) -> &WorkloadCapability {
+        &self.admission_capability
     }
 
     /// Runs the gRPC server.
@@ -180,6 +198,7 @@ where
             machine: self.machine_arc.clone(),
             workload: self.workload_container.clone(),
             data_plane: self.data_plane.clone(),
+            admission_capability: self.admission_capability.clone(),
         });
 
         log::info!("Workload: gRPC Server listening on {}", grpc_addr);

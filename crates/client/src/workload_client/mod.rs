@@ -3,7 +3,8 @@
 use crate::shmem::DataPlane;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use ioi_api::chain::{QueryStateResponse, WorkloadClientApi};
+use ioi_api::chain::{AdmissionWitness, QueryStateResponse, WorkloadClientApi};
+use ioi_api::storage::AdmittedTip;
 use ioi_api::vm::{ExecutionContext, ExecutionOutput};
 use ioi_types::{
     app::{AccountId, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot},
@@ -33,8 +34,8 @@ use ioi_ipc::blockchain::{
     DebugUnpinHeightRequest, DeployContractRequest, GetBlocksRangeRequest, GetGenesisStatusRequest,
     GetNextStakedValidatorsRequest, GetStakedValidatorsRequest, GetStatusRequest,
     PrefixScanRequest, ProcessBlockRequest, QueryContractRequest, QueryRawStateRequest,
-    QueryStateAtRequest, ReplaceUnfinalizedTipRequest, SharedMemoryHandle,
-    UpdateBlockHeaderRequest,
+    QueryStateAtRequest, RecordAdmittedTipRequest, ReplaceUnfinalizedTipRequest,
+    SharedMemoryHandle, UpdateBlockHeaderRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -143,6 +144,10 @@ pub struct WorkloadClient {
     // Data Plane (Shared Memory)
     data_plane: Mutex<Option<Arc<DataPlane>>>,
     shmem_id: String,
+
+    // The workload's per-boot admission capability (FU-N11-DURABLE-STATUS-1 D2a); None until the
+    // binary attaches it, and then RecordAdmittedTip is refused (fail-closed).
+    admission_capability: std::sync::RwLock<Option<[u8; 32]>>,
 
     // Stored address for logging/debugging
     addr: String,
@@ -317,12 +322,67 @@ impl WorkloadClient {
             system: Mutex::new(SystemControlClient::new(channel)),
             data_plane: Mutex::new(data_plane),
             shmem_id,
+            admission_capability: std::sync::RwLock::new(None),
             addr: addr.to_string(),
         })
     }
 
     pub fn destination_addr(&self) -> &str {
         &self.addr
+    }
+
+    /// Attaches the workload's per-boot admission capability (FU-N11-DURABLE-STATUS-1 D2a).
+    pub fn set_admission_capability(&self, capability: [u8; 32]) {
+        if let Ok(mut slot) = self.admission_capability.write() {
+            *slot = Some(capability);
+        }
+    }
+
+    /// The COMMITTED chain status: the workload's Agentgres-admitted tip marker (height 0 with
+    /// none), never the durable status.
+    pub async fn get_committed_status(&self) -> Result<ChainStatus> {
+        let mut client = self.clone_chain_client().await;
+        let resp = timeout(
+            workload_grpc_request_timeout(),
+            client.get_committed_status(GetStatusRequest {}),
+        )
+        .await
+        .map_err(|_| workload_timeout_anyhow("get_committed_status"))?
+        .map_err(|e| anyhow!("gRPC get_committed_status failed: {}", e))?
+        .into_inner();
+
+        Ok(ChainStatus {
+            height: resp.height,
+            latest_timestamp: resp.latest_timestamp,
+            total_transactions: resp.total_transactions,
+            is_running: resp.is_running,
+            latest_timestamp_ms: resp.latest_timestamp.saturating_mul(1000),
+        })
+    }
+
+    async fn record_admitted_tip_ipc(&self, tip: &AdmittedTip) -> Result<()> {
+        let capability = self
+            .admission_capability
+            .read()
+            .ok()
+            .and_then(|slot| *slot)
+            .ok_or_else(|| {
+                anyhow!("no workload admission capability is attached; the admitted tip is not recorded")
+            })?;
+        let mut client = self.clone_chain_client().await;
+        timeout(
+            workload_grpc_request_timeout(),
+            client.record_admitted_tip(RecordAdmittedTipRequest {
+                height: tip.height,
+                block_hash: tip.block_hash.to_vec(),
+                state_root: tip.state_root.clone(),
+                capability: capability.to_vec(),
+            }),
+        )
+        .await
+        .map_err(|_| workload_timeout_anyhow("record_admitted_tip"))?
+        .map_err(|e| anyhow!("gRPC record_admitted_tip refused: {}", e))?;
+        Ok(())
     }
 
     pub async fn get_status(&self) -> Result<ChainStatus> {
@@ -1065,6 +1125,22 @@ impl WorkloadClientApi for WorkloadClient {
 
     async fn get_execution_status(&self) -> std::result::Result<ChainStatus, ChainError> {
         self.get_execution_status()
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn get_committed_status(&self) -> std::result::Result<ChainStatus, ChainError> {
+        self.get_committed_status()
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn record_admitted_tip(
+        &self,
+        _witness: AdmissionWitness,
+        tip: AdmittedTip,
+    ) -> std::result::Result<(), ChainError> {
+        self.record_admitted_tip_ipc(&tip)
             .await
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }

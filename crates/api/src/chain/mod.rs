@@ -2,6 +2,7 @@
 //! Defines the core `ChainStateMachine` trait for blockchain state machines.
 
 use crate::app::{Block, ChainStatus, ChainTransaction};
+use crate::storage::AdmittedTip;
 use crate::commitment::CommitmentScheme;
 use crate::consensus::PenaltyMechanism;
 use crate::state::{StateManager, Verifier};
@@ -156,8 +157,33 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         Ok(ChainStatus::default())
     }
 
+    /// Records the Agentgres-admitted tip in the workload (FU-N11-DURABLE-STATUS-1 D2a). INTERNAL:
+    /// only the orchestration's Agentgres admission holds an [`AdmissionWitness`].
+    async fn record_admitted_tip(
+        &self,
+        _witness: AdmissionWitness,
+        _tip: AdmittedTip,
+    ) -> Result<(), ChainError> {
+        Err(ChainError::Transaction(
+            "this workload client has no admitted-tip surface".into(),
+        ))
+    }
+
     /// Returns the client as a type-erased `Any` trait object.
     fn as_any(&self) -> &dyn Any;
+}
+
+/// The proof that a call comes from the orchestration's Agentgres admission: the only sanctioned
+/// caller of [`WorkloadClientApi::record_admitted_tip`]. Its constructor is banned everywhere else
+/// by NET's admission gate (crates/validator/admission-gate/clippy.toml, FU-N11-DURABLE-STATUS-1 D2a).
+#[derive(Debug)]
+pub struct AdmissionWitness(());
+
+impl AdmissionWitness {
+    /// For the orchestration's Agentgres admission ONLY.
+    pub fn from_agentgres_admission() -> Self {
+        Self(())
+    }
 }
 
 /// The state root of the latest COMMITTED block (the Agentgres-admitted tip), for callers that

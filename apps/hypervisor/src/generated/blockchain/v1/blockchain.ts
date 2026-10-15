@@ -142,6 +142,18 @@ export interface GetStatusResponse {
   isRunning: boolean;
 }
 
+/** FU-N11-DURABLE-STATUS-1 D2a: an Agentgres-admitted tip, recorded by the orchestration only. */
+export interface RecordAdmittedTipRequest {
+  height: number;
+  blockHash: Uint8Array;
+  stateRoot: Uint8Array;
+  /** The workload's per-boot admission capability (32 bytes). */
+  capability: Uint8Array;
+}
+
+export interface RecordAdmittedTipResponse {
+}
+
 export interface CheckTransactionsRequest {
   /** StateAnchor (32 bytes) */
   anchor: Uint8Array;
@@ -1532,6 +1544,165 @@ export const GetStatusResponse: MessageFns<GetStatusResponse> = {
     message.latestTimestamp = object.latestTimestamp ?? 0;
     message.totalTransactions = object.totalTransactions ?? 0;
     message.isRunning = object.isRunning ?? false;
+    return message;
+  },
+};
+
+function createBaseRecordAdmittedTipRequest(): RecordAdmittedTipRequest {
+  return { height: 0, blockHash: new Uint8Array(0), stateRoot: new Uint8Array(0), capability: new Uint8Array(0) };
+}
+
+export const RecordAdmittedTipRequest: MessageFns<RecordAdmittedTipRequest> = {
+  encode(message: RecordAdmittedTipRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.height !== 0) {
+      writer.uint32(8).uint64(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      writer.uint32(18).bytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      writer.uint32(26).bytes(message.stateRoot);
+    }
+    if (message.capability.length !== 0) {
+      writer.uint32(34).bytes(message.capability);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordAdmittedTipRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRecordAdmittedTipRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.blockHash = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.stateRoot = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.capability = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RecordAdmittedTipRequest {
+    return {
+      height: isSet(object.height) ? globalThis.Number(object.height) : 0,
+      blockHash: isSet(object.blockHash)
+        ? bytesFromBase64(object.blockHash)
+        : isSet(object.block_hash)
+        ? bytesFromBase64(object.block_hash)
+        : new Uint8Array(0),
+      stateRoot: isSet(object.stateRoot)
+        ? bytesFromBase64(object.stateRoot)
+        : isSet(object.state_root)
+        ? bytesFromBase64(object.state_root)
+        : new Uint8Array(0),
+      capability: isSet(object.capability) ? bytesFromBase64(object.capability) : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: RecordAdmittedTipRequest): unknown {
+    const obj: any = {};
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      obj.blockHash = base64FromBytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      obj.stateRoot = base64FromBytes(message.stateRoot);
+    }
+    if (message.capability.length !== 0) {
+      obj.capability = base64FromBytes(message.capability);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordAdmittedTipRequest>, I>>(base?: I): RecordAdmittedTipRequest {
+    return RecordAdmittedTipRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordAdmittedTipRequest>, I>>(object: I): RecordAdmittedTipRequest {
+    const message = createBaseRecordAdmittedTipRequest();
+    message.height = object.height ?? 0;
+    message.blockHash = object.blockHash ?? new Uint8Array(0);
+    message.stateRoot = object.stateRoot ?? new Uint8Array(0);
+    message.capability = object.capability ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+function createBaseRecordAdmittedTipResponse(): RecordAdmittedTipResponse {
+  return {};
+}
+
+export const RecordAdmittedTipResponse: MessageFns<RecordAdmittedTipResponse> = {
+  encode(_: RecordAdmittedTipResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordAdmittedTipResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRecordAdmittedTipResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): RecordAdmittedTipResponse {
+    return {};
+  },
+
+  toJSON(_: RecordAdmittedTipResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordAdmittedTipResponse>, I>>(base?: I): RecordAdmittedTipResponse {
+    return RecordAdmittedTipResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordAdmittedTipResponse>, I>>(_: I): RecordAdmittedTipResponse {
+    const message = createBaseRecordAdmittedTipResponse();
     return message;
   },
 };
@@ -3658,6 +3829,36 @@ export const ChainControlService = {
     responseSerialize: (value: GetStatusResponse): Buffer => Buffer.from(GetStatusResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
   },
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status, i.e. the Agentgres-admitted tip
+   * marker the orchestration records. Height 0 when no tip has been admitted. Every "latest" or
+   * "trusted" read keys on this, never on GetStatus.
+   */
+  getCommittedStatus: {
+    path: "/ioi.blockchain.v1.ChainControl/GetCommittedStatus",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetStatusRequest): Buffer => Buffer.from(GetStatusRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetStatusRequest => GetStatusRequest.decode(value),
+    responseSerialize: (value: GetStatusResponse): Buffer => Buffer.from(GetStatusResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
+  },
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission. Records the
+   * admitted tip; refused without the workload's per-boot capability, or when the tip's execution
+   * surface differs from the stored block. Never exposed on public.v1.
+   */
+  recordAdmittedTip: {
+    path: "/ioi.blockchain.v1.ChainControl/RecordAdmittedTip",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: RecordAdmittedTipRequest): Buffer =>
+      Buffer.from(RecordAdmittedTipRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RecordAdmittedTipRequest => RecordAdmittedTipRequest.decode(value),
+    responseSerialize: (value: RecordAdmittedTipResponse): Buffer =>
+      Buffer.from(RecordAdmittedTipResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RecordAdmittedTipResponse => RecordAdmittedTipResponse.decode(value),
+  },
 } as const;
 
 export interface ChainControlServer extends UntypedServiceImplementation {
@@ -3679,6 +3880,18 @@ export interface ChainControlServer extends UntypedServiceImplementation {
    * meaning.
    */
   getExecutionStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status, i.e. the Agentgres-admitted tip
+   * marker the orchestration records. Height 0 when no tip has been admitted. Every "latest" or
+   * "trusted" read keys on this, never on GetStatus.
+   */
+  getCommittedStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission. Records the
+   * admitted tip; refused without the workload's per-boot capability, or when the tip's execution
+   * surface differs from the stored block. Never exposed on public.v1.
+   */
+  recordAdmittedTip: handleUnaryCall<RecordAdmittedTipRequest, RecordAdmittedTipResponse>;
 }
 
 export interface ChainControlClient extends Client {
@@ -3797,6 +4010,46 @@ export interface ChainControlClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status, i.e. the Agentgres-admitted tip
+   * marker the orchestration records. Height 0 when no tip has been admitted. Every "latest" or
+   * "trusted" read keys on this, never on GetStatus.
+   */
+  getCommittedStatus(
+    request: GetStatusRequest,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  getCommittedStatus(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  getCommittedStatus(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission. Records the
+   * admitted tip; refused without the workload's per-boot capability, or when the tip's execution
+   * surface differs from the stored block. Never exposed on public.v1.
+   */
+  recordAdmittedTip(
+    request: RecordAdmittedTipRequest,
+    callback: (error: ServiceError | null, response: RecordAdmittedTipResponse) => void,
+  ): ClientUnaryCall;
+  recordAdmittedTip(
+    request: RecordAdmittedTipRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RecordAdmittedTipResponse) => void,
+  ): ClientUnaryCall;
+  recordAdmittedTip(
+    request: RecordAdmittedTipRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RecordAdmittedTipResponse) => void,
   ): ClientUnaryCall;
 }
 

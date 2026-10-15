@@ -72,6 +72,33 @@ where
     let ipc_server: WorkloadIpcServer<ST, CS> =
         WorkloadIpcServer::new(ipc_server_addr, workload_container, machine_arc).await?;
 
+    // FU-N11-DURABLE-STATUS-1 D2a: a split-process orchestration reads this boot's admission
+    // capability from a private file; without it, admitted tips are not recorded (fail-closed).
+    use ioi_validator::standard::workload::admitted_tip::{
+        capability_file_path_from_env, write_capability_file_creating_private_dir,
+    };
+    match capability_file_path_from_env() {
+        Some(path) => match write_capability_file_creating_private_dir(
+            &path,
+            ipc_server.admission_capability(),
+        ) {
+            Ok(()) => tracing::info!(
+                target: "workload",
+                path = %path.display(),
+                "Wrote this boot's workload admission capability."
+            ),
+            Err(error) => tracing::warn!(
+                target: "workload",
+                error = %error,
+                "Workload admission capability not written; admitted tips will not be recorded."
+            ),
+        },
+        None => tracing::warn!(
+            target: "workload",
+            "Neither IOI_WORKLOAD_CAPABILITY_FILE nor CERTS_DIR is set; admitted tips will not be recorded (committed height stays 0)."
+        ),
+    }
+
     tracing::info!(target: "workload", "Standard Workload initialized. Running Hybrid IPC server.");
     ipc_server.run().await?;
     Ok(())

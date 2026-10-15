@@ -292,6 +292,26 @@ where
         }
     }
 
+    // FU-N11-DURABLE-STATUS-1 D2a: attach this boot's workload admission capability (the workload
+    // writes it before it serves). Without it, admitted tips are not recorded (fail-closed).
+    match ioi_validator::standard::workload::admitted_tip::capability_file_path_from_env() {
+        Some(path) => {
+            match ioi_validator::standard::workload::admitted_tip::read_capability_file(&path) {
+                Ok(capability) => workload_client.set_admission_capability(*capability.as_bytes()),
+                Err(error) => tracing::warn!(
+                    target: "orchestration",
+                    path = %path.display(),
+                    error = %error,
+                    "Workload admission capability unavailable; admitted tips will not be recorded."
+                ),
+            }
+        }
+        None => tracing::warn!(
+            target: "orchestration",
+            "Neither IOI_WORKLOAD_CAPABILITY_FILE nor CERTS_DIR is set; admitted tips will not be recorded."
+        ),
+    }
+
     let (
         syncer,
         real_swarm_commander,

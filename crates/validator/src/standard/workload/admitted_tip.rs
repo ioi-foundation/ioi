@@ -77,6 +77,42 @@ pub fn write_capability_file(path: &std::path::Path, capability: &WorkloadCapabi
     Ok(())
 }
 
+/// Where a split-process workload writes, and its orchestration reads, the admission capability:
+/// `IOI_WORKLOAD_CAPABILITY_FILE`, else `$CERTS_DIR/workload-capability/workload-admission.capability`.
+pub fn capability_file_path_from_env() -> Option<std::path::PathBuf> {
+    if let Ok(path) = std::env::var("IOI_WORKLOAD_CAPABILITY_FILE") {
+        if !path.is_empty() {
+            return Some(path.into());
+        }
+    }
+    std::env::var("CERTS_DIR")
+        .ok()
+        .filter(|dir| !dir.is_empty())
+        .map(|dir| {
+            std::path::Path::new(&dir)
+                .join("workload-capability")
+                .join("workload-admission.capability")
+        })
+}
+
+/// Creates the capability's parent directory 0700 when it does not exist, then writes the file. An
+/// existing directory is used only if it is private (the writer refuses one others can read).
+pub fn write_capability_file_creating_private_dir(
+    path: &std::path::Path,
+    capability: &WorkloadCapability,
+) -> Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    if let Some(directory) = path.parent() {
+        if !directory.exists() {
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(directory)?;
+        }
+    }
+    write_capability_file(path, capability)
+}
+
 /// Reads the capability a workload wrote for this boot.
 pub fn read_capability_file(path: &std::path::Path) -> Result<WorkloadCapability> {
     let bytes = std::fs::read(path)?;
@@ -133,8 +169,8 @@ pub fn verify_capability(expected: &WorkloadCapability, presented: &[u8]) -> Res
 
 /// Records an admitted tip for an authorized caller whose tip matches the stored block's
 /// execution surface. A refusal leaves the marker unchanged.
-pub fn record_admitted_tip_checked(
-    marker: &dyn AdmittedTipStore,
+pub fn record_admitted_tip_checked<M: AdmittedTipStore + ?Sized>(
+    marker: &M,
     expected: &WorkloadCapability,
     presented: &[u8],
     tip: &AdmittedTip,
@@ -158,8 +194,8 @@ pub fn record_admitted_tip_checked(
 }
 
 /// The committed chain status: the admitted-tip marker's height (0 when there is no marker).
-pub fn committed_status(
-    marker: &dyn AdmittedTipStore,
+pub fn committed_status<M: AdmittedTipStore + ?Sized>(
+    marker: &M,
     durable: &ChainStatus,
     stored: impl Fn(u64) -> Option<Block<ChainTransaction>>,
 ) -> Result<ChainStatus> {
@@ -175,6 +211,14 @@ pub fn committed_status(
         }
     }
     Ok(status)
+}
+
+/// The admission gate's CANARY (test code only): the gate's clippy run over the test target must
+/// flag exactly this one construction, proving the AdmissionWitness ban fires.
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) fn admission_gate_canary() -> ioi_api::chain::AdmissionWitness {
+    ioi_api::chain::AdmissionWitness::from_agentgres_admission()
 }
 
 #[cfg(test)]
