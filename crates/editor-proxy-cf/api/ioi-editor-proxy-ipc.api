@@ -14,7 +14,7 @@ daemon.rs: impl<H> VerdictSpec<H> { .. }
 daemon.rs: impl<H> VerdictSpec<H> => pub fn outcome(&self) -> Outcome
 daemon.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum DaemonPhase {AwaitReady, CheckingF0, WelcomeReady, WelcomePrepared, Active, Stopping, Closed, Refused(IpcRefusal)}
 daemon.rs: pub enum DaemonInput<'a, H> {Tick(u64), Recv(P2dRecv<'a>), F0(F0Result), PrepareWelcome(WelcomeSpec, H), PrepareVerdict(AdmissionId, VerdictSpec<H>), PrepareShutdown, SendResult(OpId, SendOutcome), Terminate(StopReason), TransportEof, TransportError}
-daemon.rs: pub enum DaemonStep {Idle, RunF0, Send(OpId), WelcomeSent, Admit(InboundAdmit), VerdictSent(AdmissionId), Persist(EventRecords), Stopping, Teardown, Refused(IpcRefusal), Terminal}
+daemon.rs: #[allow(clippy::large_enum_variant)] pub enum DaemonStep {Idle, RunF0, Send(OpId), WelcomeSent, Admit(InboundAdmit), VerdictSent(AdmissionId), Persist(EventRecords), Stopping, Teardown, Refused(IpcRefusal), Terminal}
 daemon.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum DaemonStepKind {Idle, RunF0, Send, WelcomeSent, Admit, VerdictSent, Persist, Stopping, Teardown, Refused(IpcRefusal), Terminal}
 daemon.rs: impl DaemonStep { .. }
 daemon.rs: impl DaemonStep => pub fn kind(&self) -> DaemonStepKind
@@ -140,7 +140,7 @@ pending.rs: impl PendingMap { .. }
 pending.rs: impl CompletedFifo { .. }
 proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct ProxyConfig {pub verdict_deadline_ns: u64}
 proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum ProxyPhase {Bootstrap, ReadyPrepared, AwaitWelcome, Active, Stopping, Closed, Refused(IpcRefusal)}
-proxy.rs: pub enum ProxyInput<'a, H> {Tick(u64), Recv(D2pRecv<'a, H>), PrepareReady, PrepareAdmit(OutboundAdmit), Observe(EventCode, u32), SendResult(OpId, SendOutcome), Terminate(StopReason), TransportEof, TransportError}
+proxy.rs: #[allow(clippy::large_enum_variant)] pub enum ProxyInput<'a, H> {Tick(u64), Recv(D2pRecv<'a, H>), PrepareReady, PrepareAdmit(OutboundAdmit), Observe(EventCode, u32), SendResult(OpId, SendOutcome), Terminate(StopReason), TransportEof, TransportError}
 proxy.rs: pub enum ProxyStep<H> {Idle, Send(OpId), AdmitSent(AdmissionId), Welcome(InboundWelcome, H), Verdict(AdmissionId, Outcome, Option<H>), Stopping, Close, Refused(IpcRefusal), Terminal}
 proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum ProxyStepKind {Idle, Send, AdmitSent, Welcome, Verdict, Stopping, Close, Refused(IpcRefusal), Terminal}
 proxy.rs: impl<H> ProxyStep<H> { .. }
@@ -217,7 +217,7 @@ wire.rs: pub const VERDICT_BODY: usize = 5;
 wire.rs: pub struct Frame {buf: [u8; MAX_FRAME], len: usize}
 wire.rs: impl Frame { .. }
 wire.rs: impl Frame => pub fn as_bytes(&self) -> &[u8]
-wire.rs: pub enum InboundP2d {Ready, Admit(InboundAdmit), Event(InboundEvent)}
+wire.rs: #[allow(clippy::large_enum_variant)] pub enum InboundP2d {Ready, Admit(InboundAdmit), Event(InboundEvent)}
 wire.rs: pub struct InboundAdmit {pub(crate) id: AdmissionId, pub(crate) purpose: Purpose, pub(crate) n: u8, pub(crate) digests: [CompareOnlyDigest; MAX_DIGESTS]}
 wire.rs: impl InboundAdmit { .. }
 wire.rs: impl InboundAdmit => pub fn id(&self) -> AdmissionId
@@ -257,7 +257,7 @@ wire.rs: impl OutboundEvent { .. }
 wire.rs: impl OutboundEvent => pub fn new(code: EventCode, count: u32) -> Option<OutboundEvent>
 wire.rs: impl OutboundEvent => pub fn code(&self) -> EventCode
 wire.rs: impl OutboundEvent => pub fn count(&self) -> u32
-wire.rs: #[derive(Clone)] pub enum OutboundP2d {Ready, Admit(AdmissionId, OutboundAdmit), Event(OutboundEvent)}
+wire.rs: #[derive(Clone)] #[allow(clippy::large_enum_variant)] pub enum OutboundP2d {Ready, Admit(AdmissionId, OutboundAdmit), Event(OutboundEvent)}
 wire.rs: mod sealed { .. }
 wire.rs: pub trait EncodeP2d: sealed::Sealed { .. }
 wire.rs: pub trait EncodeP2d: sealed::Sealed => #[doc(hidden)] fn encode_frame(&self) -> Frame;

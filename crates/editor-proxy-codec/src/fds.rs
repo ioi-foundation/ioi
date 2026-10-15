@@ -105,10 +105,7 @@ impl<H> FdBatch<H> {
 
     /// The first descriptor's facts.
     pub(crate) fn first_facts(&self) -> Option<FdFacts> {
-        match &self.slots[0] {
-            Some(fd) => Some(fd.facts),
-            None => None,
-        }
+        self.slots[0].as_ref().map(|fd| fd.facts)
     }
 
     /// The single descriptor (the caller checked `len() == 1`); the rest of the batch drops.

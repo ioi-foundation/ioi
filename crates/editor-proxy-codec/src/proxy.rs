@@ -48,6 +48,10 @@ pub enum ProxyPhase {
 }
 
 /// One input to the proxy actor.
+// clippy::large_enum_variant is allowed ON PURPOSE (S1-85D ruling, option (b)): the crate is no_std
+// WITHOUT alloc, so the large variant cannot be boxed; it is a fixed-size stack value (at most a few
+// hundred bytes) moved once per step through the actor's single-threaded loop.
+#[allow(clippy::large_enum_variant)]
 pub enum ProxyInput<'a, H> {
     /// A trusted monotonic clock sample (nondecreasing).
     Tick(u64),
@@ -378,12 +382,12 @@ impl<H> ProxySession<H> {
         };
         // Row 5: inbound is suspended while a send is prepared.
         let legal = self.prepared.is_none()
-            && match (self.phase, kind) {
-                (ProxyPhase::AwaitWelcome, KIND_WELCOME | KIND_SHUTDOWN) => true,
-                (ProxyPhase::Active, KIND_VERDICT | KIND_SHUTDOWN) => true,
-                (ProxyPhase::Stopping, KIND_SHUTDOWN) => true,
-                _ => false,
-            };
+            && matches!(
+                (self.phase, kind),
+                (ProxyPhase::AwaitWelcome, KIND_WELCOME | KIND_SHUTDOWN)
+                    | (ProxyPhase::Active, KIND_VERDICT | KIND_SHUTDOWN)
+                    | (ProxyPhase::Stopping, KIND_SHUTDOWN)
+            );
         if !legal {
             return self.refuse(IpcRefusal::OutOfOrder);
         }

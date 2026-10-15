@@ -125,8 +125,8 @@ fn strip(src: &str) -> String {
                     .find(&close)
                     .map(|k| j + 1 + k + close.len())
                     .unwrap_or(c.len());
-                for k in i..end {
-                    push(&mut out, &mut space, c[k]);
+                for &raw in &c[i..end] {
+                    push(&mut out, &mut space, raw);
                 }
                 i = end;
                 continue;
@@ -162,8 +162,8 @@ fn strip(src: &str) -> String {
             } else {
                 1
             };
-            for k in i..(i + len).min(c.len()) {
-                push(&mut out, &mut space, c[k]);
+            for &lit in &c[i..(i + len).min(c.len())] {
+                push(&mut out, &mut space, lit);
             }
             i += len;
             continue;

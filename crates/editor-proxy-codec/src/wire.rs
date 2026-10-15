@@ -162,6 +162,10 @@ pub(crate) fn parse_header(
 // ------------------------------------------------------------------------------------------------
 
 /// A decoded proxy -> daemon message.
+// clippy::large_enum_variant is allowed ON PURPOSE (S1-85D ruling, option (b)): the crate is no_std
+// WITHOUT alloc, so the large variant cannot be boxed; it is a fixed-size stack value (at most a few
+// hundred bytes) moved once per step through the actor's single-threaded loop.
+#[allow(clippy::large_enum_variant)]
 pub enum InboundP2d {
     /// READY.
     Ready,
@@ -689,6 +693,10 @@ impl OutboundEvent {
 
 /// A proxy -> daemon message to encode: OUTBOUND values only.
 #[derive(Clone)]
+// clippy::large_enum_variant is allowed ON PURPOSE (S1-85D ruling, option (b)): the crate is no_std
+// WITHOUT alloc, so the large variant cannot be boxed; it is a fixed-size stack value (at most a few
+// hundred bytes) moved once per step through the actor's single-threaded loop.
+#[allow(clippy::large_enum_variant)]
 pub enum OutboundP2d {
     /// READY.
     Ready,

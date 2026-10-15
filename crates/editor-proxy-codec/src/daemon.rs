@@ -116,6 +116,10 @@ pub enum DaemonInput<'a, H> {
 }
 
 /// What the daemon adapter must do after one input.
+// clippy::large_enum_variant is allowed ON PURPOSE (S1-85D ruling, option (b)): the crate is no_std
+// WITHOUT alloc, so the large variant cannot be boxed; it is a fixed-size stack value (at most a few
+// hundred bytes) moved once per step through the actor's single-threaded loop.
+#[allow(clippy::large_enum_variant)]
 pub enum DaemonStep {
     /// Nothing.
     Idle,
