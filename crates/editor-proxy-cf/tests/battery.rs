@@ -5,8 +5,11 @@
 //! 2. cf00 (positive) must compile: otherwise every negative's evidence is invalid (SETUP_ERROR).
 //! 3. Each NEGATIVE fixture is compiled by rustc against the production rlibs and must fail with
 //!    ONLY its pinned diagnostic class, at its marked operation (`//~ <id>`). A fixture that
-//!    COMPILES is an ASSERTION_FAIL (the restriction is missing); any other diagnostic, or a
-//!    failure elsewhere than the marked line, is a SETUP_ERROR (invalid evidence, never a pass).
+//!    COMPILES is an ASSERTION_FAIL (the restriction is missing). EVERY error diagnostic is
+//!    validated, file-aware: each must carry the pinned code AND have its primary span, or one of
+//!    that span's macro expansion sites, at the marked line OF THE FIXTURE FILE; any other
+//!    diagnostic (another code, another line, another file) is a SETUP_ERROR (invalid evidence,
+//!    never a pass).
 //! 4. Each CONTROL: for an API restriction, the defining crate copied with exactly ONE weakening
 //!    must make the SAME fixture compile; for the premises cf08/cf09, the same fixture with one
 //!    textual change must compile. A control that does not compile is an ASSERTION_FAIL.
@@ -303,11 +306,11 @@ struct Env {
     rustc: String,
 }
 
-/// One diagnostic of level `error`: its code and the lines of its primary span and the macro
-/// expansion sites above it.
+/// One diagnostic of level `error`: its code and the (file, line) of each primary span and of the
+/// macro expansion sites above it.
 struct Error {
     code: Option<String>,
-    lines: Vec<u64>,
+    sites: Vec<(String, u64)>,
     message: String,
 }
 
@@ -446,7 +449,7 @@ impl Env {
         if errors.is_empty() && !output.status.success() {
             errors.push(Error {
                 code: None,
-                lines: Vec::new(),
+                sites: Vec::new(),
                 message: format!("rustc failed without a JSON error: {:?}", output.status),
             });
         }
@@ -531,13 +534,14 @@ fn parse_errors(stderr: &str) -> Vec<Error> {
             continue;
         }
         let code = diag["code"]["code"].as_str().map(|c| c.to_string());
-        let mut lines = Vec::new();
+        let mut sites = Vec::new();
         if let Some(spans) = diag["spans"].as_array() {
             for span in spans.iter().filter(|s| s["is_primary"] == true) {
                 let mut current = span;
                 loop {
                     if let Some(line) = current["line_start"].as_u64() {
-                        lines.push(line);
+                        let file = current["file_name"].as_str().unwrap_or("").to_string();
+                        sites.push((file, line));
                     }
                     if current["expansion"].is_null() {
                         break;
@@ -548,7 +552,7 @@ fn parse_errors(stderr: &str) -> Vec<Error> {
         }
         errors.push(Error {
             code,
-            lines,
+            sites,
             message,
         });
     }
@@ -561,10 +565,20 @@ fn first(errors: &[Error]) -> String {
         .take(3)
         .map(|e| {
             format!(
-                "[{}] {} (lines {:?})",
+                "[{}] {} (at {:?})",
                 e.code.clone().unwrap_or_default(),
                 e.message,
-                e.lines
+                e.sites
+                    .iter()
+                    .map(|(file, line)| format!(
+                        "{}:{}",
+                        Path::new(file)
+                            .file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_default(),
+                        line
+                    ))
+                    .collect::<Vec<_>>()
             )
         })
         .collect::<Vec<_>>()
@@ -639,7 +653,22 @@ enum Outcome {
     SetupError(String),
 }
 
-fn judge_negative(fixture: &Fixture, errors: &[Error], _file: &Path, marker: u64) -> Outcome {
+/// True if a diagnostic's file name is the fixture file.
+fn same_file(name: &str, fixture: &Path) -> bool {
+    let path = Path::new(name);
+    if path == fixture {
+        return true;
+    }
+    match (fs::canonicalize(path), fs::canonicalize(fixture)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
+/// Judges one negative: no error = ASSERTION_FAIL (the restriction is missing); EVERY error must
+/// carry the fixture's pinned code and have a site (its primary span or a macro expansion site
+/// above it) at the marked line of the fixture file `file`, else SETUP_ERROR.
+fn judge_negative(fixture: &Fixture, errors: &[Error], file: &Path, marker: u64) -> Outcome {
     if errors.is_empty() {
         return Outcome::AssertionFail(
             "the negative COMPILED against production: the restriction is missing".to_string(),
@@ -655,12 +684,17 @@ fn judge_negative(fixture: &Fixture, errors: &[Error], _file: &Path, marker: u64
             first(std::slice::from_ref(other))
         ));
     }
-    if !errors.iter().any(|e| e.lines.contains(&marker)) {
+    if let Some(stray) = errors.iter().find(|e| {
+        !e.sites
+            .iter()
+            .any(|(name, line)| *line == marker && same_file(name, file))
+    }) {
         return Outcome::SetupError(format!(
-            "{} raised elsewhere than the marked operation (line {}): {}",
+            "a {} diagnostic elsewhere than the marked operation ({} line {}): {}",
             fixture.code,
+            fixture.file,
             marker,
-            first(errors)
+            first(std::slice::from_ref(stray))
         ));
     }
     Outcome::Pass
