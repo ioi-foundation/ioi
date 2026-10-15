@@ -1,26 +1,30 @@
-//! The PROXY endpoint's state machine: RED (BUILD-DELTA #85 U1, DESIGN v2 (2), "RED and fuzz
-//! proof").
+//! The PROXY endpoint's state machine (DESIGN v2 (2)): one actor's complete transition table.
 //!
-//! This is the runnable ACCEPTING machine. It decodes frames and checks descriptors with the
-//! shared wire code (refusal rows 2, 3, 4, 6 and 7) but IGNORES phase legality, the pending cap,
-//! the rate mirror, id exhaustion, the verdict bookkeeping, every deadline and the clock, offers an
-//! EVENT on every tick, and its refusals do NOT latch. The FIX replaces it with the complete
-//! transition table.
+//! Phases: Bootstrap -> ReadyPrepared -> AwaitWelcome -> Active -> Stopping -> Closed, with
+//! Refused(code) absorbing. READY is emitted after exec, bootstrap fd closure and final filter
+//! installation (no listener exists in this process before WELCOME). The actor ALLOCATES admission
+//! ids (from 1, strictly increasing, never reused or wrapped). The first refusal latches exactly as
+//! the daemon's does.
 
 use core::marker::PhantomData;
 
 use crate::events::ProxyEventCounters;
+use crate::limits::{RATE_MAX_ADMITS, RATE_WINDOW_NS, SEND_DEADLINE_NS, STARTUP_DEADLINE_NS};
+use crate::pending::{CompletedFifo, Entry, PendingMap};
 use crate::refusal::IpcRefusal;
-use crate::types::{AdmissionId, EventCode, ModeKind, OpId, Outcome, SendOutcome, StopReason};
+use crate::types::{
+    AdmissionId, EventCode, ModeKind, OpId, Outcome, Purpose, SendOutcome, StopReason,
+};
 use crate::wire::{
     self, encode_p2d, D2pRecv, Frame, InboundD2p, InboundWelcome, OutboundAdmit, OutboundEvent,
-    OutboundP2d, Outgoing,
+    OutboundP2d, Outgoing, KIND_SHUTDOWN, KIND_VERDICT, KIND_WELCOME,
 };
 
 /// The proxy session's configuration.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ProxyConfig {
-    /// How long a sent ADMIT may wait for its VERDICT (RED: ignored).
+    /// How long a sent ADMIT may wait for its VERDICT (the daemon's verdict deadline); an expired
+    /// pending admission latches OperationTimeout.
     pub verdict_deadline_ns: u64,
 }
 
@@ -127,7 +131,8 @@ impl<H> ProxyStep<H> {
     }
 }
 
-/// Why an ADMIT cannot be prepared now (honest flow control).
+/// Why an ADMIT cannot be prepared now (honest flow control: check before preparing; preparing
+/// anyway latches the matching refusal).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AdmitBlocked {
     /// Not Active (OutOfOrder).
@@ -144,7 +149,7 @@ pub enum AdmitBlocked {
 
 enum Sending {
     Ready,
-    Admit(AdmissionId),
+    Admit(AdmissionId, Purpose),
     Event(OutboundEvent),
 }
 
@@ -152,17 +157,25 @@ struct Prepared {
     op: OpId,
     frame: Frame,
     kind: Sending,
+    deadline: u64,
 }
 
-/// The proxy endpoint of its IPC session (RED: the accepting machine).
-#[allow(dead_code)]
+/// The proxy endpoint of its IPC session (pure: the adapter owns the socket).
 pub struct ProxySession<H> {
     phase: ProxyPhase,
+    config: ProxyConfig,
+    last_now: u64,
+    startup_deadline: u64,
+    stop_deadline: u64,
     mode: Option<ModeKind>,
+    epoch: u64,
+    window_index: u64,
+    window_admissions: u32,
     next_id: u32,
-    pending: usize,
-    last_sent: Option<AdmissionId>,
-    last_completed: Option<AdmissionId>,
+    any_admit: bool,
+    exhausted: bool,
+    pending: PendingMap,
+    completed: CompletedFifo,
     next_op: u64,
     prepared: Option<Prepared>,
     counters: ProxyEventCounters,
@@ -170,15 +183,23 @@ pub struct ProxySession<H> {
 }
 
 impl<H> ProxySession<H> {
-    /// A session for a proxy that started at `start_ns`.
-    pub fn new(start_ns: u64, _config: ProxyConfig) -> ProxySession<H> {
+    /// A session for a proxy that started at `start_ns` (the 5-second startup deadline starts here).
+    pub fn new(start_ns: u64, config: ProxyConfig) -> ProxySession<H> {
         ProxySession {
             phase: ProxyPhase::Bootstrap,
+            config,
+            last_now: start_ns,
+            startup_deadline: start_ns.saturating_add(STARTUP_DEADLINE_NS),
+            stop_deadline: u64::MAX,
             mode: None,
+            epoch: start_ns,
+            window_index: 0,
+            window_admissions: 0,
             next_id: 1,
-            pending: 0,
-            last_sent: None,
-            last_completed: None,
+            any_admit: false,
+            exhausted: false,
+            pending: PendingMap::new(),
+            completed: CompletedFifo::new(),
             next_op: 1,
             prepared: None,
             counters: ProxyEventCounters::new(start_ns),
@@ -200,9 +221,68 @@ impl<H> ProxySession<H> {
         })
     }
 
-    /// RED: never blocks.
+    /// Whether an ADMIT may be prepared now (no side effect).
     pub fn can_prepare_admit(&self) -> Result<(), AdmitBlocked> {
+        if self.phase != ProxyPhase::Active {
+            return Err(AdmitBlocked::NotActive);
+        }
+        if self.prepared.is_some() {
+            return Err(AdmitBlocked::SendInProgress);
+        }
+        if self.exhausted {
+            return Err(AdmitBlocked::Exhausted);
+        }
+        if self.pending.is_full() {
+            return Err(AdmitBlocked::InFlightFull);
+        }
+        let (_, count) = self.window_count();
+        if count >= RATE_MAX_ADMITS {
+            return Err(AdmitBlocked::RateLimited);
+        }
         Ok(())
+    }
+
+    /// Applies one input: the complete transition table.
+    pub fn step(&mut self, input: ProxyInput<'_, H>) -> ProxyStep<H> {
+        if matches!(self.phase, ProxyPhase::Closed | ProxyPhase::Refused(_)) {
+            drop(input);
+            return ProxyStep::Terminal;
+        }
+        match input {
+            ProxyInput::Tick(now) => self.on_tick(now),
+            ProxyInput::Recv(recv) => self.on_recv(recv),
+            ProxyInput::PrepareReady => self.on_prepare_ready(),
+            ProxyInput::PrepareAdmit(admit) => self.on_prepare_admit(admit),
+            ProxyInput::Observe(code, count) => {
+                self.counters.observe(code, count);
+                ProxyStep::Idle
+            }
+            ProxyInput::SendResult(op, outcome) => self.on_send_result(op, outcome),
+            ProxyInput::Terminate(_reason) => self.on_terminate(),
+            ProxyInput::TransportEof => self.refuse(IpcRefusal::TransportClosed),
+            ProxyInput::TransportError => self.refuse(IpcRefusal::TransportFailed),
+        }
+    }
+
+    fn refuse(&mut self, code: IpcRefusal) -> ProxyStep<H> {
+        self.phase = ProxyPhase::Refused(code);
+        self.prepared = None;
+        self.pending.clear();
+        ProxyStep::Refused(code)
+    }
+
+    fn close(&mut self) -> ProxyStep<H> {
+        self.phase = ProxyPhase::Closed;
+        self.prepared = None;
+        self.pending.clear();
+        ProxyStep::Close
+    }
+
+    fn enter_stopping(&mut self) {
+        self.phase = ProxyPhase::Stopping;
+        self.stop_deadline = self.last_now.saturating_add(SEND_DEADLINE_NS);
+        self.prepared = None;
+        self.pending.clear();
     }
 
     fn take_op(&mut self) -> OpId {
@@ -211,127 +291,263 @@ impl<H> ProxySession<H> {
         op
     }
 
-    /// RED: accepts every well-formed input, whatever the phase, limits or time.
-    pub fn step(&mut self, input: ProxyInput<'_, H>) -> ProxyStep<H> {
-        match input {
-            ProxyInput::Tick(now) => match self.counters.next_offer(now, false) {
-                Some(event) => {
-                    let op = self.take_op();
-                    self.prepared = Some(Prepared {
-                        op,
-                        frame: encode_p2d(&OutboundP2d::Event(event)),
-                        kind: Sending::Event(event),
-                    });
-                    ProxyStep::Send(op)
+    /// The current rate window's index and committed count.
+    fn window_count(&self) -> (u64, u32) {
+        let index = self.last_now.saturating_sub(self.epoch) / RATE_WINDOW_NS;
+        if index > self.window_index {
+            (index, 0)
+        } else {
+            (self.window_index, self.window_admissions)
+        }
+    }
+
+    fn on_tick(&mut self, now: u64) -> ProxyStep<H> {
+        if now < self.last_now {
+            return self.refuse(IpcRefusal::ClockRegression);
+        }
+        self.last_now = now;
+        match self.phase {
+            ProxyPhase::Bootstrap | ProxyPhase::ReadyPrepared | ProxyPhase::AwaitWelcome => {
+                if now >= self.startup_deadline {
+                    return self.refuse(IpcRefusal::OperationTimeout);
                 }
-                None => ProxyStep::Idle,
-            },
-            ProxyInput::Recv(recv) => {
-                if recv.msg_ctrunc {
-                    return ProxyStep::Refused(IpcRefusal::AncillaryTruncated);
+            }
+            ProxyPhase::Stopping => {
+                if now >= self.stop_deadline {
+                    return self.close();
                 }
-                if recv.unexpected_control {
-                    return ProxyStep::Refused(IpcRefusal::UnexpectedAncillary);
-                }
-                let (kind, body) =
-                    match wire::parse_header(recv.bytes, recv.msg_trunc, wire::is_d2p_kind) {
-                        Ok(parsed) => parsed,
-                        Err(code) => return ProxyStep::Refused(code),
-                    };
-                let message = match wire::decode_d2p_body(kind, body) {
-                    Ok(message) => message,
-                    Err(code) => return ProxyStep::Refused(code),
+            }
+            _ => {}
+        }
+        if let Some(prepared) = &self.prepared {
+            if now >= prepared.deadline {
+                return if self.phase == ProxyPhase::Stopping {
+                    self.close()
+                } else {
+                    self.refuse(IpcRefusal::OperationTimeout)
                 };
-                let fds = recv.fds;
-                match message {
-                    InboundD2p::Welcome(welcome) => {
-                        if let Err(code) = wire::check_welcome_fds(&welcome, &fds) {
-                            return ProxyStep::Refused(code);
-                        }
-                        match fds.into_first() {
-                            Some(listener) => {
-                                self.phase = ProxyPhase::Active;
-                                self.mode = Some(welcome.mode());
-                                ProxyStep::Welcome(welcome, listener)
-                            }
-                            None => ProxyStep::Refused(IpcRefusal::BadFdCount),
-                        }
-                    }
-                    InboundD2p::Verdict(id, outcome) => {
-                        let mode = self.mode.unwrap_or(ModeKind::Static);
-                        if let Err(code) = wire::check_verdict_fds(outcome, mode, &fds) {
-                            return ProxyStep::Refused(code);
-                        }
-                        self.pending = self.pending.saturating_sub(1);
-                        self.last_completed = Some(id);
-                        let upstream = if outcome == Outcome::AdmittedUpstream {
-                            fds.into_first()
-                        } else {
-                            None
-                        };
-                        ProxyStep::Verdict(id, outcome, upstream)
-                    }
-                    InboundD2p::Shutdown => {
-                        self.phase = ProxyPhase::Closed;
-                        ProxyStep::Close
-                    }
+            }
+        }
+        if self.phase == ProxyPhase::Active {
+            if self.pending.any_expired(now) {
+                return self.refuse(IpcRefusal::OperationTimeout);
+            }
+            if self.exhausted && self.pending.len() == 0 && self.prepared.is_none() {
+                self.enter_stopping();
+                return ProxyStep::Stopping;
+            }
+        }
+        if matches!(self.phase, ProxyPhase::Active | ProxyPhase::Stopping)
+            && self.prepared.is_none()
+        {
+            let stopping = self.phase == ProxyPhase::Stopping;
+            if let Some(event) = self.counters.next_offer(now, stopping) {
+                let op = self.take_op();
+                let deadline = if stopping {
+                    self.stop_deadline
+                } else {
+                    now.saturating_add(SEND_DEADLINE_NS)
+                };
+                self.prepared = Some(Prepared {
+                    op,
+                    frame: encode_p2d(&OutboundP2d::Event(event)),
+                    kind: Sending::Event(event),
+                    deadline,
+                });
+                return ProxyStep::Send(op);
+            }
+            if stopping {
+                return self.close();
+            }
+        }
+        ProxyStep::Idle
+    }
+
+    fn on_recv(&mut self, recv: D2pRecv<'_, H>) -> ProxyStep<H> {
+        // Row 2.
+        if recv.msg_ctrunc {
+            return self.refuse(IpcRefusal::AncillaryTruncated);
+        }
+        if recv.unexpected_control {
+            return self.refuse(IpcRefusal::UnexpectedAncillary);
+        }
+        // Rows 3-4.
+        let (kind, body) = match wire::parse_header(recv.bytes, recv.msg_trunc, wire::is_d2p_kind) {
+            Ok(parsed) => parsed,
+            Err(code) => return self.refuse(code),
+        };
+        // Row 5: inbound is suspended while a send is prepared.
+        let legal = self.prepared.is_none()
+            && match (self.phase, kind) {
+                (ProxyPhase::AwaitWelcome, KIND_WELCOME | KIND_SHUTDOWN) => true,
+                (ProxyPhase::Active, KIND_VERDICT | KIND_SHUTDOWN) => true,
+                (ProxyPhase::Stopping, KIND_SHUTDOWN) => true,
+                _ => false,
+            };
+        if !legal {
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        // Row 6.
+        let message = match wire::decode_d2p_body(kind, body) {
+            Ok(message) => message,
+            Err(code) => return self.refuse(code),
+        };
+        let fds = recv.fds;
+        match message {
+            InboundD2p::Welcome(welcome) => {
+                // Row 7.
+                if let Err(code) = wire::check_welcome_fds(&welcome, &fds) {
+                    return self.refuse(code);
                 }
+                let listener = match fds.into_first() {
+                    Some(listener) => listener,
+                    None => return self.refuse(IpcRefusal::BadFdCount),
+                };
+                self.phase = ProxyPhase::Active;
+                self.mode = Some(welcome.mode());
+                self.epoch = self.last_now;
+                self.window_index = 0;
+                self.window_admissions = 0;
+                ProxyStep::Welcome(welcome, listener)
             }
-            ProxyInput::PrepareReady => {
-                let op = self.take_op();
-                self.prepared = Some(Prepared {
-                    op,
-                    frame: encode_p2d(&OutboundP2d::Ready),
-                    kind: Sending::Ready,
-                });
-                self.phase = ProxyPhase::ReadyPrepared;
-                ProxyStep::Send(op)
+            InboundD2p::Verdict(id, outcome) => {
+                let mode = self.mode.unwrap_or(ModeKind::Static);
+                // Row 7.
+                if let Err(code) = wire::check_verdict_fds(outcome, mode, &fds) {
+                    return self.refuse(code);
+                }
+                // Row 8.
+                let checked = match self.pending.get_mut(id) {
+                    None => Err(if self.completed.contains(id) {
+                        IpcRefusal::DuplicateVerdict
+                    } else {
+                        IpcRefusal::UnknownVerdict
+                    }),
+                    Some(entry) if !outcome.legal_for(mode, entry.purpose) => {
+                        Err(IpcRefusal::BadOutcomeForPurpose)
+                    }
+                    Some(_) => Ok(()),
+                };
+                if let Err(code) = checked {
+                    return self.refuse(code);
+                }
+                self.pending.remove(id);
+                self.completed.push(id);
+                let upstream = if outcome == Outcome::AdmittedUpstream {
+                    fds.into_first()
+                } else {
+                    None
+                };
+                ProxyStep::Verdict(id, outcome, upstream)
             }
-            ProxyInput::PrepareAdmit(admit) => {
-                let id = AdmissionId::from_raw(self.next_id);
-                self.next_id = self.next_id.wrapping_add(1);
-                let op = self.take_op();
-                self.prepared = Some(Prepared {
-                    op,
-                    frame: encode_p2d(&OutboundP2d::Admit(id, admit)),
-                    kind: Sending::Admit(id),
-                });
-                ProxyStep::Send(op)
+            InboundD2p::Shutdown => {
+                if !fds.is_empty() {
+                    return self.refuse(IpcRefusal::BadFdCount);
+                }
+                self.close()
             }
-            ProxyInput::Observe(code, count) => {
-                self.counters.observe(code, count);
+        }
+    }
+
+    fn on_prepare_ready(&mut self) -> ProxyStep<H> {
+        if self.phase != ProxyPhase::Bootstrap || self.prepared.is_some() {
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        let op = self.take_op();
+        let deadline = self
+            .last_now
+            .saturating_add(SEND_DEADLINE_NS)
+            .min(self.startup_deadline);
+        self.prepared = Some(Prepared {
+            op,
+            frame: encode_p2d(&OutboundP2d::Ready),
+            kind: Sending::Ready,
+            deadline,
+        });
+        self.phase = ProxyPhase::ReadyPrepared;
+        ProxyStep::Send(op)
+    }
+
+    fn on_prepare_admit(&mut self, admit: OutboundAdmit) -> ProxyStep<H> {
+        if let Err(blocked) = self.can_prepare_admit() {
+            return self.refuse(match blocked {
+                AdmitBlocked::NotActive | AdmitBlocked::SendInProgress => IpcRefusal::OutOfOrder,
+                AdmitBlocked::Exhausted => IpcRefusal::ConnExhausted,
+                AdmitBlocked::InFlightFull => IpcRefusal::TooManyInFlight,
+                AdmitBlocked::RateLimited => IpcRefusal::RateExceeded,
+            });
+        }
+        let id = AdmissionId::from_raw(self.next_id);
+        let purpose = admit.purpose();
+        let op = self.take_op();
+        self.any_admit = true;
+        self.prepared = Some(Prepared {
+            op,
+            frame: encode_p2d(&OutboundP2d::Admit(id, admit)),
+            kind: Sending::Admit(id, purpose),
+            deadline: self.last_now.saturating_add(SEND_DEADLINE_NS),
+        });
+        ProxyStep::Send(op)
+    }
+
+    fn on_send_result(&mut self, op: OpId, outcome: SendOutcome) -> ProxyStep<H> {
+        if matches!(outcome, SendOutcome::Fatal | SendOutcome::Short) {
+            return self.refuse(IpcRefusal::SendFailed);
+        }
+        if !matches!(&self.prepared, Some(prepared) if prepared.op == op) {
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        if outcome == SendOutcome::WouldBlock {
+            return ProxyStep::Idle;
+        }
+        let prepared = match self.prepared.take() {
+            Some(prepared) => prepared,
+            None => return self.refuse(IpcRefusal::OutOfOrder),
+        };
+        match prepared.kind {
+            Sending::Ready => {
+                self.phase = ProxyPhase::AwaitWelcome;
                 ProxyStep::Idle
             }
-            ProxyInput::SendResult(_op, outcome) => match outcome {
-                SendOutcome::Fatal | SendOutcome::Short => {
-                    ProxyStep::Refused(IpcRefusal::SendFailed)
+            Sending::Admit(id, purpose) => {
+                let (index, count) = self.window_count();
+                let entry = Entry {
+                    id,
+                    purpose,
+                    sending: false,
+                    deadline: self
+                        .last_now
+                        .saturating_add(self.config.verdict_deadline_ns),
+                };
+                if !self.pending.insert(entry) {
+                    return self.refuse(IpcRefusal::TooManyInFlight);
                 }
-                SendOutcome::WouldBlock => ProxyStep::Idle,
-                SendOutcome::SentWhole => match self.prepared.take() {
-                    None => ProxyStep::Idle,
-                    Some(prepared) => match prepared.kind {
-                        Sending::Ready => {
-                            self.phase = ProxyPhase::AwaitWelcome;
-                            ProxyStep::Idle
-                        }
-                        Sending::Admit(id) => {
-                            self.pending += 1;
-                            self.last_sent = Some(id);
-                            ProxyStep::AdmitSent(id)
-                        }
-                        Sending::Event(event) => {
-                            self.counters.commit(&event);
-                            ProxyStep::Idle
-                        }
-                    },
-                },
-            },
-            ProxyInput::Terminate(_reason) => {
-                self.phase = ProxyPhase::Stopping;
+                self.window_index = index;
+                self.window_admissions = count + 1;
+                if id.get() == u32::MAX {
+                    self.exhausted = true;
+                } else {
+                    self.next_id = id.get() + 1;
+                }
+                ProxyStep::AdmitSent(id)
+            }
+            Sending::Event(event) => {
+                self.counters.commit(&event);
+                ProxyStep::Idle
+            }
+        }
+    }
+
+    fn on_terminate(&mut self) -> ProxyStep<H> {
+        match self.phase {
+            ProxyPhase::Bootstrap | ProxyPhase::ReadyPrepared | ProxyPhase::AwaitWelcome => {
+                self.close()
+            }
+            ProxyPhase::Stopping => ProxyStep::Idle,
+            _ => {
+                self.enter_stopping();
                 ProxyStep::Stopping
             }
-            ProxyInput::TransportEof => ProxyStep::Refused(IpcRefusal::TransportClosed),
-            ProxyInput::TransportError => ProxyStep::Refused(IpcRefusal::TransportFailed),
         }
     }
 }
@@ -339,33 +555,37 @@ impl<H> ProxySession<H> {
 /// Test and fuzz accessors and the test-only state builder (never in a shipped build).
 #[cfg(any(test, fuzzing))]
 impl<H> ProxySession<H> {
-    /// Positions the allocator at `next_id` (RED: always applies).
+    /// Positions the honest allocator at `next_id` (only before any ADMIT was prepared; 0 is
+    /// refused). Returns whether it applied.
     pub fn test_only_set_next_id(&mut self, next_id: u32) -> bool {
+        if self.any_admit || next_id == 0 {
+            return false;
+        }
         self.next_id = next_id;
         true
     }
 
-    /// Unanswered admissions (RED: sent minus verdicts).
+    /// Unanswered admissions.
     pub fn test_only_pending_len(&self) -> usize {
-        self.pending.min(crate::limits::MAX_PENDING)
+        self.pending.len()
     }
 
-    /// Admissions committed in the current rate window (RED: not tracked).
+    /// Admissions committed in the current rate window.
     pub fn test_only_window_admissions(&self) -> u32 {
-        0
+        self.window_admissions
     }
 
-    /// The most recently sent admission.
+    /// The oldest pending admission.
     pub fn test_only_answerable(&self) -> Option<AdmissionId> {
-        self.last_sent
+        self.pending.any_answerable()
     }
 
     /// The most recently completed id.
     pub fn test_only_last_completed(&self) -> Option<AdmissionId> {
-        self.last_completed
+        self.completed.last()
     }
 
-    /// The current count for `code`.
+    /// The current saturating count for `code`.
     pub fn test_only_counter(&self, code: EventCode) -> u32 {
         self.counters.current(code)
     }

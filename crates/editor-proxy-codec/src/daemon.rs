@@ -1,27 +1,30 @@
-//! The DAEMON endpoint's state machine: RED (BUILD-DELTA #85 U1, DESIGN v2 (2), "RED and fuzz
-//! proof").
+//! The DAEMON endpoint's state machine (DESIGN v2 (2)): one actor's complete transition table.
 //!
-//! This is the runnable ACCEPTING machine. It decodes frames with the shared wire code (refusal
-//! rows 2, 3, 4 and 6) but IGNORES phase legality, admission ids, the pending cap, the rate window,
-//! the verdict bookkeeping, every deadline and the clock, and its refusals do NOT latch. It
-//! persists one event record per EVENT frame. T-SESSION, T-LATCH, T-LIMITS, T-TIME, T-SEND,
-//! T-VERDICT, T-EVENT and the named fuzz seeds fail against it at named assertions; the FIX
-//! replaces it with the complete transition table.
+//! Phases: AwaitReady -> CheckingF0 -> WelcomeReady -> WelcomePrepared -> Active -> Stopping ->
+//! Closed, with Refused(code) absorbing. Every input not legal in its phase refuses (OutOfOrder
+//! unless an earlier precedence row applies); the first refusal latches: the session drops its
+//! prepared frame and descriptor and every pending admission, returns [`DaemonStep::Refused`] ONCE
+//! (the one cleanup request), and from then on returns [`DaemonStep::Terminal`] for every input,
+//! dropping any descriptor the input carried.
 
 use crate::events::{DaemonEventWindow, EventRecords};
+use crate::limits::{RATE_MAX_ADMITS, RATE_WINDOW_NS, SEND_DEADLINE_NS, STARTUP_DEADLINE_NS};
+use crate::pending::{CompletedFifo, Entry, PendingMap};
 use crate::refusal::IpcRefusal;
 use crate::types::{
     AdmissionId, F0Result, ModeKind, OpId, Outcome, SendOutcome, ServingMode, StopReason,
 };
 use crate::wire::{
     self, is_lower_hex, Frame, InboundAdmit, InboundP2d, Outgoing, P2dRecv, HOST_LABEL_LEN,
-    KIND_SHUTDOWN, KIND_VERDICT, KIND_WELCOME,
+    KIND_ADMIT, KIND_EVENT, KIND_READY, KIND_SHUTDOWN, KIND_VERDICT, KIND_WELCOME,
 };
 
 /// The daemon session's configuration.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DaemonConfig {
-    /// The total deadline from a committed ADMIT to its VERDICT's whole send (RED: ignored).
+    /// The total deadline from a committed ADMIT to its VERDICT's whole send (the connector's
+    /// bounded handover, DESIGN v2 (11), U4); an expired pending admission latches
+    /// OperationTimeout.
     pub verdict_deadline_ns: u64,
 }
 
@@ -196,17 +199,25 @@ struct Prepared<H> {
     frame: Frame,
     fd: Option<H>,
     kind: Sending,
+    deadline: u64,
 }
 
-/// The daemon endpoint of one proxy's IPC session (RED: the accepting machine).
-#[allow(dead_code)]
+/// The daemon endpoint of one proxy's IPC session (pure: the adapter owns the socket).
 pub struct DaemonSession<H> {
     phase: DaemonPhase,
+    config: DaemonConfig,
     last_now: u64,
+    startup_deadline: u64,
+    stop_deadline: u64,
+    f0_proof: bool,
+    shutdown_prepared: bool,
     mode: Option<ModeKind>,
-    pending: usize,
-    last_admitted: Option<AdmissionId>,
-    last_completed: Option<AdmissionId>,
+    epoch: u64,
+    window_index: u64,
+    window_admissions: u32,
+    last_id: u32,
+    pending: PendingMap,
+    completed: CompletedFifo,
     next_op: u64,
     prepared: Option<Prepared<H>>,
     events: DaemonEventWindow,
@@ -249,15 +260,23 @@ pub(crate) fn encode_shutdown() -> Frame {
 }
 
 impl<H> DaemonSession<H> {
-    /// A session for a proxy spawned at `spawn_ns`.
-    pub fn new(spawn_ns: u64, _config: DaemonConfig) -> DaemonSession<H> {
+    /// A session for a proxy spawned at `spawn_ns` (the 5-second startup deadline starts here).
+    pub fn new(spawn_ns: u64, config: DaemonConfig) -> DaemonSession<H> {
         DaemonSession {
             phase: DaemonPhase::AwaitReady,
+            config,
             last_now: spawn_ns,
+            startup_deadline: spawn_ns.saturating_add(STARTUP_DEADLINE_NS),
+            stop_deadline: u64::MAX,
+            f0_proof: false,
+            shutdown_prepared: false,
             mode: None,
-            pending: 0,
-            last_admitted: None,
-            last_completed: None,
+            epoch: spawn_ns,
+            window_index: 0,
+            window_admissions: 0,
+            last_id: 0,
+            pending: PendingMap::new(),
+            completed: CompletedFifo::new(),
             next_op: 1,
             prepared: None,
             events: DaemonEventWindow::new(spawn_ns),
@@ -286,124 +305,319 @@ impl<H> DaemonSession<H> {
         }
     }
 
+    /// Applies one input: the complete transition table.
+    pub fn step(&mut self, input: DaemonInput<'_, H>) -> DaemonStep {
+        if matches!(self.phase, DaemonPhase::Closed | DaemonPhase::Refused(_)) {
+            drop(input);
+            return DaemonStep::Terminal;
+        }
+        match input {
+            DaemonInput::Tick(now) => self.on_tick(now),
+            DaemonInput::Recv(recv) => self.on_recv(recv),
+            DaemonInput::F0(result) => self.on_f0(result),
+            DaemonInput::PrepareWelcome(spec, listener) => self.on_prepare_welcome(spec, listener),
+            DaemonInput::PrepareVerdict(id, verdict) => self.on_prepare_verdict(id, verdict),
+            DaemonInput::PrepareShutdown => self.on_prepare_shutdown(),
+            DaemonInput::SendResult(op, outcome) => self.on_send_result(op, outcome),
+            DaemonInput::Terminate(_reason) => self.on_terminate(),
+            DaemonInput::TransportEof => self.refuse(IpcRefusal::TransportClosed),
+            DaemonInput::TransportError => self.refuse(IpcRefusal::TransportFailed),
+        }
+    }
+
+    fn refuse(&mut self, code: IpcRefusal) -> DaemonStep {
+        self.phase = DaemonPhase::Refused(code);
+        self.prepared = None;
+        self.pending.clear();
+        self.f0_proof = false;
+        DaemonStep::Refused(code)
+    }
+
+    fn teardown(&mut self) -> DaemonStep {
+        self.phase = DaemonPhase::Closed;
+        self.prepared = None;
+        self.pending.clear();
+        self.f0_proof = false;
+        DaemonStep::Teardown
+    }
+
+    fn enter_stopping(&mut self) {
+        self.phase = DaemonPhase::Stopping;
+        self.stop_deadline = self.last_now.saturating_add(SEND_DEADLINE_NS);
+        self.prepared = None;
+        self.pending.clear();
+        self.f0_proof = false;
+    }
+
     fn take_op(&mut self) -> OpId {
         let op = OpId::from_raw(self.next_op);
         self.next_op += 1;
         op
     }
 
-    /// RED: accepts every well-formed input, whatever the phase, ids, limits or time.
-    pub fn step(&mut self, input: DaemonInput<'_, H>) -> DaemonStep {
-        match input {
-            DaemonInput::Tick(now) => {
-                self.last_now = now;
-                match self.events.roll(now) {
-                    Some(records) => DaemonStep::Persist(records),
-                    None => DaemonStep::Idle,
+    fn on_tick(&mut self, now: u64) -> DaemonStep {
+        if now < self.last_now {
+            return self.refuse(IpcRefusal::ClockRegression);
+        }
+        self.last_now = now;
+        match self.phase {
+            DaemonPhase::AwaitReady
+            | DaemonPhase::CheckingF0
+            | DaemonPhase::WelcomeReady
+            | DaemonPhase::WelcomePrepared => {
+                if now >= self.startup_deadline {
+                    return self.refuse(IpcRefusal::OperationTimeout);
                 }
             }
-            DaemonInput::Recv(recv) => {
-                if recv.control_present || recv.msg_ctrunc {
-                    return DaemonStep::Refused(IpcRefusal::AncillaryFromProxy);
-                }
-                let (kind, body) =
-                    match wire::parse_header(recv.bytes, recv.msg_trunc, wire::is_p2d_kind) {
-                        Ok(parsed) => parsed,
-                        Err(code) => return DaemonStep::Refused(code),
-                    };
-                match wire::decode_p2d_body(kind, body) {
-                    Err(code) => DaemonStep::Refused(code),
-                    Ok(InboundP2d::Ready) => {
-                        self.phase = DaemonPhase::CheckingF0;
-                        DaemonStep::RunF0
-                    }
-                    Ok(InboundP2d::Admit(admit)) => {
-                        self.pending += 1;
-                        self.last_admitted = Some(admit.id());
-                        DaemonStep::Admit(admit)
-                    }
-                    Ok(InboundP2d::Event(event)) => {
-                        self.events.add(event.code(), event.count());
-                        DaemonStep::Persist(EventRecords::single(
-                            self.last_now,
-                            event.code(),
-                            event.count(),
-                        ))
-                    }
+            DaemonPhase::Stopping => {
+                if now >= self.stop_deadline {
+                    return self.teardown();
                 }
             }
-            DaemonInput::F0(F0Result::Pass) => {
-                self.phase = DaemonPhase::WelcomeReady;
+            _ => {}
+        }
+        if let Some(prepared) = &self.prepared {
+            if now >= prepared.deadline {
+                return if self.phase == DaemonPhase::Stopping {
+                    self.teardown()
+                } else {
+                    self.refuse(IpcRefusal::OperationTimeout)
+                };
+            }
+        }
+        if self.phase == DaemonPhase::Active && self.pending.any_expired(now) {
+            return self.refuse(IpcRefusal::OperationTimeout);
+        }
+        match self.events.roll(now) {
+            Some(records) => DaemonStep::Persist(records),
+            None => DaemonStep::Idle,
+        }
+    }
+
+    fn on_recv(&mut self, recv: P2dRecv<'_>) -> DaemonStep {
+        // Row 2: the daemon supplies no ancillary buffer.
+        if recv.control_present || recv.msg_ctrunc {
+            return self.refuse(IpcRefusal::AncillaryFromProxy);
+        }
+        // Rows 3-4.
+        let (kind, body) = match wire::parse_header(recv.bytes, recv.msg_trunc, wire::is_p2d_kind) {
+            Ok(parsed) => parsed,
+            Err(code) => return self.refuse(code),
+        };
+        // Row 5: inbound is suspended while a send is prepared.
+        let legal = match (self.phase, kind) {
+            (DaemonPhase::AwaitReady, KIND_READY) => true,
+            (DaemonPhase::Active, KIND_ADMIT | KIND_EVENT) => self.prepared.is_none(),
+            _ => false,
+        };
+        if !legal {
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        // Row 6.
+        let message = match wire::decode_p2d_body(kind, body) {
+            Ok(message) => message,
+            Err(code) => return self.refuse(code),
+        };
+        match message {
+            InboundP2d::Ready => {
+                self.phase = DaemonPhase::CheckingF0;
+                DaemonStep::RunF0
+            }
+            InboundP2d::Admit(admit) => self.on_admit(admit),
+            InboundP2d::Event(event) => {
+                self.events.add(event.code(), event.count());
                 DaemonStep::Idle
             }
-            DaemonInput::F0(F0Result::Fail) => DaemonStep::Refused(IpcRefusal::BoundaryUnverified),
-            DaemonInput::PrepareWelcome(spec, listener) => match encode_welcome(&spec) {
-                Err(code) => DaemonStep::Refused(code),
-                Ok(frame) => {
-                    self.mode = Some(spec.mode.kind());
-                    let op = self.take_op();
-                    self.prepared = Some(Prepared {
-                        op,
-                        frame,
-                        fd: Some(listener),
-                        kind: Sending::Welcome,
-                    });
-                    self.phase = DaemonPhase::WelcomePrepared;
-                    DaemonStep::Send(op)
-                }
-            },
-            DaemonInput::PrepareVerdict(id, verdict) => {
-                let outcome = verdict.outcome();
-                let op = self.take_op();
-                self.prepared = Some(Prepared {
-                    op,
-                    frame: encode_verdict(id, outcome),
-                    fd: verdict.into_fd(),
-                    kind: Sending::Verdict(id),
-                });
-                DaemonStep::Send(op)
+        }
+    }
+
+    /// Row 8 for ADMIT: id, then pending < 64, then the window count < 2000; all commit together.
+    fn on_admit(&mut self, admit: InboundAdmit) -> DaemonStep {
+        let id = admit.id().get();
+        if self.last_id == u32::MAX {
+            return self.refuse(IpcRefusal::ConnExhausted);
+        }
+        if id <= self.last_id {
+            return self.refuse(IpcRefusal::ConnNotIncreasing);
+        }
+        if self.pending.is_full() {
+            return self.refuse(IpcRefusal::TooManyInFlight);
+        }
+        let index = self.last_now.saturating_sub(self.epoch) / RATE_WINDOW_NS;
+        let count = if index > self.window_index {
+            0
+        } else {
+            self.window_admissions
+        };
+        if count >= RATE_MAX_ADMITS {
+            return self.refuse(IpcRefusal::RateExceeded);
+        }
+        let entry = Entry {
+            id: admit.id(),
+            purpose: admit.purpose(),
+            sending: false,
+            deadline: self
+                .last_now
+                .saturating_add(self.config.verdict_deadline_ns),
+        };
+        if !self.pending.insert(entry) {
+            return self.refuse(IpcRefusal::TooManyInFlight);
+        }
+        self.window_index = index.max(self.window_index);
+        self.window_admissions = count + 1;
+        self.last_id = id;
+        DaemonStep::Admit(admit)
+    }
+
+    fn on_f0(&mut self, result: F0Result) -> DaemonStep {
+        if result == F0Result::Fail {
+            return self.refuse(IpcRefusal::BoundaryUnverified);
+        }
+        if self.phase != DaemonPhase::CheckingF0 {
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        self.f0_proof = true;
+        self.phase = DaemonPhase::WelcomeReady;
+        DaemonStep::Idle
+    }
+
+    fn on_prepare_welcome(&mut self, spec: WelcomeSpec, listener: H) -> DaemonStep {
+        if self.phase != DaemonPhase::WelcomeReady || !self.f0_proof || self.prepared.is_some() {
+            drop(listener);
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        let frame = match encode_welcome(&spec) {
+            Ok(frame) => frame,
+            Err(code) => {
+                drop(listener);
+                return self.refuse(code);
             }
-            DaemonInput::PrepareShutdown => {
-                let op = self.take_op();
-                self.prepared = Some(Prepared {
-                    op,
-                    frame: encode_shutdown(),
-                    fd: None,
-                    kind: Sending::Shutdown,
-                });
-                self.phase = DaemonPhase::Stopping;
-                DaemonStep::Send(op)
+        };
+        self.f0_proof = false;
+        self.mode = Some(spec.mode.kind());
+        let op = self.take_op();
+        let deadline = self
+            .last_now
+            .saturating_add(SEND_DEADLINE_NS)
+            .min(self.startup_deadline);
+        self.prepared = Some(Prepared {
+            op,
+            frame,
+            fd: Some(listener),
+            kind: Sending::Welcome,
+            deadline,
+        });
+        self.phase = DaemonPhase::WelcomePrepared;
+        DaemonStep::Send(op)
+    }
+
+    fn on_prepare_verdict(&mut self, id: AdmissionId, verdict: VerdictSpec<H>) -> DaemonStep {
+        if self.phase != DaemonPhase::Active || self.prepared.is_some() {
+            drop(verdict);
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        let outcome = verdict.outcome();
+        let mode = self.mode.unwrap_or(ModeKind::Static);
+        let checked = match self.pending.get_mut(id) {
+            None => Err(if self.completed.contains(id) {
+                IpcRefusal::DuplicateVerdict
+            } else {
+                IpcRefusal::UnknownVerdict
+            }),
+            Some(entry) if entry.sending => Err(IpcRefusal::DuplicateVerdict),
+            Some(entry) if !outcome.legal_for(mode, entry.purpose) => {
+                Err(IpcRefusal::BadOutcomeForPurpose)
             }
-            DaemonInput::SendResult(_op, outcome) => match outcome {
-                SendOutcome::Fatal | SendOutcome::Short => {
-                    DaemonStep::Refused(IpcRefusal::SendFailed)
-                }
-                SendOutcome::WouldBlock => DaemonStep::Idle,
-                SendOutcome::SentWhole => match self.prepared.take() {
-                    None => DaemonStep::Idle,
-                    Some(prepared) => match prepared.kind {
-                        Sending::Welcome => {
-                            self.phase = DaemonPhase::Active;
-                            DaemonStep::WelcomeSent
-                        }
-                        Sending::Verdict(id) => {
-                            self.pending = self.pending.saturating_sub(1);
-                            self.last_completed = Some(id);
-                            DaemonStep::VerdictSent(id)
-                        }
-                        Sending::Shutdown => {
-                            self.phase = DaemonPhase::Closed;
-                            DaemonStep::Teardown
-                        }
-                    },
-                },
-            },
-            DaemonInput::Terminate(_reason) => {
-                self.phase = DaemonPhase::Stopping;
+            Some(entry) => {
+                entry.sending = true;
+                Ok(entry.deadline)
+            }
+        };
+        let deadline = match checked {
+            Ok(deadline) => deadline,
+            Err(code) => {
+                drop(verdict);
+                return self.refuse(code);
+            }
+        };
+        let op = self.take_op();
+        self.prepared = Some(Prepared {
+            op,
+            frame: encode_verdict(id, outcome),
+            fd: verdict.into_fd(),
+            kind: Sending::Verdict(id),
+            deadline,
+        });
+        DaemonStep::Send(op)
+    }
+
+    fn on_prepare_shutdown(&mut self) -> DaemonStep {
+        let after_ready = matches!(
+            self.phase,
+            DaemonPhase::CheckingF0
+                | DaemonPhase::WelcomeReady
+                | DaemonPhase::Active
+                | DaemonPhase::Stopping
+        );
+        if !after_ready || self.prepared.is_some() || self.shutdown_prepared {
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        if self.phase != DaemonPhase::Stopping {
+            self.enter_stopping();
+        }
+        self.shutdown_prepared = true;
+        let op = self.take_op();
+        self.prepared = Some(Prepared {
+            op,
+            frame: encode_shutdown(),
+            fd: None,
+            kind: Sending::Shutdown,
+            deadline: self.stop_deadline,
+        });
+        DaemonStep::Send(op)
+    }
+
+    fn on_send_result(&mut self, op: OpId, outcome: SendOutcome) -> DaemonStep {
+        if matches!(outcome, SendOutcome::Fatal | SendOutcome::Short) {
+            return self.refuse(IpcRefusal::SendFailed);
+        }
+        if !matches!(&self.prepared, Some(prepared) if prepared.op == op) {
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        if outcome == SendOutcome::WouldBlock {
+            return DaemonStep::Idle;
+        }
+        let prepared = match self.prepared.take() {
+            Some(prepared) => prepared,
+            None => return self.refuse(IpcRefusal::OutOfOrder),
+        };
+        let Prepared { fd, kind, .. } = prepared;
+        drop(fd);
+        match kind {
+            Sending::Welcome => {
+                self.phase = DaemonPhase::Active;
+                self.epoch = self.last_now;
+                self.window_index = 0;
+                self.window_admissions = 0;
+                DaemonStep::WelcomeSent
+            }
+            Sending::Verdict(id) => {
+                self.pending.remove(id);
+                self.completed.push(id);
+                DaemonStep::VerdictSent(id)
+            }
+            Sending::Shutdown => self.teardown(),
+        }
+    }
+
+    fn on_terminate(&mut self) -> DaemonStep {
+        match self.phase {
+            DaemonPhase::AwaitReady => self.teardown(),
+            DaemonPhase::Stopping => DaemonStep::Idle,
+            _ => {
+                self.enter_stopping();
                 DaemonStep::Stopping
             }
-            DaemonInput::TransportEof => DaemonStep::Refused(IpcRefusal::TransportClosed),
-            DaemonInput::TransportError => DaemonStep::Refused(IpcRefusal::TransportFailed),
         }
     }
 }
@@ -411,24 +625,24 @@ impl<H> DaemonSession<H> {
 /// Test and fuzz accessors (never in a shipped build).
 #[cfg(any(test, fuzzing))]
 impl<H> DaemonSession<H> {
-    /// Unanswered admissions (RED: admits minus verdicts).
+    /// Unanswered admissions.
     pub fn test_only_pending_len(&self) -> usize {
-        self.pending.min(crate::limits::MAX_PENDING)
+        self.pending.len()
     }
 
-    /// Admissions committed in the current rate window (RED: not tracked).
+    /// Admissions committed in the current rate window.
     pub fn test_only_window_admissions(&self) -> u32 {
-        0
+        self.window_admissions
     }
 
-    /// The most recently admitted id.
+    /// The oldest pending admission not yet being answered.
     pub fn test_only_answerable(&self) -> Option<AdmissionId> {
-        self.last_admitted
+        self.pending.any_answerable()
     }
 
     /// The most recently completed id.
     pub fn test_only_last_completed(&self) -> Option<AdmissionId> {
-        self.last_completed
+        self.completed.last()
     }
 
     /// The WELCOME mode, once prepared.

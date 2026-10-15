@@ -40,8 +40,8 @@ impl LeaseCandidates {
             return Ok(());
         }
         if self.n == MAX_DIGESTS {
-            // RED: the ninth candidate is TRUNCATED away (T-CANDIDATES fails here).
-            return Ok(());
+            self.refused = true;
+            return Err(TooManyLeaseCandidates);
         }
         self.digests[self.n] = *Sha256Digest::of(candidate).as_bytes();
         self.n += 1;

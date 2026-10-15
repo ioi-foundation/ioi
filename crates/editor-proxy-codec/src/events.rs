@@ -1,6 +1,5 @@
-//! Bounded event aggregation (DESIGN v2 (3)): RED. Counts WRAP instead of saturating, the proxy
-//! offers every nonzero counter on every tick (no per-window mark), and the RED daemon machine
-//! persists one record per EVENT frame. T-EVENT fails against it; the FIX bounds all three.
+//! Bounded event aggregation (DESIGN v2 (3)). Events are lease-scoped aggregates: conn is 0 for
+//! all twelve codes, counts saturate, and neither side keeps a record or a frame per event.
 
 use crate::types::EventCode;
 use crate::wire::OutboundEvent;
@@ -39,16 +38,6 @@ impl EventRecords {
         self.len() == 0
     }
 
-    /// RED: one record for one EVENT frame.
-    pub(crate) fn single(now: u64, code: EventCode, count: u32) -> EventRecords {
-        let mut counts = [0; 12];
-        counts[code.index()] = count;
-        EventRecords {
-            window: now / DAEMON_EVENT_WINDOW_NS,
-            counts,
-        }
-    }
-
     /// The nonzero (code, count) records.
     pub fn records(&self) -> impl Iterator<Item = (EventCode, u32)> + '_ {
         EventCode::ALL
@@ -77,7 +66,7 @@ impl DaemonEventWindow {
     /// Folds one valid EVENT frame into the open window (saturating).
     pub(crate) fn add(&mut self, code: EventCode, count: u32) {
         let slot = &mut self.counts[code.index()];
-        *slot = slot.wrapping_add(count);
+        *slot = slot.saturating_add(count);
     }
 
     /// At a window boundary: the closed window's records (if any nonzero), once.
@@ -139,21 +128,20 @@ impl ProxyEventCounters {
     /// One observation of `count` occurrences (a 1025-pair cookie line contributes 1025).
     pub(crate) fn observe(&mut self, code: EventCode, count: u32) {
         let slot = &mut self.counts[code.index()];
-        *slot = slot.wrapping_add(count);
+        *slot = slot.saturating_add(count);
     }
 
     /// The next EVENT to offer at `now`: the first nonzero counter not yet offered in this window
     /// (`flush_all` ignores the per-window marks, for the bounded final flush). It snapshots the
     /// counter; [`ProxyEventCounters::commit`] subtracts the snapshot after a whole send.
     pub(crate) fn next_offer(&mut self, now: u64, flush_all: bool) -> Option<OutboundEvent> {
-        let _ = flush_all;
         let index = now / PROXY_EVENT_WINDOW_NS;
         if index > self.window {
             self.window = index;
             self.offered = [false; 12];
         }
         for (i, code) in EventCode::ALL.iter().enumerate() {
-            if self.counts[i] != 0 {
+            if self.counts[i] != 0 && (flush_all || !self.offered[i]) {
                 self.offered[i] = true;
                 return OutboundEvent::new(*code, self.counts[i]);
             }

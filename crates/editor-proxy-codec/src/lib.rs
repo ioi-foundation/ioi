@@ -43,6 +43,7 @@ mod digest;
 mod events;
 mod fds;
 mod limits;
+mod pending;
 mod proxy;
 mod refusal;
 mod types;

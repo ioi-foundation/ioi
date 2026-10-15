@@ -28,7 +28,7 @@ daemon.rs: impl DaemonStep {
 daemon.rs: pub fn kind(&self) -> DaemonStepKind {
 daemon.rs: pub struct DaemonSession<H> {
 daemon.rs: impl<H> DaemonSession<H> {
-daemon.rs: pub fn new(spawn_ns: u64, _config: DaemonConfig) -> DaemonSession<H> {
+daemon.rs: pub fn new(spawn_ns: u64, config: DaemonConfig) -> DaemonSession<H> {
 daemon.rs: pub fn phase(&self) -> DaemonPhase {
 daemon.rs: pub fn outgoing(&self) -> Option<Outgoing<'_, H>> {
 daemon.rs: pub fn final_event_summary(&mut self) -> Option<EventRecords> {
@@ -178,6 +178,7 @@ lib.rs: mod digest;
 lib.rs: mod events;
 lib.rs: mod fds;
 lib.rs: mod limits;
+lib.rs: mod pending;
 lib.rs: mod proxy;
 lib.rs: mod refusal;
 lib.rs: mod types;
@@ -204,6 +205,11 @@ limits.rs: pub const RATE_MAX_ADMITS: u32 = 2000;
 limits.rs: pub const STARTUP_DEADLINE_NS: u64 = 5_000_000_000;
 limits.rs: pub const SEND_DEADLINE_NS: u64 = 1_000_000_000;
 limits.rs: pub const MAX_FRAMES_PER_BATCH: usize = 64;
+pending.rs: #[derive(Clone, Copy)]
+pending.rs: impl PendingMap {
+pending.rs: #[cfg(any(test, fuzzing))]
+pending.rs: impl CompletedFifo {
+pending.rs: #[cfg(any(test, fuzzing))]
 proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 proxy.rs: pub struct ProxyConfig {
 proxy.rs: pub verdict_deadline_ns: u64,
@@ -219,7 +225,7 @@ proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 proxy.rs: pub enum AdmitBlocked {
 proxy.rs: pub struct ProxySession<H> {
 proxy.rs: impl<H> ProxySession<H> {
-proxy.rs: pub fn new(start_ns: u64, _config: ProxyConfig) -> ProxySession<H> {
+proxy.rs: pub fn new(start_ns: u64, config: ProxyConfig) -> ProxySession<H> {
 proxy.rs: pub fn phase(&self) -> ProxyPhase {
 proxy.rs: pub fn outgoing(&self) -> Option<Outgoing<'_, H>> {
 proxy.rs: pub fn can_prepare_admit(&self) -> Result<(), AdmitBlocked> {
