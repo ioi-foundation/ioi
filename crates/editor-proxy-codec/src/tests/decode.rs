@@ -374,3 +374,78 @@ fn t_precedence_session_rows_across_layers() {
         "every refused receive closed its descriptors"
     );
 }
+
+/// Two precedence orders no earlier test distinguished (S1-85D: t1's codec mutants M11 and M29
+/// survived the suite). Row 3: a datagram longer than the 513-byte receive buffer arrives as 513
+/// bytes WITH MSG_TRUNC, and that is Truncated, never Oversized, on both machines (513 bytes
+/// without MSG_TRUNC stays Oversized). Row 8: a valid ADMIT checks the id, then pending < 64, then
+/// the window count < 2000, so with the pending map full AND 2000 admissions in the window the
+/// refusal is TooManyInFlight, never RateExceeded.
+#[test]
+fn t_precedence_row_3_truncation_and_row_8_pending_before_rate() {
+    use IpcRefusal::*;
+    let pool = Pool::new();
+    let big = raw_frame(0x02, &[0u8; 505]);
+    assert_eq!(big.len(), 513);
+    let mut d = daemon_new();
+    let step = d.step(DaemonInput::Recv(P2dRecv {
+        bytes: &big,
+        msg_trunc: true,
+        msg_ctrunc: false,
+        control_present: false,
+    }));
+    assert_eq!(
+        step.kind(),
+        DaemonStepKind::Refused(Truncated),
+        "row 3: MSG_TRUNC before Oversized (daemon)"
+    );
+    let mut d = daemon_new();
+    assert_eq!(
+        drecv_k(&mut d, &big),
+        DaemonStepKind::Refused(Oversized),
+        "513 bytes without MSG_TRUNC is Oversized (daemon)"
+    );
+    let big_d2p = raw_frame(0x81, &[0u8; 505]);
+    assert_eq!(big_d2p.len(), 513);
+    let mut p = proxy_awaiting_welcome();
+    let step = p.step(crate::ProxyInput::Recv(crate::D2pRecv {
+        bytes: &big_d2p,
+        msg_trunc: true,
+        msg_ctrunc: false,
+        unexpected_control: false,
+        fds: crate::FdBatch::new(),
+    }));
+    assert_eq!(
+        step.kind(),
+        ProxyStepKind::Refused(Truncated),
+        "row 3: MSG_TRUNC before Oversized (proxy)"
+    );
+    let mut d = daemon_active(&pool, ModeKind::ForwardTcp);
+    for id in 1..=1936 {
+        assert_eq!(
+            daemon_exchange(&mut d, id),
+            (DaemonStepKind::Admit, DaemonStepKind::VerdictSent),
+            "exchange {}",
+            id
+        );
+    }
+    for id in 1937..=2000 {
+        assert_eq!(
+            drecv_k(&mut d, &admit1(id)),
+            DaemonStepKind::Admit,
+            "unanswered {}",
+            id
+        );
+    }
+    assert_eq!(d.test_only_pending_len(), 64, "the pending map is full");
+    assert_eq!(
+        d.test_only_window_admissions(),
+        2000,
+        "the window count is at its limit"
+    );
+    assert_eq!(
+        drecv_k(&mut d, &admit1(2001)),
+        DaemonStepKind::Refused(TooManyInFlight),
+        "row 8: pending < 64 before count < 2000"
+    );
+}
