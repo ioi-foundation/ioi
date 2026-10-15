@@ -1223,28 +1223,48 @@ pub(crate) fn build_membership_projection(
 pub(crate) async fn handle_get_projection(
     AxumPath(key): AxumPath<String>,
     State(state): State<Arc<DaemonState>>,
-) -> (StatusCode, Json<Value>) {
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_response(
+        handle_get_projection_reply(AxumPath(key), State(state)).await,
+    )
+}
+
+async fn handle_get_projection_reply(
+    AxumPath(key): AxumPath<String>,
+    State(state): State<Arc<DaemonState>>,
+) -> Result<(StatusCode, Json<Value>), super::system_activation_routes::SystemReadRefusal> {
     if !canonical_system_key(&key) {
-        return classify(verr(
+        return Ok(classify(verr(
             "system_membership_source_key_invalid",
             "id is not canonical",
-        ));
+        )));
     }
-    match with_source_locks(|| {
-        let source = load_membership_source(&state.data_dir, &key)?;
-        build_membership_projection(
-            &source.binding.system_id,
-            source
-                .desired_topology
-                .as_ref()
-                .zip(source.desired_topology_root.as_deref()),
-            &source.records,
-            &source.head,
-        )
-    }) {
+    // BUILD-DELTA #48: the read waits on the System source locks; it runs on the blocking pool,
+    // admitted. FIX-3: identical concurrent reads share ONE read; the answer depends on the System
+    // key alone (no principal).
+    let data_dir = state.data_dir.clone();
+    let read = super::system_activation_routes::shared_system_read(
+        &state.system_reads,
+        json!(["system_membership_projection", key]).to_string(),
+        super::system_activation_routes::SystemReadLocks::Sources,
+        move || {
+            let source = load_membership_source(&data_dir, &key)?;
+            build_membership_projection(
+                &source.binding.system_id,
+                source
+                    .desired_topology
+                    .as_ref()
+                    .zip(source.desired_topology_root.as_deref()),
+                &source.records,
+                &source.head,
+            )
+        },
+    )
+    .await?;
+    Ok(match read {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(error) => classify(error),
-    }
+    })
 }
 
 fn validate_desired_topology_request(body: &Value) -> Result<(), VErr> {

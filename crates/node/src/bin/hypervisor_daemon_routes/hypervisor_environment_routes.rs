@@ -1454,20 +1454,39 @@ pub(crate) fn build_environment_projection(
 /// GET /v1/hypervisor/environments/lifecycle/projection
 pub(crate) async fn handle_get_environment_projection(
     State(state): State<Arc<DaemonState>>,
-) -> (StatusCode, Json<Value>) {
-    match with_source_locks(|| {
-        let source = load_environment_lifecycle_source(&state.data_dir)?;
-        let observations = resolve_route_observations(&state.data_dir)?;
-        build_environment_projection(
-            &source.binding.estate_namespace,
-            &source.state,
-            &source.head,
-            &observations,
-        )
-    }) {
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_response(
+        handle_get_environment_projection_reply(State(state)).await,
+    )
+}
+
+async fn handle_get_environment_projection_reply(
+    State(state): State<Arc<DaemonState>>,
+) -> Result<(StatusCode, Json<Value>), super::system_activation_routes::SystemReadRefusal> {
+    // BUILD-DELTA #48: the read waits on the System source locks; it runs on the blocking pool,
+    // admitted. FIX-3: identical concurrent reads share ONE read; the answer has no input but the
+    // daemon's own state (no principal).
+    let data_dir = state.data_dir.clone();
+    let read = super::system_activation_routes::shared_system_read(
+        &state.system_reads,
+        json!(["environment_lifecycle_projection"]).to_string(),
+        super::system_activation_routes::SystemReadLocks::Sources,
+        move || {
+            let source = load_environment_lifecycle_source(&data_dir)?;
+            let observations = resolve_route_observations(&data_dir)?;
+            build_environment_projection(
+                &source.binding.estate_namespace,
+                &source.state,
+                &source.head,
+                &observations,
+            )
+        },
+    )
+    .await?;
+    Ok(match read {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(error) => classify(error),
-    }
+    })
 }
 
 #[cfg(test)]

@@ -12,7 +12,9 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
-use super::system_activation_routes::{classify, required_string, verr, with_source_locks};
+use super::system_activation_routes::{
+    classify, required_string, shared_system_read, verr, SystemReadLocks, SystemReadRefusal,
+};
 use super::DaemonState;
 
 type VErr = (String, String);
@@ -290,93 +292,131 @@ pub(crate) async fn handle_get(
     State(state): State<Arc<DaemonState>>,
     headers: axum::http::HeaderMap,
     Query(query): Query<HashMap<String, String>>,
-) -> (StatusCode, Json<Value>) {
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_response(
+        handle_get_reply(State(state), headers, Query(query)).await,
+    )
+}
+
+async fn handle_get_reply(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): Query<HashMap<String, String>>,
+) -> Result<(StatusCode, Json<Value>), SystemReadRefusal> {
     let view = query.get("view").map(String::as_str).unwrap_or("compact");
     if !matches!(view, "compact" | "advanced") {
-        return classify(verr(
+        return Ok(classify(verr(
             "system_projection_view_invalid",
             "view must be exactly 'compact' or 'advanced'",
-        ));
+        )));
     }
     // POLICY BEFORE ROWS. The inventory is filtered by the request identity before any row is
     // built, counted or reported as `honest_empty`; an unresolvable caller is a typed refusal.
     let identity = match super::substrate_store::resolve_request_identity(&state.data_dir, &headers)
     {
         Ok(identity) => identity,
-        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+        Err(error) => return Ok(super::mutation_event_foundation::scope_refusal_reply(error)),
     };
-    // ONE STRICT PASS FOR THE WHOLE READ (R-240): every exact Agentgres read the rows make — the
-    // verified admission, the live chain, the membership and writer planes, for every visible System —
-    // is answered from one validated snapshot instead of one full-log pass each.
-    match super::substrate_store::with_exact_read_snapshot(&state.data_dir, || {
-        with_source_locks(|| {
-            let mut records = super::system_genesis_routes::scan_records(&state.data_dir)
-                .map_err(|message| verr("system_projection_source_unreadable", message))?;
-            let mut substrate_records = super::substrate_store::read_required_all(
-                &state.data_dir,
-                super::system_genesis_routes::RECORD_DIR,
-            )
-            .map_err(|error| {
-                verr(
-                    "system_projection_source_unreadable",
-                    format!("Agentgres admission census failed ({error})"),
-                )
-            })?;
-            records.sort_by_key(|record| {
-                record
-                    .get("system_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_owned()
-            });
-            substrate_records.sort_by_key(|record| {
-                record
-                    .get("system_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_owned()
-            });
-            if substrate_records != records {
-                return Err(verr(
-                    "system_projection_source_incomplete",
-                    "local and Agentgres genesis admission censuses differ",
-                ));
-            }
-            if let Some(filter) = query.get("system_id") {
-                records.retain(|record| {
-                    record.get("system_id").and_then(Value::as_str) == Some(filter.as_str())
-                });
-            }
-            let visible: Vec<(&Value, &'static str)> = records
-                .iter()
-                .filter_map(|record| {
-                    row_visible_to(record, &identity).map(|filter| (record, filter))
-                })
-                .collect();
-            let systems = visible
-                .iter()
-                .map(|(record, filter)| {
-                    let policy =
-                        json!({ "principal_ref": identity.principal_ref, "filter": filter });
-                    project_one(&state.data_dir, record, view, &policy)
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok::<_, VErr>(json!({
-                "schema_version":"ioi.hypervisor.autonomous-system-read-projection.v1",
-                "row_schema_version": SYSTEMS_PROJECTION_SCHEMA,
-                "row_contract_id": SYSTEMS_PROJECTION_CONTRACT_ID,
-                "view":view,
-                "state":if systems.is_empty(){"honest_empty"}else{"ready"},
-                "systems":systems,
-                "policy":{"principal_ref": identity.principal_ref, "applied_before": ["rows", "state"], "admitted_rows": systems.len(), "inventory_rows": records.len()},
-                "projection_source":"verified_owner_reconstruction",
-                "nonclaims":{"authority":false,"mutation":false,"membership":false,"writer":false,"network_assurance":false,"runtime_effect":false,"persistence":false}
-            }))
-        })
-    }) {
+    // BUILD-DELTA #48: the read is synchronous and long (one strict pass over the whole Agentgres log
+    // under the System source locks), so it runs on the blocking pool, never on an async worker.
+    // FIX-3: identical concurrent reads share ONE read. The answer depends on the view, the
+    // narrowing and WHO asks (rows are filtered by the principal and its tenant scope, and the answer
+    // names the principal), so all of them are the key: an answer is never shared across principals.
+    // The caller was resolved above, per request, before it asks for the read.
+    let system_id = query.get("system_id").cloned();
+    let key = json!([
+        "systems_projection",
+        view,
+        system_id,
+        identity.principal_ref,
+        identity.tenant_refs
+    ])
+    .to_string();
+    let data_dir = state.data_dir.clone();
+    let view = view.to_string();
+    let read = shared_system_read(
+        &state.system_reads,
+        key,
+        SystemReadLocks::Sources,
+        move || systems_projection(&data_dir, &view, system_id.as_deref(), &identity),
+    )
+    .await?;
+    Ok(match read {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(error) => classify(error),
-    }
+    })
+}
+
+/// The Systems projection as `identity` sees it, read under the System source locks (the caller
+/// holds them). ONE STRICT PASS FOR THE WHOLE READ (R-240): every exact Agentgres read the rows make
+/// (the verified admission, the live chain, the membership and writer planes, for every visible
+/// System) is answered from one validated snapshot instead of one full-log pass each.
+fn systems_projection(
+    data_dir: &str,
+    view: &str,
+    system_id: Option<&str>,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Result<Value, VErr> {
+    super::substrate_store::with_exact_read_snapshot(data_dir, || {
+        let mut records = super::system_genesis_routes::scan_records(data_dir)
+            .map_err(|message| verr("system_projection_source_unreadable", message))?;
+        let mut substrate_records = super::substrate_store::read_required_all(
+            data_dir,
+            super::system_genesis_routes::RECORD_DIR,
+        )
+        .map_err(|error| {
+            verr(
+                "system_projection_source_unreadable",
+                format!("Agentgres admission census failed ({error})"),
+            )
+        })?;
+        records.sort_by_key(|record| {
+            record
+                .get("system_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned()
+        });
+        substrate_records.sort_by_key(|record| {
+            record
+                .get("system_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned()
+        });
+        if substrate_records != records {
+            return Err(verr(
+                "system_projection_source_incomplete",
+                "local and Agentgres genesis admission censuses differ",
+            ));
+        }
+        if let Some(filter) = system_id {
+            records
+                .retain(|record| record.get("system_id").and_then(Value::as_str) == Some(filter));
+        }
+        let visible: Vec<(&Value, &'static str)> = records
+            .iter()
+            .filter_map(|record| row_visible_to(record, identity).map(|filter| (record, filter)))
+            .collect();
+        let systems = visible
+            .iter()
+            .map(|(record, filter)| {
+                let policy = json!({ "principal_ref": identity.principal_ref, "filter": filter });
+                project_one(data_dir, record, view, &policy)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok::<_, VErr>(json!({
+            "schema_version":"ioi.hypervisor.autonomous-system-read-projection.v1",
+            "row_schema_version": SYSTEMS_PROJECTION_SCHEMA,
+            "row_contract_id": SYSTEMS_PROJECTION_CONTRACT_ID,
+            "view":view,
+            "state":if systems.is_empty(){"honest_empty"}else{"ready"},
+            "systems":systems,
+            "policy":{"principal_ref": identity.principal_ref, "applied_before": ["rows", "state"], "admitted_rows": systems.len(), "inventory_rows": records.len()},
+            "projection_source":"verified_owner_reconstruction",
+            "nonclaims":{"authority":false,"mutation":false,"membership":false,"writer":false,"network_assurance":false,"runtime_effect":false,"persistence":false}
+        }))
+    })
 }
 
 #[cfg(test)]
@@ -524,5 +564,687 @@ mod tests {
             standing_over(d, None, &local("root")),
             SystemStanding::Absent
         );
+    }
+}
+
+/// BUILD-DELTA #48: a Systems projection read is long and synchronous (one strict pass over the
+/// whole Agentgres log, under the System source locks); it must never hold an async worker that
+/// every other request, identity resolution included, needs.
+#[cfg(test)]
+mod worker_starvation_tests {
+    use std::collections::HashMap;
+    use std::time::{Duration, Instant};
+
+    use axum::extract::{Query, State};
+    use axum::http::HeaderMap;
+    use serde_json::json;
+
+    /// A signed-in principal of the `org://local` tenant: its principal, membership and session
+    /// records, and the bearer headers that present the session.
+    fn signed_in(data_dir: &str) -> HeaderMap {
+        signed_in_as(data_dir, "operator")
+    }
+
+    /// `signed_in` for any principal id: a second principal of the same tenant has the same tenant
+    /// scope and a different principal ref.
+    fn signed_in_as(data_dir: &str, principal_id: &str) -> HeaderMap {
+        super::super::persist_record(
+            data_dir,
+            "principals",
+            principal_id,
+            &json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": principal_id,
+                     "email": format!("{principal_id}@example.test"), "name": principal_id, "role": "owner",
+                     "status": "active", "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" }),
+        )
+        .unwrap();
+        let principal_ref = format!("user://{principal_id}");
+        super::super::lifecycle_routes::apply_membership_transition(
+            data_dir,
+            &principal_ref,
+            &principal_ref,
+            "org://local",
+            "organization",
+            "active",
+            0,
+            &format!("test-{principal_id}-org-local"),
+            "test membership",
+            "deployment_bootstrap",
+        )
+        .unwrap();
+        let token = format!("token-{principal_id}");
+        super::super::persist_record(
+            data_dir,
+            "sessions",
+            &format!("session-{principal_id}"),
+            &json!({ "session_id": format!("session-{principal_id}"),
+                     "token_hash": super::super::sha256_hex_str(&token),
+                     "principal_id": principal_id, "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "expires_at": "9999-12-31T23:59:59Z" }),
+        )
+        .unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        headers
+    }
+
+    /// ONE AT A TIME. These tests hold the process-global System source locks for seconds, or time
+    /// projection reads that such a hold would inflate: a calibration read waiting at locks another
+    /// test holds would stop calibration on a log far too small, and the test would then measure
+    /// nothing. Every test in this module takes this guard first, so none of them overlaps another.
+    static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+        ONE_AT_A_TIME
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// The System source locks, held on a thread of their own until the holder is dropped, so a
+    /// test can keep every System read waiting at the locks (a write in progress looks the same).
+    /// `new` returns only once the locks are held.
+    struct SourceLocksHeld {
+        release: Option<std::sync::mpsc::Sender<()>>,
+        holder: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl SourceLocksHeld {
+        fn new() -> Self {
+            let (held_tx, held_rx) = std::sync::mpsc::channel();
+            let (release, release_rx) = std::sync::mpsc::channel::<()>();
+            let holder = std::thread::spawn(move || {
+                super::super::system_activation_routes::with_source_locks(|| {
+                    held_tx.send(()).unwrap();
+                    // Released by a send or by the sender being dropped (a failing test included).
+                    let _ = release_rx.recv();
+                });
+            });
+            held_rx
+                .recv_timeout(Duration::from_secs(120))
+                .expect("the System source locks are taken");
+            SourceLocksHeld {
+                release: Some(release),
+                holder: Some(holder),
+            }
+        }
+    }
+
+    impl Drop for SourceLocksHeld {
+        fn drop(&mut self) {
+            drop(self.release.take());
+            if let Some(holder) = self.holder.take() {
+                let _ = holder.join();
+            }
+        }
+    }
+
+    /// How long concurrent requests are given to arrive while the source locks hold every read at
+    /// the locks: a lower bound only (a request arriving later starts a read of its own, so a short
+    /// window can fail a sharing test, never pass it), and well inside the 2 s admission bound.
+    const ARRIVAL_WINDOW: Duration = Duration::from_millis(1000);
+
+    /// Wait (bounded) until at least `count` admitted reads have begun on the blocking pool since
+    /// `begun`: the daemon's own acknowledgement, never a sleep.
+    async fn reads_begun(state: &std::sync::Arc<super::DaemonState>, begun: u64, count: u64) {
+        use std::sync::atomic::Ordering;
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while state.system_reads.started.load(Ordering::SeqCst) < begun + count {
+            assert!(
+                Instant::now() < deadline,
+                "{count} admitted read(s) begin on the blocking pool"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    }
+
+    async fn answer_of(
+        response: axum::response::Response,
+    ) -> (axum::http::StatusCode, Option<String>, serde_json::Value) {
+        let status = response.status();
+        let retry_after = response
+            .headers()
+            .get(axum::http::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
+        (status, retry_after, body)
+    }
+
+    /// One Systems projection read as `headers`, narrowed to `system_id` when given (a distinct
+    /// narrowing is a distinct read).
+    fn projection(
+        state: &std::sync::Arc<super::DaemonState>,
+        headers: &HeaderMap,
+        system_id: Option<&str>,
+    ) -> tokio::task::JoinHandle<axum::response::Response> {
+        let (state, headers) = (state.clone(), headers.clone());
+        let mut query = HashMap::new();
+        query.insert("view".to_owned(), "compact".to_owned());
+        if let Some(system_id) = system_id {
+            query.insert("system_id".to_owned(), system_id.to_owned());
+        }
+        tokio::spawn(async move { super::handle_get(State(state), headers, Query(query)).await })
+    }
+
+    /// BUILD-DELTA #48 FIX-3, MAJOR 1: an admission timeout is ONE typed answer on EVERY admitted
+    /// System read: 503, `Retry-After: 2`, code `system_source_read_busy`, whatever the route
+    /// module's own refusal classifier would make of the code. The admission is saturated through
+    /// the daemon's own behaviour: the source locks are held, and one read per permit, each a
+    /// distinct read, is admitted and acknowledged (begun on the blocking pool, waiting at the
+    /// locks); then each of the six admitted handlers is asked once, with an input it accepts.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn every_admitted_system_read_answers_an_admission_timeout_with_a_typed_503() {
+        let _one_at_a_time = one_at_a_time();
+        use axum::extract::Path as AxumPath;
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let permits = super::super::system_activation_routes::SYSTEM_READ_PERMITS as u64;
+        let saturating: Vec<_> = (0..permits)
+            .map(|index| {
+                projection(
+                    &state,
+                    &headers,
+                    Some(&format!("system://test/saturate-{index}")),
+                )
+            })
+            .collect();
+        reads_begun(&state, begun, permits).await;
+        let key = format!("asg_{}", "a".repeat(64));
+        let probes: Vec<(&str, tokio::task::JoinHandle<axum::response::Response>)> = vec![
+            (
+                "systems projection",
+                projection(&state, &headers, Some("system://test/probe")),
+            ),
+            ("genesis by system id", {
+                let state = state.clone();
+                let mut query = HashMap::new();
+                query.insert("system_id".to_owned(), "system://test/probe".to_owned());
+                tokio::spawn(async move {
+                    super::super::system_genesis_routes::handle_get(State(state), Query(query))
+                        .await
+                })
+            }),
+            ("genesis by key", {
+                let (state, key) = (state.clone(), key.clone());
+                tokio::spawn(async move {
+                    super::super::system_genesis_routes::handle_get_by_key(
+                        State(state),
+                        AxumPath(key),
+                    )
+                    .await
+                })
+            }),
+            ("membership projection", {
+                let (state, key) = (state.clone(), key.clone());
+                tokio::spawn(async move {
+                    super::super::system_membership_routes::handle_get_projection(
+                        AxumPath(key),
+                        State(state),
+                    )
+                    .await
+                })
+            }),
+            ("environment projection", {
+                let state = state.clone();
+                tokio::spawn(async move {
+                    super::super::hypervisor_environment_routes::handle_get_environment_projection(
+                        State(state),
+                    )
+                    .await
+                })
+            }),
+            ("node projection", {
+                let state = state.clone();
+                tokio::spawn(async move {
+                    super::super::hypervisoros_node_routes::handle_get_node_projection(State(state))
+                        .await
+                })
+            }),
+        ];
+        let mut wrong = Vec::new();
+        for (name, probe) in probes {
+            let response = tokio::time::timeout(Duration::from_secs(60), probe)
+                .await
+                .unwrap_or_else(|_| panic!("the {name} answers while the admission is saturated"))
+                .unwrap();
+            let (status, retry_after, body) = answer_of(response).await;
+            eprintln!(
+                "{name}: {status} Retry-After {retry_after:?} code {}",
+                body["error"]["code"]
+            );
+            if status != axum::http::StatusCode::SERVICE_UNAVAILABLE
+                || retry_after.as_deref() != Some("2")
+                || body["error"]["code"] != json!("system_source_read_busy")
+            {
+                wrong.push(format!(
+                    "{name} answered {status} Retry-After {retry_after:?} code {}",
+                    body["error"]["code"]
+                ));
+            }
+        }
+        drop(held);
+        for read in saturating {
+            let response = tokio::time::timeout(Duration::from_secs(120), read)
+                .await
+                .expect("a saturating read completes once the locks are released")
+                .unwrap();
+            assert_eq!(response.status(), axum::http::StatusCode::OK);
+        }
+        assert!(
+            wrong.is_empty(),
+            "every admitted System read answers an admission timeout 503 + Retry-After 2 + system_source_read_busy; not so: {wrong:?}"
+        );
+    }
+
+    /// BUILD-DELTA #48 FIX-3, MAJOR 2 acceptance: seven concurrent IDENTICAL projection requests
+    /// (one principal, one view, one narrowing; a workspace's seven modes asking for its gate) all
+    /// succeed, with ONE underlying read. The source locks are held while they arrive (a write in
+    /// progress looks the same), so no read can have taken its snapshot before the last request
+    /// arrived; the arrival window is a lower bound only (a request arriving after it starts a read
+    /// of its own, so a short window can fail this test, never pass it).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn seven_concurrent_identical_projection_reads_share_one_admitted_read() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let (status, _, alone) = answer_of(projection(&state, &headers, None).await.unwrap()).await;
+        assert_eq!(
+            status,
+            axum::http::StatusCode::OK,
+            "a lone read answers: {alone}"
+        );
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let reads: Vec<_> = (0..7).map(|_| projection(&state, &headers, None)).collect();
+        reads_begun(&state, begun, 1).await;
+        tokio::time::sleep(ARRIVAL_WINDOW).await;
+        drop(held);
+        let mut bodies = Vec::new();
+        for read in reads {
+            let response = tokio::time::timeout(Duration::from_secs(120), read)
+                .await
+                .expect("every read answers")
+                .unwrap();
+            let (status, retry_after, body) = answer_of(response).await;
+            assert_eq!(
+                status,
+                axum::http::StatusCode::OK,
+                "every one of the seven reads succeeds (Retry-After {retry_after:?}): {body}"
+            );
+            bodies.push(body);
+        }
+        let reads_run = state.system_reads.started.load(Ordering::SeqCst) - begun;
+        eprintln!("seven identical projection requests: {reads_run} underlying read(s)");
+        assert!(
+            bodies.iter().all(|body| *body == bodies[0]),
+            "the seven answers are one answer"
+        );
+        assert_eq!(
+            reads_run, 1,
+            "seven concurrent identical projection requests share ONE admitted read"
+        );
+    }
+
+    /// The Systems projection is principal-dependent (rows are filtered by who asks, and every
+    /// answer names its principal), so the principal is part of what makes two requests identical:
+    /// three requests from each of two principals of the same tenant make TWO reads, and every
+    /// answer names its own caller.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn identical_projection_reads_of_two_principals_are_never_shared() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let operator = signed_in(&data_dir);
+        let auditor = signed_in_as(&data_dir, "auditor");
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let reads: Vec<_> = (0..6)
+            .map(|index| {
+                let (caller, headers) = if index % 2 == 0 {
+                    ("user://operator", &operator)
+                } else {
+                    ("user://auditor", &auditor)
+                };
+                (caller, projection(&state, headers, None))
+            })
+            .collect();
+        reads_begun(&state, begun, 1).await;
+        tokio::time::sleep(ARRIVAL_WINDOW).await;
+        drop(held);
+        for (caller, read) in reads {
+            let response = tokio::time::timeout(Duration::from_secs(120), read)
+                .await
+                .expect("every read answers")
+                .unwrap();
+            let (status, _, body) = answer_of(response).await;
+            assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+            assert_eq!(
+                body["policy"]["principal_ref"],
+                json!(caller),
+                "an answer names its own caller, never another principal's"
+            );
+        }
+        assert_eq!(
+            state.system_reads.started.load(Ordering::SeqCst) - begun,
+            2,
+            "one shared read per principal, never one across principals"
+        );
+    }
+
+    /// A shared read belongs to no single request: the request that started it may go away (its
+    /// client disconnects) and the others still get the one read's answer.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_dropped_request_never_cancels_the_read_it_shares() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let first = projection(&state, &headers, None);
+        reads_begun(&state, begun, 1).await;
+        let second = projection(&state, &headers, None);
+        tokio::time::sleep(ARRIVAL_WINDOW).await;
+        first.abort();
+        drop(held);
+        let response = tokio::time::timeout(Duration::from_secs(120), second)
+            .await
+            .expect("the remaining request answers")
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        assert_eq!(
+            state.system_reads.started.load(Ordering::SeqCst) - begun,
+            1,
+            "the remaining request got the shared read, not a read of its own"
+        );
+    }
+
+    /// FIX-3's freshness rule: a shared read stops being joinable the moment it holds the source
+    /// locks, BEFORE it reads anything, so a request arriving once a read has begun to look at the
+    /// state never gets that read's answer (it could predate the request): it starts a read of its
+    /// own. The read is made slow enough (the log grown until one read takes half a second) that the
+    /// later request arrives while the first is still reading.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_read_that_holds_the_source_locks_is_never_joined() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let (written, one_read) =
+            calibrate(&state, &data_dir, &headers, Duration::from_millis(500)).await;
+        eprintln!("load: {written} records, one projection read {one_read:?}");
+        let held = SourceLocksHeld::new();
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let first = projection(&state, &headers, None);
+        reads_begun(&state, begun, 1).await;
+        assert_eq!(
+            state.system_reads.open_reads(),
+            1,
+            "a read waiting at the locks is open (joinable)"
+        );
+        drop(held);
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while state.system_reads.open_reads() != 0 {
+            assert!(
+                Instant::now() < deadline,
+                "the read closes once it holds the locks"
+            );
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        assert!(
+            !first.is_finished(),
+            "the first read is still reading when the later request arrives"
+        );
+        let second = projection(&state, &headers, None);
+        for read in [first, second] {
+            let response = tokio::time::timeout(Duration::from_secs(120), read)
+                .await
+                .expect("every read answers")
+                .unwrap();
+            assert_eq!(response.status(), axum::http::StatusCode::OK);
+        }
+        assert_eq!(
+            state.system_reads.started.load(Ordering::SeqCst) - begun,
+            2,
+            "the later request started a read of its own"
+        );
+    }
+
+    /// With ONE async worker and a projection read made honestly slow (the Agentgres log grown
+    /// through the store's own write path until one read takes at least a second, every calibration
+    /// read succeeding), four parallel projection reads do not delay identity resolution
+    /// (`/auth/whoami`): once the daemon acknowledges that a read has begun on the blocking pool (its
+    /// admission count moves, not a sleep), five identity resolutions in a row each answer the
+    /// signed-in principal (`authenticated: true`, principal `operator`) in under half a read, while
+    /// a read is still in flight. The four reads are DISTINCT (each narrowed to its own System id):
+    /// identical reads share one read by design (FIX-3), and this test is about four reads.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn parallel_systems_projections_never_delay_identity_resolution() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let state = crate::test_daemon_state(&data_dir);
+        let headers = signed_in(&data_dir);
+        let (written, one_read) =
+            calibrate(&state, &data_dir, &headers, Duration::from_secs(1)).await;
+        eprintln!("load: {written} records, one projection read {one_read:?}");
+        let begun = state.system_reads.started.load(Ordering::SeqCst);
+        let reads: Vec<_> = (0..4)
+            .map(|index| {
+                projection(
+                    &state,
+                    &headers,
+                    Some(&format!("system://test/parallel-{index}")),
+                )
+            })
+            .collect();
+        // THE ACKNOWLEDGED OVERLAP: a read has begun on the blocking pool.
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while state.system_reads.started.load(Ordering::SeqCst) == begun {
+            assert!(
+                Instant::now() < deadline,
+                "a projection read begins on the blocking pool"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        let mut waits = Vec::new();
+        for _ in 0..5 {
+            let started = Instant::now();
+            let whoami = tokio::spawn(super::super::lifecycle_routes::handle_auth_whoami(
+                State(state.clone()),
+                headers.clone(),
+            ));
+            let (status, body) = whoami.await.unwrap();
+            waits.push(started.elapsed());
+            assert!(
+                status == axum::http::StatusCode::OK
+                    && body.0["authenticated"] == json!(true)
+                    && body.0["principal"]["principal_id"] == json!("operator"),
+                "identity resolution answers the signed-in principal: {status} {}",
+                body.0
+            );
+        }
+        assert!(
+            !reads.iter().all(|read| read.is_finished()),
+            "a projection read is still in flight after the identity samples"
+        );
+        let worst = waits.iter().max().copied().unwrap_or_default();
+        eprintln!(
+            "identity resolution answered after at most {worst:?} over {} samples (one projection read {one_read:?})",
+            waits.len()
+        );
+        assert!(
+            worst < one_read / 2,
+            "identity resolution waited {worst:?} behind projection reads that take {one_read:?} each"
+        );
+        for read in reads {
+            assert_eq!(read.await.unwrap().status(), axum::http::StatusCode::OK);
+        }
+    }
+
+    /// Grow the Agentgres log through the store's own write path until one projection read takes at
+    /// least `at_least`; every calibration read must succeed. Returns (records, one read).
+    async fn calibrate(
+        state: &std::sync::Arc<super::DaemonState>,
+        data_dir: &str,
+        headers: &HeaderMap,
+        at_least: Duration,
+    ) -> (usize, Duration) {
+        use axum::response::IntoResponse;
+        let mut written = 0usize;
+        let mut one_read = Duration::ZERO;
+        while one_read < at_least {
+            let target = (written * 2).max(1000);
+            assert!(
+                target <= 128_000,
+                "the load did not reach {at_least:?} per read: {written} records, {one_read:?} per read"
+            );
+            for index in written..target {
+                super::super::persist_record(
+                    data_dir,
+                    "provider-receipts",
+                    &format!("load-{index:06}"),
+                    &json!({ "receipt_id": format!("load-{index:06}"), "kind": "load", "index": index }),
+                )
+                .unwrap();
+            }
+            written = target;
+            let started = Instant::now();
+            let answer =
+                super::handle_get(State(state.clone()), headers.clone(), Query(HashMap::new()))
+                    .await
+                    .into_response();
+            one_read = started.elapsed();
+            assert_eq!(
+                answer.status(),
+                axum::http::StatusCode::OK,
+                "a calibration read succeeds"
+            );
+        }
+        (written, one_read)
+    }
+
+    /// A burst of Systems projection reads larger than the blocking pool never starves another user
+    /// of that pool: with 8 blocking threads and 16 parallel reads (each one strict pass over a log
+    /// grown until a read takes half a second), an UNRELATED spawn_blocking, sampled repeatedly while
+    /// the reads are in flight, always completes within one read's time; and every read answers,
+    /// 200 or a typed 503 (`system_source_read_busy`, with Retry-After), instead of hanging.
+    /// The reads are DISTINCT (each narrowed to its own System id): identical reads share one read
+    /// by design (FIX-3), and this test is about a burst of reads. NOT VACUOUS (r2 MINOR 5): sampling
+    /// starts only once the daemon acknowledges a read on the blocking pool, a sample counts only
+    /// when a read is still in flight after it, and at least `MIN_OVERLAPPING_SAMPLES` must count.
+    #[test]
+    fn a_burst_of_systems_reads_never_starves_the_blocking_pool() {
+        let _one_at_a_time = one_at_a_time();
+        use std::sync::atomic::Ordering;
+        const MIN_OVERLAPPING_SAMPLES: usize = 5;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .max_blocking_threads(8)
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let dir = tempfile::tempdir().unwrap();
+            let data_dir = dir.path().to_str().unwrap().to_string();
+            let state = crate::test_daemon_state(&data_dir);
+            let headers = signed_in(&data_dir);
+            let (written, one_read) =
+                calibrate(&state, &data_dir, &headers, Duration::from_millis(500)).await;
+            eprintln!("load: {written} records, one projection read {one_read:?}");
+            let begun = state.system_reads.started.load(Ordering::SeqCst);
+            let reads: Vec<_> = (0..16)
+                .map(|index| {
+                    projection(
+                        &state,
+                        &headers,
+                        Some(&format!("system://test/burst-{index}")),
+                    )
+                })
+                .collect();
+            // THE ACKNOWLEDGED OVERLAP: a read has begun on the blocking pool.
+            reads_begun(&state, begun, 1).await;
+            // Repeated samples of an unrelated blocking operation while the reads are in flight.
+            let mut samples = Vec::new();
+            while samples.len() < 400 {
+                let submitted = Instant::now();
+                tokio::task::spawn_blocking(|| ()).await.unwrap();
+                let waited = submitted.elapsed();
+                if reads.iter().all(|read| read.is_finished()) {
+                    break;
+                }
+                samples.push(waited);
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            assert!(
+                samples.len() >= MIN_OVERLAPPING_SAMPLES,
+                "at least {MIN_OVERLAPPING_SAMPLES} samples overlap the reads in flight, not {}",
+                samples.len()
+            );
+            let worst = samples.iter().max().copied().unwrap();
+            eprintln!(
+                "unrelated blocking operation: {} samples, worst {worst:?} (one projection read {one_read:?})",
+                samples.len()
+            );
+            assert!(
+                worst < one_read,
+                "an unrelated blocking operation waited {worst:?} behind projection reads that take {one_read:?} each"
+            );
+            let mut busy = 0;
+            for read in reads {
+                let answer = tokio::time::timeout(Duration::from_secs(120), read)
+                    .await
+                    .expect("every read answers within two minutes")
+                    .unwrap();
+                match answer.status() {
+                    axum::http::StatusCode::OK => {}
+                    axum::http::StatusCode::SERVICE_UNAVAILABLE => {
+                        busy += 1;
+                        assert!(
+                            answer.headers().contains_key(axum::http::header::RETRY_AFTER),
+                            "a busy read answers with Retry-After"
+                        );
+                        let body = axum::body::to_bytes(answer.into_body(), usize::MAX)
+                            .await
+                            .unwrap();
+                        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+                        assert_eq!(
+                            body["error"]["code"],
+                            json!("system_source_read_busy"),
+                            "a busy read is typed: {body}"
+                        );
+                    }
+                    other => panic!("a read answers 200 or 503, not {other}"),
+                }
+            }
+            eprintln!("reads answered busy: {busy} of 16");
+            assert!(busy > 0, "a burst past the admission bound is answered busy, not queued");
+            assert_eq!(
+                state.system_reads.refused(),
+                busy,
+                "the instrument counts every busy answer, once"
+            );
+        });
     }
 }

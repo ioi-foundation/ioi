@@ -380,7 +380,13 @@ export async function startIsolatedPlane({
       ? `isolated-daemon-restart-${Date.now()}-${process.pid}-${daemonPort}.log`
       : "isolated-daemon.log",
   );
-  const logFd = openSync(logPath, "w");
+  // EVERY WRITER APPENDS (HARNESS FIX, HYP 2026-10-13, from BUILD-DELTA #48 ticket 9's miss A4). The daemon and
+  // the serve share this log; the daemon's descriptor was opened "w" (no O_APPEND), so each later daemon write
+  // landed at the daemon's own offset, over whatever the serve had appended meanwhile, and the serve's lines
+  // vanished. "ax": every write goes to the end of the file, and the log is CREATED here, once (a fresh plane's
+  // directory is new, a restart log's name is unique), never reopened over an older one. The serve's
+  // descriptor below appends to this same file.
+  const logFd = openSync(logPath, "ax");
   const children = [];
   const childExits = new Map();
   const trackChild = (child) => {
@@ -506,7 +512,7 @@ export async function startIsolatedPlane({
     const servePort = await freePort();
     const seedBackendPort = await freePort(); // isolate the seed server's fixture backend from :9301
     serveUrl = `http://127.0.0.1:${servePort}`;
-    const serveLogFd = openSync(logPath, "a");
+    const serveLogFd = openSync(logPath, "a"); // appends, as the daemon's descriptor does (see logFd above)
     serveChild = trackChild(spawn(process.execPath, [join(APP, "scripts", "serve-product-ui.mjs")], {
       env: {
         ...baseEnv,

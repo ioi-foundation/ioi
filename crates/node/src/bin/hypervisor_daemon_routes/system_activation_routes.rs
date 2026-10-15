@@ -750,6 +750,314 @@ pub(crate) fn validate_wallet_receipt(
     Ok(value)
 }
 
+/// How many System source reads may hold a blocking-pool thread at once (BUILD-DELTA #48 FIX-2).
+/// The reads serialize on the three global System source locks (`with_source_locks`), so more
+/// concurrent readers would only park blocking threads waiting on those locks without reading any
+/// faster. Four is far below the blocking pool's size (the daemon's runtime keeps tokio's default
+/// limit of 512 blocking threads), so a burst of reads never takes the threads other blocking work
+/// needs (wallet transaction locking, workload execution).
+pub(crate) const SYSTEM_READ_PERMITS: usize = 4;
+/// How long a read waits for an admission permit before it is answered busy.
+pub(crate) const SYSTEM_READ_ADMISSION_WAIT: std::time::Duration =
+    std::time::Duration::from_secs(2);
+/// The Retry-After a busy read answers with, in seconds.
+pub(crate) const SYSTEM_READ_RETRY_AFTER_SECONDS: u64 = 2;
+
+/// The admission of System source reads to the blocking pool, one per daemon (`DaemonState`): a
+/// FAIR (first come, first served) semaphore of `SYSTEM_READ_PERMITS`, a count of the admitted
+/// reads that have begun on the pool (an acknowledged signal that a read is in flight), and the
+/// OPEN shared reads (FIX-3, `shared_system_read`): one per read key, from its first request until
+/// its read holds its locks; and the INSTRUMENT: a count of the reads refused busy (`refused`), each
+/// also logged.
+#[derive(Clone)]
+pub(crate) struct SystemReadAdmission {
+    permits: Arc<tokio::sync::Semaphore>,
+    pub(crate) started: Arc<std::sync::atomic::AtomicU64>,
+    flights: Arc<Mutex<std::collections::HashMap<String, OpenRead>>>,
+    next_flight: Arc<std::sync::atomic::AtomicU64>,
+    refusals: Arc<std::sync::atomic::AtomicU64>,
+}
+
+/// One open shared read: its identity (so a closing read never removes a later read of the same
+/// key) and where its answer is published.
+struct OpenRead {
+    flight: u64,
+    answer: tokio::sync::watch::Receiver<Option<SharedAnswer>>,
+}
+
+/// A shared read's answer, published once to every request that joined it.
+type SharedAnswer = Result<Arc<dyn std::any::Any + Send + Sync>, SystemReadRefusal>;
+
+impl SystemReadAdmission {
+    pub(crate) fn new() -> Self {
+        SystemReadAdmission {
+            permits: Arc::new(tokio::sync::Semaphore::new(SYSTEM_READ_PERMITS)),
+            started: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            flights: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            next_flight: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            refusals: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        }
+    }
+
+    /// How many reads this daemon has refused busy since it started (the instrument's count; every
+    /// refusal is also logged); for tests.
+    #[cfg(test)]
+    pub(crate) fn refused(&self) -> u64 {
+        self.refusals.load(Ordering::SeqCst)
+    }
+
+    /// How many shared reads are open (joinable) now; for tests.
+    #[cfg(test)]
+    pub(crate) fn open_reads(&self) -> usize {
+        self.flights.lock().unwrap_or_else(|p| p.into_inner()).len()
+    }
+
+    fn close(&self, key: &str, flight: u64) {
+        let mut flights = self.flights.lock().unwrap_or_else(|p| p.into_inner());
+        if flights.get(key).is_some_and(|open| open.flight == flight) {
+            flights.remove(key);
+        }
+    }
+}
+
+/// Closes one shared read when dropped (`SystemReadAdmission::close`: only that read, never a
+/// later read of the same key).
+struct CloseOnDrop {
+    admission: SystemReadAdmission,
+    key: String,
+    flight: u64,
+}
+
+impl Drop for CloseOnDrop {
+    fn drop(&mut self) {
+        self.admission.close(&self.key, self.flight);
+    }
+}
+
+/// The TYPED refusals of an admitted System read (BUILD-DELTA #48 FIX-3). They never pass through a
+/// route module's own refusal classifier: every admitted handler answers them through
+/// `system_read_response`, so each one is the same answer on every route.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum SystemReadRefusal {
+    /// Not admitted within `SYSTEM_READ_ADMISSION_WAIT`: 503 `system_source_read_busy`, with
+    /// `Retry-After: SYSTEM_READ_RETRY_AFTER_SECONDS`.
+    Busy,
+    /// The admitted read did not complete on the blocking pool (it panicked): 500
+    /// `system_source_read_unreadable`.
+    Unfinished(String),
+}
+
+impl axum::response::IntoResponse for SystemReadRefusal {
+    fn into_response(self) -> axum::response::Response {
+        let body = |code: &str, message: String| {
+            let error =
+                json!({"code": code, "message": message, "runtimeTruthSource": "daemon-runtime"});
+            Json(json!({ "error": error }))
+        };
+        match self {
+            SystemReadRefusal::Busy => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                [(
+                    axum::http::header::RETRY_AFTER,
+                    SYSTEM_READ_RETRY_AFTER_SECONDS.to_string(),
+                )],
+                body(
+                    "system_source_read_busy",
+                    format!(
+                        "the System source reads are at their admission bound ({SYSTEM_READ_PERMITS} at once) and this read was not admitted within {SYSTEM_READ_ADMISSION_WAIT:?}; retry after {SYSTEM_READ_RETRY_AFTER_SECONDS} s"
+                    ),
+                ),
+            )
+                .into_response(),
+            SystemReadRefusal::Unfinished(message) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                body("system_source_read_unreadable", message),
+            )
+                .into_response(),
+        }
+    }
+}
+
+/// Every admitted System read handler's answer: the handler's own reply, or the typed refusal of
+/// its admission, answered the one way it is answered on every route.
+pub(crate) fn system_read_response(
+    answer: Result<(StatusCode, Json<Value>), SystemReadRefusal>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    match answer {
+        Ok(reply) => reply.into_response(),
+        Err(refusal) => refusal.into_response(),
+    }
+}
+
+/// The admission instrument's log lines: every refused read logs "system read refused busy" (always),
+/// and every admitted read records, when it finishes, how long it waited for its permit and how long
+/// it held the pool, at TRACE level only (target `system_read_admission`; off unless a TRACE
+/// subscriber is enabled), so a production daemon does not log every read. A line carries counts,
+/// durations and a wall-clock millisecond stamp only (`unix_ms`), never a System, a principal or any
+/// other value of the read.
+fn unix_ms() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis())
+}
+
+/// Run synchronous System work (it takes the System source locks and may make a full Agentgres
+/// pass, tens of seconds on a large log) on the blocking thread pool, so it never holds one of the
+/// async workers every other request needs, identity resolution included (BUILD-DELTA #48). The
+/// work is ADMITTED first (FIX-2): its permit is acquired asynchronously, within
+/// `SYSTEM_READ_ADMISSION_WAIT`, and MOVED into the blocking closure, so it is held until the work
+/// completes or unwinds, even when the request is dropped; work not admitted in time is refused
+/// `Busy` instead of queueing without bound, and work that panics is refused `Unfinished` instead of
+/// tearing down the request.
+async fn off_the_async_workers<T: Send + 'static>(
+    admission: SystemReadAdmission,
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, SystemReadRefusal> {
+    let asked = std::time::Instant::now();
+    let permit = match tokio::time::timeout(
+        SYSTEM_READ_ADMISSION_WAIT,
+        admission.permits.clone().acquire_owned(),
+    )
+    .await
+    {
+        Ok(Ok(permit)) => permit,
+        _ => {
+            let refused = admission.refusals.fetch_add(1, Ordering::SeqCst) + 1;
+            eprintln!(
+                "[hypervisor-daemon] system read refused busy: not admitted within {SYSTEM_READ_ADMISSION_WAIT:?} ({SYSTEM_READ_PERMITS} at once); {refused} refused since start; at_ms={}",
+                unix_ms()
+            );
+            return Err(SystemReadRefusal::Busy);
+        }
+    };
+    let waited = asked.elapsed().as_millis();
+    let started = admission.started.clone();
+    tokio::task::spawn_blocking(move || {
+        let _admitted = permit;
+        started.fetch_add(1, Ordering::SeqCst);
+        let reading = std::time::Instant::now();
+        let answer = work();
+        tracing::trace!(
+            target: "system_read_admission",
+            waited_ms = waited as u64,
+            held_ms = reading.elapsed().as_millis() as u64,
+            at_ms = unix_ms() as u64,
+            "system read finished"
+        );
+        answer
+    })
+    .await
+    .map_err(|error| {
+        SystemReadRefusal::Unfinished(format!(
+            "the read did not complete on the blocking pool ({error})"
+        ))
+    })
+}
+
+/// The locks a System read is made under; each read keeps the locks it always took.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum SystemReadLocks {
+    /// The three System source locks (`with_source_locks`).
+    Sources,
+    /// `SYSTEM_GENESIS_LOCK` alone (a genesis record read).
+    Genesis,
+}
+
+/// ONE read for every concurrent request with the same `key` (BUILD-DELTA #48 FIX-3, single
+/// flight). `key` names the read and EVERY input its answer depends on; a principal-dependent read
+/// puts the principal and its tenant scope in its key, so an answer is never shared across
+/// principals, and authorization happens per request, before the request asks for the read.
+///
+/// A request JOINS the open read for its key or OPENS one. An open read is admitted once
+/// (`off_the_async_workers`: one permit, the same bound, the same `Busy`) and runs once, as a task
+/// of its own, so no request going away cancels it. It CLOSES (stops being joinable) the moment it
+/// holds its locks, BEFORE it reads anything: every request that joined it arrived before its first
+/// look at the state, so a shared answer is never older than any request it answers (a write that
+/// completed before a request arrived is in that request's answer, exactly as for an unshared
+/// read); a request arriving later opens a new read. `read` runs under `locks` (it must not take
+/// them itself) on the blocking pool.
+pub(crate) async fn shared_system_read<T: Clone + Send + Sync + 'static>(
+    admission: &SystemReadAdmission,
+    key: String,
+    locks: SystemReadLocks,
+    read: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, SystemReadRefusal> {
+    // Join or open, under the map lock only; the read is started after the lock is released.
+    let (mut answer, opened) = {
+        let mut flights = admission.flights.lock().unwrap_or_else(|p| p.into_inner());
+        match flights.get(&key) {
+            Some(open) => (open.answer.clone(), None),
+            None => {
+                let flight = admission.next_flight.fetch_add(1, Ordering::SeqCst);
+                let (publish, answer) = tokio::sync::watch::channel(None);
+                flights.insert(
+                    key.clone(),
+                    OpenRead {
+                        flight,
+                        answer: answer.clone(),
+                    },
+                );
+                (answer, Some((flight, publish)))
+            }
+        }
+    };
+    if let Some((flight, publish)) = opened {
+        let flying = admission.clone();
+        // Closes the read however its task ends (answered, refused, or dropped with the runtime,
+        // polled or not), so a key is never left joinable with no read behind it.
+        let open = CloseOnDrop {
+            admission: flying.clone(),
+            key,
+            flight,
+        };
+        tokio::spawn(async move {
+            let open = open;
+            let closing = (flying.clone(), open.key.clone());
+            let ran = off_the_async_workers(flying, move || {
+                let under_locks = move || {
+                    closing.0.close(&closing.1, flight);
+                    read()
+                };
+                match locks {
+                    SystemReadLocks::Sources => with_source_locks(under_locks),
+                    SystemReadLocks::Genesis => {
+                        let _genesis = super::system_genesis_routes::SYSTEM_GENESIS_LOCK
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner());
+                        under_locks()
+                    }
+                }
+            })
+            .await;
+            // A read refused before it held its locks closes here, before its answer is published,
+            // so no request joins a read that has already answered.
+            drop(open);
+            let shared: SharedAnswer =
+                ran.map(|value| Arc::new(value) as Arc<dyn std::any::Any + Send + Sync>);
+            let _ = publish.send(Some(shared));
+        });
+    }
+    let shared = answer
+        .wait_for(Option::is_some)
+        .await
+        .map_err(|_| {
+            SystemReadRefusal::Unfinished("the shared read ended without an answer".to_owned())
+        })?
+        .clone();
+    match shared {
+        Some(Ok(value)) => value.downcast_ref::<T>().cloned().ok_or_else(|| {
+            SystemReadRefusal::Unfinished(
+                "the shared read answered a different type for its key".to_owned(),
+            )
+        }),
+        Some(Err(refusal)) => Err(refusal),
+        None => Err(SystemReadRefusal::Unfinished(
+            "the shared read ended without an answer".to_owned(),
+        )),
+    }
+}
+
 pub(crate) fn with_source_locks<T>(f: impl FnOnce() -> T) -> T {
     let _genesis = super::system_genesis_routes::SYSTEM_GENESIS_LOCK
         .lock()

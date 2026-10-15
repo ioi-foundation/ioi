@@ -1262,30 +1262,49 @@ pub(crate) fn build_node_attestation_projection(
 /// GET /v1/hypervisor/hypervisoros/nodes/projection
 pub(crate) async fn handle_get_node_projection(
     State(state): State<Arc<DaemonState>>,
-) -> (StatusCode, Json<Value>) {
-    match with_source_locks(|| {
-        let source = load_node_attestation_source(&state.data_dir)?;
-        let loader = |root: &str| -> Result<Option<Value>, VErr> {
-            load_required_exact(&state.data_dir, BOOT_RECEIPT_DIR, &tail("hvbr_", root)?)
-        };
-        build_node_attestation_projection(
-            &source.binding.estate_namespace,
-            source
-                .boot_profile
-                .as_ref()
-                .zip(source.boot_profile_root.as_deref()),
-            source
-                .temporal_profile
-                .as_ref()
-                .zip(source.temporal_profile_root.as_deref()),
-            &source.records,
-            &source.head,
-            &loader,
-        )
-    }) {
+) -> axum::response::Response {
+    super::system_activation_routes::system_read_response(
+        handle_get_node_projection_reply(State(state)).await,
+    )
+}
+
+async fn handle_get_node_projection_reply(
+    State(state): State<Arc<DaemonState>>,
+) -> Result<(StatusCode, Json<Value>), super::system_activation_routes::SystemReadRefusal> {
+    // BUILD-DELTA #48: the read waits on the System source locks; it runs on the blocking pool,
+    // admitted. FIX-3: identical concurrent reads share ONE read; the answer has no input but the
+    // daemon's own state (no principal).
+    let data_dir = state.data_dir.clone();
+    let read = super::system_activation_routes::shared_system_read(
+        &state.system_reads,
+        json!(["node_attestation_projection"]).to_string(),
+        super::system_activation_routes::SystemReadLocks::Sources,
+        move || {
+            let source = load_node_attestation_source(&data_dir)?;
+            let loader = |root: &str| -> Result<Option<Value>, VErr> {
+                load_required_exact(&data_dir, BOOT_RECEIPT_DIR, &tail("hvbr_", root)?)
+            };
+            build_node_attestation_projection(
+                &source.binding.estate_namespace,
+                source
+                    .boot_profile
+                    .as_ref()
+                    .zip(source.boot_profile_root.as_deref()),
+                source
+                    .temporal_profile
+                    .as_ref()
+                    .zip(source.temporal_profile_root.as_deref()),
+                &source.records,
+                &source.head,
+                &loader,
+            )
+        },
+    )
+    .await?;
+    Ok(match read {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(error) => classify(error),
-    }
+    })
 }
 
 /// Build the CAS declaration plan for one desired profile family.
