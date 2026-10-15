@@ -16,10 +16,9 @@ fn root() -> PathBuf {
         .expect("the workspace root")
 }
 
-/// The crate's interface lines: in every top-level src/*.rs (sorted; src/tests/ is the cfg(test)
-/// module), each trimmed line that starts a public item, an impl, a derive, a cfg, a macro or an
-/// extern crate.
-fn interface(crate_dir: &str) -> String {
+/// Every top-level src/*.rs of the crate (sorted by name; src/tests/ is the cfg(test) module), as
+/// (file name, text).
+fn crate_files(crate_dir: &str) -> Vec<(String, String)> {
     let src = root().join(crate_dir).join("src");
     let mut files: Vec<PathBuf> = fs::read_dir(&src)
         .expect("src")
@@ -28,10 +27,27 @@ fn interface(crate_dir: &str) -> String {
         .filter(|p| p.extension().map(|x| x == "rs").unwrap_or(false))
         .collect();
     files.sort();
+    files
+        .into_iter()
+        .map(|file| {
+            (
+                file.file_name().unwrap().to_string_lossy().into_owned(),
+                fs::read_to_string(&file).expect("source"),
+            )
+        })
+        .collect()
+}
+
+/// The crate's interface listing.
+fn interface(crate_dir: &str) -> String {
+    interface_of(&crate_files(crate_dir))
+}
+
+/// The crate's interface lines: in every file, each trimmed line that starts a public item, an
+/// impl, a derive, a cfg, a macro or an extern crate.
+fn interface_of(files: &[(String, String)]) -> String {
     let mut out = String::new();
-    for file in files {
-        let name = file.file_name().unwrap().to_string_lossy().into_owned();
-        let text = fs::read_to_string(&file).expect("source");
+    for (name, text) in files {
         for line in text.lines() {
             let t = line.trim();
             let keep = (t.starts_with("pub ") && !t.starts_with("pub(crate)"))
@@ -92,9 +108,18 @@ fn t_api_the_codec_interface_is_pinned() {
     check_pin("crates/editor-proxy-codec", "ioi-editor-proxy-ipc.api");
 }
 
+/// The crate's manifest text.
+fn manifest_text(crate_dir: &str) -> String {
+    fs::read_to_string(root().join(crate_dir).join("Cargo.toml")).expect("manifest")
+}
+
 /// The manifest's [dependencies] names and whether a [features] table exists.
 fn manifest(crate_dir: &str) -> (Vec<String>, bool) {
-    let text = fs::read_to_string(root().join(crate_dir).join("Cargo.toml")).expect("manifest");
+    manifest_of(&manifest_text(crate_dir))
+}
+
+/// The [dependencies] names of a manifest text and whether a [features] table exists.
+fn manifest_of(text: &str) -> (Vec<String>, bool) {
     let mut section = String::new();
     let mut deps = Vec::new();
     let mut features = false;
@@ -251,4 +276,151 @@ fn t_api_production_forbids_unsafe_and_gates_test_code() {
             }
         }
     }
+}
+
+// ---- the pins DETECT interface and dependency changes (Codex #85 U1 r1 MAJOR 3) ----------------
+//
+// Each test applies ONE textual change to a copy of a trusted crate's real source or manifest and
+// requires the collector's listing to change (so the pin comparison above fails on it).
+
+/// The crate's files with exactly one occurrence of `old` in `file` replaced by `new`.
+fn edited(crate_dir: &str, file: &str, old: &str, new: &str) -> Vec<(String, String)> {
+    let mut files = crate_files(crate_dir);
+    let entry = files
+        .iter_mut()
+        .find(|(name, _)| name == file)
+        .expect("SETUP: the file");
+    assert_eq!(
+        entry.1.matches(old).count(),
+        1,
+        "SETUP: the anchor occurs once"
+    );
+    entry.1 = entry.1.replacen(old, new, 1);
+    files
+}
+
+/// The manifest text with exactly one occurrence of `old` replaced by `new`.
+fn edited_manifest(crate_dir: &str, old: &str, new: &str) -> String {
+    let text = manifest_text(crate_dir);
+    assert_eq!(
+        text.matches(old).count(),
+        1,
+        "SETUP: the anchor occurs once"
+    );
+    text.replacen(old, new, 1)
+}
+
+const CODEC: &str = "crates/editor-proxy-codec";
+const DIGEST: &str = "crates/editor-proxy-digest";
+
+#[test]
+fn t_api_pin_detects_a_changed_argument_type() {
+    let changed = edited(
+        CODEC,
+        "wire.rs",
+        "        digests: &[Sha256Digest],\n    ) -> Result<OutboundAdmit, TooManyLeaseCandidates> {",
+        "        digests: &[[u8; 32]],\n    ) -> Result<OutboundAdmit, TooManyLeaseCandidates> {",
+    );
+    assert_ne!(
+        interface_of(&changed),
+        interface(CODEC),
+        "T-API: a changed argument type in a pinned multiline signature (OutboundAdmit::new) changes the listing"
+    );
+}
+
+#[test]
+fn t_api_pin_detects_an_added_enum_variant() {
+    let changed = edited(
+        CODEC,
+        "refusal.rs",
+        "    RateExceeded,\n}",
+        "    RateExceeded,\n    /// Added.\n    Extra,\n}",
+    );
+    assert_ne!(
+        interface_of(&changed),
+        interface(CODEC),
+        "T-API: an added variant of a public enum (IpcRefusal) changes the listing"
+    );
+}
+
+#[test]
+fn t_api_pin_detects_a_changed_trait_method() {
+    let changed = edited(
+        CODEC,
+        "wire.rs",
+        "    fn encode_frame(&self) -> Frame;",
+        "    fn encode_frame(&self, extra: u8) -> Frame;",
+    );
+    assert_ne!(
+        interface_of(&changed),
+        interface(CODEC),
+        "T-API: a changed method of a public trait (EncodeP2d) changes the listing"
+    );
+}
+
+#[test]
+fn t_api_pin_detects_a_changed_reexport_list() {
+    let changed = edited(
+        CODEC,
+        "lib.rs",
+        "    P2dRecv, MAX_FRAME,\n};",
+        "    P2dRecv, MAX_FRAME, RECV_BUF_LEN,\n};",
+    );
+    assert_ne!(
+        interface_of(&changed),
+        interface(CODEC),
+        "T-API: an added name in a multiline re-export (pub use wire::{{...}}) changes the listing"
+    );
+}
+
+#[test]
+fn t_api_pin_detects_a_changed_dependency_feature() {
+    let changed = edited_manifest(
+        CODEC,
+        "ioi-proxy-digest = { path = \"../editor-proxy-digest\" }",
+        "ioi-proxy-digest = { path = \"../editor-proxy-digest\", features = [\"std\"] }",
+    );
+    assert_ne!(
+        manifest_of(&changed),
+        manifest(CODEC),
+        "T-API: an added dependency feature changes the pinned dependency specification"
+    );
+}
+
+#[test]
+fn t_api_pin_detects_a_changed_default_features_flag() {
+    let changed = edited_manifest(
+        DIGEST,
+        "sha2 = { version = \"0.10\", default-features = false }",
+        "sha2 = { version = \"0.10\" }",
+    );
+    assert_ne!(
+        manifest_of(&changed),
+        manifest(DIGEST),
+        "T-API: dropping default-features = false changes the pinned dependency specification"
+    );
+}
+
+#[test]
+fn t_api_pin_reads_table_form_dependencies() {
+    let same = edited_manifest(
+        DIGEST,
+        "[dependencies]\nsha2 = { version = \"0.10\", default-features = false }",
+        "[dependencies.sha2]\nversion = \"0.10\"\ndefault-features = false",
+    );
+    assert_eq!(
+        manifest_of(&same),
+        manifest(DIGEST),
+        "T-API: the same dependency written as a [dependencies.sha2] table has the same pinned specification"
+    );
+    let featured = edited_manifest(
+        DIGEST,
+        "[dependencies]\nsha2 = { version = \"0.10\", default-features = false }",
+        "[dependencies.sha2]\nversion = \"0.10\"\ndefault-features = false\nfeatures = [\"asm\"]",
+    );
+    assert_ne!(
+        manifest_of(&featured),
+        manifest(DIGEST),
+        "T-API: a feature added in a [dependencies.sha2] table changes the pinned specification"
+    );
 }
