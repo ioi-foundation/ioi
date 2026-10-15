@@ -82,7 +82,8 @@
 //!   `lock().map_err(..)?` guard written through is read as a local); the inside of a macro other
 //!   than `write!`/`writeln!`; a `return` or a `?` inside a closure or an `async` block (it leaves
 //!   the closure). Its tracking is by NAME and flow-insensitive (a name bound from several places
-//!   takes its last binding's class): it over-approximates, and every over-approximated candidate
+//!   takes the class of its last discovered NON-LOCAL alias binding; a later local rebinding does
+//!   not clear it): it over-approximates, and every over-approximated candidate
 //!   is reviewed, not assumed;
 //! - (D21) a layer-2-only draw holder gets no sink analysis (it is a candidate until reviewed);
 //! - (the EXCLUDED-CALLER limit) an EXCLUDED candidate's callers are never sites: an exclusion's
@@ -104,14 +105,17 @@
 //! THE CLOSED GUARANTEE is BUILD-DELTA #42 (bearer secrets enforced at the TYPE level: a bearer type
 //! whose only constructor draws from the OS RNG, so a derived bearer fails to compile), a NAMED
 //! POST-SITTING UNIT (S1; AMENDED 2026-10-14).
-//! SITTING COVERAGE (corrected after Codex batch-3 r7's NOTE): each minting site the sitting relies
-//! on is a registered chain whose callers are draw-site rows. The model-mount token
-//! (capability_token_control::plan_capability_token_control, a pinned ioi_mnt_ mint, forwarded by
-//! the registered ModelMountCore::plan_capability_token_control), the lease bearers
-//! (issue_bearer_capability_lease, a pinned ioi_lease_ mint, registered) and the editor and preview
-//! tokens (start_oss_runtime, a pinned mint, registered; bind_editor_proxy, registered; the editor
-//! and preview access leases through issue_bearer_capability_lease) end at the route handler that
-//! returns them to the client. The RUN-SCOPED token (mint_run_scoped_model_token, registered) is
+//! SITTING COVERAGE (corrected after Codex batch-3 r7's NOTE and r8's finding): each minting site
+//! the sitting relies on is a registered chain whose callers are draw-site rows. The model-mount
+//! token (capability_token_control::plan_capability_token_control, a pinned ioi_mnt_ mint,
+//! forwarded by the registered ModelMountCore::plan_capability_token_control) and the lease
+//! bearers (issue_bearer_capability_lease, a pinned ioi_lease_ mint, registered), including the
+//! editor and preview ACCESS-LEASE bearers, end at the route handler that returns them to the
+//! client. The editor RUNTIME connection token (start_oss_runtime, a pinned mint, registered) is
+//! NOT returned to the client: start_oss_runtime stores it in the daemon's EditorRuntime state and
+//! returns service metadata only; a later expose step passes it upstream to the editor proxy
+//! (bind_editor_proxy, registered), which injects it as the runtime's cookie (the runtime may then
+//! supply that cookie through its served workbench, a separate path). The RUN-SCOPED token (mint_run_scoped_model_token, registered) is
 //! NOT returned to the client: its caller handle_session_execute (a draw-site row) passes it to the
 //! harness's host lane and revokes it when the lane returns.
 //!

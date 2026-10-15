@@ -48,7 +48,8 @@
 //! a local); the inside of a macro other than `write!`/`writeln!` (its arguments are read as
 //! tokens); a `return` or a `?` inside a closure or an `async` block (it leaves the closure, whose
 //! value is read from its tail and its captures only); a name bound from several places takes the
-//! class of its last binding in source order (one class per name).
+//! class of its last discovered NON-LOCAL alias binding in source order (one class per name; a
+//! later local rebinding does not clear it: a conservative over-approximation).
 
 use crate::source::range;
 use proc_macro2::{LineColumn, TokenStream, TokenTree};
