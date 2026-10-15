@@ -1,0 +1,10 @@
+lib.rs: #![no_std]
+lib.rs: #![forbid(unsafe_code)]
+lib.rs: #![deny(missing_docs)]
+lib.rs: #[derive(Clone, Copy)]
+lib.rs: pub struct Sha256Digest([u8; 32]);
+lib.rs: impl Sha256Digest {
+lib.rs: pub fn of(bytes: &[u8]) -> Sha256Digest {
+lib.rs: pub fn as_bytes(&self) -> &[u8; 32] {
+lib.rs: #[cfg(test)]
+lib.rs: mod tests {

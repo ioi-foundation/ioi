@@ -14,6 +14,8 @@ exclude = [
     # succinct toolchain in its own nightly lane; the root build never
     # touches it.
     "crates/aft-proofs",
+    # BUILD-DELTA #85 U1: the IPC v2 codec's cargo-fuzz workspace (its own [workspace]; nightly only).
+    "fuzz/editor-proxy-ipc",
 ]
 members = [
     "crates/aft-c8-verifier",
@@ -45,6 +47,10 @@ members = [
     "crates/drivers",
     "crates/pii",
     "crates/macros",
+    # BUILD-DELTA #85 U1 (DESIGN v2 (1)-(4)): the outbound digest, the IPC v2 codec and its compile-fail battery.
+    "crates/editor-proxy-digest",
+    "crates/editor-proxy-codec",
+    "crates/editor-proxy-cf",
     
     # [FIX] All heavy extensions live here now:
     # - zk-types

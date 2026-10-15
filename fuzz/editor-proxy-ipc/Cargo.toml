@@ -1,0 +1,39 @@
+# BUILD-DELTA #85 U1 (DESIGN v2 (2), "RED and fuzz proof"): the IPC v2 codec's three cargo-fuzz targets.
+# Its own workspace (excluded from the root): nightly + libFuzzer only. cargo-fuzz builds every crate with
+# `--cfg fuzzing`, which compiles the codec's sequence interpreter (`fuzz_support`); no shipped build sets it.
+# The STABLE corpus replay of the same assertions is the codec's unit test `tests::replay` (no nightly).
+[package]
+name = "ioi-editor-proxy-ipc-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ioi-editor-proxy-ipc = { path = "../../crates/editor-proxy-codec" }
+
+[[bin]]
+name = "p2d_decode"
+path = "fuzz_targets/p2d_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "d2p_decode"
+path = "fuzz_targets/d2p_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ipc_sequence"
+path = "fuzz_targets/ipc_sequence.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

@@ -1,0 +1,19 @@
+# THE OUTBOUND PROXY DIGEST (BUILD-DELTA #85 U1, DESIGN v2 (1)): a SHA-256 digest whose ONLY constructor hashes bytes.
+#
+# The editor/preview proxy tells the daemon which lease tokens a browser presented by their SHA-256 digests, never by
+# the tokens. This crate is the OUTBOUND half: `Sha256Digest::of(bytes)` and a read-only byte view for the outbound
+# encoder. The INBOUND half (the daemon's compare-only digest) is a separate type in the codec, `ioi-editor-proxy-ipc`.
+# no_std, forbid(unsafe_code), one dependency, no features. Its restrictions are pinned by the compile-fail battery in
+# crates/editor-proxy-cf (cf01-cf09, each with its own paired weakening or premise control).
+[package]
+name = "ioi-proxy-digest"
+version = "0.1.0"
+rust-version = "1.78"
+edition = "2021"
+description = "A SHA-256 digest whose only constructor hashes bytes (the editor proxy's outbound lease-token digests)"
+license.workspace = true
+repository = "https://github.com/ioi-foundation/ioi"
+publish = false
+
+[dependencies]
+sha2 = { version = "0.10", default-features = false }

@@ -6940,6 +6940,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ioi-editor-proxy-cf"
+version = "0.1.0"
+dependencies = [
+ "ioi-editor-proxy-ipc",
+ "ioi-proxy-digest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ioi-editor-proxy-ipc"
+version = "0.2.0"
+dependencies = [
+ "ioi-proxy-digest",
+]
+
+[[package]]
 name = "ioi-execution"
 version = "0.1.0"
 dependencies = [
@@ -7237,6 +7254,13 @@ dependencies = [
  "tracing",
  "wasmtime",
  "zk-driver-succinct",
+]
+
+[[package]]
+name = "ioi-proxy-digest"
+version = "0.1.0"
+dependencies = [
+ "sha2 0.10.9",
 ]
 
 [[package]]

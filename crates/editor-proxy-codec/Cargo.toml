@@ -1,0 +1,25 @@
+# THE EDITOR-PROXY IPC CODEC, version 2 (BUILD-DELTA #85 U1, DESIGN v2 (1)-(3)): the daemon <-> proxy protocol, a TRUST
+# BOUNDARY, as pure code.
+#
+# The proxy is its own sandboxed OS process; this crate is everything the daemon accepts from it and everything the proxy
+# accepts from the daemon: length-exact frames of at most 512 bytes; the INBOUND compare-only digest; separate daemon and
+# proxy state machines (a complete bidirectional transition table over an explicit clock, transport results incl.
+# MSG_TRUNC/MSG_CTRUNC, and send results; every invalid transition latches with a deterministic refusal precedence); the
+# candidate cap; saturating event aggregation. Pure: no I/O, no unsafe, no allocation (no_std without alloc), no features.
+# OS transport and fd inspection belong to the trusted adapters (U3/U4). Fuzz targets: fuzz/editor-proxy-ipc (cfg(fuzzing)
+# is the only extra cfg; it compiles the sequence interpreter, never an encoder of inbound values).
+[package]
+name = "ioi-editor-proxy-ipc"
+version = "0.2.0"
+rust-version = "1.78"
+edition = "2021"
+description = "The hypervisor daemon <-> editor/preview proxy IPC v2 codec and session state machines"
+license.workspace = true
+repository = "https://github.com/ioi-foundation/ioi"
+publish = false
+
+[dependencies]
+ioi-proxy-digest = { path = "../editor-proxy-digest" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fuzzing)"] }

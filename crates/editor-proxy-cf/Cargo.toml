@@ -1,0 +1,26 @@
+# THE COMPILE-FAIL BATTERY for the editor-proxy digest types and IPC codec (BUILD-DELTA #85 U1, DESIGN v2 (4)).
+#
+# Test support only (publish = false; nothing depends on it). Its NORMAL dependency graph is exactly what the fixtures
+# link: the production `ioi-proxy-digest` and `ioi-editor-proxy-ipc` rlibs and serde (for the serde fixtures). The
+# battery (tests/battery.rs) builds that graph with a nested `cargo build --message-format=json` into its own target
+# dir under CARGO_TARGET_TMPDIR, compiles each fixture with rustc against those rlibs, and requires every negative to
+# fail at its named operation with its pinned diagnostic class; each restriction's own single WEAKENING (applied to a
+# copy of the defining crate) must make the same fixture compile. cf08/cf09 are compiler/lint PREMISES with paired
+# controls. tests/api.rs is T-API (the trusted crates' reviewed interfaces, pinned in api/).
+[package]
+name = "ioi-editor-proxy-cf"
+version = "0.1.0"
+rust-version = "1.78"
+edition = "2021"
+description = "Compile-fail battery and interface pins for ioi-proxy-digest and ioi-editor-proxy-ipc (test support)"
+license.workspace = true
+repository = "https://github.com/ioi-foundation/ioi"
+publish = false
+
+[dependencies]
+ioi-proxy-digest = { path = "../editor-proxy-digest" }
+ioi-editor-proxy-ipc = { path = "../editor-proxy-codec" }
+serde = { version = "1.0", default-features = false }
+
+[dev-dependencies]
+serde_json = { workspace = true }
