@@ -16,7 +16,9 @@
 //!
 //! This file pins only that the inventory cannot silently stop running: CI runs layer 1, the
 //! workspace builds the gate and its canary, the gate's pinned inputs and registries exist, and
-//! layer 2 takes its toolchain and cargo home from its caller alone.
+//! layer 2 takes its toolchain and cargo home from its caller alone: a missing argument and an
+//! unset, empty or invalid input are each refused by name (exit 3), and its preflight's OK line
+//! names exactly what it checked.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -103,13 +105,12 @@ fn caller_cargo_home() -> String {
     })
 }
 
-/// Runs layer 2's `--preflight` (every check before its first build; it builds nothing) under a
-/// cleared environment: PATH, the given HOME and exactly `vars`.
-fn preflight(home: &Path, vars: &[(&str, &str)]) -> (Option<i32>, String) {
+/// Runs layer 2 with exactly `args` under a cleared environment: PATH, the given HOME and exactly
+/// `vars`.
+fn scan(home: &Path, args: &[&str], vars: &[(&str, &str)]) -> (Option<i32>, String) {
     let Output { status, stdout, .. } = Command::new("bash")
         .arg(repo().join(SCAN))
-        .arg("--preflight")
-        .arg(repo())
+        .args(args)
         .env_clear()
         .env("PATH", "/usr/bin:/bin")
         .env("HOME", home)
@@ -117,6 +118,26 @@ fn preflight(home: &Path, vars: &[(&str, &str)]) -> (Option<i32>, String) {
         .output()
         .expect("bash runs the scan");
     (status.code(), String::from_utf8_lossy(&stdout).into_owned())
+}
+
+/// Runs layer 2's `--preflight` (its input, argument, network, wrapper and workspace checks; it
+/// builds nothing) on this repo, as `scan` does.
+fn preflight(home: &Path, vars: &[(&str, &str)]) -> (Option<i32>, String) {
+    let root = repo();
+    scan(
+        home,
+        &["--preflight", root.to_str().expect("a UTF-8 repo path")],
+        vars,
+    )
+}
+
+/// Asserts a refusal BY NAME: exit 3 and the first line naming it.
+fn refused(case: &str, (code, stdout): (Option<i32>, String), first_line: &str) {
+    assert_eq!(code, Some(3), "{case}: {stdout}");
+    assert!(
+        stdout.starts_with(&format!("EXPANDED-SCAN CANNOT RUN: {first_line}")),
+        "{case} is refused by name (\"{first_line}\") first: {stdout}"
+    );
 }
 
 /// No host's path is a fallback (the Hypervisor Director's ruling "BATCH 3 SHIPS THIS HOST'S HOME
@@ -150,10 +171,18 @@ fn layer_two_refuses_an_unset_toolchain_or_cargo_home_by_name() {
     let home = tempfile::tempdir().expect("a fresh HOME");
     let toolchain = caller_toolchain();
     let cargo_home = caller_cargo_home();
-    let cases: [(&str, Vec<(&str, &str)>); 3] = [
+    let cases: [(&str, Vec<(&str, &str)>); 5] = [
         ("EXP_TOOLCHAIN", vec![]),
         ("EXP_TOOLCHAIN", vec![("CARGO_HOME", cargo_home.as_str())]),
         ("CARGO_HOME", vec![("EXP_TOOLCHAIN", toolchain.as_str())]),
+        (
+            "EXP_TOOLCHAIN",
+            vec![("EXP_TOOLCHAIN", ""), ("CARGO_HOME", cargo_home.as_str())],
+        ),
+        (
+            "CARGO_HOME",
+            vec![("EXP_TOOLCHAIN", toolchain.as_str()), ("CARGO_HOME", "")],
+        ),
     ];
     for (unset, vars) in cases {
         let (code, stdout) = preflight(home.path(), &vars);
@@ -165,9 +194,171 @@ fn layer_two_refuses_an_unset_toolchain_or_cargo_home_by_name() {
     }
 }
 
-/// With both inputs passed, resolved from this test's own environment before HOME is replaced,
-/// the scan's preflight runs under a FRESH, EMPTY HOME and leaves it empty: its toolchain is
-/// EXP_TOOLCHAIN's and its registry CARGO_HOME's. Two controls are refused, so the pass is not
+/// A missing positional argument is refused BY NAME (exit 3, CANNOT RUN), never by bash's own
+/// "unbound variable" (exit 1, which the scan's header reserves for findings). Both inputs are
+/// passed, so each refusal is the argument's own.
+#[test]
+fn layer_two_refuses_a_missing_argument_by_name() {
+    let home = tempfile::tempdir().expect("a fresh HOME");
+    let absent = tempfile::tempdir().expect("a temp dir");
+    let absent = absent.path().join("absent");
+    let absent = absent.to_str().expect("a UTF-8 temp path");
+    let root = repo();
+    let root = root.to_str().expect("a UTF-8 repo path");
+    let toolchain = caller_toolchain();
+    let cargo_home = caller_cargo_home();
+    let vars = [
+        ("EXP_TOOLCHAIN", toolchain.as_str()),
+        ("CARGO_HOME", cargo_home.as_str()),
+    ];
+    let worktree = "the <subject worktree> argument is missing";
+    let cases: [(&str, Vec<&str>, String); 6] = [
+        ("no argument", vec![], worktree.to_string()),
+        (
+            "--preflight alone",
+            vec!["--preflight"],
+            worktree.to_string(),
+        ),
+        (
+            "--preflight with an empty worktree",
+            vec!["--preflight", ""],
+            worktree.to_string(),
+        ),
+        (
+            "a scan with no out dir",
+            vec![root],
+            "the <NEW out dir> argument is missing".to_string(),
+        ),
+        (
+            "--preflight with a worktree that is not a directory",
+            vec!["--preflight", absent],
+            format!("the <subject worktree> argument is not a directory: {absent}"),
+        ),
+        (
+            "--preflight with a second argument",
+            vec!["--preflight", root, "extra"],
+            "--preflight takes only the <subject worktree> argument".to_string(),
+        ),
+    ];
+    for (case, args, first_line) in cases {
+        refused(case, scan(home.path(), &args, &vars), &first_line);
+    }
+}
+
+/// An invalid toolchain variable is refused BY NAME (exit 3), naming EXP_TOOLCHAIN or CARGO_HOME:
+/// a relative path, a path that is no directory, a toolchain without its binaries or whose rustc
+/// is not the pinned 1.93.1, and a cargo home without an index or without crate files. The other
+/// input is the caller's own each time, so each refusal is the named input's.
+#[test]
+fn layer_two_refuses_an_invalid_toolchain_or_cargo_home_by_name() {
+    let home = tempfile::tempdir().expect("a fresh HOME");
+    let toolchain = caller_toolchain();
+    let cargo_home = caller_cargo_home();
+    let scratch = tempfile::tempdir().expect("a scratch dir");
+    let path = |name: &str| {
+        scratch
+            .path()
+            .join(name)
+            .to_str()
+            .expect("UTF-8")
+            .to_string()
+    };
+    let absent = path("absent");
+    let empty = path("empty");
+    std::fs::create_dir(&empty).expect("an empty dir");
+    // A "toolchain" whose bin/cargo and bin/rustc exist and run, but print no 1.93.1 version.
+    let other = path("other-toolchain");
+    std::fs::create_dir_all(format!("{other}/bin")).expect("its bin dir");
+    for tool in ["cargo", "rustc"] {
+        std::os::unix::fs::symlink("/bin/true", format!("{other}/bin/{tool}"))
+            .expect("a tool that prints no version");
+    }
+    // A cargo home with an empty index and cache (both directories exist).
+    let bare = path("bare-cargo-home");
+    for dir in [
+        "registry/index/some-index/.cache",
+        "registry/cache/some-index",
+    ] {
+        std::fs::create_dir_all(format!("{bare}/{dir}")).expect("an empty registry dir");
+    }
+    // A cargo home with a cached index entry but no crate file.
+    let indexed = path("indexed-cargo-home");
+    for dir in [
+        "registry/index/some-index/.cache/so",
+        "registry/cache/some-index",
+    ] {
+        std::fs::create_dir_all(format!("{indexed}/{dir}")).expect("a registry dir");
+    }
+    std::fs::write(
+        format!("{indexed}/registry/index/some-index/.cache/so/some"),
+        "x",
+    )
+    .expect("an index entry");
+
+    let tc = |value: &str| {
+        vec![
+            ("EXP_TOOLCHAIN", value.to_string()),
+            ("CARGO_HOME", cargo_home.clone()),
+        ]
+    };
+    let ch = |value: &str| {
+        vec![
+            ("EXP_TOOLCHAIN", toolchain.clone()),
+            ("CARGO_HOME", value.to_string()),
+        ]
+    };
+    let cases: [(&str, Vec<(&str, String)>, String); 8] = [
+        (
+            "a relative EXP_TOOLCHAIN",
+            tc("relative/toolchain"),
+            "EXP_TOOLCHAIN=relative/toolchain is not an absolute path".to_string(),
+        ),
+        (
+            "an EXP_TOOLCHAIN that is no directory",
+            tc(&absent),
+            format!("EXP_TOOLCHAIN={absent} is not a directory"),
+        ),
+        (
+            "an EXP_TOOLCHAIN without bin/cargo",
+            tc(&empty),
+            format!("EXP_TOOLCHAIN={empty} has no executable bin/cargo"),
+        ),
+        (
+            "an EXP_TOOLCHAIN whose rustc is not 1.93.1",
+            tc(&other),
+            format!("EXP_TOOLCHAIN={other} is not the pinned 1.93.1: its bin/rustc --version says"),
+        ),
+        (
+            "a relative CARGO_HOME",
+            ch("relative/cargo"),
+            "CARGO_HOME=relative/cargo is not an absolute path".to_string(),
+        ),
+        (
+            "a CARGO_HOME that is no directory",
+            ch(&absent),
+            format!("CARGO_HOME={absent} is not a directory"),
+        ),
+        (
+            "a CARGO_HOME whose index and cache are empty",
+            ch(&bare),
+            format!("CARGO_HOME={bare} holds no offline registry: no index under registry/index has a non-empty .cache"),
+        ),
+        (
+            "a CARGO_HOME with an index but no crate file",
+            ch(&indexed),
+            format!("CARGO_HOME={indexed} holds no offline registry: registry/cache holds no .crate file"),
+        ),
+    ];
+    for (case, vars, first_line) in cases {
+        let vars: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        refused(case, preflight(home.path(), &vars), &first_line);
+    }
+}
+
+/// The scan never reaches a fallback for its two inputs, and with both passed, resolved from this
+/// test's own environment before HOME is replaced, its preflight runs under a FRESH, EMPTY HOME and
+/// leaves it empty: its toolchain is EXP_TOOLCHAIN's and its registry CARGO_HOME's. The OK line
+/// names exactly what was checked and what was not. Two controls are refused, so the pass is not
 /// vacuous: an empty cargo home, and a directory that is no toolchain. The preflight requires the
 /// isolated network the scan itself requires (CI runs this target under `unshare -rn`).
 #[test]
@@ -178,6 +369,28 @@ fn layer_two_runs_with_the_callers_toolchain_and_cargo_home_under_a_fresh_home()
     let cargo_home = caller_cargo_home();
     let empty_dir = empty.path().to_str().expect("a UTF-8 temp path");
 
+    // The scan mode, with NEITHER input passed and an out dir that already EXISTS (its first
+    // check after the inputs and the toolchain, so nothing is built or written): the first
+    // refusal must name EXP_TOOLCHAIN. A script with a host-path fallback goes on without either
+    // input, past its toolchain checks, to the out-dir refusal (or, on a host without the
+    // fallback's path, to a refusal naming that path).
+    let existing_out = tempfile::tempdir().expect("an out dir that exists");
+    let root = repo();
+    let (code, stdout) = scan(
+        home.path(),
+        &[
+            root.to_str().expect("a UTF-8 repo path"),
+            existing_out.path().to_str().expect("a UTF-8 temp path"),
+        ],
+        &[],
+    );
+    assert!(
+        code == Some(3)
+            && stdout.starts_with("EXPANDED-SCAN CANNOT RUN: EXP_TOOLCHAIN is not set:"),
+        "with neither input passed, the scan must refuse EXP_TOOLCHAIN by name before any other \
+         check; it went on without it (a fallback was reached): {stdout}"
+    );
+
     let (code, stdout) = preflight(
         home.path(),
         &[
@@ -186,10 +399,34 @@ fn layer_two_runs_with_the_callers_toolchain_and_cargo_home_under_a_fresh_home()
         ],
     );
     assert_eq!(code, Some(0), "both passed, fresh HOME: {stdout}");
+    let checked = [
+        format!(
+            "EXPANDED-SCAN PREFLIGHT OK: checked: EXP_TOOLCHAIN={toolchain} has executable \
+             bin/cargo and bin/rustc and its rustc is the pinned 1.93.1 (rustc 1.93.1 "
+        ),
+        format!("; CARGO_HOME={cargo_home} has an index with a non-empty .cache ("),
+        " .crate files in registry/cache; the network has only lo; the subject has \
+         expand-wrapper.sh; EXP_TOOLCHAIN's cargo read the subject's workspace offline and locked \
+         (metadata only, no dependency resolved) under HOME="
+            .to_string(),
+        format!("HOME={}: ", home.path().display()),
+        " inventoried target roots. NOT checked: that the registry holds every locked \
+         dependency, the gate's build (--plan), the expansion build, the out dir\n"
+            .to_string(),
+    ];
     assert!(
-        stdout.starts_with("EXPANDED-SCAN PREFLIGHT OK: rustc 1.93.1 ")
-            && stdout.contains(&format!("HOME={}", home.path().display())),
-        "the preflight passes under the fresh HOME with the pinned toolchain: {stdout}"
+        stdout.starts_with(&checked[0]),
+        "the OK line opens with the toolchain checks: {stdout}"
+    );
+    for part in &checked[1..] {
+        assert!(
+            stdout.contains(part.as_str()),
+            "the OK line names exactly what was checked [{part}]: {stdout}"
+        );
+    }
+    assert!(
+        !stdout.contains("holds an offline registry"),
+        "the OK line claims no more than its registry checks: {stdout}"
     );
     let left: Vec<_> = std::fs::read_dir(home.path())
         .expect("the fresh HOME reads")
@@ -206,10 +443,10 @@ fn layer_two_runs_with_the_callers_toolchain_and_cargo_home_under_a_fresh_home()
             ("CARGO_HOME", empty_dir),
         ],
     );
-    assert_eq!(code, Some(3), "an empty cargo home: {stdout}");
-    assert!(
-        stdout.contains("holds no offline registry"),
-        "an empty cargo home is refused: {stdout}"
+    refused(
+        "an empty cargo home",
+        (code, stdout),
+        &format!("CARGO_HOME={empty_dir} holds no offline registry"),
     );
     let (code, stdout) = preflight(
         home.path(),
@@ -218,9 +455,9 @@ fn layer_two_runs_with_the_callers_toolchain_and_cargo_home_under_a_fresh_home()
             ("CARGO_HOME", cargo_home.as_str()),
         ],
     );
-    assert_eq!(code, Some(3), "a directory that is no toolchain: {stdout}");
-    assert!(
-        stdout.contains("/bin/cargo (EXP_TOOLCHAIN must be the pinned 1.93.1"),
-        "a directory that is no toolchain is refused: {stdout}"
+    refused(
+        "a directory that is no toolchain",
+        (code, stdout),
+        &format!("EXP_TOOLCHAIN={empty_dir} has no executable bin/cargo"),
     );
 }

@@ -18,41 +18,64 @@
 # empty, a target is not expanded, or the subject's worktree changes. It deletes nothing.
 # usage (under unshare -rn, from anywhere): expanded-scan.sh <subject worktree> <NEW out dir> [--print] [config ...]
 #   (no config named = every pinned configuration; naming some makes the judge's run PARTIAL, never a pass)
-#        or: expanded-scan.sh --preflight <subject worktree>   (every check before the first build, then exit 0 with
-#   "EXPANDED-SCAN PREFLIGHT OK"; it builds nothing and creates no out dir)
-#   REQUIRED, from the CALLER (no fallback; each is refused BY NAME when unset): EXP_TOOLCHAIN, the directory of the
-#   pinned 1.93.1 toolchain (the one holding bin/cargo and bin/rustc), and CARGO_HOME, the cargo home holding the
-#   offline registry. The caller resolves both from its own environment or rustup BEFORE it replaces HOME, e.g.
+#        or: expanded-scan.sh --preflight <subject worktree>   (the input, argument, network, wrapper and workspace
+#   checks below, then exit 0 with "EXPANDED-SCAN PREFLIGHT OK: checked: ..." naming each check it made and what it did
+#   NOT check; it builds nothing and creates no out dir. It does not check that the registry holds every locked
+#   dependency, the gate's build (--plan), the expansion build or the out dir, so a passing preflight does not show
+#   that layer 2 runs)
+#   A missing positional argument is refused BY NAME (exit 3).
+#   REQUIRED, from the CALLER (no fallback; each is refused BY NAME, exit 3, when unset, empty or invalid):
+#   EXP_TOOLCHAIN, the absolute directory of the pinned 1.93.1 toolchain (holding executable bin/cargo and bin/rustc,
+#   its rustc 1.93.1), and CARGO_HOME, the absolute cargo home holding the offline registry (an index under
+#   registry/index with a non-empty .cache, and .crate files in registry/cache). The caller resolves both from its
+#   own environment or rustup BEFORE it replaces HOME, e.g.
 #     EXP_TOOLCHAIN="$(rustup run 1.93.1 rustc --print sysroot)" CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 #   Every cargo and rustc this script runs is EXP_TOOLCHAIN's, so the scan needs no rustup home and runs under a fresh
 #   HOME (the Hypervisor Director's ruling "BATCH 3 SHIPS THIS HOST'S HOME PATH": no host path is a fallback).
 #   optional: EXP_TARGET (the expansion build's target dir; default <worktree>/target/mint-gate-expand, build products only)
-# exit: 0 PASS (or PREFLIGHT OK); 1 FAIL (findings named); 3 CANNOT RUN.
+# exit: 0 PASS (or PREFLIGHT OK); 1 FAIL (findings named); 3 CANNOT RUN (every refused input or argument, by name).
 set -u
 fail() { echo "EXPANDED-SCAN CANNOT RUN: $*"; echo "EXPANDED-SCAN EXIT 3"; exit 3; }
+USAGE="usage: expanded-scan.sh <subject worktree> <NEW out dir> [--print] [config ...], or expanded-scan.sh --preflight <subject worktree>"
 [ -n "${EXP_TOOLCHAIN:-}" ] || fail "EXP_TOOLCHAIN is not set: pass the pinned 1.93.1 toolchain's directory, resolved before HOME is replaced (e.g. EXP_TOOLCHAIN=\"\$(rustup run 1.93.1 rustc --print sysroot)\"); there is no fallback"
 [ -n "${CARGO_HOME:-}" ] || fail "CARGO_HOME is not set: pass the cargo home holding the offline registry, resolved before HOME is replaced; there is no fallback"
 PREFLIGHT=""
 if [ "${1:-}" = "--preflight" ]; then PREFLIGHT=1; shift; fi
+{ [ "$#" -ge 1 ] && [ -n "$1" ]; } || fail "the <subject worktree> argument is missing ($USAGE)"
 WT=$1
+shift
 if [ -n "$PREFLIGHT" ]; then
-  shift
-  [ "$#" -eq 0 ] || fail "--preflight takes only the subject worktree"
+  [ "$#" -eq 0 ] || fail "--preflight takes only the <subject worktree> argument ($USAGE)"
   OUT=""
 else
-  OUT=$2
-  shift 2
+  { [ "$#" -ge 1 ] && [ -n "$1" ]; } || fail "the <NEW out dir> argument is missing ($USAGE)"
+  OUT=$1
+  shift
 fi
+[ -d "$WT" ] || fail "the <subject worktree> argument is not a directory: $WT"
 PRINT=""
 if [ "${1:-}" = "--print" ]; then PRINT="--print"; shift; fi
 SUBSET="$*"
 N=$EXP_TOOLCHAIN
+case "$N" in /*) ;; *) fail "EXP_TOOLCHAIN=$N is not an absolute path: pass the toolchain's absolute directory" ;; esac
+[ -d "$N" ] || fail "EXP_TOOLCHAIN=$N is not a directory"
+for b in cargo rustc; do
+  { [ -f "$N/bin/$b" ] && [ -x "$N/bin/$b" ]; } || fail "EXP_TOOLCHAIN=$N has no executable bin/$b (EXP_TOOLCHAIN must be the pinned 1.93.1, already installed)"
+done
+NV=$("$N/bin/rustc" --version 2>&1 | head -1)
+case "$NV" in "rustc 1.93.1 "*) ;; *) fail "EXP_TOOLCHAIN=$N is not the pinned 1.93.1: its bin/rustc --version says [$NV]" ;; esac
+case "$CARGO_HOME" in /*) ;; *) fail "CARGO_HOME=$CARGO_HOME is not an absolute path: pass the cargo home's absolute directory" ;; esac
+[ -d "$CARGO_HOME" ] || fail "CARGO_HOME=$CARGO_HOME is not a directory"
+IDX=""
+for d in "$CARGO_HOME"/registry/index/*/.cache; do
+  if [ -d "$d" ] && [ -n "$(ls -A "$d" 2> /dev/null)" ]; then IDX=${d%/.cache}; break; fi
+done
+[ -n "$IDX" ] || fail "CARGO_HOME=$CARGO_HOME holds no offline registry: no index under registry/index has a non-empty .cache"
+NCRATES=$(find "$CARGO_HOME/registry/cache" -mindepth 2 -maxdepth 2 -name '*.crate' 2> /dev/null | wc -l)
+[ "$NCRATES" -ge 1 ] || fail "CARGO_HOME=$CARGO_HOME holds no offline registry: registry/cache holds no .crate file"
 HERE="$WT/crates/node/mint-gate"
 ifaces=$(tail -n +3 /proc/self/net/dev | cut -d: -f1 | tr -d ' ' | sort | tr '\n' ' ')
 [ "$ifaces" = "lo " ] || fail "not network-isolated (interfaces: $ifaces): run under unshare -rn"
-for b in "$N/bin/cargo" "$N/bin/rustc"; do [ -x "$b" ] || fail "missing $b (EXP_TOOLCHAIN must be the pinned 1.93.1, already installed)"; done
-"$N/bin/rustc" --version | grep -q "^rustc 1\.93\.1 " || fail "the expansion toolchain is not the pinned 1.93.1: $("$N/bin/rustc" --version)"
-{ [ -d "$CARGO_HOME/registry/index" ] && [ -d "$CARGO_HOME/registry/cache" ]; } || fail "CARGO_HOME=$CARGO_HOME holds no offline registry (registry/index and registry/cache)"
 [ -x "$HERE/expand-wrapper.sh" ] || [ -f "$HERE/expand-wrapper.sh" ] || fail "no expand-wrapper.sh in the subject"
 # The root of every lib and bin target of the inventoried packages (see the re-expansion note below), read by
 # EXP_TOOLCHAIN's cargo, offline and locked, with only HOME, CARGO_HOME and the toolchain in its environment.
@@ -64,7 +87,7 @@ if [ -n "$PREFLIGHT" ]; then
   ROOTS=$(set -o pipefail; roots 2> /dev/null) || fail "EXP_TOOLCHAIN's cargo cannot read the subject's workspace offline under HOME=$HOME: $(roots 2>&1 > /dev/null | tail -3 | tr '\n' ' ')"
   n=$(printf '%s\n' "$ROOTS" | grep -c .)
   [ "$n" -ge 3 ] || fail "too few inventoried target roots: [$ROOTS]"
-  echo "EXPANDED-SCAN PREFLIGHT OK: $("$N/bin/rustc" --version) from EXP_TOOLCHAIN; CARGO_HOME holds an offline registry; HOME=$HOME; $n inventoried target roots"
+  echo "EXPANDED-SCAN PREFLIGHT OK: checked: EXP_TOOLCHAIN=$N has executable bin/cargo and bin/rustc and its rustc is the pinned 1.93.1 ($NV); CARGO_HOME=$CARGO_HOME has an index with a non-empty .cache (${IDX#"$CARGO_HOME"/}) and $NCRATES .crate files in registry/cache; the network has only lo; the subject has expand-wrapper.sh; EXP_TOOLCHAIN's cargo read the subject's workspace offline and locked (metadata only, no dependency resolved) under HOME=$HOME: $n inventoried target roots. NOT checked: that the registry holds every locked dependency, the gate's build (--plan), the expansion build, the out dir"
   exit 0
 fi
 [ -e "$OUT" ] && fail "the out dir $OUT exists: give a NEW one"
