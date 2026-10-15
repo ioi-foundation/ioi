@@ -117,30 +117,31 @@ fn normalize_sys_exec_command_for_policy(raw: &str) -> Option<String> {
         return None;
     }
 
-    // If the command is a path, compare against the basename so `/bin/bash` is treated as `bash`.
-    let basename = trimmed
-        .rsplit_once('/')
-        .map(|(_, tail)| tail)
-        .unwrap_or(trimmed)
-        .rsplit_once('\\')
-        .map(|(_, tail)| tail)
-        .unwrap_or(trimmed);
-
-    let basename = basename
+    // Allowlist entries identify the full command. Reducing them to basenames
+    // would authorize same-named executables in other directories.
+    let command = trimmed
         .trim_matches(|c: char| c == '"' || c == '\'')
         .trim();
-    if basename.is_empty() {
+    if command.is_empty() {
         return None;
     }
-    Some(basename.to_ascii_lowercase())
+    Some(command.to_ascii_lowercase())
 }
 
 fn is_denied_sys_exec_command(command_lc: &str) -> bool {
+    // Denial alone uses the basename, for both path separators regardless of host OS.
+    let basename = command_lc
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(command_lc)
+        .trim_matches(|c: char| c == '"' || c == '\'')
+        .trim();
+
     // Guardrail: never allow command interpreters/shells via policy configuration.
     // If these slip into allowlists, metachar args become meaningful again and the
     // effective execution surface expands sharply.
     matches!(
-        command_lc,
+        basename,
         "sh" | "bash"
             | "zsh"
             | "fish"
