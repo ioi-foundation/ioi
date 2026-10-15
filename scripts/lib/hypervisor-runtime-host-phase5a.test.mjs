@@ -355,6 +355,35 @@ test("Phase 5 (shell): the constraint holds — a hard-denied interpreter (bash)
   assert.ok(!fs.existsSync(path.join(run.body.workspace_path, "pwned.txt")), "no file was created");
 });
 
+test("Phase 5 (shell): an allowlisted path-form interpreter is intercepted before execution", async () => {
+  // Denial precedes the driver, so this check does not require bwrap. An admission
+  // failure (BUILD-DELTA #88) must fail this test, not count as policy interception.
+  // Keep any attempted output in this test's temp dir even if the policy regresses.
+  const marker = path.join(stateDir, "interpreter-result.txt");
+  const run = await grantedRun({
+    session_ref: "session:p5-shell-deny-path",
+    goal: "exercise the command policy",
+    step: true,
+    shell_run: {
+      argv: ["/bin/bash", "-c", 'printf "%s" case10 > "$1"', "case10", marker],
+    },
+  });
+  assert.equal(run.status, 200);
+  assert.equal(run.body.step.ran, true);
+  assert.equal(run.body.step.error, null);
+  assert.ok(
+    run.body.step.events.some((event) => event.kind === "FirewallInterception"),
+    `path-form interpreter reached the policy gate: ${JSON.stringify(run.body.step.events)}`,
+  );
+  assert.ok(
+    !run.body.step.events.some((event) => event.kind === "AgentActionResult"),
+    "the denied interpreter produced no tool action result",
+  );
+  assert.equal(run.body.host.workspace_mutated, false);
+  assert.deepEqual(run.body.workspace_files_after, []);
+  assert.equal(fs.existsSync(marker), false, "no interpreter output in the test temp dir");
+});
+
 test("Phase 5 (shell): the constrained shell run is deterministic (same directive → same workspace mutation)", { skip: bwrapAvailable() ? false : "bwrap not available" }, async () => {
   const run = (ref) =>
     grantedRun({ session_ref: ref, goal: "execute the workspace command", step: true, shell_run: { argv: ["touch", "made.txt"] } });

@@ -835,8 +835,7 @@ fn sys_exec_allowlist_ignores_missing_command_field() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn sys_exec_allow_commands_cannot_enable_shell_binaries() -> Result<()> {
+fn evaluate_sys_exec_allowlist(allowed_commands: &[&str], command: &str) -> Result<Verdict> {
     let graph = EvidenceGraph {
         version: 1,
         source_hash: [0u8; 32],
@@ -850,10 +849,10 @@ fn sys_exec_allow_commands_cannot_enable_shell_binaries() -> Result<()> {
         ontology_policy: Default::default(),
         pii_controls: PiiControls::default(),
         rules: vec![Rule {
-            rule_id: Some("allow-bash".to_string()),
+            rule_id: Some("allow-command".to_string()),
             target: "sys::exec".to_string(),
             conditions: RuleConditions {
-                allow_commands: Some(vec!["bash".to_string(), "/bin/sh".to_string()]),
+                allow_commands: Some(allowed_commands.iter().map(|s| s.to_string()).collect()),
                 ..Default::default()
             },
             action: Verdict::Allow,
@@ -868,8 +867,8 @@ fn sys_exec_allow_commands_cannot_enable_shell_binaries() -> Result<()> {
         .build()?;
 
     let params = serde_json::json!({
-        "command": "/bin/bash",
-        "args": ["-lc", "echo ok | cat"]
+        "command": command,
+        "args": ["--version"]
     });
     let params = serde_json::to_vec(&params)?;
     let request = ActionRequest {
@@ -883,8 +882,96 @@ fn sys_exec_allow_commands_cannot_enable_shell_binaries() -> Result<()> {
         nonce: 1,
     };
 
-    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
-    assert_eq!(verdict, Verdict::Block);
+    Ok(rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os)))
+}
+
+#[test]
+fn an_allowlisted_path_form_interpreter_is_still_denied() -> Result<()> {
+    for command in ["/bin/bash", "/usr/bin/bash", "/bin/sh"] {
+        // The runtime-host route allowlists the exact argv[0]. A mismatch between
+        // the request and the allowlist must not be the reason this is blocked.
+        assert_eq!(
+            evaluate_sys_exec_allowlist(&[command], command)?,
+            Verdict::Block,
+            "exactly allowlisted interpreter: {command}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn sys_exec_allow_commands_cannot_enable_shell_binaries() -> Result<()> {
+    // Confirm this policy can allow a command. Every negative row below is also
+    // exactly allowlisted, so disabling the interpreter check makes it Allow.
+    assert_eq!(evaluate_sys_exec_allowlist(&["rg"], "rg")?, Verdict::Allow);
+    for command in [
+        "sh",
+        "bash",
+        "zsh",
+        "fish",
+        "dash",
+        "ksh",
+        "csh",
+        "tcsh",
+        "pwsh",
+        "powershell",
+        "cmd",
+        "cmd.exe",
+        "/bin/bash",
+        "/usr/bin/bash",
+        "/bin/sh",
+        " /BIN/BASH ",
+        "\"/bin/bash\"",
+        r"C:\Windows\cmd.exe",
+        "C:/Windows/cmd.exe",
+        r"tools/mixed\bash",
+        r"tools\mixed/bash",
+    ] {
+        assert_eq!(
+            evaluate_sys_exec_allowlist(&[command], command)?,
+            Verdict::Block,
+            "exactly allowlisted interpreter: {command}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn sys_exec_allow_commands_preserves_unix_path_identity() -> Result<()> {
+    for (allowed, command, expected) in [
+        ("rg", " RG ", Verdict::Allow),
+        ("/usr/bin/rg", "/usr/bin/rg", Verdict::Allow),
+        ("/usr/bin/rg", "\"/usr/bin/rg\"", Verdict::Allow),
+        ("/usr/bin/rg", "/opt/rg", Verdict::Block),
+        ("/usr/bin/rg", "rg", Verdict::Block),
+        ("rg", "/usr/bin/rg", Verdict::Block),
+        ("rg", "echo", Verdict::Allow),
+        ("rg", "/opt/echo", Verdict::Block),
+    ] {
+        assert_eq!(
+            evaluate_sys_exec_allowlist(&[allowed], command)?,
+            expected,
+            "allow={allowed}, command={command}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn sys_exec_allow_commands_preserves_windows_path_identity() -> Result<()> {
+    for (allowed, command, expected) in [
+        (r"C:\Trusted\rg.exe", r"C:\Trusted\rg.exe", Verdict::Allow),
+        (r"C:\Trusted\rg.exe", r"C:\Other\rg.exe", Verdict::Block),
+        (r"C:\Trusted\rg.exe", "rg.exe", Verdict::Block),
+        ("rg.exe", r"C:\Other\rg.exe", Verdict::Block),
+        ("rg.exe", r"C:\Other\echo", Verdict::Block),
+    ] {
+        assert_eq!(
+            evaluate_sys_exec_allowlist(&[allowed], command)?,
+            expected,
+            "allow={allowed}, command={command}"
+        );
+    }
     Ok(())
 }
 
