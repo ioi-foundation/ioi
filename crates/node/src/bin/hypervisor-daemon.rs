@@ -10248,3 +10248,144 @@ mod cron_tests {
         assert!(schedule_next_run(&Value::Null, "2026-06-29T00:00:00Z").is_none());
     }
 }
+
+/// BUILD-DELTA #21(c): the cell's run-scoped model-mount token, through the REAL mint. Its issue record
+/// (issued-at, expiry, audience, the run's session) is written durably at mint, and authorize reads the
+/// expiry from that persisted record on every use, never from process memory.
+#[cfg(test)]
+mod run_scoped_model_token_issue_tests {
+    use super::*;
+
+    const SESSION: &str = "session:run-scoped-issue";
+    const GRANT: &str = "receipt://hypervisor/session-execute/run-scoped-issue";
+
+    /// Every create record under capability-tokens/, with its path.
+    fn create_records(data_dir: &std::path::Path) -> Vec<(std::path::PathBuf, Value)> {
+        let mut records = Vec::new();
+        for entry in std::fs::read_dir(data_dir.join("capability-tokens")).expect("the token dir") {
+            let path = entry.expect("an entry").path();
+            let value: Value =
+                serde_json::from_str(&std::fs::read_to_string(&path).expect("a record"))
+                    .expect("a JSON record");
+            if value["operation_kind"] == "model_mount.capability_token.create" {
+                records.push((path, value));
+            }
+        }
+        records
+    }
+
+    fn bearer(token: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {token}").parse().expect("a header value"),
+        );
+        headers
+    }
+
+    #[test]
+    fn the_run_scoped_mint_writes_its_issue_record_durably_at_mint() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let st = test_daemon_state(dir.path().to_str().expect("a utf-8 path"));
+        let before = now_unix_secs();
+        let (token, token_id) =
+            mint_run_scoped_model_token(&st, SESSION, GRANT).expect("the run-scoped mint");
+        let after = now_unix_secs();
+        let records = create_records(dir.path());
+        let (_, record) = records
+            .iter()
+            .find(|(_, record)| record["token_id"] == token_id.as_str())
+            .expect("the token's durable create record");
+        let issue = &record["issue_record"];
+        let issued = issue["issued_at_unix_secs"]
+            .as_i64()
+            .unwrap_or_else(|| panic!("issued-at is not in the durable record: {record}"));
+        assert!(
+            before <= issued && issued <= after,
+            "issued-at is the mint's instant"
+        );
+        assert_eq!(
+            issue["expires_at_unix_secs"].as_i64(),
+            Some(issued + 2 * 3600),
+            "the two-hour expiry is in the durable record"
+        );
+        assert_eq!(issue["ttl_secs"], json!(2 * 3600));
+        assert_eq!(issue["audience"], json!(SESSION));
+        assert_eq!(issue["run_session_ref"], json!(SESSION));
+        assert_eq!(
+            issue["schema_version"],
+            json!("ioi.model_mount.capability_token_issue.v1")
+        );
+        for (path, _) in &records {
+            assert!(
+                !std::fs::read_to_string(path).unwrap().contains(&token),
+                "the plaintext token is never stored"
+            );
+        }
+    }
+
+    #[test]
+    fn a_run_scoped_token_is_refused_once_its_persisted_expiry_has_passed() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let st = test_daemon_state(dir.path().to_str().expect("a utf-8 path"));
+        let (token, token_id) =
+            mint_run_scoped_model_token(&st, SESSION, GRANT).expect("the run-scoped mint");
+        assert!(
+            authorize(&st, &bearer(&token), "model.chat:*").is_ok(),
+            "valid while its run lives"
+        );
+        // Two hours and a second pass, without a restart: the persisted issue record is moved back by
+        // exactly that, which is what the clock passing it means to a check that reads the record.
+        let (path, mut record) = create_records(dir.path())
+            .into_iter()
+            .find(|(_, record)| record["token_id"] == token_id.as_str())
+            .expect("the token's durable create record");
+        let now = now_unix_secs();
+        record["issue_record"] = json!({
+            "schema_version": "ioi.model_mount.capability_token_issue.v1",
+            "issued_at_unix_secs": now - 2 * 3600 - 1,
+            "expires_at_unix_secs": now - 1,
+            "ttl_secs": 2 * 3600,
+            "audience": SESSION,
+            "run_session_ref": SESSION,
+        });
+        std::fs::write(&path, serde_json::to_vec_pretty(&record).unwrap()).unwrap();
+        match authorize(&st, &bearer(&token), "model.chat:*") {
+            Ok(()) => panic!("a run-scoped token past its persisted expiry still authorizes"),
+            Err(AppError(status, message)) => assert_eq!(
+                status,
+                StatusCode::FORBIDDEN,
+                "refused past its persisted expiry: {message}"
+            ),
+        }
+    }
+
+    #[test]
+    fn two_run_scoped_mints_with_identical_inputs_differ_and_the_id_is_not_part_of_the_token() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let st = test_daemon_state(dir.path().to_str().expect("a utf-8 path"));
+        let first = mint_run_scoped_model_token(&st, SESSION, GRANT).expect("the first mint");
+        let second = mint_run_scoped_model_token(&st, SESSION, GRANT).expect("the second mint");
+        assert_ne!(
+            first.0, second.0,
+            "identical inputs never give the same token"
+        );
+        assert_ne!(first.1, second.1, "nor the same id");
+        for (token, token_id) in [&first, &second] {
+            let token_hex = token.strip_prefix("ioi_mnt_").expect("the ioi_mnt_ prefix");
+            assert_eq!(token_hex.len(), 64, "256 bits");
+            let id_hex = token_id
+                .strip_prefix("capability_token:")
+                .expect("the id prefix");
+            assert!(id_hex.len() >= 16, "the id is drawn: {token_id}");
+            assert!(
+                !token_hex.starts_with(&id_hex[..8]),
+                "the id shares no prefix with the token"
+            );
+            assert!(
+                !token_hex.contains(&id_hex[..16]),
+                "no 16-hex run of the id is in the token"
+            );
+        }
+    }
+}

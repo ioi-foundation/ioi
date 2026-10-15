@@ -868,4 +868,198 @@ mod tests {
             ModelMountError::MissingField("state_dir")
         );
     }
+
+    // BUILD-DELTA #21(c): a token's issue record (issued-at, expiry, audience) is written in the same
+    // durable record as the token, and every authorize reads its expiry back from disk. The clock is an
+    // explicit input (`now_unix_secs`), so these tests choose the instant. Requests are built from JSON.
+
+    const T0: i64 = 1_760_000_000;
+
+    fn rfc3339(unix_secs: i64) -> String {
+        time::OffsetDateTime::from_unix_timestamp(unix_secs)
+            .unwrap()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap()
+    }
+
+    fn request_from(fields: Value) -> ModelMountCapabilityTokenControlRequest {
+        let mut request = json!({
+            "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+            "source": "test.capability_token_control",
+            "body": {
+                "audience": "hypervisor-session",
+                "allowed_scopes": ["model.chat:*"],
+                "grant_id": "grant://wallet/capability"
+            },
+            "authority_grant_refs": ["grant://wallet/capability"],
+        });
+        for (key, value) in fields.as_object().unwrap() {
+            request[key] = value.clone();
+        }
+        serde_json::from_value(request).expect("a token control request")
+    }
+
+    fn create_at(
+        state: &Path,
+        now: Option<i64>,
+        expires_at: Option<&str>,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        let mut fields = json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "state_dir": state.to_string_lossy(),
+        });
+        if let Some(now) = now {
+            fields["now_unix_secs"] = json!(now);
+        }
+        if let Some(expires_at) = expires_at {
+            fields["body"] = json!({
+                "audience": "hypervisor-session",
+                "allowed_scopes": ["model.chat:*"],
+                "grant_id": "grant://wallet/capability",
+                "expiresAt": expires_at,
+            });
+        }
+        plan_capability_token_control(&request_from(fields))
+    }
+
+    fn persist_in(state: &Path, plan: &ModelMountCapabilityTokenControlPlan) {
+        fs::write(
+            state
+                .join("capability-tokens")
+                .join(format!("{}.json", plan.record_id.replace(':', "_"))),
+            serde_json::to_vec(&plan.record).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn authorize_at(
+        state: &Path,
+        token: &str,
+        now: Option<i64>,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        let mut fields = json!({
+            "operation_kind": "model_mount.capability_token.authorize",
+            "state_dir": state.to_string_lossy(),
+            "token_hash": sha256_hex(token.as_bytes()).unwrap(),
+            "required_scope": "model.chat:hello",
+        });
+        if let Some(now) = now {
+            fields["now_unix_secs"] = json!(now);
+        }
+        plan_capability_token_control(&request_from(fields))
+    }
+
+    #[test]
+    fn a_create_writes_its_issue_record_into_the_durable_token_record() {
+        let state = scratch_state();
+        let plan = create_at(&state, Some(T0), Some(&rfc3339(T0 + 60))).expect("create");
+        assert_eq!(
+            plan.record["issue_record"],
+            json!({
+                "schema_version": "ioi.model_mount.capability_token_issue.v1",
+                "issued_at_unix_secs": T0,
+                "expires_at_unix_secs": T0 + 60,
+                "ttl_secs": 60,
+                "audience": "hypervisor-session",
+                "run_session_ref": null,
+            }),
+            "the issue record is part of the record the daemon persists: {}",
+            plan.record
+        );
+        let token = plan.public_response["token"].as_str().unwrap();
+        assert!(
+            !plan.record.to_string().contains(token),
+            "the plaintext token is not in the durable record"
+        );
+    }
+
+    #[test]
+    fn authorize_refuses_a_token_at_its_persisted_expiry() {
+        let state = scratch_state();
+        let plan = create_at(&state, Some(T0), Some(&rfc3339(T0 + 60))).expect("create");
+        persist_in(&state, &plan);
+        let token = plan.public_response["token"].as_str().unwrap();
+        assert!(
+            authorize_at(&state, token, Some(T0 + 59)).is_ok(),
+            "valid one second before its expiry"
+        );
+        let refused = authorize_at(&state, token, Some(T0 + 60));
+        assert!(
+            format!("{refused:?}").contains("CapabilityTokenExpired"),
+            "refused at its expiry, read from the persisted record: {refused:?}"
+        );
+        assert!(
+            format!("{:?}", authorize_at(&state, token, Some(T0 + 86_400)))
+                .contains("CapabilityTokenExpired"),
+            "and at every use after it"
+        );
+    }
+
+    #[test]
+    fn a_token_record_without_an_issue_record_is_refused() {
+        let state = scratch_state();
+        let token = "ioi_mnt_00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+        // The shape a create wrote before issue records existed: random, hashed, no durable expiry.
+        let record = json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "rust_core_boundary": "model_mount.capability_token",
+            "token_id": "capability_token:00112233445566778899aabbccddeeff",
+            "token_hash": sha256_hex(token.as_bytes()).unwrap(),
+            "token_entropy": "os_rng_256_v1",
+            "capability_token_authority": {
+                "allowed_scopes": ["model.chat:*"], "denied_scopes": [], "audience": "a", "grant_id": "g"
+            },
+            "planned_at": "rust_model_mount_core",
+        });
+        fs::write(
+            state.join("capability-tokens").join("no-issue-record.json"),
+            serde_json::to_vec(&record).unwrap(),
+        )
+        .unwrap();
+        let refused = authorize_at(&state, token, Some(T0));
+        assert!(
+            format!("{refused:?}").contains("CapabilityTokenIssueRecordAbsent"),
+            "a token that cannot prove its expiry from disk is refused: {refused:?}"
+        );
+    }
+
+    #[test]
+    fn authorize_without_a_clock_is_refused() {
+        let state = scratch_state();
+        let plan = create_at(&state, Some(T0), None).expect("create");
+        persist_in(&state, &plan);
+        let token = plan.public_response["token"].as_str().unwrap();
+        assert!(authorize_at(&state, token, Some(T0)).is_ok());
+        assert_eq!(
+            format!("{:?}", authorize_at(&state, token, None).map(|_| ())),
+            format!(
+                "{:?}",
+                Err::<(), _>(ModelMountError::MissingField("now_unix_secs"))
+            ),
+            "an authorize that names no instant is refused"
+        );
+    }
+
+    #[test]
+    fn a_create_whose_requested_expiry_is_unreadable_or_not_after_now_is_refused() {
+        let state = scratch_state();
+        for expires_at in [rfc3339(T0), rfc3339(T0 - 1), "tomorrow".to_string()] {
+            let refused = create_at(&state, Some(T0), Some(&expires_at));
+            assert!(
+                format!("{refused:?}").contains("CapabilityTokenExpiryInvalid"),
+                "expiresAt {expires_at:?} is refused, never read as no expiry: {refused:?}"
+            );
+        }
+        assert_eq!(
+            format!(
+                "{:?}",
+                create_at(&state, None, Some(&rfc3339(T0 + 60))).map(|_| ())
+            ),
+            format!(
+                "{:?}",
+                Err::<(), _>(ModelMountError::MissingField("now_unix_secs"))
+            ),
+            "a create that names no instant is refused"
+        );
+    }
 }
