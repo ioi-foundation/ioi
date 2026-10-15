@@ -27,7 +27,8 @@
 #   REQUIRED, from the CALLER (no fallback; each is refused BY NAME, exit 3, when unset, empty or invalid):
 #   EXP_TOOLCHAIN, the absolute directory of the pinned 1.93.1 toolchain (holding executable bin/cargo and bin/rustc,
 #   its rustc 1.93.1), and CARGO_HOME, the absolute cargo home holding the offline registry (an index under
-#   registry/index with a non-empty .cache, and .crate files in registry/cache). The caller resolves both from its
+#   registry/index with a non-empty .cache, and .crate files in registry/cache, regular files only: a directory or a
+#   symlink named *.crate does not count). The caller resolves both from its
 #   own environment or rustup BEFORE it replaces HOME, e.g.
 #     EXP_TOOLCHAIN="$(rustup run 1.93.1 rustc --print sysroot)" CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 #   Every cargo and rustc this script runs is EXP_TOOLCHAIN's, so the scan needs no rustup home and runs under a fresh
@@ -71,8 +72,9 @@ for d in "$CARGO_HOME"/registry/index/*/.cache; do
   if [ -d "$d" ] && [ -n "$(ls -A "$d" 2> /dev/null)" ]; then IDX=${d%/.cache}; break; fi
 done
 [ -n "$IDX" ] || fail "CARGO_HOME=$CARGO_HOME holds no offline registry: no index under registry/index has a non-empty .cache"
-NCRATES=$(find "$CARGO_HOME/registry/cache" -mindepth 2 -maxdepth 2 -name '*.crate' 2> /dev/null | wc -l)
-[ "$NCRATES" -ge 1 ] || fail "CARGO_HOME=$CARGO_HOME holds no offline registry: registry/cache holds no .crate file"
+# Only a REGULAR file counts as a .crate file: a directory or a symlink (dangling or not) of that name is not one.
+NCRATES=$(find "$CARGO_HOME/registry/cache" -mindepth 2 -maxdepth 2 -type f -name '*.crate' 2> /dev/null | wc -l)
+[ "$NCRATES" -ge 1 ] || fail "CARGO_HOME=$CARGO_HOME holds no offline registry: registry/cache holds no .crate file (only a regular file counts; a directory or a symlink named *.crate is not one)"
 HERE="$WT/crates/node/mint-gate"
 ifaces=$(tail -n +3 /proc/self/net/dev | cut -d: -f1 | tr -d ' ' | sort | tr '\n' ' ')
 [ "$ifaces" = "lo " ] || fail "not network-isolated (interfaces: $ifaces): run under unshare -rn"
