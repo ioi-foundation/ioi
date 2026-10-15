@@ -9,10 +9,14 @@
 //! however many lines; a public trait's header and every member signature; a `pub use` with its
 //! whole list; a public const/static/type with its type and value), every impl block's header with
 //! its public members (all members for a trait impl), and every module declaration, extern crate,
-//! macro_rules! body and crate attribute. Bodies of functions are not interface. The manifest
-//! listing (api/<crate>.manifest) holds every dependency's NORMALIZED specification (version,
-//! path, features, default-features, optional, package, workspace), whether it is written inline
-//! or as a [dependencies.<name>] table, plus [features] and [lib].
+//! macro_rules! body and crate attribute. An INLINE module (`mod m { .. }`, public or private) is
+//! listed as its declaration and then every item of its body by the same rules, at any depth,
+//! each line prefixed by its enclosing module declarations. Bodies of functions are not interface.
+//! The manifest listing (api/<crate>.manifest) holds every dependency's NORMALIZED specification
+//! (version, path, features, default-features, optional, package, workspace), whether it is
+//! written inline or as a [dependencies.<name>] table, under [dependencies] / [dev-dependencies] /
+//! [build-dependencies] or a [target.<target>.<kind>] header (a quoted cfg target, e.g.
+//! [target.'cfg(target_os = "linux")'.dependencies], is one key), plus [features] and [lib].
 //!
 //! `CF_API_OUT=<dir>` writes the current listings to <dir> instead of comparing (how the pins in
 //! `api/` were produced).
@@ -378,55 +382,71 @@ fn keyword(head: &str) -> &str {
 fn interface_of(files: &[(String, String)]) -> String {
     let mut out = String::new();
     for (name, text) in files {
-        for st in statements(&strip(text)) {
-            let kw = keyword(&st.head);
-            let public = is_pub(&st.head);
-            let line = match kw {
-                _ if st.head.starts_with("#!") => Some(st.head.clone()),
-                "mod" | "extern" => Some(decl(&st, false)),
-                "macro_rules" => Some(decl(&st, true)),
-                "struct" | "enum" | "union" | "use" | "const" | "static" | "type" if public => {
-                    Some(decl(&st, true))
-                }
-                "fn" if public => Some(decl(&st, false).replace(" { .. }", "")),
-                "trait" if public => {
-                    out.push_str(&format!("{}: {}\n", name, decl(&st, false)));
-                    let owner = decl(&st, false).replace(" { .. }", "");
-                    for member in statements(st.body.as_deref().unwrap_or("")) {
-                        out.push_str(&format!(
-                            "{}: {} => {}\n",
-                            name,
-                            owner,
-                            decl(&member, false).replace(" { .. }", "")
-                        ));
-                    }
-                    None
-                }
-                "impl" => {
-                    out.push_str(&format!("{}: {}\n", name, decl(&st, false)));
-                    let owner = decl(&st, false).replace(" { .. }", "");
-                    let trait_impl = st.head.contains(" for ");
-                    for member in statements(st.body.as_deref().unwrap_or("")) {
-                        if trait_impl || is_pub(&member.head) {
-                            out.push_str(&format!(
-                                "{}: {} => {}\n",
-                                name,
-                                owner,
-                                decl(&member, !matches!(keyword(&member.head), "fn"))
-                                    .replace(" { .. }", "")
-                            ));
-                        }
-                    }
-                    None
-                }
-                _ => None,
-            };
-            if let Some(line) = line {
-                out.push_str(&format!("{}: {}\n", name, line));
-            }
-        }
+        collect(&format!("{}: ", name), &strip(text), &mut out);
     }
     out
+}
+
+/// Appends the listing lines of one module body (stripped text). `at` prefixes every line: the
+/// file name, then, inside an inline module, each enclosing module's declaration and " => ". So an
+/// inline module is listed as its declaration line followed by every item of its body, at any
+/// nesting depth, by the same rules as a file's top level.
+fn collect(at: &str, text: &str, out: &mut String) {
+    for st in statements(text) {
+        let kw = keyword(&st.head);
+        let public = is_pub(&st.head);
+        let line = match kw {
+            _ if st.head.starts_with("#!") => Some(st.head.clone()),
+            "mod" => {
+                out.push_str(&format!("{}{}\n", at, decl(&st, false)));
+                if let Some(body) = &st.body {
+                    let owner = decl(&st, false).replace(" { .. }", "");
+                    collect(&format!("{}{} => ", at, owner), body, out);
+                }
+                None
+            }
+            "extern" => Some(decl(&st, false)),
+            "macro_rules" => Some(decl(&st, true)),
+            "struct" | "enum" | "union" | "use" | "const" | "static" | "type" if public => {
+                Some(decl(&st, true))
+            }
+            "fn" if public => Some(decl(&st, false).replace(" { .. }", "")),
+            "trait" if public => {
+                out.push_str(&format!("{}{}\n", at, decl(&st, false)));
+                let owner = decl(&st, false).replace(" { .. }", "");
+                for member in statements(st.body.as_deref().unwrap_or("")) {
+                    out.push_str(&format!(
+                        "{}{} => {}\n",
+                        at,
+                        owner,
+                        decl(&member, false).replace(" { .. }", "")
+                    ));
+                }
+                None
+            }
+            "impl" => {
+                out.push_str(&format!("{}{}\n", at, decl(&st, false)));
+                let owner = decl(&st, false).replace(" { .. }", "");
+                let trait_impl = st.head.contains(" for ");
+                for member in statements(st.body.as_deref().unwrap_or("")) {
+                    if trait_impl || is_pub(&member.head) {
+                        out.push_str(&format!(
+                            "{}{} => {}\n",
+                            at,
+                            owner,
+                            decl(&member, !matches!(keyword(&member.head), "fn"))
+                                .replace(" { .. }", "")
+                        ));
+                    }
+                }
+                None
+            }
+            _ => None,
+        };
+        if let Some(line) = line {
+            out.push_str(&format!("{}{}\n", at, line));
+        }
+    }
 }
 
 fn check_pin(crate_dir: &str, pin: &str) {
@@ -510,22 +530,52 @@ fn norm_key(k: &str) -> String {
     k.trim().trim_matches('"').trim_matches('\'').to_string()
 }
 
+/// Each char of TOML text with its byte index and whether it lies inside a basic ("...", with
+/// backslash escapes) or a literal ('...') string; the quotes themselves count as inside.
+fn toml_chars(s: &str) -> Vec<(usize, char, bool)> {
+    let mut out = Vec::new();
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    for (i, ch) in s.char_indices() {
+        let inside = match quote {
+            None => {
+                if ch == '"' || ch == '\'' {
+                    quote = Some(ch);
+                }
+                quote.is_some()
+            }
+            Some(q) => {
+                if escaped {
+                    escaped = false;
+                } else if q == '"' && ch == '\\' {
+                    escaped = true;
+                } else if ch == q {
+                    quote = None;
+                }
+                true
+            }
+        };
+        out.push((i, ch, inside));
+    }
+    out
+}
+
 /// Splits on commas outside brackets, braces and quotes.
 fn split_top(s: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut depth = 0;
-    let mut quoted = false;
     let mut cur = String::new();
-    for ch in s.chars() {
-        match ch {
-            '"' => quoted = !quoted,
-            '[' | '{' if !quoted => depth += 1,
-            ']' | '}' if !quoted => depth -= 1,
-            ',' if !quoted && depth == 0 => {
-                out.push(std::mem::take(&mut cur));
-                continue;
+    for (_, ch, quoted) in toml_chars(s) {
+        if !quoted {
+            match ch {
+                '[' | '{' => depth += 1,
+                ']' | '}' => depth -= 1,
+                ',' if depth == 0 => {
+                    out.push(std::mem::take(&mut cur));
+                    continue;
+                }
+                _ => {}
             }
-            _ => {}
         }
         cur.push(ch);
     }
@@ -537,69 +587,93 @@ fn split_top(s: &str) -> Vec<String> {
 
 /// A line without its `#` comment (outside quotes).
 fn uncomment(line: &str) -> &str {
-    let mut quoted = false;
-    for (i, ch) in line.char_indices() {
-        match ch {
-            '"' => quoted = !quoted,
-            '#' if !quoted => return &line[..i],
-            _ => {}
+    match toml_chars(line)
+        .into_iter()
+        .find(|&(_, ch, quoted)| ch == '#' && !quoted)
+    {
+        Some((i, _, _)) => &line[..i],
+        None => line,
+    }
+}
+
+/// A table header's dotted key path: split at the dots outside quotes, each key trimmed and
+/// unquoted (so `a`, `"a"` and `'a'` are one key, and a quoted key keeps its own dots).
+fn key_path(header: &str) -> Vec<String> {
+    let mut keys = vec![String::new()];
+    for (_, ch, quoted) in toml_chars(header) {
+        if ch == '.' && !quoted {
+            keys.push(String::new());
+        } else if let Some(key) = keys.last_mut() {
+            key.push(ch);
         }
     }
-    line
+    keys.iter().map(|k| norm_key(k)).collect()
+}
+
+/// For a dependency table's key path, its kind ("dependencies", "dev-dependencies", ..., or
+/// "target.<target>.<kind>") and, for a [<kind>.<name>] table, the dependency's name.
+fn dep_table(keys: &[String]) -> Option<(String, Option<String>)> {
+    let kind = |k: &String| {
+        [
+            "dependencies",
+            "build-dependencies",
+            "dev-dependencies",
+            "build_dependencies",
+            "dev_dependencies",
+        ]
+        .contains(&k.as_str())
+    };
+    match keys {
+        [k] if kind(k) => Some((k.clone(), None)),
+        [k, name] if kind(k) => Some((k.clone(), Some(name.clone()))),
+        [t, target, k] if t == "target" && kind(k) => {
+            Some((format!("target.{}.{}", target, k), None))
+        }
+        [t, target, k, name] if t == "target" && kind(k) => {
+            Some((format!("target.{}.{}", target, k), Some(name.clone())))
+        }
+        _ => None,
+    }
 }
 
 /// The NORMALIZED dependency, [features] and [lib] listing of a manifest text (inline and
-/// [dependencies.<name>] table forms give the same lines), and whether a [features] table exists.
+/// [<kind>.<name>] table forms give the same lines, also under a [target.<target>.<kind>] header
+/// whose target is a quoted cfg expression), and whether a [features] table exists.
 fn manifest_of(text: &str) -> (Vec<String>, bool) {
     use std::collections::BTreeMap;
     let mut deps: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
     let mut other: Vec<String> = Vec::new();
     let mut features = false;
     let mut section = String::new();
-    let mut table_dep: Option<String> = None;
+    let mut table: Option<(String, Option<String>)> = None;
     let mut pending = String::new();
-    let dep_kind = |sec: &str| -> Option<String> {
-        for kind in ["dependencies", "build-dependencies", "dev-dependencies"] {
-            if sec == kind {
-                return Some(kind.to_string());
-            }
-            if sec.starts_with("target.") && sec.ends_with(&format!(".{}", kind)) {
-                return Some(sec.to_string());
-            }
-        }
-        None
-    };
     for raw in text.lines() {
         let line = uncomment(raw).trim();
         if line.is_empty() {
             continue;
         }
-        if pending.is_empty() && line.starts_with('[') && !line.contains('=') {
-            section = line
-                .trim_start_matches('[')
-                .trim_end_matches(']')
-                .trim()
-                .to_string();
-            table_dep = None;
-            if section == "features" {
-                features = true;
-            }
-            for kind in ["dependencies.", "build-dependencies.", "dev-dependencies."] {
-                if let Some(k) = section.rfind(kind) {
-                    let (base, name) = (&section[..k + kind.len() - 1], &section[k + kind.len()..]);
-                    if dep_kind(base).is_some() {
-                        let key = format!("{} {}", dep_kind(base).unwrap(), norm_key(name));
-                        deps.entry(key.clone()).or_default();
-                        table_dep = Some(key);
-                    }
-                }
+        // Outside a continued value, a line starting with '[' is a table header (no TOML key
+        // starts with '['), even when a quoted key in it contains '=' or '.'.
+        if pending.is_empty() && line.starts_with('[') {
+            let keys = key_path(line.trim_start_matches('[').trim_end_matches(']'));
+            section = keys.join(".");
+            features |= section == "features";
+            table = dep_table(&keys);
+            if let Some((kind, Some(name))) = &table {
+                deps.entry(format!("{} {}", kind, name)).or_default();
             }
             continue;
         }
         pending.push_str(line);
         pending.push(' ');
-        let opens = pending.matches(['[', '{']).count();
-        let closes = pending.matches([']', '}']).count();
+        let (mut opens, mut closes) = (0, 0);
+        for (_, ch, quoted) in toml_chars(&pending) {
+            match ch {
+                '[' | '{' if !quoted => opens += 1,
+                ']' | '}' if !quoted => closes += 1,
+                _ => {}
+            }
+        }
         if opens > closes {
             continue;
         }
@@ -608,21 +682,28 @@ fn manifest_of(text: &str) -> (Vec<String>, bool) {
             continue;
         };
         let (k, v) = (norm_key(k), v.trim().to_string());
-        if let Some(dep) = &table_dep {
-            deps.get_mut(dep).unwrap().insert(k, norm_value(&v));
-        } else if let Some(kind) = dep_kind(&section) {
-            let entry = deps.entry(format!("{} {}", kind, k)).or_default();
-            if v.starts_with('{') {
-                for pair in split_top(v.trim_start_matches('{').trim_end_matches('}')) {
-                    if let Some((fk, fv)) = pair.split_once('=') {
-                        entry.insert(norm_key(fk), norm_value(fv));
-                    }
-                }
-            } else {
-                entry.insert("version".to_string(), norm_value(&v));
+        match &table {
+            Some((kind, Some(name))) => {
+                deps.entry(format!("{} {}", kind, name))
+                    .or_default()
+                    .insert(k, norm_value(&v));
             }
-        } else if section == "features" || section == "lib" {
-            other.push(format!("[{}] {} = {}", section, k, norm_value(&v)));
+            Some((kind, None)) => {
+                let entry = deps.entry(format!("{} {}", kind, k)).or_default();
+                if v.starts_with('{') {
+                    for pair in split_top(v.trim_start_matches('{').trim_end_matches('}')) {
+                        if let Some((fk, fv)) = pair.split_once('=') {
+                            entry.insert(norm_key(fk), norm_value(fv));
+                        }
+                    }
+                } else {
+                    entry.insert("version".to_string(), norm_value(&v));
+                }
+            }
+            None if section == "features" || section == "lib" => {
+                other.push(format!("[{}] {} = {}", section, k, norm_value(&v)));
+            }
+            None => {}
         }
     }
     let mut out: Vec<String> = deps

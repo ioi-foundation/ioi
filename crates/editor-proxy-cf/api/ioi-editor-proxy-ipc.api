@@ -67,6 +67,38 @@ fuzz_support.rs: pub const PORT: u16 = 40001;
 fuzz_support.rs: pub const LABEL: [u8; 16] = *b"0123456789abcdef";
 fuzz_support.rs: pub const TOKEN: [u8; 64] = [b'5'; 64];
 fuzz_support.rs: pub mod op { .. }
+fuzz_support.rs: pub mod op => pub const NOP: u8 = 0x00;
+fuzz_support.rs: pub mod op => pub const TICK_BOTH: u8 = 0x01;
+fuzz_support.rs: pub mod op => pub const TICK_D: u8 = 0x02;
+fuzz_support.rs: pub mod op => pub const TICK_P: u8 = 0x03;
+fuzz_support.rs: pub mod op => pub const TICK_WINDOW: u8 = 0x04;
+fuzz_support.rs: pub mod op => pub const TICK_BACK_D: u8 = 0x05;
+fuzz_support.rs: pub mod op => pub const TICK_BACK_P: u8 = 0x06;
+fuzz_support.rs: pub mod op => pub const TICK_NS: u8 = 0x07;
+fuzz_support.rs: pub mod op => pub const P_READY: u8 = 0x10;
+fuzz_support.rs: pub mod op => pub const P_ADMIT: u8 = 0x11;
+fuzz_support.rs: pub mod op => pub const P_OBSERVE: u8 = 0x12;
+fuzz_support.rs: pub mod op => pub const P_TERMINATE: u8 = 0x13;
+fuzz_support.rs: pub mod op => pub const P_SEND: u8 = 0x14;
+fuzz_support.rs: pub mod op => pub const P_RECV: u8 = 0x15;
+fuzz_support.rs: pub mod op => pub const P_EOF: u8 = 0x16;
+fuzz_support.rs: pub mod op => pub const P_NEAR_EXHAUSTION: u8 = 0x17;
+fuzz_support.rs: pub mod op => pub const D_RECV: u8 = 0x20;
+fuzz_support.rs: pub mod op => pub const D_F0: u8 = 0x21;
+fuzz_support.rs: pub mod op => pub const D_WELCOME: u8 = 0x22;
+fuzz_support.rs: pub mod op => pub const D_VERDICT: u8 = 0x23;
+fuzz_support.rs: pub mod op => pub const D_SHUTDOWN: u8 = 0x24;
+fuzz_support.rs: pub mod op => pub const D_SEND: u8 = 0x25;
+fuzz_support.rs: pub mod op => pub const D_TERMINATE: u8 = 0x26;
+fuzz_support.rs: pub mod op => pub const D_EOF: u8 = 0x27;
+fuzz_support.rs: pub mod op => pub const INJECT_P2D: u8 = 0x30;
+fuzz_support.rs: pub mod op => pub const INJECT_D2P: u8 = 0x31;
+fuzz_support.rs: pub mod op => pub const INJECT_ADMIT: u8 = 0x32;
+fuzz_support.rs: pub mod op => pub const INJECT_EVENT: u8 = 0x33;
+fuzz_support.rs: pub mod op => pub const INJECT_VERDICT: u8 = 0x34;
+fuzz_support.rs: pub mod op => pub const HONEST_STARTUP: u8 = 0x40;
+fuzz_support.rs: pub mod op => pub const HONEST_ROUNDTRIP: u8 = 0x41;
+fuzz_support.rs: pub mod op => pub const REPEAT: u8 = 0xF0;
 fuzz_support.rs: pub struct Handle {pub facts: FdFacts, live: Rc<Cell<i64>>}
 fuzz_support.rs: impl Drop for Handle { .. }
 fuzz_support.rs: impl Drop for Handle => fn drop(&mut self)
@@ -259,6 +291,7 @@ wire.rs: impl OutboundEvent => pub fn code(&self) -> EventCode
 wire.rs: impl OutboundEvent => pub fn count(&self) -> u32
 wire.rs: #[derive(Clone)] #[allow(clippy::large_enum_variant)] pub enum OutboundP2d {Ready, Admit(AdmissionId, OutboundAdmit), Event(OutboundEvent)}
 wire.rs: mod sealed { .. }
+wire.rs: mod sealed => pub trait Sealed { .. }
 wire.rs: pub trait EncodeP2d: sealed::Sealed { .. }
 wire.rs: pub trait EncodeP2d: sealed::Sealed => #[doc(hidden)] fn encode_frame(&self) -> Frame;
 wire.rs: impl sealed::Sealed for OutboundP2d { .. }
