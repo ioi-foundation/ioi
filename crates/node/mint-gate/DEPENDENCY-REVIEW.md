@@ -175,10 +175,32 @@ metadata resolves the whole workspace, so a `resolved` line can only OVER-state 
 
 ## Re-opened 2026-10-14: the hand-out reconcile's reviewed exclusions (Codex batch-3 r6 MAJOR 3)
 
-Every own function the reconcile (src/handouts.rs) derives as a CANDIDATE hand-out and that is not registered in
-`hand-outs.tsv` is listed here with its exact sink kinds and the reason it is not a hand-out; the gate fails on a
-candidate in neither place, on a row whose sinks changed, and on a row that is no longer a candidate. A `-` file is a
-layer-2-only holder, by its expanded item path.
+Codex batch-3 r6 (MAJOR 3) found that the hand-out rule, applied by reading the printed rows, missed direct credential
+producers (`issue_bearer_capability_lease`, `begin_deciding`). The rule is now RECONCILED BY SCRIPT (src/handouts.rs,
+the IOI Director's amendment (1)): every own function holding a reported draw whose drawn value reaches a SINK (a
+return value, a `&mut` parameter, a non-local write, a channel send, a static, a closure capture) is a CANDIDATE. Each
+candidate is decided by the POLICY the Hypervisor Director adopted ("S1-B3T HANDED BACK at its cap", RULED (1) and
+(2)): REGISTER (`hand-outs.tsv` and an own `clippy.toml` entry) every non-handler function that hands a credential or
+a drawn value to its own production callers; each registration makes its callers holders, so the review was ITERATED
+to a fixpoint (ten rounds of the gate's own all-hash print, 2026-10-14; the decisions with their reading are
+work/s1-security/b3r/scratch-s1-b3u-20261014/decisions.py). The ruled MUST holds: `ModelMountCore::
+plan_capability_token_control` and then `mint_run_scoped_model_token` are registered, so the RUN-SCOPED model token is
+inventoried. Every other candidate is EXCLUDED below with its exact sink kinds and its reason, in one of the ruled
+classes (binary entry points; HTTP handlers referenced only by the route table, whose sink is the client while their
+draws stay draw-site rows and their mints stay pinned; encryption and password-hashing wrappers; temporary-path
+uniqueness; closure captures consumed in place; the User-Agent fetch wrappers) or in one of four classes this review
+found OUTSIDE the ruled list, each disclosed to the Hypervisor Director and in Codex r7's prompt: a delegated handler
+(a route handler also called by other route handlers, whose reply reaches the client through them), a predicate over
+the drawn value (a bool), no production caller (registering one fails the reported-at-a-caller check), and a value its
+production callers do not keep (returned to the client or discarded). Registering a function the ROUTE TABLE or the
+daemon's main loop calls (two were tried and withdrawn: `handle_connector_invoke`, `evaluate_all`) makes `async_main`
+a holder and its registered `idisp_` mint region the whole function body, re-opened by every route edit.
+
+The gate fails on a candidate in neither place, on an exclusion whose sinks changed, and (in a full run) on an
+exclusion or a registration that is no longer derived. A `-` file is a layer-2-only holder, by its expanded item path
+(none at this review). Re-open: a new caller of an EXCLUDED function is not a site (the reason was reviewed once), so
+a production caller of a route-table-only handler, or the first caller of a no-caller function, re-opens its row by
+review, not by the gate (a named limit of the gate's claim).
 
 <!-- reconcile-exclusions begin -->
 | file | item | sinks | reason |
