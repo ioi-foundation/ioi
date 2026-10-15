@@ -1213,6 +1213,78 @@ mod admitted_tip_tests {
         panic!("reopen failed: {last:?}");
     }
 
+    // --- D2a round 2 (RED-3) fixtures ------------------------------------------------------------
+
+    /// A canonical block at `height` whose state root is `[root; 32]` and whose consensus
+    /// identity varies with `salt`.
+    fn block(height: u64, root: u8, salt: u8) -> ioi_types::app::Block<ioi_types::app::ChainTransaction> {
+        use ioi_types::app::{
+            AccountId, Block, BlockHeader, QuorumCertificate, SignatureSuite, StateRoot,
+        };
+        Block {
+            header: BlockHeader {
+                height,
+                view: 0,
+                parent_hash: [salt; 32],
+                parent_state_root: StateRoot(vec![2; 32]),
+                state_root: StateRoot(vec![root; 32]),
+                transactions_root: vec![3; 32],
+                timestamp: 1_700_000_000 + height,
+                timestamp_ms: (1_700_000_000 + height) * 1_000,
+                gas_used: 0,
+                validator_set: vec![vec![4; 32]],
+                producer_account_id: AccountId([5; 32]),
+                producer_key_suite: SignatureSuite::ED25519,
+                producer_pubkey_hash: [6; 32],
+                producer_pubkey: vec![7; 32],
+                oracle_counter: 0,
+                oracle_trace_hash: [0; 32],
+                guardian_certificate: None,
+                sealed_finality_proof: None,
+                canonical_order_certificate: None,
+                timeout_certificate: None,
+                aft_timeout_certificate: None,
+                parent_qc: QuorumCertificate::default(),
+                previous_canonical_collapse_commitment_hash: [0; 32],
+                canonical_collapse_extension_certificate: None,
+                publication_frontier: None,
+                signature: Vec::new(),
+            },
+            transactions: Vec::new(),
+        }
+    }
+
+    fn bytes(block: &ioi_types::app::Block<ioi_types::app::ChainTransaction>) -> Vec<u8> {
+        ioi_types::codec::to_bytes_canonical(block).expect("canonical block bytes")
+    }
+
+    /// The store's async writes are acknowledged by its background thread; any runtime drives them.
+    fn run<F: std::future::Future>(future: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(future)
+    }
+
+    fn commit_input(height: u64, root: u8) -> ioi_api::storage::CommitInput {
+        ioi_api::storage::CommitInput {
+            height,
+            root: ioi_api::storage::RootHash([root; 32]),
+            unique_nodes_for_height: Vec::new(),
+            new_nodes: Vec::new(),
+        }
+    }
+
+    /// The admitted tip naming `block`.
+    fn tip_of(block: &ioi_types::app::Block<ioi_types::app::ChainTransaction>) -> AdmittedTip {
+        AdmittedTip {
+            height: block.header.height,
+            block_hash: [0xAD; 32],
+            state_root: block.header.state_root.0.clone(),
+        }
+    }
+
     #[test]
     fn admitted_tip_marker_is_persistent_and_monotone() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -1220,6 +1292,19 @@ mod admitted_tip_tests {
         {
             let store = RedbEpochStore::open(&path, 1024).expect("open");
             assert_eq!(store.get_admitted_tip().expect("read empty"), None);
+            // D2a round 2 (RED-3 fixture change): the store holds the blocks the recorded tips name
+            // (heights 3 and 5 with roots 0xB3 and 0xB5), as the marker's own write transaction
+            // checks the stored block from GREEN-3 on (B1 (iii)). The assertions are unchanged.
+            run(async {
+                store
+                    .put_block(3, &bytes(&block(3, 0xB3, 1)))
+                    .await
+                    .expect("store block 3");
+                store
+                    .put_block(5, &bytes(&block(5, 0xB5, 1)))
+                    .await
+                    .expect("store block 5");
+            });
             store
                 .put_admitted_tip(&tip(3, 0xA3, 0xB3))
                 .expect("record height 3");
@@ -1253,5 +1338,244 @@ mod admitted_tip_tests {
             Some(tip(5, 0xA5, 0xB5)),
             "the marker survives a restart"
         );
+    }
+
+    // --- D2a round 2 (RED-3), B1 (ii): the ADMISSION-FLOOR FENCE in the block store ---------------
+    // A block at or below the persisted Agentgres-admitted marker is committed. Every write into
+    // BLOCKS (put_block's WriteBlock, commit_block_with_payload's CommitStateAndBlock) at a height
+    // <= the marker is refused unless it rewrites the stored bytes unchanged; the refusal leaves
+    // the stored block (and the read-your-writes cache) unchanged. A write above the marker is
+    // not fenced.
+
+    /// RED-3 (fails at 079937616: put_block caches and WriteBlock inserts unconditionally,
+    /// redb_epoch_store.rs:868-873 and :522-530).
+    #[test]
+    fn a_block_put_at_or_below_the_admitted_tip_is_refused_and_the_stored_block_is_unchanged() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
+        let (a2, a3) = (block(2, 0xA2, 1), block(3, 0xA3, 1));
+        run(async {
+            store.put_block(2, &bytes(&a2)).await.expect("store block 2");
+            store.put_block(3, &bytes(&a3)).await.expect("store block 3");
+        });
+        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
+
+        let at_the_marker = run(store.put_block(3, &bytes(&block(3, 0xB4, 1))));
+        assert!(
+            at_the_marker.is_err(),
+            "a different block at the admitted height (e.g. carrying height 4's uncommitted root) is refused"
+        );
+        assert_eq!(
+            store.get_block_by_height(3).expect("read 3"),
+            Some(a3.clone()),
+            "the refused write leaves the admitted block in place"
+        );
+        let below_the_marker = run(store.put_block(2, &bytes(&block(2, 0xB2, 1))));
+        assert!(
+            below_the_marker.is_err(),
+            "a different block below the admitted height is refused"
+        );
+        assert_eq!(store.get_block_by_height(2).expect("read 2"), Some(a2));
+        let identity_change = run(store.put_block(3, &bytes(&block(3, 0xA3, 9))));
+        assert!(
+            identity_change.is_err(),
+            "a different consensus identity at the admitted height is refused even with the same root"
+        );
+        assert_eq!(store.get_block_by_height(3).expect("read 3"), Some(a3));
+    }
+
+    /// RED-3 (fails at 079937616: CommitStateAndBlock inserts the block, the version and the head
+    /// unconditionally, redb_epoch_store.rs:487-491 and :808-866).
+    #[test]
+    fn a_state_and_block_commit_at_or_below_the_admitted_tip_is_refused() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
+        let a3 = block(3, 0xA3, 1);
+        run(store.commit_block_with_payload(commit_input(3, 0xA3), &bytes(&a3)))
+            .expect("commit height 3");
+        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
+
+        let replay = run(store.commit_block_with_payload(
+            commit_input(3, 0xB4),
+            &bytes(&block(3, 0xB4, 1)),
+        ));
+        assert!(
+            replay.is_err(),
+            "a state-and-block commit of a different block at the admitted height is refused"
+        );
+        assert_eq!(
+            store.get_block_by_height(3).expect("read 3"),
+            Some(a3),
+            "the admitted block is unchanged"
+        );
+        assert_eq!(
+            store.root_for_height(3).expect("root 3"),
+            Some(ioi_api::storage::RootHash([0xA3; 32])),
+            "the admitted height's state version is unchanged"
+        );
+    }
+
+    /// RED-3 (fails at 079937616: CommitState writes the version and the head unconditionally,
+    /// redb_epoch_store.rs:756-806 and :320-418, VERSIONS at :376). The state-only commit is the first half of the
+    /// default commit_version_persist_with_block (the verkle, sparse-merkle and flat backends:
+    /// CommitState, then put_block), so a different root at or below the marker is refused before
+    /// its block is written.
+    #[test]
+    fn a_state_commit_at_or_below_the_admitted_tip_with_a_different_root_is_refused() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
+        let a3 = block(3, 0xA3, 1);
+        run(store.commit_block_with_payload(commit_input(3, 0xA3), &bytes(&a3)))
+            .expect("commit height 3");
+        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
+
+        assert!(
+            run(store.commit_block(commit_input(3, 0xB4))).is_err(),
+            "a state commit of a different root at the admitted height is refused"
+        );
+        assert_eq!(
+            store.root_for_height(3).expect("root 3"),
+            Some(ioi_api::storage::RootHash([0xA3; 32])),
+            "the admitted height's state version is unchanged"
+        );
+        run(store.commit_block(commit_input(3, 0xA3)))
+            .expect("the identical state commit at the admitted height (a replay) is accepted");
+    }
+
+    /// CONTROL (passes at RED-3): rewriting the stored bytes unchanged at or below the marker (a
+    /// restart replay, a redelivered header update) is accepted, by either write path.
+    #[test]
+    fn an_identical_rewrite_at_or_below_the_admitted_tip_is_accepted() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
+        let (a2, a3) = (block(2, 0xA2, 1), block(3, 0xA3, 1));
+        run(async {
+            store.put_block(2, &bytes(&a2)).await.expect("store block 2");
+            store
+                .commit_block_with_payload(commit_input(3, 0xA3), &bytes(&a3))
+                .await
+                .expect("commit height 3");
+        });
+        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
+        run(async {
+            store
+                .put_block(2, &bytes(&a2))
+                .await
+                .expect("the identical block below the marker");
+            store
+                .put_block(3, &bytes(&a3))
+                .await
+                .expect("the identical block at the marker");
+            store
+                .commit_block_with_payload(commit_input(3, 0xA3), &bytes(&a3))
+                .await
+                .expect("the identical state-and-block commit at the marker");
+        });
+        assert_eq!(store.get_block_by_height(3).expect("read 3"), Some(a3));
+    }
+
+    /// CONTROL (passes at RED-3): the fence is the marker's height; above it every write path
+    /// works as before (and with no marker nothing is fenced).
+    #[test]
+    fn a_block_write_above_the_admitted_tip_is_not_fenced() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
+        let a3 = block(3, 0xA3, 1);
+        run(async {
+            store.put_block(3, &bytes(&a3)).await.expect("no marker: unfenced");
+            store
+                .put_block(3, &bytes(&block(3, 0xA3, 2)))
+                .await
+                .expect("no marker: a rewrite is unfenced");
+            store.put_block(3, &bytes(&a3)).await.expect("restore block 3");
+        });
+        store.put_admitted_tip(&tip_of(&a3)).expect("admit height 3");
+        let (b4, b5) = (block(4, 0xB4, 1), block(5, 0xB5, 1));
+        run(async {
+            store.put_block(4, &bytes(&b4)).await.expect("above the marker");
+            store
+                .put_block(4, &bytes(&block(4, 0xC4, 1)))
+                .await
+                .expect("an uncommitted height may still be rewritten");
+            store
+                .commit_block_with_payload(commit_input(5, 0xB5), &bytes(&b5))
+                .await
+                .expect("a commit above the marker");
+        });
+        assert_eq!(store.get_block_by_height(4).expect("read 4"), Some(block(4, 0xC4, 1)));
+        assert_eq!(store.get_block_by_height(5).expect("read 5"), Some(b5));
+    }
+
+    /// GUARD (passes at RED-3: no delete path touches BLOCKS). The store's delete, prune and
+    /// recovery paths — prune_batch (VERSIONS/CHANGES/ROOT_INDEX), drop_sealed_epoch
+    /// (VERSIONS/CHANGES/REFS/NODES/MANIFEST), override_head (HEAD) and the WAL replay at open
+    /// (state tables above HEAD) — never remove or rewrite a block at or below the marker.
+    #[test]
+    fn no_prune_epoch_drop_or_wal_replay_removes_or_rewrites_a_block_at_or_below_the_admitted_tip() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("store.redb");
+        let blocks: Vec<_> = (1..=3).map(|h| block(h, 0xA0 + h as u8, 1)).collect();
+        {
+            let store = RedbEpochStore::open(&path, 1024).expect("open");
+            run(async {
+                for b in &blocks {
+                    store
+                        .commit_block_with_payload(
+                            commit_input(b.header.height, 0xA0 + b.header.height as u8),
+                            &bytes(b),
+                        )
+                        .await
+                        .expect("commit");
+                }
+            });
+            store.put_admitted_tip(&tip_of(&blocks[2])).expect("admit height 3");
+            let _ = store.prune_batch(10, &[], 1_000);
+            let _ = store.drop_sealed_epoch(0);
+            store.override_head(1).expect("move HEAD below the marker");
+            for b in &blocks {
+                assert_eq!(
+                    store.get_block_by_height(b.header.height).expect("read"),
+                    Some(b.clone()),
+                    "prune and epoch drop leave every block in place"
+                );
+            }
+        }
+        let reopened = reopen(&path);
+        for b in &blocks {
+            assert_eq!(
+                reopened.get_block_by_height(b.header.height).expect("read after replay"),
+                Some(b.clone()),
+                "the WAL replay above the overridden HEAD leaves every block in place"
+            );
+        }
+        assert_eq!(
+            reopened.get_admitted_tip().expect("marker after replay"),
+            Some(tip_of(&blocks[2]))
+        );
+    }
+
+    /// RED-3, B1 (iii) (fails at 079937616: put_admitted_tip checks only monotonicity, never the
+    /// stored block, redb_epoch_store.rs:1152-1183). The marker's own write transaction checks the
+    /// block it names (stored, same height and state root), so a block write and a marker record
+    /// cannot interleave into a marker over a different block (the reviewer's "serialize marker
+    /// validation with mutation").
+    #[test]
+    fn the_marker_is_recorded_only_over_the_stored_block_it_names() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
+        let a3 = block(3, 0xA3, 1);
+        assert!(
+            store.put_admitted_tip(&tip_of(&a3)).is_err(),
+            "no stored block at the tip's height: refused"
+        );
+        run(store.put_block(3, &bytes(&a3))).expect("store block 3");
+        assert!(
+            store.put_admitted_tip(&tip_of(&block(3, 0xB4, 1))).is_err(),
+            "a tip whose root differs from the stored block's: refused"
+        );
+        assert_eq!(store.get_admitted_tip().expect("read"), None, "the marker is unchanged");
+        store
+            .put_admitted_tip(&tip_of(&a3))
+            .expect("the tip over the stored block it names");
     }
 }

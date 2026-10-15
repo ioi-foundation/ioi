@@ -193,6 +193,36 @@ pub fn record_admitted_tip_checked<M: AdmittedTipStore + ?Sized>(
     marker.record_admitted_tip(tip)
 }
 
+/// The RecordAdmittedTip handler's logic as a pure function (FU-N11-DURABLE-STATUS-1 D2a round 2,
+/// M3; extracted unchanged from workload/ipc/grpc_blockchain.rs, which now only calls it): decodes
+/// the request, reads the block the workload stores at the tip's height, and records the tip only
+/// for the workload's own capability and a stored block with the same execution surface (height
+/// and state root). Every refusal leaves the marker unchanged.
+pub fn handle_record_admitted_tip<M, F>(
+    marker: &M,
+    expected: &WorkloadCapability,
+    request: ioi_ipc::blockchain::RecordAdmittedTipRequest,
+    stored_block: F,
+) -> std::result::Result<(), tonic::Status>
+where
+    M: AdmittedTipStore + ?Sized,
+    F: FnOnce(u64) -> Result<Option<Block<ChainTransaction>>>,
+{
+    let block_hash: [u8; 32] = request
+        .block_hash
+        .as_slice()
+        .try_into()
+        .map_err(|_| tonic::Status::invalid_argument("block_hash must be 32 bytes"))?;
+    let tip = AdmittedTip {
+        height: request.height,
+        block_hash,
+        state_root: request.state_root,
+    };
+    let stored = stored_block(tip.height).map_err(|e| tonic::Status::internal(e.to_string()))?;
+    record_admitted_tip_checked(marker, expected, &request.capability, &tip, stored.as_ref())
+        .map_err(|e| tonic::Status::permission_denied(e.to_string()))
+}
+
 /// The committed chain status: the admitted-tip marker's height (0 when there is no marker).
 pub fn committed_status<M: AdmittedTipStore + ?Sized>(
     marker: &M,
@@ -395,5 +425,104 @@ mod tests {
                 .height,
             3
         );
+    }
+
+    // --- D2a round 2 (RED-3) ----------------------------------------------------------------------
+
+    /// m5, RED-3 (fails at 079937616: committed_status clones the durable status and keeps its
+    /// executed total_transactions, admitted_tip.rs:202). The committed status does not track a
+    /// transaction count for the committed tip: it reports 0, never the executed (possibly
+    /// uncommitted) count, with or without a marker.
+    #[test]
+    fn the_committed_status_reports_no_executed_transaction_count() {
+        let durable = ChainStatus {
+            height: 7,
+            total_transactions: 42,
+            ..Default::default()
+        };
+        let marked = MemoryMarker::default();
+        marked.record_admitted_tip(&tip(3, 3)).unwrap();
+        assert_eq!(
+            committed_status(&marked, &durable, |h| Some(stored_block(h, h as u8)))
+                .unwrap()
+                .total_transactions,
+            0,
+            "the executed count (which includes uncommitted blocks) is not reported as committed"
+        );
+        let empty = MemoryMarker::default();
+        assert_eq!(
+            committed_status(&empty, &durable, |h| Some(stored_block(h, h as u8)))
+                .unwrap()
+                .total_transactions,
+            0
+        );
+    }
+
+    /// A RecordAdmittedTip request as the orchestration's client encodes it.
+    fn record_request(
+        height: u64,
+        root: u8,
+        capability: Vec<u8>,
+    ) -> ioi_ipc::blockchain::RecordAdmittedTipRequest {
+        ioi_ipc::blockchain::RecordAdmittedTipRequest {
+            height,
+            block_hash: vec![height as u8; 32],
+            state_root: vec![root; 32],
+            capability,
+        }
+    }
+
+    /// M3, GUARD (passes at RED-3, where the handler logic is extracted unchanged; pins the
+    /// handler's authentication, which no 079937616 test reached: removing it from the handler
+    /// fails here). No, wrong or short capability: refused with PermissionDenied, and an EXISTING
+    /// marker stays unchanged; the workload's capability then advances it (the control).
+    #[test]
+    fn the_record_handler_refuses_a_missing_or_wrong_capability_and_keeps_the_existing_marker() {
+        let marker = MemoryMarker::default();
+        marker.record_admitted_tip(&tip(3, 0xB3)).unwrap();
+        let expected = WorkloadCapability::from_bytes(CAPABILITY);
+        for presented in [Vec::new(), vec![0x00; 32], vec![0x5A; 31]] {
+            let status = handle_record_admitted_tip(
+                &marker,
+                &expected,
+                record_request(4, 0xB4, presented),
+                |height| Ok(Some(stored_block(height, 0xB4))),
+            )
+            .expect_err("a missing, wrong or short capability is refused");
+            assert_eq!(status.code(), tonic::Code::PermissionDenied);
+            assert_eq!(
+                marker.admitted_tip().unwrap(),
+                Some(tip(3, 0xB3)),
+                "the existing marker is unchanged"
+            );
+        }
+        handle_record_admitted_tip(
+            &marker,
+            &expected,
+            record_request(4, 0xB4, CAPABILITY.to_vec()),
+            |height| Ok(Some(stored_block(height, 0xB4))),
+        )
+        .expect("the workload's capability advances the marker");
+        assert_eq!(marker.admitted_tip().unwrap(), Some(tip(4, 0xB4)));
+    }
+
+    /// M3, GUARD (passes at RED-3; pins the height conjunct of the execution-surface check,
+    /// admitted_tip.rs:186, which no 079937616 test isolated). The workload's lookup at the tip's
+    /// height 4 yields a block whose header says height 3 with the SAME root: refused, and the
+    /// existing marker stays.
+    #[test]
+    fn the_record_handler_refuses_a_tip_at_the_wrong_height_with_the_same_root() {
+        let marker = MemoryMarker::default();
+        marker.record_admitted_tip(&tip(3, 0xB3)).unwrap();
+        let expected = WorkloadCapability::from_bytes(CAPABILITY);
+        let status = handle_record_admitted_tip(
+            &marker,
+            &expected,
+            record_request(4, 0xB4, CAPABILITY.to_vec()),
+            |_| Ok(Some(stored_block(3, 0xB4))),
+        )
+        .expect_err("a stored block at another height is refused even with the same root");
+        assert_eq!(status.code(), tonic::Code::PermissionDenied);
+        assert_eq!(marker.admitted_tip().unwrap(), Some(tip(3, 0xB3)));
     }
 }

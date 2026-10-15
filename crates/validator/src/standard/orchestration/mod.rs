@@ -98,6 +98,8 @@ mod sync_harness;
 mod sync_p7_tests;
 #[cfg(test)]
 mod gossip_p7_tests;
+#[cfg(test)]
+mod admitted_tip_publisher_tests;
 /// Verifier selection logic.
 pub mod verifier_select;
 mod view_resolver;

@@ -169,6 +169,31 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         ))
     }
 
+    /// The COMMITTED tip itself (FU-N11-DURABLE-STATUS-1 D2a round 2, B1): the height, block hash
+    /// and state root held BY THE WORKLOAD'S ADMITTED-TIP MARKER, never re-read from the block
+    /// stored at that height (a stored block is mutable storage; the marker is what Agentgres
+    /// admitted). `None` before the first admission, and on a client without the committed
+    /// surface: a trusted read then has no root, never the durable tip's.
+    async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>, ChainError> {
+        Ok(None)
+    }
+
+    /// Records the Agentgres-admitted tip, presenting the workload's admission capability
+    /// EXPLICITLY (FU-N11-DURABLE-STATUS-1 D2a round 2, B2). Only the orchestration's privately
+    /// owned admitted-tip publisher holds the capability; a shared workload client stores none,
+    /// so a caller holding only the shared client (even with a self-built witness) presents
+    /// nothing the workload accepts.
+    async fn record_admitted_tip_with_capability(
+        &self,
+        _witness: AdmissionWitness,
+        _capability: &[u8; 32],
+        _tip: AdmittedTip,
+    ) -> Result<(), ChainError> {
+        Err(ChainError::Transaction(
+            "this workload client has no admitted-tip surface".into(),
+        ))
+    }
+
     /// Returns the client as a type-erased `Any` trait object.
     fn as_any(&self) -> &dyn Any;
 }

@@ -186,6 +186,89 @@ pub(crate) struct RuntimeFinalityCoordinator {
     /// draining and then treating message reordering as terminal would freeze
     /// an honest validator and permanently discard finality evidence.
     pending_native_aft: Vec<NativeAftFinalizedEvidence>,
+    /// The orchestration's admitted-tip publisher (FU-N11-DURABLE-STATUS-1 D2a round 2, B2): the
+    /// only holder of the workload admission capability, installed once at startup and reachable
+    /// only from this module.
+    #[allow(dead_code)] // RED-3 scaffold: the admission path reads it from GREEN-3 on.
+    admitted_tip_publisher: Option<Arc<AdmittedTipPublisher>>,
+}
+
+/// The orchestration's ONLY holder of the workload's admission capability (FU-N11-DURABLE-STATUS-1
+/// D2a round 2, B2). The binary builds it once at startup (in-process: the capability it shares
+/// with its in-process workload server; split-process: the workload's private capability file)
+/// and hands it to the runtime-finality coordinator, which owns it privately. The shared workload
+/// client stores no capability. Agentgres admission publishes each admitted tip through it,
+/// presenting the capability explicitly.
+pub struct AdmittedTipPublisher {
+    #[allow(dead_code)] // RED-3 scaffold: read by publish from GREEN-3 on.
+    capability: std::sync::Mutex<Option<crate::standard::workload::admitted_tip::WorkloadCapability>>,
+    #[allow(dead_code)] // RED-3 scaffold: re-read after a refusal from GREEN-3 on (m4).
+    capability_file: Option<PathBuf>,
+}
+
+impl std::fmt::Debug for AdmittedTipPublisher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("AdmittedTipPublisher(<capability redacted>)")
+    }
+}
+
+impl AdmittedTipPublisher {
+    /// For an in-process binary: the capability it shares with its in-process workload server.
+    #[cfg_attr(not(test), allow(dead_code))] // RED-3 scaffold: the node bins call it from GREEN-3 on.
+    pub fn in_process(
+        capability: crate::standard::workload::admitted_tip::WorkloadCapability,
+    ) -> Self {
+        Self {
+            capability: std::sync::Mutex::new(Some(capability)),
+            capability_file: None,
+        }
+    }
+
+    /// For a split-process orchestration: reads the workload's capability file now. After a
+    /// refusal (a restarted workload rotates its capability), publishing re-reads the file once and
+    /// retries. A missing or malformed file leaves the publisher without a capability (fail-closed:
+    /// nothing is recorded and the committed height stays where it is).
+    #[cfg_attr(not(test), allow(dead_code))] // RED-3 scaffold: orchestration.rs calls it from GREEN-3 on.
+    pub fn from_capability_file(path: PathBuf) -> Self {
+        let capability = crate::standard::workload::admitted_tip::read_capability_file(&path).ok();
+        Self {
+            capability: std::sync::Mutex::new(capability),
+            capability_file: Some(path),
+        }
+    }
+
+    /// Publishes an admitted tip to the workload, presenting this publisher's capability
+    /// explicitly; on a refusal, a file-backed publisher re-reads its capability file ONCE and
+    /// retries (m4). Without a capability nothing is sent.
+    ///
+    /// RED-3 STUB: publishes nothing (GREEN-3 implements it).
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) async fn publish(
+        &self,
+        workload: &dyn ioi_api::chain::WorkloadClientApi,
+        tip: ioi_api::storage::AdmittedTip,
+    ) -> Result<()> {
+        let _ = (workload, tip);
+        Err(anyhow!(
+            "RED-3 stub: the admitted-tip publisher does not publish yet"
+        ))
+    }
+
+    /// Reconciles the workload's committed marker with the latest Agentgres-admitted block (m4):
+    /// publishes that block's tip (a no-op without an admitted block).
+    ///
+    /// RED-3 STUB: publishes nothing (GREEN-3 implements it).
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) async fn reconcile(
+        &self,
+        workload: &dyn ioi_api::chain::WorkloadClientApi,
+        latest_admitted: Option<&Block<ChainTransaction>>,
+    ) -> Result<()> {
+        let _ = (workload, latest_admitted);
+        Err(anyhow!(
+            "RED-3 stub: the admitted-tip publisher does not reconcile yet"
+        ))
+    }
 }
 
 /// Staged envelopes the integrity scrub re-reads and re-verifies per admission,
@@ -1228,6 +1311,47 @@ async fn record_workload_admitted_tip(
     }
 }
 
+/// Reconciles the workload's committed marker with the latest Agentgres-admitted block
+/// (FU-N11-DURABLE-STATUS-1 D2a round 2, m4): at orchestration startup and after a workload
+/// reconnect, the coordinator's publisher publishes the latest admitted tip, so a publication
+/// missed while the workload was down or rotating its capability is not stale forever.
+///
+/// RED-3 STUB: does nothing and is not yet called (GREEN-3 implements it and calls it at startup
+/// and after a workload reconnect).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) async fn reconcile_workload_admitted_tip<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let _ = context;
+    Ok(())
+}
+
 /// A committed effect whose ordered consequences cannot be recovered is a
 /// terminal runtime failure, not permission to keep accepting new effects.
 /// Execute an exact cutover's pre-authorized freeze policy when one exists;
@@ -1528,6 +1652,7 @@ impl RuntimeFinalityCoordinator {
             #[cfg(test)]
             staged_verifications: std::sync::atomic::AtomicUsize::new(0),
             pending_native_aft: Vec::new(),
+            admitted_tip_publisher: None,
         };
         coordinator.verify_all_staged()?;
         coordinator.cutover_locators.unclassified = coordinator
@@ -1538,6 +1663,23 @@ impl RuntimeFinalityCoordinator {
             .collect();
         coordinator.committed_manifest_index = coordinator.rebuild_manifest_index()?;
         Ok(coordinator)
+    }
+
+    /// Installs the orchestration's admitted-tip publisher, ONCE, at startup
+    /// (FU-N11-DURABLE-STATUS-1 D2a round 2, B2). The coordinator owns it privately; a second
+    /// install is refused.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn install_admitted_tip_publisher(
+        &mut self,
+        publisher: AdmittedTipPublisher,
+    ) -> Result<()> {
+        if self.admitted_tip_publisher.is_some() {
+            return Err(anyhow!(
+                "the admitted-tip publisher is installed once, at startup"
+            ));
+        }
+        self.admitted_tip_publisher = Some(Arc::new(publisher));
+        Ok(())
     }
 
     pub(crate) fn active_profile(&self) -> Result<RuntimeFinalityProfile> {

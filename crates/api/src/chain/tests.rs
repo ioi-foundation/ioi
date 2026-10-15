@@ -566,6 +566,121 @@ mod committed_status {
                 None => unused(),
             }
         }
+        // D2a round 2 (RED-3 fixture): the marker this client's committed status names holds the
+        // root of the block it stores at that height (nothing changed after admission here).
+        async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>, ChainError> {
+            match self.committed {
+                Some(height) => Ok(Some(AdmittedTip {
+                    height,
+                    block_hash: [height as u8; 32],
+                    state_root: block_at(height).header.state_root.0,
+                })),
+                None => unused(),
+            }
+        }
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    /// A client whose stored block at the admitted height CHANGED after admission (FU-N11-
+    /// DURABLE-STATUS-1 D2a round 2, B1 (i)): its marker still holds the admitted root, while the
+    /// block it now serves at that height carries another root (e.g. an uncommitted height's).
+    #[derive(Debug)]
+    struct RewrittenStoreClient {
+        /// The height its committed status reports.
+        committed_height: u64,
+        /// The admitted-tip marker (`None`: no marker tip is served).
+        marker: Option<AdmittedTip>,
+        /// The root of every block it serves now.
+        stored_root: u8,
+    }
+
+    #[async_trait]
+    impl WorkloadClientApi for RewrittenStoreClient {
+        async fn process_block(
+            &self,
+            _block: Block<ChainTransaction>,
+        ) -> Result<
+            (
+                Block<ChainTransaction>,
+                Vec<Vec<u8>>,
+                Vec<BlockExecutionReceipt>,
+            ),
+            ChainError,
+        > {
+            unused()
+        }
+        async fn get_blocks_range(
+            &self,
+            _since: u64,
+            _max_blocks: u32,
+            _max_bytes: u32,
+        ) -> Result<Vec<Block<ChainTransaction>>, ChainError> {
+            unused()
+        }
+        async fn get_block_by_height(
+            &self,
+            height: u64,
+        ) -> Result<Option<Block<ChainTransaction>>, ChainError> {
+            let mut block = block_at(height);
+            block.header.state_root = StateRoot(vec![self.stored_root; 32]);
+            Ok(Some(block))
+        }
+        async fn check_transactions_at(
+            &self,
+            _anchor: StateAnchor,
+            _expected_timestamp_secs: u64,
+            _txs: Vec<ChainTransaction>,
+        ) -> Result<Vec<Result<(), String>>, ChainError> {
+            unused()
+        }
+        async fn query_state_at(
+            &self,
+            _root: StateRoot,
+            _key: &[u8],
+        ) -> Result<QueryStateResponse, ChainError> {
+            unused()
+        }
+        async fn query_raw_state(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
+            unused()
+        }
+        async fn prefix_scan(
+            &self,
+            _prefix: &[u8],
+        ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError> {
+            unused()
+        }
+        async fn get_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>, ChainError> {
+            unused()
+        }
+        async fn get_genesis_status(&self) -> Result<bool, ChainError> {
+            unused()
+        }
+        async fn update_block_header(
+            &self,
+            _block: Block<ChainTransaction>,
+        ) -> Result<(), ChainError> {
+            unused()
+        }
+        async fn get_state_root(&self) -> Result<StateRoot, ChainError> {
+            unused()
+        }
+        async fn get_status(&self) -> Result<ChainStatus, ChainError> {
+            Ok(ChainStatus {
+                height: self.committed_height + 5,
+                ..Default::default()
+            })
+        }
+        async fn get_committed_status(&self) -> Result<ChainStatus, ChainError> {
+            Ok(ChainStatus {
+                height: self.committed_height,
+                ..Default::default()
+            })
+        }
+        async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>, ChainError> {
+            Ok(self.marker.clone())
+        }
         fn as_any(&self) -> &dyn Any {
             self
         }
@@ -671,5 +786,62 @@ mod committed_status {
         let client = LegacyClient { durable: 9 };
         let status = block_on(client.get_committed_status()).expect("committed status");
         assert_eq!(status.height, 0);
+    }
+
+    // --- D2a round 2 (RED-3), B1 (i): the trusted root is the MARKER's root ----------------------
+
+    /// The marker the admission recorded: height 3, root 0xA3.
+    fn admitted_marker() -> AdmittedTip {
+        AdmittedTip {
+            height: 3,
+            block_hash: [0xA3; 32],
+            state_root: vec![0xA3; 32],
+        }
+    }
+
+    /// RED-3 (fails at 079937616: committed_state_root re-reads the stored block at the marker's
+    /// height, chain/mod.rs:201-207). After admission the block stored at height 3 was rewritten
+    /// with root 0xB4 (e.g. height 4's uncommitted root); the trusted root stays the marker's.
+    #[test]
+    fn committed_state_root_is_the_marker_root_even_after_the_stored_block_changes() {
+        let client = RewrittenStoreClient {
+            committed_height: 3,
+            marker: Some(admitted_marker()),
+            stored_root: 0xB4,
+        };
+        let root = block_on(committed_state_root(&client)).expect("committed root");
+        assert_eq!(
+            root,
+            StateRoot(vec![0xA3; 32]),
+            "the trusted root is the admitted marker's, never a re-read of mutable block storage"
+        );
+    }
+
+    /// RED-3 (fails at 079937616: the root is re-read from the stored block whenever the committed
+    /// status names a height, chain/mod.rs:195-207). Without a marker tip there is no trusted root:
+    /// a committed height alone never licenses reading whatever block is stored there.
+    #[test]
+    fn committed_state_root_without_a_marker_tip_is_refused_not_read_from_a_stored_block() {
+        let client = RewrittenStoreClient {
+            committed_height: 3,
+            marker: None,
+            stored_root: 0xB4,
+        };
+        assert!(
+            block_on(committed_state_root(&client)).is_err(),
+            "no marker tip: no trusted root, never the stored block's"
+        );
+    }
+
+    /// GUARD (passes at RED-3; pins the trait default against a default that would synthesize a
+    /// tip from get_status or a stored block): a client without the committed surface has no
+    /// committed tip.
+    #[test]
+    fn a_client_without_a_committed_surface_has_no_committed_tip() {
+        let client = LegacyClient { durable: 9 };
+        assert_eq!(
+            block_on(client.get_committed_tip()).expect("committed tip"),
+            None
+        );
     }
 }

@@ -1145,7 +1145,227 @@ impl WorkloadClientApi for WorkloadClient {
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }
 
+    // RED-3 SCAFFOLD (FU-N11-DURABLE-STATUS-1 D2a round 2, B2): 079937616's behaviour under the
+    // round-2 signature. The explicit capability is IGNORED and only the capability attached to
+    // this shared client is sent. GREEN-3 sends exactly the caller's capability and removes the
+    // attached one (the field and set_admission_capability).
+    async fn record_admitted_tip_with_capability(
+        &self,
+        _witness: AdmissionWitness,
+        _capability: &[u8; 32],
+        tip: AdmittedTip,
+    ) -> std::result::Result<(), ChainError> {
+        self.record_admitted_tip_ipc(&tip)
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+}
+
+#[cfg(test)]
+mod admitted_tip_client_tests {
+    //! FU-N11-DURABLE-STATUS-1 D2a round 2 (RED-3), B2: the SHARED workload client carries no
+    //! admission capability. A record presents exactly the capability its caller passes, so a
+    //! non-admission caller holding the shared client (even with a self-built witness) presents
+    //! nothing the workload accepts. Driven through the REAL client against a ChainControl mock
+    //! served over loopback gRPC.
+    use super::WorkloadClient;
+    use ioi_api::chain::{AdmissionWitness, WorkloadClientApi};
+    use ioi_api::storage::AdmittedTip;
+    use ioi_ipc::blockchain::chain_control_server::{ChainControl, ChainControlServer};
+    use ioi_ipc::blockchain::{
+        GetBlocksRangeRequest, GetBlocksRangeResponse, GetGenesisStatusRequest,
+        GetGenesisStatusResponse, GetStatusRequest, GetStatusResponse, ProcessBlockRequest,
+        ProcessBlockResponse, RecordAdmittedTipRequest, RecordAdmittedTipResponse,
+        ReplaceUnfinalizedTipRequest, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
+    };
+    use std::sync::{Arc, Mutex};
+    use tonic::{Request, Response, Status};
+
+    /// The admission gate's SECOND CANARY (ioi-client test code; FU-N11-DURABLE-STATUS-1 D2a
+    /// round 2): the gate's clippy run over this crate's test target must flag exactly this one
+    /// construction. The tests below take their witnesses from here.
+    fn admission_gate_canary() -> AdmissionWitness {
+        AdmissionWitness::from_agentgres_admission()
+    }
+
+    /// The workload's capability in this test (the publisher's, in production).
+    const CAPABILITY: [u8; 32] = [0x5A; 32];
+
+    /// A ChainControl that records every capability presented to RecordAdmittedTip and advances
+    /// its marker only for `accepted`.
+    struct MockWorkload {
+        accepted: [u8; 32],
+        presented: Mutex<Vec<Vec<u8>>>,
+        marker: Mutex<Option<u64>>,
+    }
+
+    impl MockWorkload {
+        fn presented(&self) -> Vec<Vec<u8>> {
+            self.presented.lock().unwrap().clone()
+        }
+        fn marker(&self) -> Option<u64> {
+            *self.marker.lock().unwrap()
+        }
+    }
+
+    fn unimplemented_rpc<T>() -> Result<Response<T>, Status> {
+        Err(Status::unimplemented("not served by the admitted-tip mock"))
+    }
+
+    #[tonic::async_trait]
+    impl ChainControl for MockWorkload {
+        async fn process_block(
+            &self,
+            _request: Request<ProcessBlockRequest>,
+        ) -> Result<Response<ProcessBlockResponse>, Status> {
+            unimplemented_rpc()
+        }
+        async fn replace_unfinalized_tip(
+            &self,
+            _request: Request<ReplaceUnfinalizedTipRequest>,
+        ) -> Result<Response<ProcessBlockResponse>, Status> {
+            unimplemented_rpc()
+        }
+        async fn get_blocks_range(
+            &self,
+            _request: Request<GetBlocksRangeRequest>,
+        ) -> Result<Response<GetBlocksRangeResponse>, Status> {
+            unimplemented_rpc()
+        }
+        async fn update_block_header(
+            &self,
+            _request: Request<UpdateBlockHeaderRequest>,
+        ) -> Result<Response<UpdateBlockHeaderResponse>, Status> {
+            unimplemented_rpc()
+        }
+        async fn get_genesis_status(
+            &self,
+            _request: Request<GetGenesisStatusRequest>,
+        ) -> Result<Response<GetGenesisStatusResponse>, Status> {
+            unimplemented_rpc()
+        }
+        async fn get_status(
+            &self,
+            _request: Request<GetStatusRequest>,
+        ) -> Result<Response<GetStatusResponse>, Status> {
+            unimplemented_rpc()
+        }
+        async fn get_execution_status(
+            &self,
+            _request: Request<GetStatusRequest>,
+        ) -> Result<Response<GetStatusResponse>, Status> {
+            unimplemented_rpc()
+        }
+        async fn get_committed_status(
+            &self,
+            _request: Request<GetStatusRequest>,
+        ) -> Result<Response<GetStatusResponse>, Status> {
+            Ok(Response::new(GetStatusResponse {
+                height: self.marker().unwrap_or(0),
+                latest_timestamp: 0,
+                total_transactions: 0,
+                is_running: true,
+            }))
+        }
+        async fn record_admitted_tip(
+            &self,
+            request: Request<RecordAdmittedTipRequest>,
+        ) -> Result<Response<RecordAdmittedTipResponse>, Status> {
+            let request = request.into_inner();
+            self.presented
+                .lock()
+                .unwrap()
+                .push(request.capability.clone());
+            if request.capability.as_slice() != self.accepted.as_slice() {
+                return Err(Status::permission_denied(
+                    "the workload capability does not match",
+                ));
+            }
+            *self.marker.lock().unwrap() = Some(request.height);
+            Ok(Response::new(RecordAdmittedTipResponse {}))
+        }
+    }
+
+    /// Serves `mock` on an ephemeral loopback port and returns its address.
+    async fn serve(mock: Arc<MockWorkload>) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind loopback");
+        let address = listener.local_addr().expect("local address");
+        let incoming = tonic::transport::server::TcpIncoming::from_listener(listener, true, None)
+            .expect("incoming");
+        tokio::spawn(async move {
+            let _ = tonic::transport::Server::builder()
+                .add_service(ChainControlServer::from_arc(mock))
+                .serve_with_incoming(incoming)
+                .await;
+        });
+        address.to_string()
+    }
+
+    /// A shared workload client as the node binaries build one (no data plane in this test).
+    async fn shared_client(address: &str) -> WorkloadClient {
+        std::env::set_var("IOI_SHMEM_ID", "ioi-d2a-red3-no-such-region");
+        std::env::set_var("IOI_SHMEM_CONNECT_RETRIES", "0");
+        WorkloadClient::new(address, "", "", "")
+            .await
+            .expect("workload client")
+    }
+
+    fn tip(height: u64) -> AdmittedTip {
+        AdmittedTip {
+            height,
+            block_hash: [height as u8; 32],
+            state_root: vec![height as u8; 32],
+        }
+    }
+
+    /// RED-3 (fails at 079937616: the client presents only the capability ATTACHED to the shared
+    /// client and ignores the caller's, workload_client/mod.rs:363-371 and :1138-1146; the RED-3
+    /// scaffold keeps that). GREEN-3: the publisher's capability reaches the workload and records
+    /// the tip; then a non-admission caller on the SAME shared client presents only what it has
+    /// (here zeros), is refused, and the marker stays.
+    #[tokio::test]
+    async fn the_shared_client_presents_only_the_capability_its_caller_passes() {
+        let mock = Arc::new(MockWorkload {
+            accepted: CAPABILITY,
+            presented: Mutex::new(Vec::new()),
+            marker: Mutex::new(None),
+        });
+        let address = serve(mock.clone()).await;
+        let client = shared_client(&address).await;
+        // The harness control: the real client reaches the mock over loopback gRPC.
+        assert_eq!(
+            client
+                .get_committed_status()
+                .await
+                .expect("the mock workload serves the committed status")
+                .height,
+            0
+        );
+
+        client
+            .record_admitted_tip_with_capability(admission_gate_canary(), &CAPABILITY, tip(3))
+            .await
+            .expect("the publisher's capability records the admitted tip");
+        assert_eq!(mock.marker(), Some(3));
+
+        assert!(
+            client
+                .record_admitted_tip_with_capability(admission_gate_canary(), &[0u8; 32], tip(4))
+                .await
+                .is_err(),
+            "a non-admission caller on the shared client is refused"
+        );
+        assert_eq!(
+            mock.presented(),
+            vec![CAPABILITY.to_vec(), vec![0u8; 32]],
+            "each record presents exactly its caller's capability; the shared client keeps none"
+        );
+        assert_eq!(mock.marker(), Some(3), "the refused record leaves the marker unchanged");
     }
 }
