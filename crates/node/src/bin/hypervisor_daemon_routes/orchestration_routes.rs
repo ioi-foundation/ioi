@@ -3619,3 +3619,20 @@ mod webhook_token_compare_tests {
         );
     }
 }
+
+/// BUILD-DELTA #36d: the registered mint's REAL draw, called 256 times: every draw distinct and the right length.
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn two_hundred_fifty_six_webhook_tokens_are_distinct_and_the_right_length() {
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..256 {
+            let value = new_webhook_token();
+            assert_eq!(value.len(), "whk_".len() + 64, "expected length: {value}");
+            assert!(value.starts_with("whk_"), "prefix: {value}");
+            assert!(seen.insert(value.clone()), "a repeated draw: {value}");
+        }
+    }
+}

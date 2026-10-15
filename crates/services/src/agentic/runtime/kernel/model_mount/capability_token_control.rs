@@ -1331,3 +1331,39 @@ mod tests {
         assert_eq!(issue_record_from(None), None);
     }
 }
+
+/// BUILD-DELTA #36d: the registered mint (the create arm) called 256 times through the real planner: every token and
+/// every id distinct and the right length.
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn two_hundred_fifty_six_minted_tokens_and_ids_are_distinct_and_the_right_length() {
+        let state = std::env::temp_dir().join(format!(
+            "ioi-capability-token-entropy-{}",
+            std::process::id()
+        ));
+        let create: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
+            "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+            "operation_kind": "model_mount.capability_token.create",
+            "state_dir": state.to_string_lossy(),
+            "now_unix_secs": 1_760_000_000,
+            "body": { "audience": "a", "allowed_scopes": ["model.chat:*"], "grant_id": "g" },
+        }))
+        .expect("a create request");
+        let mut tokens = std::collections::HashSet::new();
+        let mut ids = std::collections::HashSet::new();
+        for _ in 0..256 {
+            let plan = plan_capability_token_control(&create).expect("a create plan");
+            let token = plan.public_response["token"].as_str().unwrap().to_string();
+            let id = plan.public_response["token_id"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            assert_eq!(token.len(), "ioi_mnt_".len() + 64, "{token}");
+            assert_eq!(id.len(), "capability_token:".len() + 32, "{id}");
+            assert!(tokens.insert(token) && ids.insert(id), "a repeated draw");
+        }
+    }
+}

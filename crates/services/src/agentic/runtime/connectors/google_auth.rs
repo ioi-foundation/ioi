@@ -1394,3 +1394,21 @@ fn default_token_type() -> String {
 #[cfg(test)]
 #[path = "google_auth/tests.rs"]
 mod tests;
+
+/// BUILD-DELTA #36d: the registered mint's REAL draw, called 256 times: every draw distinct and the right length.
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn two_hundred_fifty_six_state_and_verifier_draws_are_distinct_and_the_right_length() {
+        for (bytes, chars) in [(24usize, 32usize), (48, 64)] {
+            let mut seen = std::collections::HashSet::new();
+            for _ in 0..256 {
+                let value = random_url_safe_token(bytes);
+                assert_eq!(value.len(), chars);
+                assert!(seen.insert(value), "a repeated draw");
+            }
+        }
+    }
+}

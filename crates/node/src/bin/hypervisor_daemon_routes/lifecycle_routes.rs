@@ -33027,3 +33027,33 @@ mod bootstrap_token_compare_tests {
         assert_eq!(status, StatusCode::OK, "the token bootstraps: {body}");
     }
 }
+
+/// BUILD-DELTA #36d: the registered mints' REAL draws, called 256 times: every draw distinct and the right length.
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    fn assert_distinct(draw: impl Fn() -> String, expected_len: usize, prefix: &str) {
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..256 {
+            let value = draw();
+            assert_eq!(value.len(), expected_len, "expected length: {value}");
+            assert!(value.starts_with(prefix), "prefix {prefix}: {value}");
+            assert!(seen.insert(value.clone()), "a repeated draw: {value}");
+        }
+    }
+
+    #[test]
+    fn two_hundred_fifty_six_opaque_tokens_are_distinct_and_the_right_length() {
+        assert_distinct(
+            || gen_opaque("ioi_sess"),
+            "ioi_sess_".len() + 64,
+            "ioi_sess_",
+        );
+    }
+
+    #[test]
+    fn two_hundred_fifty_six_random_tokens_are_distinct_and_the_right_length() {
+        assert_distinct(|| random_token(32), 32, "");
+    }
+}
