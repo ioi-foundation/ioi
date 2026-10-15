@@ -1,86 +1,64 @@
-candidates.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-candidates.rs: pub struct TooManyLeaseCandidates;
-candidates.rs: pub struct LeaseCandidates {
-candidates.rs: impl LeaseCandidates {
-candidates.rs: pub const fn new() -> LeaseCandidates {
-candidates.rs: pub fn push(&mut self, candidate: &[u8]) -> Result<(), TooManyLeaseCandidates> {
-candidates.rs: pub fn count(&self) -> usize {
-candidates.rs: pub fn is_refused(&self) -> bool {
-candidates.rs: impl Default for LeaseCandidates {
-daemon.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-daemon.rs: pub struct DaemonConfig {
-daemon.rs: pub verdict_deadline_ns: u64,
-daemon.rs: #[derive(Clone, Copy)]
-daemon.rs: pub struct WelcomeSpec {
-daemon.rs: pub mode: ServingMode,
-daemon.rs: pub public_port: u16,
-daemon.rs: pub host_label: [u8; HOST_LABEL_LEN],
-daemon.rs: pub enum VerdictSpec<H> {
-daemon.rs: impl<H> VerdictSpec<H> {
-daemon.rs: pub fn outcome(&self) -> Outcome {
-daemon.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-daemon.rs: pub enum DaemonPhase {
-daemon.rs: pub enum DaemonInput<'a, H> {
-daemon.rs: pub enum DaemonStep {
-daemon.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-daemon.rs: pub enum DaemonStepKind {
-daemon.rs: impl DaemonStep {
-daemon.rs: pub fn kind(&self) -> DaemonStepKind {
-daemon.rs: pub struct DaemonSession<H> {
-daemon.rs: impl<H> DaemonSession<H> {
-daemon.rs: pub fn new(spawn_ns: u64, config: DaemonConfig) -> DaemonSession<H> {
-daemon.rs: pub fn phase(&self) -> DaemonPhase {
-daemon.rs: pub fn outgoing(&self) -> Option<Outgoing<'_, H>> {
-daemon.rs: pub fn final_event_summary(&mut self) -> Option<EventRecords> {
-daemon.rs: pub fn step(&mut self, input: DaemonInput<'_, H>) -> DaemonStep {
-daemon.rs: #[cfg(any(test, fuzzing))]
-daemon.rs: impl<H> DaemonSession<H> {
-daemon.rs: pub fn test_only_pending_len(&self) -> usize {
-daemon.rs: pub fn test_only_window_admissions(&self) -> u32 {
-daemon.rs: pub fn test_only_answerable(&self) -> Option<AdmissionId> {
-daemon.rs: pub fn test_only_last_completed(&self) -> Option<AdmissionId> {
-daemon.rs: pub fn test_only_mode(&self) -> Option<ModeKind> {
+candidates.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct TooManyLeaseCandidates;
+candidates.rs: pub struct LeaseCandidates {n: usize, digests: [[u8; 32]; MAX_DIGESTS], refused: bool}
+candidates.rs: impl LeaseCandidates { .. }
+candidates.rs: impl LeaseCandidates => pub const fn new() -> LeaseCandidates
+candidates.rs: impl LeaseCandidates => pub fn push(&mut self, candidate: &[u8]) -> Result<(), TooManyLeaseCandidates>
+candidates.rs: impl LeaseCandidates => pub fn count(&self) -> usize
+candidates.rs: impl LeaseCandidates => pub fn is_refused(&self) -> bool
+candidates.rs: impl Default for LeaseCandidates { .. }
+candidates.rs: impl Default for LeaseCandidates => fn default() -> LeaseCandidates
+daemon.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct DaemonConfig {pub verdict_deadline_ns: u64}
+daemon.rs: #[derive(Clone, Copy)] pub struct WelcomeSpec {pub mode: ServingMode, pub public_port: u16, pub host_label: [u8; HOST_LABEL_LEN]}
+daemon.rs: pub enum VerdictSpec<H> {Denied, AdmittedUpstream(H), AdmittedNoUpstream, UpstreamUnavailable}
+daemon.rs: impl<H> VerdictSpec<H> { .. }
+daemon.rs: impl<H> VerdictSpec<H> => pub fn outcome(&self) -> Outcome
+daemon.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum DaemonPhase {AwaitReady, CheckingF0, WelcomeReady, WelcomePrepared, Active, Stopping, Closed, Refused(IpcRefusal)}
+daemon.rs: pub enum DaemonInput<'a, H> {Tick(u64), Recv(P2dRecv<'a>), F0(F0Result), PrepareWelcome(WelcomeSpec, H), PrepareVerdict(AdmissionId, VerdictSpec<H>), PrepareShutdown, SendResult(OpId, SendOutcome), Terminate(StopReason), TransportEof, TransportError}
+daemon.rs: pub enum DaemonStep {Idle, RunF0, Send(OpId), WelcomeSent, Admit(InboundAdmit), VerdictSent(AdmissionId), Persist(EventRecords), Stopping, Teardown, Refused(IpcRefusal), Terminal}
+daemon.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum DaemonStepKind {Idle, RunF0, Send, WelcomeSent, Admit, VerdictSent, Persist, Stopping, Teardown, Refused(IpcRefusal), Terminal}
+daemon.rs: impl DaemonStep { .. }
+daemon.rs: impl DaemonStep => pub fn kind(&self) -> DaemonStepKind
+daemon.rs: pub struct DaemonSession<H> {phase: DaemonPhase, config: DaemonConfig, last_now: u64, startup_deadline: u64, stop_deadline: u64, f0_proof: bool, shutdown_prepared: bool, mode: Option<ModeKind>, epoch: u64, window_index: u64, window_admissions: u32, last_id: u32, pending: PendingMap, completed: CompletedFifo, next_op: u64, prepared: Option<Prepared<H>>, events: DaemonEventWindow}
+daemon.rs: impl<H> DaemonSession<H> { .. }
+daemon.rs: impl<H> DaemonSession<H> => pub fn new(spawn_ns: u64, config: DaemonConfig) -> DaemonSession<H>
+daemon.rs: impl<H> DaemonSession<H> => pub fn phase(&self) -> DaemonPhase
+daemon.rs: impl<H> DaemonSession<H> => pub fn outgoing(&self) -> Option<Outgoing<'_, H>>
+daemon.rs: impl<H> DaemonSession<H> => pub fn final_event_summary(&mut self) -> Option<EventRecords>
+daemon.rs: impl<H> DaemonSession<H> => pub fn step(&mut self, input: DaemonInput<'_, H>) -> DaemonStep
+daemon.rs: #[cfg(any(test, fuzzing))] impl<H> DaemonSession<H> { .. }
+daemon.rs: #[cfg(any(test, fuzzing))] impl<H> DaemonSession<H> => pub fn test_only_pending_len(&self) -> usize
+daemon.rs: #[cfg(any(test, fuzzing))] impl<H> DaemonSession<H> => pub fn test_only_window_admissions(&self) -> u32
+daemon.rs: #[cfg(any(test, fuzzing))] impl<H> DaemonSession<H> => pub fn test_only_answerable(&self) -> Option<AdmissionId>
+daemon.rs: #[cfg(any(test, fuzzing))] impl<H> DaemonSession<H> => pub fn test_only_last_completed(&self) -> Option<AdmissionId>
+daemon.rs: #[cfg(any(test, fuzzing))] impl<H> DaemonSession<H> => pub fn test_only_mode(&self) -> Option<ModeKind>
 digest.rs: pub struct CompareOnlyDigest([u8; 32]);
-digest.rs: impl CompareOnlyDigest {
-digest.rs: pub fn matches_stored_hex(&self, stored: &str) -> bool {
-digest.rs: #[cfg(test)]
+digest.rs: impl CompareOnlyDigest { .. }
+digest.rs: impl CompareOnlyDigest => pub fn matches_stored_hex(&self, stored: &str) -> bool
 events.rs: pub const PROXY_EVENT_WINDOW_NS: u64 = 1_000_000_000;
 events.rs: pub const DAEMON_EVENT_WINDOW_NS: u64 = 10_000_000_000;
-events.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-events.rs: pub struct EventRecords {
-events.rs: impl EventRecords {
-events.rs: pub fn window(&self) -> u64 {
-events.rs: pub fn count(&self, code: EventCode) -> u32 {
-events.rs: pub fn len(&self) -> usize {
-events.rs: pub fn is_empty(&self) -> bool {
-events.rs: pub fn records(&self) -> impl Iterator<Item = (EventCode, u32)> + '_ {
-events.rs: impl DaemonEventWindow {
-events.rs: impl ProxyEventCounters {
-events.rs: #[cfg(any(test, fuzzing))]
-events.rs: #[cfg(any(test, fuzzing))]
-fds.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-fds.rs: pub enum SocketClass {
-fds.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-fds.rs: pub struct FdFacts {
-fds.rs: pub class: SocketClass,
-fds.rs: pub accept_conn: bool,
-fds.rs: pub pending_error: bool,
-fds.rs: pub connected: bool,
-fds.rs: pub local_inet: Option<([u8; 4], u16)>,
-fds.rs: pub peer_matches_spec: bool,
-fds.rs: impl FdFacts {
-fds.rs: pub const fn loopback_listener(port: u16) -> FdFacts {
-fds.rs: pub const fn connected_upstream(class: SocketClass) -> FdFacts {
-fds.rs: pub struct ReceivedFd<H> {
-fds.rs: pub handle: H,
-fds.rs: pub facts: FdFacts,
-fds.rs: pub struct FdBatch<H> {
-fds.rs: impl<H> FdBatch<H> {
-fds.rs: pub fn new() -> FdBatch<H> {
-fds.rs: pub fn push(&mut self, fd: ReceivedFd<H>) -> Result<(), ReceivedFd<H>> {
-fds.rs: pub fn len(&self) -> usize {
-fds.rs: pub fn is_empty(&self) -> bool {
-fds.rs: impl<H> Default for FdBatch<H> {
+events.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct EventRecords {window: u64, counts: [u32; 12]}
+events.rs: impl EventRecords { .. }
+events.rs: impl EventRecords => pub fn window(&self) -> u64
+events.rs: impl EventRecords => pub fn count(&self, code: EventCode) -> u32
+events.rs: impl EventRecords => pub fn len(&self) -> usize
+events.rs: impl EventRecords => pub fn is_empty(&self) -> bool
+events.rs: impl EventRecords => pub fn records(&self) -> impl Iterator<Item = (EventCode, u32)> + '_
+events.rs: impl DaemonEventWindow { .. }
+events.rs: impl ProxyEventCounters { .. }
+fds.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum SocketClass {InetStream, UnixStream, Other}
+fds.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct FdFacts {pub class: SocketClass, pub accept_conn: bool, pub pending_error: bool, pub connected: bool, pub local_inet: Option<([u8; 4], u16)>, pub peer_matches_spec: bool}
+fds.rs: impl FdFacts { .. }
+fds.rs: impl FdFacts => pub const fn loopback_listener(port: u16) -> FdFacts
+fds.rs: impl FdFacts => pub const fn connected_upstream(class: SocketClass) -> FdFacts
+fds.rs: pub struct ReceivedFd<H> {pub handle: H, pub facts: FdFacts}
+fds.rs: pub struct FdBatch<H> {slots: [Option<ReceivedFd<H>>; MAX_ANCILLARY_FDS], len: usize}
+fds.rs: impl<H> FdBatch<H> { .. }
+fds.rs: impl<H> FdBatch<H> => pub fn new() -> FdBatch<H>
+fds.rs: impl<H> FdBatch<H> => pub fn push(&mut self, fd: ReceivedFd<H>) -> Result<(), ReceivedFd<H>>
+fds.rs: impl<H> FdBatch<H> => pub fn len(&self) -> usize
+fds.rs: impl<H> FdBatch<H> => pub fn is_empty(&self) -> bool
+fds.rs: impl<H> Default for FdBatch<H> { .. }
+fds.rs: impl<H> Default for FdBatch<H> => fn default() -> FdBatch<H>
 fuzz_support.rs: pub const MAX_OPS: usize = 16384;
 fuzz_support.rs: pub const MAX_QUEUE: usize = 256;
 fuzz_support.rs: pub const T0: u64 = 1_000_000_000_000;
@@ -88,90 +66,45 @@ fuzz_support.rs: pub const VERDICT_DEADLINE_NS: u64 = 3_000_000_000;
 fuzz_support.rs: pub const PORT: u16 = 40001;
 fuzz_support.rs: pub const LABEL: [u8; 16] = *b"0123456789abcdef";
 fuzz_support.rs: pub const TOKEN: [u8; 64] = [b'5'; 64];
-fuzz_support.rs: pub mod op {
-fuzz_support.rs: pub const NOP: u8 = 0x00;
-fuzz_support.rs: pub const TICK_BOTH: u8 = 0x01;
-fuzz_support.rs: pub const TICK_D: u8 = 0x02;
-fuzz_support.rs: pub const TICK_P: u8 = 0x03;
-fuzz_support.rs: pub const TICK_WINDOW: u8 = 0x04;
-fuzz_support.rs: pub const TICK_BACK_D: u8 = 0x05;
-fuzz_support.rs: pub const TICK_BACK_P: u8 = 0x06;
-fuzz_support.rs: pub const TICK_NS: u8 = 0x07;
-fuzz_support.rs: pub const P_READY: u8 = 0x10;
-fuzz_support.rs: pub const P_ADMIT: u8 = 0x11;
-fuzz_support.rs: pub const P_OBSERVE: u8 = 0x12;
-fuzz_support.rs: pub const P_TERMINATE: u8 = 0x13;
-fuzz_support.rs: pub const P_SEND: u8 = 0x14;
-fuzz_support.rs: pub const P_RECV: u8 = 0x15;
-fuzz_support.rs: pub const P_EOF: u8 = 0x16;
-fuzz_support.rs: pub const P_NEAR_EXHAUSTION: u8 = 0x17;
-fuzz_support.rs: pub const D_RECV: u8 = 0x20;
-fuzz_support.rs: pub const D_F0: u8 = 0x21;
-fuzz_support.rs: pub const D_WELCOME: u8 = 0x22;
-fuzz_support.rs: pub const D_VERDICT: u8 = 0x23;
-fuzz_support.rs: pub const D_SHUTDOWN: u8 = 0x24;
-fuzz_support.rs: pub const D_SEND: u8 = 0x25;
-fuzz_support.rs: pub const D_TERMINATE: u8 = 0x26;
-fuzz_support.rs: pub const D_EOF: u8 = 0x27;
-fuzz_support.rs: pub const INJECT_P2D: u8 = 0x30;
-fuzz_support.rs: pub const INJECT_D2P: u8 = 0x31;
-fuzz_support.rs: pub const INJECT_ADMIT: u8 = 0x32;
-fuzz_support.rs: pub const INJECT_EVENT: u8 = 0x33;
-fuzz_support.rs: pub const INJECT_VERDICT: u8 = 0x34;
-fuzz_support.rs: pub const HONEST_STARTUP: u8 = 0x40;
-fuzz_support.rs: pub const HONEST_ROUNDTRIP: u8 = 0x41;
-fuzz_support.rs: pub const REPEAT: u8 = 0xF0;
-fuzz_support.rs: pub struct Handle {
-fuzz_support.rs: pub facts: FdFacts,
-fuzz_support.rs: impl Drop for Handle {
-fuzz_support.rs: #[derive(Clone)]
-fuzz_support.rs: pub struct Pool {
-fuzz_support.rs: impl Pool {
-fuzz_support.rs: pub fn new() -> Pool {
-fuzz_support.rs: pub fn make(&self, facts: FdFacts) -> Handle {
-fuzz_support.rs: pub fn live(&self) -> i64 {
-fuzz_support.rs: impl Default for Pool {
-fuzz_support.rs: pub fn upstream_for(mode: ModeKind) -> FdFacts {
-fuzz_support.rs: pub fn facts_for(selector: u8, mode: ModeKind) -> FdFacts {
-fuzz_support.rs: pub fn raw_frame(kind: u8, body: &[u8]) -> Vec<u8> {
-fuzz_support.rs: pub fn ready_bytes() -> Vec<u8> {
-fuzz_support.rs: pub fn admit_bytes(id: u32, purpose: u8, digests: &[[u8; 32]]) -> Vec<u8> {
-fuzz_support.rs: pub fn event_bytes(conn: u32, code: u16, count: u32) -> Vec<u8> {
-fuzz_support.rs: pub fn welcome_bytes(
-fuzz_support.rs: pub fn welcome_for(mode: ModeKind) -> Vec<u8> {
-fuzz_support.rs: pub fn verdict_bytes(id: u32, outcome: u8) -> Vec<u8> {
-fuzz_support.rs: pub fn shutdown_bytes() -> Vec<u8> {
-fuzz_support.rs: pub fn welcome_spec(mode: ModeKind) -> WelcomeSpec {
-fuzz_support.rs: pub fn mode_for(selector: u8) -> ModeKind {
-fuzz_support.rs: pub fn daemon_new() -> DaemonSession<Handle> {
-fuzz_support.rs: pub fn proxy_new() -> ProxySession<Handle> {
-fuzz_support.rs: pub fn daemon_active(pool: &Pool, mode: ModeKind) -> DaemonSession<Handle> {
-fuzz_support.rs: pub fn proxy_active(pool: &Pool, mode: ModeKind) -> ProxySession<Handle> {
-fuzz_support.rs: pub fn proxy_awaiting_welcome() -> ProxySession<Handle> {
-fuzz_support.rs: pub fn proxy_send_admit(
-fuzz_support.rs: pub fn run_p2d_decode(data: &[u8]) {
-fuzz_support.rs: pub fn run_d2p_decode(data: &[u8]) {
-fuzz_support.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-fuzz_support.rs: pub struct Report {
-fuzz_support.rs: pub daemon: DaemonPhase,
-fuzz_support.rs: pub proxy: ProxyPhase,
-fuzz_support.rs: pub daemon_refusal: Option<IpcRefusal>,
-fuzz_support.rs: pub proxy_refusal: Option<IpcRefusal>,
-fuzz_support.rs: pub admits: u64,
-fuzz_support.rs: pub verdicts_sent: u64,
-fuzz_support.rs: pub verdicts: u64,
-fuzz_support.rs: pub persisted: u64,
-fuzz_support.rs: pub admits_sent: u64,
-fuzz_support.rs: pub ops: usize,
-fuzz_support.rs: pub tainted: bool,
-fuzz_support.rs: impl<'a> Cursor<'a> {
-fuzz_support.rs: impl World {
-fuzz_support.rs: pub fn run_sequence(data: &[u8]) -> Report {
+fuzz_support.rs: pub mod op { .. }
+fuzz_support.rs: pub struct Handle {pub facts: FdFacts, live: Rc<Cell<i64>>}
+fuzz_support.rs: impl Drop for Handle { .. }
+fuzz_support.rs: impl Drop for Handle => fn drop(&mut self)
+fuzz_support.rs: #[derive(Clone)] pub struct Pool {live: Rc<Cell<i64>>}
+fuzz_support.rs: impl Pool { .. }
+fuzz_support.rs: impl Pool => pub fn new() -> Pool
+fuzz_support.rs: impl Pool => pub fn make(&self, facts: FdFacts) -> Handle
+fuzz_support.rs: impl Pool => pub fn live(&self) -> i64
+fuzz_support.rs: impl Default for Pool { .. }
+fuzz_support.rs: impl Default for Pool => fn default() -> Pool
+fuzz_support.rs: pub fn upstream_for(mode: ModeKind) -> FdFacts
+fuzz_support.rs: pub fn facts_for(selector: u8, mode: ModeKind) -> FdFacts
+fuzz_support.rs: pub fn raw_frame(kind: u8, body: &[u8]) -> Vec<u8>
+fuzz_support.rs: pub fn ready_bytes() -> Vec<u8>
+fuzz_support.rs: pub fn admit_bytes(id: u32, purpose: u8, digests: &[[u8; 32]]) -> Vec<u8>
+fuzz_support.rs: pub fn event_bytes(conn: u32, code: u16, count: u32) -> Vec<u8>
+fuzz_support.rs: pub fn welcome_bytes(mode: u8, upstream: u8, port: u16, label: &[u8; 16], has_token: u8, token: &[u8; 64]) -> Vec<u8>
+fuzz_support.rs: pub fn welcome_for(mode: ModeKind) -> Vec<u8>
+fuzz_support.rs: pub fn verdict_bytes(id: u32, outcome: u8) -> Vec<u8>
+fuzz_support.rs: pub fn shutdown_bytes() -> Vec<u8>
+fuzz_support.rs: pub fn welcome_spec(mode: ModeKind) -> WelcomeSpec
+fuzz_support.rs: pub fn mode_for(selector: u8) -> ModeKind
+fuzz_support.rs: pub fn daemon_new() -> DaemonSession<Handle>
+fuzz_support.rs: pub fn proxy_new() -> ProxySession<Handle>
+fuzz_support.rs: pub fn daemon_active(pool: &Pool, mode: ModeKind) -> DaemonSession<Handle>
+fuzz_support.rs: pub fn proxy_active(pool: &Pool, mode: ModeKind) -> ProxySession<Handle>
+fuzz_support.rs: pub fn proxy_awaiting_welcome() -> ProxySession<Handle>
+fuzz_support.rs: pub fn proxy_send_admit(p: &mut ProxySession<Handle>, purpose: Purpose, n: usize) -> Option<AdmissionId>
+fuzz_support.rs: pub fn run_p2d_decode(data: &[u8])
+fuzz_support.rs: pub fn run_d2p_decode(data: &[u8])
+fuzz_support.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct Report {pub daemon: DaemonPhase, pub proxy: ProxyPhase, pub daemon_refusal: Option<IpcRefusal>, pub proxy_refusal: Option<IpcRefusal>, pub admits: u64, pub verdicts_sent: u64, pub verdicts: u64, pub persisted: u64, pub admits_sent: u64, pub ops: usize, pub tainted: bool}
+fuzz_support.rs: impl<'a> Cursor<'a> { .. }
+fuzz_support.rs: impl World { .. }
+fuzz_support.rs: pub fn run_sequence(data: &[u8]) -> Report
 lib.rs: #![no_std]
 lib.rs: #![forbid(unsafe_code)]
 lib.rs: #![deny(missing_docs)]
-lib.rs: #[cfg(any(test, fuzzing))]
-lib.rs: extern crate std;
+lib.rs: #[cfg(any(test, fuzzing))] extern crate std;
 lib.rs: mod candidates;
 lib.rs: mod daemon;
 lib.rs: mod digest;
@@ -183,21 +116,19 @@ lib.rs: mod proxy;
 lib.rs: mod refusal;
 lib.rs: mod types;
 lib.rs: pub mod wire;
-lib.rs: #[cfg(any(test, fuzzing))]
-lib.rs: pub mod fuzz_support;
-lib.rs: #[cfg(test)]
-lib.rs: mod tests;
+lib.rs: #[cfg(any(test, fuzzing))] pub mod fuzz_support;
+lib.rs: #[cfg(test)] mod tests;
 lib.rs: pub use candidates::{LeaseCandidates, TooManyLeaseCandidates};
-lib.rs: pub use daemon::{
+lib.rs: pub use daemon::{DaemonConfig, DaemonInput, DaemonPhase, DaemonSession, DaemonStep, DaemonStepKind, VerdictSpec, WelcomeSpec};
 lib.rs: pub use digest::CompareOnlyDigest;
 lib.rs: pub use events::{EventRecords, DAEMON_EVENT_WINDOW_NS, PROXY_EVENT_WINDOW_NS};
 lib.rs: pub use fds::{FdBatch, FdFacts, ReceivedFd, SocketClass};
 lib.rs: pub use ioi_proxy_digest::Sha256Digest;
-lib.rs: pub use limits::{
-lib.rs: pub use proxy::{
+lib.rs: pub use limits::{COMPLETED_FIFO, MAX_FRAMES_PER_BATCH, MAX_PENDING, RATE_MAX_ADMITS, RATE_WINDOW_NS, SEND_DEADLINE_NS, STARTUP_DEADLINE_NS};
+lib.rs: pub use proxy::{AdmitBlocked, ProxyConfig, ProxyInput, ProxyPhase, ProxySession, ProxyStep, ProxyStepKind};
 lib.rs: pub use refusal::IpcRefusal;
-lib.rs: pub use types::{
-lib.rs: pub use wire::{
+lib.rs: pub use types::{AdmissionId, EventCode, F0Result, ModeKind, OpId, Outcome, Purpose, SendOutcome, ServingMode, StopReason};
+lib.rs: pub use wire::{decode_d2p, decode_p2d, encode_p2d, D2pRecv, EncodeP2d, Frame, InboundAdmit, InboundD2p, InboundEvent, InboundP2d, InboundWelcome, OutboundAdmit, OutboundEvent, OutboundP2d, Outgoing, P2dRecv, MAX_FRAME};
 limits.rs: pub const MAX_PENDING: usize = 64;
 limits.rs: pub const COMPLETED_FIFO: usize = 64;
 limits.rs: pub const RATE_WINDOW_NS: u64 = 10_000_000_000;
@@ -205,85 +136,65 @@ limits.rs: pub const RATE_MAX_ADMITS: u32 = 2000;
 limits.rs: pub const STARTUP_DEADLINE_NS: u64 = 5_000_000_000;
 limits.rs: pub const SEND_DEADLINE_NS: u64 = 1_000_000_000;
 limits.rs: pub const MAX_FRAMES_PER_BATCH: usize = 64;
-pending.rs: #[derive(Clone, Copy)]
-pending.rs: impl PendingMap {
-pending.rs: #[cfg(any(test, fuzzing))]
-pending.rs: impl CompletedFifo {
-pending.rs: #[cfg(any(test, fuzzing))]
-proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-proxy.rs: pub struct ProxyConfig {
-proxy.rs: pub verdict_deadline_ns: u64,
-proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-proxy.rs: pub enum ProxyPhase {
-proxy.rs: pub enum ProxyInput<'a, H> {
-proxy.rs: pub enum ProxyStep<H> {
-proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-proxy.rs: pub enum ProxyStepKind {
-proxy.rs: impl<H> ProxyStep<H> {
-proxy.rs: pub fn kind(&self) -> ProxyStepKind {
-proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-proxy.rs: pub enum AdmitBlocked {
-proxy.rs: pub struct ProxySession<H> {
-proxy.rs: impl<H> ProxySession<H> {
-proxy.rs: pub fn new(start_ns: u64, config: ProxyConfig) -> ProxySession<H> {
-proxy.rs: pub fn phase(&self) -> ProxyPhase {
-proxy.rs: pub fn outgoing(&self) -> Option<Outgoing<'_, H>> {
-proxy.rs: pub fn can_prepare_admit(&self) -> Result<(), AdmitBlocked> {
-proxy.rs: pub fn step(&mut self, input: ProxyInput<'_, H>) -> ProxyStep<H> {
-proxy.rs: #[cfg(any(test, fuzzing))]
-proxy.rs: impl<H> ProxySession<H> {
-proxy.rs: pub fn test_only_set_next_id(&mut self, next_id: u32) -> bool {
-proxy.rs: pub fn test_only_pending_len(&self) -> usize {
-proxy.rs: pub fn test_only_window_admissions(&self) -> u32 {
-proxy.rs: pub fn test_only_answerable(&self) -> Option<AdmissionId> {
-proxy.rs: pub fn test_only_last_completed(&self) -> Option<AdmissionId> {
-proxy.rs: pub fn test_only_counter(&self, code: EventCode) -> u32 {
-proxy.rs: pub fn test_only_counters_nonzero(&self) -> bool {
-refusal.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-refusal.rs: pub enum IpcRefusal {
-refusal.rs: impl IpcRefusal {
-refusal.rs: pub const ALL: [IpcRefusal; 36] = [
-refusal.rs: pub const fn precedence(self) -> u8 {
-refusal.rs: pub const fn name(self) -> &'static str {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-types.rs: pub struct AdmissionId(u32);
-types.rs: impl AdmissionId {
-types.rs: pub const fn from_raw(raw: u32) -> AdmissionId {
-types.rs: pub const fn get(self) -> u32 {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-types.rs: pub enum Purpose {
-types.rs: impl Purpose {
-types.rs: pub const fn wire(self) -> u8 {
-types.rs: pub const fn max_digests(self, mode: ModeKind) -> usize {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-types.rs: pub enum EventCode {
-types.rs: impl EventCode {
-types.rs: pub const ALL: [EventCode; 12] = [
-types.rs: pub const fn wire(self) -> u16 {
-types.rs: pub fn from_wire(code: u16) -> Option<EventCode> {
-types.rs: pub const fn name(self) -> &'static str {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq)]
-types.rs: pub enum ServingMode {
-types.rs: impl ServingMode {
-types.rs: pub const fn kind(&self) -> ModeKind {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-types.rs: pub enum ModeKind {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-types.rs: pub enum Outcome {
-types.rs: impl Outcome {
-types.rs: pub const fn wire(self) -> u8 {
-types.rs: pub const fn legal_for(self, mode: ModeKind, purpose: Purpose) -> bool {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-types.rs: pub struct OpId(u64);
-types.rs: impl OpId {
-types.rs: pub const fn from_raw(raw: u64) -> OpId {
-types.rs: pub const fn get(self) -> u64 {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-types.rs: pub enum SendOutcome {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-types.rs: pub enum StopReason {
-types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-types.rs: pub enum F0Result {
+pending.rs: impl PendingMap { .. }
+pending.rs: impl CompletedFifo { .. }
+proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct ProxyConfig {pub verdict_deadline_ns: u64}
+proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum ProxyPhase {Bootstrap, ReadyPrepared, AwaitWelcome, Active, Stopping, Closed, Refused(IpcRefusal)}
+proxy.rs: pub enum ProxyInput<'a, H> {Tick(u64), Recv(D2pRecv<'a, H>), PrepareReady, PrepareAdmit(OutboundAdmit), Observe(EventCode, u32), SendResult(OpId, SendOutcome), Terminate(StopReason), TransportEof, TransportError}
+proxy.rs: pub enum ProxyStep<H> {Idle, Send(OpId), AdmitSent(AdmissionId), Welcome(InboundWelcome, H), Verdict(AdmissionId, Outcome, Option<H>), Stopping, Close, Refused(IpcRefusal), Terminal}
+proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum ProxyStepKind {Idle, Send, AdmitSent, Welcome, Verdict, Stopping, Close, Refused(IpcRefusal), Terminal}
+proxy.rs: impl<H> ProxyStep<H> { .. }
+proxy.rs: impl<H> ProxyStep<H> => pub fn kind(&self) -> ProxyStepKind
+proxy.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum AdmitBlocked {NotActive, SendInProgress, Exhausted, InFlightFull, RateLimited}
+proxy.rs: pub struct ProxySession<H> {phase: ProxyPhase, config: ProxyConfig, last_now: u64, startup_deadline: u64, stop_deadline: u64, mode: Option<ModeKind>, epoch: u64, window_index: u64, window_admissions: u32, next_id: u32, any_admit: bool, exhausted: bool, pending: PendingMap, completed: CompletedFifo, next_op: u64, prepared: Option<Prepared>, counters: ProxyEventCounters, handles: PhantomData<fn(H)>}
+proxy.rs: impl<H> ProxySession<H> { .. }
+proxy.rs: impl<H> ProxySession<H> => pub fn new(start_ns: u64, config: ProxyConfig) -> ProxySession<H>
+proxy.rs: impl<H> ProxySession<H> => pub fn phase(&self) -> ProxyPhase
+proxy.rs: impl<H> ProxySession<H> => pub fn outgoing(&self) -> Option<Outgoing<'_, H>>
+proxy.rs: impl<H> ProxySession<H> => pub fn can_prepare_admit(&self) -> Result<(), AdmitBlocked>
+proxy.rs: impl<H> ProxySession<H> => pub fn step(&mut self, input: ProxyInput<'_, H>) -> ProxyStep<H>
+proxy.rs: #[cfg(any(test, fuzzing))] impl<H> ProxySession<H> { .. }
+proxy.rs: #[cfg(any(test, fuzzing))] impl<H> ProxySession<H> => pub fn test_only_set_next_id(&mut self, next_id: u32) -> bool
+proxy.rs: #[cfg(any(test, fuzzing))] impl<H> ProxySession<H> => pub fn test_only_pending_len(&self) -> usize
+proxy.rs: #[cfg(any(test, fuzzing))] impl<H> ProxySession<H> => pub fn test_only_window_admissions(&self) -> u32
+proxy.rs: #[cfg(any(test, fuzzing))] impl<H> ProxySession<H> => pub fn test_only_answerable(&self) -> Option<AdmissionId>
+proxy.rs: #[cfg(any(test, fuzzing))] impl<H> ProxySession<H> => pub fn test_only_last_completed(&self) -> Option<AdmissionId>
+proxy.rs: #[cfg(any(test, fuzzing))] impl<H> ProxySession<H> => pub fn test_only_counter(&self, code: EventCode) -> u32
+proxy.rs: #[cfg(any(test, fuzzing))] impl<H> ProxySession<H> => pub fn test_only_counters_nonzero(&self) -> bool
+refusal.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum IpcRefusal {TransportClosed, TransportFailed, SendFailed, OperationTimeout, BoundaryUnverified, ClockRegression, AncillaryFromProxy, AncillaryTruncated, UnexpectedAncillary, Truncated, Oversized, BadMagic, BadVersion, UnknownKind, ReservedNonzero, LengthMismatch, OutOfOrder, BadPurpose, TooManyDigests, BadEventConnection, BadEventCode, BadEventCount, BadWelcome, BadOutcome, BadFdCount, BadFdKind, NotConnected, BadListener, EndpointMismatch, ConnNotIncreasing, ConnExhausted, DuplicateVerdict, UnknownVerdict, BadOutcomeForPurpose, TooManyInFlight, RateExceeded}
+refusal.rs: impl IpcRefusal { .. }
+refusal.rs: impl IpcRefusal => pub const ALL: [IpcRefusal; 36] = [IpcRefusal::TransportClosed, IpcRefusal::TransportFailed, IpcRefusal::SendFailed, IpcRefusal::OperationTimeout, IpcRefusal::BoundaryUnverified, IpcRefusal::ClockRegression, IpcRefusal::AncillaryFromProxy, IpcRefusal::AncillaryTruncated, IpcRefusal::UnexpectedAncillary, IpcRefusal::Truncated, IpcRefusal::Oversized, IpcRefusal::BadMagic, IpcRefusal::BadVersion, IpcRefusal::UnknownKind, IpcRefusal::ReservedNonzero, IpcRefusal::LengthMismatch, IpcRefusal::OutOfOrder, IpcRefusal::BadPurpose, IpcRefusal::TooManyDigests, IpcRefusal::BadEventConnection, IpcRefusal::BadEventCode, IpcRefusal::BadEventCount, IpcRefusal::BadWelcome, IpcRefusal::BadOutcome, IpcRefusal::BadFdCount, IpcRefusal::BadFdKind, IpcRefusal::NotConnected, IpcRefusal::BadListener, IpcRefusal::EndpointMismatch, IpcRefusal::ConnNotIncreasing, IpcRefusal::ConnExhausted, IpcRefusal::DuplicateVerdict, IpcRefusal::UnknownVerdict, IpcRefusal::BadOutcomeForPurpose, IpcRefusal::TooManyInFlight, IpcRefusal::RateExceeded];
+refusal.rs: impl IpcRefusal => pub const fn precedence(self) -> u8
+refusal.rs: impl IpcRefusal => pub const fn name(self) -> &'static str
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)] pub struct AdmissionId(u32);
+types.rs: impl AdmissionId { .. }
+types.rs: impl AdmissionId => pub const fn from_raw(raw: u32) -> AdmissionId
+types.rs: impl AdmissionId => pub const fn get(self) -> u32
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum Purpose {Forward, LeaseExchange}
+types.rs: impl Purpose { .. }
+types.rs: impl Purpose => pub const fn wire(self) -> u8
+types.rs: impl Purpose => pub const fn max_digests(self, mode: ModeKind) -> usize
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum EventCode {ProxyStarted, ProxyStopped, RequestHeadRefused, WebsocketIntercepted, HostRefused, AuthenticationDenied, AuthenticationSucceeded, LeaseCookieIssued, TargetVersionUnreachable, RawConnectionEstablished, ClientDisconnected, SessionCookieDropped}
+types.rs: impl EventCode { .. }
+types.rs: impl EventCode => pub const ALL: [EventCode; 12] = [EventCode::ProxyStarted, EventCode::ProxyStopped, EventCode::RequestHeadRefused, EventCode::WebsocketIntercepted, EventCode::HostRefused, EventCode::AuthenticationDenied, EventCode::AuthenticationSucceeded, EventCode::LeaseCookieIssued, EventCode::TargetVersionUnreachable, EventCode::RawConnectionEstablished, EventCode::ClientDisconnected, EventCode::SessionCookieDropped];
+types.rs: impl EventCode => pub const fn wire(self) -> u16
+types.rs: impl EventCode => pub fn from_wire(code: u16) -> Option<EventCode>
+types.rs: impl EventCode => pub const fn name(self) -> &'static str
+types.rs: #[derive(Clone, Copy, PartialEq, Eq)] pub enum ServingMode {ForwardTcp, ForwardUnix {token: [u8; 64]}, Static}
+types.rs: impl ServingMode { .. }
+types.rs: impl ServingMode => pub const fn kind(&self) -> ModeKind
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum ModeKind {ForwardTcp, ForwardUnix, Static}
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum Outcome {Denied, AdmittedUpstream, AdmittedNoUpstream, UpstreamUnavailable}
+types.rs: impl Outcome { .. }
+types.rs: impl Outcome => pub const fn wire(self) -> u8
+types.rs: impl Outcome => pub const fn legal_for(self, mode: ModeKind, purpose: Purpose) -> bool
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct OpId(u64);
+types.rs: impl OpId { .. }
+types.rs: impl OpId => pub const fn from_raw(raw: u64) -> OpId
+types.rs: impl OpId => pub const fn get(self) -> u64
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum SendOutcome {SentWhole, WouldBlock, Fatal, Short}
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum StopReason {Revoked, Expired, Shutdown, IdsExhausted}
+types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub enum F0Result {Pass, Fail}
 wire.rs: pub const MAGIC: [u8; 2] = *b"IP";
 wire.rs: pub const VERSION: u8 = 2;
 wire.rs: pub const HEADER_LEN: usize = 8;
@@ -303,69 +214,54 @@ wire.rs: pub const ADMIT_MIN_BODY: usize = 6;
 wire.rs: pub const EVENT_BODY: usize = 10;
 wire.rs: pub const WELCOME_BODY: usize = 85;
 wire.rs: pub const VERDICT_BODY: usize = 5;
-wire.rs: pub struct Frame {
-wire.rs: impl Frame {
-wire.rs: pub fn as_bytes(&self) -> &[u8] {
-wire.rs: pub enum InboundP2d {
-wire.rs: pub struct InboundAdmit {
-wire.rs: impl InboundAdmit {
-wire.rs: pub fn id(&self) -> AdmissionId {
-wire.rs: pub fn purpose(&self) -> Purpose {
-wire.rs: pub fn presented(&self) -> &[CompareOnlyDigest] {
-wire.rs: pub fn any_matches_stored_hex(&self, stored: &str) -> bool {
-wire.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-wire.rs: pub struct InboundEvent {
-wire.rs: impl InboundEvent {
-wire.rs: pub fn code(&self) -> EventCode {
-wire.rs: pub fn count(&self) -> u32 {
-wire.rs: pub enum InboundD2p {
-wire.rs: pub struct InboundWelcome {
-wire.rs: impl InboundWelcome {
-wire.rs: pub fn mode(&self) -> ModeKind {
-wire.rs: pub fn public_port(&self) -> u16 {
-wire.rs: pub fn host_label(&self) -> &str {
-wire.rs: pub fn runtime_token(&self) -> Option<&[u8; RUNTIME_TOKEN_LEN]> {
-wire.rs: pub fn decode_p2d(frame: &[u8]) -> Result<InboundP2d, IpcRefusal> {
-wire.rs: pub fn decode_d2p(frame: &[u8]) -> Result<InboundD2p, IpcRefusal> {
-wire.rs: pub struct Outgoing<'a, H> {
-wire.rs: pub op: crate::types::OpId,
-wire.rs: pub bytes: &'a [u8],
-wire.rs: pub fd: Option<&'a H>,
-wire.rs: pub struct P2dRecv<'a> {
-wire.rs: pub bytes: &'a [u8],
-wire.rs: pub msg_trunc: bool,
-wire.rs: pub msg_ctrunc: bool,
-wire.rs: pub control_present: bool,
-wire.rs: impl<'a> P2dRecv<'a> {
-wire.rs: pub fn clean(bytes: &'a [u8]) -> P2dRecv<'a> {
-wire.rs: pub struct D2pRecv<'a, H> {
-wire.rs: pub bytes: &'a [u8],
-wire.rs: pub msg_trunc: bool,
-wire.rs: pub msg_ctrunc: bool,
-wire.rs: pub unexpected_control: bool,
-wire.rs: pub fds: FdBatch<H>,
-wire.rs: impl<'a, H> D2pRecv<'a, H> {
-wire.rs: pub fn clean(bytes: &'a [u8]) -> D2pRecv<'a, H> {
-wire.rs: pub fn with_fd(bytes: &'a [u8], fd: ReceivedFd<H>) -> D2pRecv<'a, H> {
-wire.rs: #[derive(Clone)]
-wire.rs: pub struct OutboundAdmit {
-wire.rs: impl OutboundAdmit {
-wire.rs: pub fn new(
-wire.rs: pub fn forward(candidates: &LeaseCandidates) -> Result<OutboundAdmit, TooManyLeaseCandidates> {
-wire.rs: pub fn lease_exchange(form_token: Option<&Sha256Digest>) -> OutboundAdmit {
-wire.rs: pub fn purpose(&self) -> Purpose {
-wire.rs: pub fn digest_count(&self) -> usize {
-wire.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-wire.rs: pub struct OutboundEvent {
-wire.rs: impl OutboundEvent {
-wire.rs: pub fn new(code: EventCode, count: u32) -> Option<OutboundEvent> {
-wire.rs: pub fn code(&self) -> EventCode {
-wire.rs: pub fn count(&self) -> u32 {
-wire.rs: #[derive(Clone)]
-wire.rs: pub enum OutboundP2d {
-wire.rs: mod sealed {
-wire.rs: pub trait Sealed {}
-wire.rs: pub trait EncodeP2d: sealed::Sealed {
-wire.rs: impl sealed::Sealed for OutboundP2d {}
-wire.rs: impl EncodeP2d for OutboundP2d {
-wire.rs: pub fn encode_p2d<M: EncodeP2d>(message: &M) -> Frame {
+wire.rs: pub struct Frame {buf: [u8; MAX_FRAME], len: usize}
+wire.rs: impl Frame { .. }
+wire.rs: impl Frame => pub fn as_bytes(&self) -> &[u8]
+wire.rs: pub enum InboundP2d {Ready, Admit(InboundAdmit), Event(InboundEvent)}
+wire.rs: pub struct InboundAdmit {pub(crate) id: AdmissionId, pub(crate) purpose: Purpose, pub(crate) n: u8, pub(crate) digests: [CompareOnlyDigest; MAX_DIGESTS]}
+wire.rs: impl InboundAdmit { .. }
+wire.rs: impl InboundAdmit => pub fn id(&self) -> AdmissionId
+wire.rs: impl InboundAdmit => pub fn purpose(&self) -> Purpose
+wire.rs: impl InboundAdmit => pub fn presented(&self) -> &[CompareOnlyDigest]
+wire.rs: impl InboundAdmit => pub fn any_matches_stored_hex(&self, stored: &str) -> bool
+wire.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct InboundEvent {pub(crate) code: EventCode, pub(crate) count: u32}
+wire.rs: impl InboundEvent { .. }
+wire.rs: impl InboundEvent => pub fn code(&self) -> EventCode
+wire.rs: impl InboundEvent => pub fn count(&self) -> u32
+wire.rs: pub enum InboundD2p {Welcome(InboundWelcome), Verdict(AdmissionId, Outcome), Shutdown}
+wire.rs: pub struct InboundWelcome {pub(crate) mode: ModeKind, pub(crate) public_port: u16, pub(crate) host_label: [u8; HOST_LABEL_LEN], pub(crate) token: [u8; RUNTIME_TOKEN_LEN]}
+wire.rs: impl InboundWelcome { .. }
+wire.rs: impl InboundWelcome => pub fn mode(&self) -> ModeKind
+wire.rs: impl InboundWelcome => pub fn public_port(&self) -> u16
+wire.rs: impl InboundWelcome => pub fn host_label(&self) -> &str
+wire.rs: impl InboundWelcome => pub fn runtime_token(&self) -> Option<&[u8; RUNTIME_TOKEN_LEN]>
+wire.rs: pub fn decode_p2d(frame: &[u8]) -> Result<InboundP2d, IpcRefusal>
+wire.rs: pub fn decode_d2p(frame: &[u8]) -> Result<InboundD2p, IpcRefusal>
+wire.rs: pub struct Outgoing<'a, H> {pub op: crate::types::OpId, pub bytes: &'a [u8], pub fd: Option<&'a H>}
+wire.rs: pub struct P2dRecv<'a> {pub bytes: &'a [u8], pub msg_trunc: bool, pub msg_ctrunc: bool, pub control_present: bool}
+wire.rs: impl<'a> P2dRecv<'a> { .. }
+wire.rs: impl<'a> P2dRecv<'a> => pub fn clean(bytes: &'a [u8]) -> P2dRecv<'a>
+wire.rs: pub struct D2pRecv<'a, H> {pub bytes: &'a [u8], pub msg_trunc: bool, pub msg_ctrunc: bool, pub unexpected_control: bool, pub fds: FdBatch<H>}
+wire.rs: impl<'a, H> D2pRecv<'a, H> { .. }
+wire.rs: impl<'a, H> D2pRecv<'a, H> => pub fn clean(bytes: &'a [u8]) -> D2pRecv<'a, H>
+wire.rs: impl<'a, H> D2pRecv<'a, H> => pub fn with_fd(bytes: &'a [u8], fd: ReceivedFd<H>) -> D2pRecv<'a, H>
+wire.rs: #[derive(Clone)] pub struct OutboundAdmit {purpose: Purpose, n: u8, digests: [[u8; 32]; MAX_DIGESTS]}
+wire.rs: impl OutboundAdmit { .. }
+wire.rs: impl OutboundAdmit => pub fn new(purpose: Purpose, digests: &[Sha256Digest]) -> Result<OutboundAdmit, TooManyLeaseCandidates>
+wire.rs: impl OutboundAdmit => pub fn forward(candidates: &LeaseCandidates) -> Result<OutboundAdmit, TooManyLeaseCandidates>
+wire.rs: impl OutboundAdmit => pub fn lease_exchange(form_token: Option<&Sha256Digest>) -> OutboundAdmit
+wire.rs: impl OutboundAdmit => pub fn purpose(&self) -> Purpose
+wire.rs: impl OutboundAdmit => pub fn digest_count(&self) -> usize
+wire.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)] pub struct OutboundEvent {code: EventCode, count: u32}
+wire.rs: impl OutboundEvent { .. }
+wire.rs: impl OutboundEvent => pub fn new(code: EventCode, count: u32) -> Option<OutboundEvent>
+wire.rs: impl OutboundEvent => pub fn code(&self) -> EventCode
+wire.rs: impl OutboundEvent => pub fn count(&self) -> u32
+wire.rs: #[derive(Clone)] pub enum OutboundP2d {Ready, Admit(AdmissionId, OutboundAdmit), Event(OutboundEvent)}
+wire.rs: mod sealed { .. }
+wire.rs: pub trait EncodeP2d: sealed::Sealed { .. }
+wire.rs: pub trait EncodeP2d: sealed::Sealed => #[doc(hidden)] fn encode_frame(&self) -> Frame;
+wire.rs: impl sealed::Sealed for OutboundP2d { .. }
+wire.rs: impl EncodeP2d for OutboundP2d { .. }
+wire.rs: impl EncodeP2d for OutboundP2d => fn encode_frame(&self) -> Frame
+wire.rs: pub fn encode_p2d<M: EncodeP2d>(message: &M) -> Frame

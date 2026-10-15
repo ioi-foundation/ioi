@@ -3,6 +3,17 @@
 //! `ioi-editor-proxy-ipc` changes a pin here and so needs review. This is an interface review
 //! obligation, not a source census claiming exhaustive prevention of future Rust changes.
 //!
+//! The interface listing (api/<crate>.api) holds COMPLETE declarations, one per line, with
+//! comments removed and whitespace normalized: every public item with its attributes (a struct,
+//! enum or union with its whole body, so every field and variant; a function's whole signature,
+//! however many lines; a public trait's header and every member signature; a `pub use` with its
+//! whole list; a public const/static/type with its type and value), every impl block's header with
+//! its public members (all members for a trait impl), and every module declaration, extern crate,
+//! macro_rules! body and crate attribute. Bodies of functions are not interface. The manifest
+//! listing (api/<crate>.manifest) holds every dependency's NORMALIZED specification (version,
+//! path, features, default-features, optional, package, workspace), whether it is written inline
+//! or as a [dependencies.<name>] table, plus [features] and [lib].
+//!
 //! `CF_API_OUT=<dir>` writes the current listings to <dir> instead of comparing (how the pins in
 //! `api/` were produced).
 
@@ -43,27 +54,375 @@ fn interface(crate_dir: &str) -> String {
     interface_of(&crate_files(crate_dir))
 }
 
-/// The crate's interface lines: in every file, each trimmed line that starts a public item, an
-/// impl, a derive, a cfg, a macro or an extern crate.
+/// The source with every comment (line, block, doc) removed and every whitespace run collapsed to
+/// one space; string, byte-string, raw-string and char literals are kept verbatim.
+fn strip(src: &str) -> String {
+    let c: Vec<char> = src.chars().collect();
+    let mut out = String::new();
+    let mut i = 0;
+    let mut space = false;
+    let push = |out: &mut String, space: &mut bool, ch: char| {
+        if *space && !out.is_empty() {
+            out.push(' ');
+        }
+        *space = false;
+        out.push(ch);
+    };
+    while i < c.len() {
+        let ch = c[i];
+        if ch == '/' && c.get(i + 1) == Some(&'/') {
+            while i < c.len() && c[i] != '\n' {
+                i += 1;
+            }
+            space = true;
+            continue;
+        }
+        if ch == '/' && c.get(i + 1) == Some(&'*') {
+            let mut depth = 0;
+            while i < c.len() {
+                if c[i] == '/' && c.get(i + 1) == Some(&'*') {
+                    depth += 1;
+                    i += 2;
+                } else if c[i] == '*' && c.get(i + 1) == Some(&'/') {
+                    depth -= 1;
+                    i += 2;
+                    if depth == 0 {
+                        break;
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+            space = true;
+            continue;
+        }
+        if ch.is_whitespace() {
+            space = true;
+            i += 1;
+            continue;
+        }
+        // A raw string r"..." / r#"..."# (optionally b-prefixed).
+        let raw_at = if ch == 'r' {
+            Some(i + 1)
+        } else if ch == 'b' && c.get(i + 1) == Some(&'r') {
+            Some(i + 2)
+        } else {
+            None
+        };
+        if let Some(mut j) = raw_at {
+            let ident_before = i > 0 && (c[i - 1].is_alphanumeric() || c[i - 1] == '_');
+            let mut hashes = 0;
+            while c.get(j) == Some(&'#') {
+                hashes += 1;
+                j += 1;
+            }
+            if !ident_before && c.get(j) == Some(&'"') {
+                let close: String = std::iter::once('"')
+                    .chain(std::iter::repeat('#').take(hashes))
+                    .collect();
+                let rest: String = c[j + 1..].iter().collect();
+                let end = rest
+                    .find(&close)
+                    .map(|k| j + 1 + k + close.len())
+                    .unwrap_or(c.len());
+                for k in i..end {
+                    push(&mut out, &mut space, c[k]);
+                }
+                i = end;
+                continue;
+            }
+        }
+        if ch == '"' {
+            push(&mut out, &mut space, ch);
+            i += 1;
+            while i < c.len() {
+                out.push(c[i]);
+                if c[i] == '\\' && i + 1 < c.len() {
+                    out.push(c[i + 1]);
+                    i += 2;
+                    continue;
+                }
+                i += 1;
+                if c[i - 1] == '"' {
+                    break;
+                }
+            }
+            continue;
+        }
+        if ch == '\'' {
+            // A char literal ('x', '\n', '\'') or a lifetime ('a, 'static).
+            let len = if c.get(i + 1) == Some(&'\\') {
+                let mut k = i + 3;
+                while k < c.len() && c[k] != '\'' {
+                    k += 1;
+                }
+                k + 1 - i
+            } else if c.get(i + 2) == Some(&'\'') {
+                3
+            } else {
+                1
+            };
+            for k in i..(i + len).min(c.len()) {
+                push(&mut out, &mut space, c[k]);
+            }
+            i += len;
+            continue;
+        }
+        push(&mut out, &mut space, ch);
+        i += 1;
+    }
+    out
+}
+
+/// Normalizes the spacing that rustfmt's line breaks leave inside a collapsed declaration.
+fn tidy(text: &str) -> String {
+    let mut s = text.trim().to_string();
+    for (from, to) in [
+        ("  ", " "),
+        ("{ ", "{"),
+        (" }", "}"),
+        ("( ", "("),
+        (" )", ")"),
+        ("[ ", "["),
+        (" ]", "]"),
+        (" ,", ","),
+        (",)", ")"),
+        (",]", "]"),
+        (",}", "}"),
+    ] {
+        while s.contains(from) {
+            s = s.replace(from, to);
+        }
+    }
+    s
+}
+
+/// The index just past the bracket that closes the one opening at `open` (string- and
+/// char-literal aware; `s` is stripped text).
+fn close_of(s: &[char], open: usize) -> usize {
+    let mut depth = 0i32;
+    let mut i = open;
+    while i < s.len() {
+        match s[i] {
+            '"' => {
+                i += 1;
+                while i < s.len() && s[i] != '"' {
+                    if s[i] == '\\' {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+            }
+            '\'' if s.get(i + 1) == Some(&'\\') => {
+                i += 3;
+                while i < s.len() && s[i] != '\'' {
+                    i += 1;
+                }
+            }
+            '\'' if s.get(i + 2) == Some(&'\'') => i += 2,
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return i + 1;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    s.len()
+}
+
+/// One statement of a module or block body: its attributes, its text up to its body (or its
+/// terminating `;`), and its brace body's inner text if it has one.
+struct Stmt {
+    attrs: Vec<String>,
+    head: String,
+    body: Option<String>,
+}
+
+/// Splits a module or block body (stripped text) into statements.
+fn statements(text: &str) -> Vec<Stmt> {
+    let s: Vec<char> = text.chars().collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    let mut attrs = Vec::new();
+    while i < s.len() {
+        if s[i] == ' ' || s[i] == ';' {
+            i += 1;
+            continue;
+        }
+        if s[i] == '#' && (s.get(i + 1) == Some(&'[') || s.get(i + 1) == Some(&'!')) {
+            let open = if s[i + 1] == '[' { i + 1 } else { i + 2 };
+            let end = close_of(&s, open);
+            let attr: String = s[i..end].iter().collect();
+            if s[i + 1] == '!' {
+                out.push(Stmt {
+                    attrs: Vec::new(),
+                    head: tidy(&attr),
+                    body: None,
+                });
+            } else {
+                attrs.push(tidy(&attr));
+            }
+            i = end;
+            continue;
+        }
+        let start = i;
+        let head_text: String = s[start..s.len().min(start + 80)].iter().collect();
+        let value_like = matches!(keyword(&head_text), "use" | "const" | "static" | "type");
+        let mut j = i;
+        let mut body = None;
+        let mut end = s.len();
+        while j < s.len() {
+            match s[j] {
+                ';' => {
+                    end = j;
+                    j += 1;
+                    break;
+                }
+                '(' | '[' => j = close_of(&s, j),
+                '{' if value_like => j = close_of(&s, j),
+                '{' => {
+                    let close = close_of(&s, j);
+                    end = j;
+                    body = Some(s[j + 1..close - 1].iter().collect::<String>());
+                    j = close;
+                    break;
+                }
+                '"' => {
+                    j += 1;
+                    while j < s.len() && s[j] != '"' {
+                        if s[j] == '\\' {
+                            j += 1;
+                        }
+                        j += 1;
+                    }
+                    j += 1;
+                }
+                '\'' if s.get(j + 1) == Some(&'\\') => {
+                    j += 3;
+                    while j < s.len() && s[j] != '\'' {
+                        j += 1;
+                    }
+                    j += 1;
+                }
+                '\'' if s.get(j + 2) == Some(&'\'') => j += 3,
+                _ => j += 1,
+            }
+        }
+        let head: String = s[start..end].iter().collect();
+        out.push(Stmt {
+            attrs: std::mem::take(&mut attrs),
+            head: tidy(&head),
+            body,
+        });
+        i = j;
+    }
+    out
+}
+
+/// The statement's text with its attributes (and, for a type with a body, the whole body).
+fn decl(st: &Stmt, with_body: bool) -> String {
+    let mut parts = st.attrs.clone();
+    match (&st.body, with_body) {
+        (Some(body), true) => parts.push(tidy(&format!("{} {{ {} }}", st.head, body))),
+        (Some(_), false) => parts.push(format!("{} {{ .. }}", st.head)),
+        (None, _) => parts.push(format!("{};", st.head)),
+    }
+    parts.join(" ")
+}
+
+/// True for a public (not restricted) visibility.
+fn is_pub(head: &str) -> bool {
+    head.starts_with("pub ") && !head.starts_with("pub(")
+}
+
+/// The keyword after the visibility and the fn/impl/trait qualifiers ("const fn" is "fn"; a
+/// "const NAME" item is "const").
+fn keyword(head: &str) -> &str {
+    let mut rest = head;
+    if let Some(r) = rest.strip_prefix("pub ") {
+        rest = r;
+    } else if rest.starts_with("pub(") {
+        if let Some(k) = rest.find(") ") {
+            rest = &rest[k + 2..];
+        }
+    }
+    let qualifiers = ["unsafe ", "const ", "async ", "default ", "extern \"C\" "];
+    let items = [
+        "fn ",
+        "impl",
+        "trait ",
+        "unsafe ",
+        "async ",
+        "extern \"C\" ",
+    ];
+    loop {
+        let next = qualifiers.iter().find_map(|q| {
+            rest.strip_prefix(q)
+                .filter(|after| items.iter().any(|i| after.starts_with(i)))
+        });
+        match next {
+            Some(after) => rest = after,
+            None => break,
+        }
+    }
+    rest.split([' ', '<', '!', '(', '{', ';'])
+        .next()
+        .unwrap_or("")
+}
+
+/// The interface listing of a crate's files (see the module doc).
 fn interface_of(files: &[(String, String)]) -> String {
     let mut out = String::new();
     for (name, text) in files {
-        for line in text.lines() {
-            let t = line.trim();
-            let keep = (t.starts_with("pub ") && !t.starts_with("pub(crate)"))
-                || t.starts_with("pub(in")
-                || t.starts_with("impl")
-                || t.starts_with("unsafe impl")
-                || t.starts_with("#[derive")
-                || t.starts_with("#[cfg")
-                || t.starts_with("#![")
-                || t.starts_with("macro_rules!")
-                || t.starts_with("#[macro_export")
-                || t.starts_with("extern crate")
-                || t.starts_with("mod ")
-                || t.starts_with("pub mod ");
-            if keep {
-                out.push_str(&format!("{}: {}\n", name, t));
+        for st in statements(&strip(text)) {
+            let kw = keyword(&st.head);
+            let public = is_pub(&st.head);
+            let line = match kw {
+                _ if st.head.starts_with("#!") => Some(st.head.clone()),
+                "mod" | "extern" => Some(decl(&st, false)),
+                "macro_rules" => Some(decl(&st, true)),
+                "struct" | "enum" | "union" | "use" | "const" | "static" | "type" if public => {
+                    Some(decl(&st, true))
+                }
+                "fn" if public => Some(decl(&st, false).replace(" { .. }", "")),
+                "trait" if public => {
+                    out.push_str(&format!("{}: {}\n", name, decl(&st, false)));
+                    let owner = decl(&st, false).replace(" { .. }", "");
+                    for member in statements(st.body.as_deref().unwrap_or("")) {
+                        out.push_str(&format!(
+                            "{}: {} => {}\n",
+                            name,
+                            owner,
+                            decl(&member, false).replace(" { .. }", "")
+                        ));
+                    }
+                    None
+                }
+                "impl" => {
+                    out.push_str(&format!("{}: {}\n", name, decl(&st, false)));
+                    let owner = decl(&st, false).replace(" { .. }", "");
+                    let trait_impl = st.head.contains(" for ");
+                    for member in statements(st.body.as_deref().unwrap_or("")) {
+                        if trait_impl || is_pub(&member.head) {
+                            out.push_str(&format!(
+                                "{}: {} => {}\n",
+                                name,
+                                owner,
+                                decl(&member, !matches!(keyword(&member.head), "fn"))
+                                    .replace(" { .. }", "")
+                            ));
+                        }
+                    }
+                    None
+                }
+                _ => None,
+            };
+            if let Some(line) = line {
+                out.push_str(&format!("{}: {}\n", name, line));
             }
         }
     }
@@ -113,61 +472,204 @@ fn manifest_text(crate_dir: &str) -> String {
     fs::read_to_string(root().join(crate_dir).join("Cargo.toml")).expect("manifest")
 }
 
-/// The manifest's [dependencies] names and whether a [features] table exists.
+/// The manifest's normalized listing and whether a [features] table exists.
 fn manifest(crate_dir: &str) -> (Vec<String>, bool) {
     manifest_of(&manifest_text(crate_dir))
 }
 
-/// The [dependencies] names of a manifest text and whether a [features] table exists.
+/// A TOML value, normalized: quotes removed, an array's items sorted and joined by ",", an inline
+/// table's keys sorted as "k=v" joined by "; ".
+fn norm_value(v: &str) -> String {
+    let v = v.trim();
+    if let Some(inner) = v.strip_prefix('[').and_then(|x| x.strip_suffix(']')) {
+        let mut items: Vec<String> = split_top(inner)
+            .iter()
+            .map(|x| norm_value(x))
+            .filter(|x| !x.is_empty())
+            .collect();
+        items.sort();
+        return format!("[{}]", items.join(","));
+    }
+    if let Some(inner) = v.strip_prefix('{').and_then(|x| x.strip_suffix('}')) {
+        let mut fields = std::collections::BTreeMap::new();
+        for pair in split_top(inner) {
+            if let Some((k, val)) = pair.split_once('=') {
+                fields.insert(norm_key(k), norm_value(val));
+            }
+        }
+        return fields
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join("; ");
+    }
+    v.trim_matches('"').trim_matches('\'').to_string()
+}
+
+fn norm_key(k: &str) -> String {
+    k.trim().trim_matches('"').trim_matches('\'').to_string()
+}
+
+/// Splits on commas outside brackets, braces and quotes.
+fn split_top(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut depth = 0;
+    let mut quoted = false;
+    let mut cur = String::new();
+    for ch in s.chars() {
+        match ch {
+            '"' => quoted = !quoted,
+            '[' | '{' if !quoted => depth += 1,
+            ']' | '}' if !quoted => depth -= 1,
+            ',' if !quoted && depth == 0 => {
+                out.push(std::mem::take(&mut cur));
+                continue;
+            }
+            _ => {}
+        }
+        cur.push(ch);
+    }
+    if !cur.trim().is_empty() {
+        out.push(cur);
+    }
+    out
+}
+
+/// A line without its `#` comment (outside quotes).
+fn uncomment(line: &str) -> &str {
+    let mut quoted = false;
+    for (i, ch) in line.char_indices() {
+        match ch {
+            '"' => quoted = !quoted,
+            '#' if !quoted => return &line[..i],
+            _ => {}
+        }
+    }
+    line
+}
+
+/// The NORMALIZED dependency, [features] and [lib] listing of a manifest text (inline and
+/// [dependencies.<name>] table forms give the same lines), and whether a [features] table exists.
 fn manifest_of(text: &str) -> (Vec<String>, bool) {
-    let mut section = String::new();
-    let mut deps = Vec::new();
+    use std::collections::BTreeMap;
+    let mut deps: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    let mut other: Vec<String> = Vec::new();
     let mut features = false;
-    for line in text.lines() {
-        let t = line.trim();
-        if t.starts_with('[') {
-            section = t.to_string();
-            if t.starts_with("[features") {
+    let mut section = String::new();
+    let mut table_dep: Option<String> = None;
+    let mut pending = String::new();
+    let dep_kind = |sec: &str| -> Option<String> {
+        for kind in ["dependencies", "build-dependencies", "dev-dependencies"] {
+            if sec == kind {
+                return Some(kind.to_string());
+            }
+            if sec.starts_with("target.") && sec.ends_with(&format!(".{}", kind)) {
+                return Some(sec.to_string());
+            }
+        }
+        None
+    };
+    for raw in text.lines() {
+        let line = uncomment(raw).trim();
+        if line.is_empty() {
+            continue;
+        }
+        if pending.is_empty() && line.starts_with('[') && !line.contains('=') {
+            section = line
+                .trim_start_matches('[')
+                .trim_end_matches(']')
+                .trim()
+                .to_string();
+            table_dep = None;
+            if section == "features" {
                 features = true;
+            }
+            for kind in ["dependencies.", "build-dependencies.", "dev-dependencies."] {
+                if let Some(k) = section.rfind(kind) {
+                    let (base, name) = (&section[..k + kind.len() - 1], &section[k + kind.len()..]);
+                    if dep_kind(base).is_some() {
+                        let key = format!("{} {}", dep_kind(base).unwrap(), norm_key(name));
+                        deps.entry(key.clone()).or_default();
+                        table_dep = Some(key);
+                    }
+                }
             }
             continue;
         }
-        if t.is_empty() || t.starts_with('#') {
+        pending.push_str(line);
+        pending.push(' ');
+        let opens = pending.matches(['[', '{']).count();
+        let closes = pending.matches([']', '}']).count();
+        if opens > closes {
             continue;
         }
-        if section == "[dependencies]"
-            || section.starts_with("[target.")
-            || section == "[build-dependencies]"
-        {
-            deps.push(format!(
-                "{} {}",
-                section,
-                t.split('=').next().unwrap_or("").trim()
-            ));
+        let stmt = std::mem::take(&mut pending);
+        let Some((k, v)) = stmt.split_once('=') else {
+            continue;
+        };
+        let (k, v) = (norm_key(k), v.trim().to_string());
+        if let Some(dep) = &table_dep {
+            deps.get_mut(dep).unwrap().insert(k, norm_value(&v));
+        } else if let Some(kind) = dep_kind(&section) {
+            let entry = deps.entry(format!("{} {}", kind, k)).or_default();
+            if v.starts_with('{') {
+                for pair in split_top(v.trim_start_matches('{').trim_end_matches('}')) {
+                    if let Some((fk, fv)) = pair.split_once('=') {
+                        entry.insert(norm_key(fk), norm_value(fv));
+                    }
+                }
+            } else {
+                entry.insert("version".to_string(), norm_value(&v));
+            }
+        } else if section == "features" || section == "lib" {
+            other.push(format!("[{}] {} = {}", section, k, norm_value(&v)));
         }
     }
-    (deps, features)
+    let mut out: Vec<String> = deps
+        .iter()
+        .map(|(dep, fields)| {
+            format!(
+                "[{}]: {}",
+                dep,
+                fields
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            )
+        })
+        .collect();
+    other.sort();
+    out.extend(other);
+    (out, features)
+}
+
+fn check_manifest_pin(crate_dir: &str, pin: &str) {
+    let (current, features) = manifest(crate_dir);
+    assert!(
+        !features,
+        "T-API: {} has no cargo features (no feature exposes a test encoder)",
+        crate_dir
+    );
+    let current: String = current.iter().map(|l| format!("{}\n", l)).collect();
+    if let Ok(dir) = std::env::var("CF_API_OUT") {
+        fs::create_dir_all(&dir).expect("api out");
+        fs::write(Path::new(&dir).join(pin), &current).expect("api write");
+        return;
+    }
+    let pinned = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("api").join(pin))
+        .unwrap_or_default();
+    assert_eq!(
+        current, pinned,
+        "T-API: the normalized dependency specification of {} changed (re-pin api/{} with CF_API_OUT after review)",
+        crate_dir, pin
+    );
 }
 
 #[test]
 fn t_api_no_features_and_exactly_the_reviewed_dependencies() {
-    let (deps, features) = manifest("crates/editor-proxy-digest");
-    assert!(!features, "T-API: ioi-proxy-digest has no cargo features");
-    assert_eq!(
-        deps,
-        vec!["[dependencies] sha2".to_string()],
-        "T-API: digest dependencies"
-    );
-    let (deps, features) = manifest("crates/editor-proxy-codec");
-    assert!(
-        !features,
-        "T-API: ioi-editor-proxy-ipc has no cargo features (no feature exposes a test encoder)"
-    );
-    assert_eq!(
-        deps,
-        vec!["[dependencies] ioi-proxy-digest".to_string()],
-        "T-API: codec dependencies"
-    );
+    check_manifest_pin("crates/editor-proxy-digest", "ioi-proxy-digest.manifest");
+    check_manifest_pin("crates/editor-proxy-codec", "ioi-editor-proxy-ipc.manifest");
 }
 
 fn all_sources(crate_dir: &str) -> Vec<(String, String)> {
