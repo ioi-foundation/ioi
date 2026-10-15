@@ -6,6 +6,10 @@
 //! The run-scoped token in these tests is a durable issue record in the shape the daemon's run-scoped mint writes
 //! (the daemon's own `run_scoped_model_token_issue_tests` pin that shape against the real mint): the real mint runs
 //! only inside a session execute, whose authority gate needs a wallet.network chain grant.
+//!
+//! The startup sweep's inventory is complete or the daemon does not reach readiness: a token directory, entry or
+//! record that cannot be read stops the start (only a token directory that does not exist is empty); and every field
+//! of an issue record is read, so a record whose TTL or audience is missing, mistyped or inconsistent is refused.
 
 use rand::{rngs::OsRng, RngCore};
 use serde_json::{json, Value};
@@ -138,7 +142,8 @@ fn start_daemon(data_dir: &Path, home: &Path) -> Daemon {
     );
 }
 
-fn try_start_daemon(data_dir: &Path, home: &Path) -> Option<Daemon> {
+/// The daemon process over `data_dir` on a fresh namespace-local port, its output in `data_dir/daemon.log`.
+fn spawn_daemon(data_dir: &Path, home: &Path) -> Daemon {
     let port = free_port();
     let log = data_dir.join("daemon.log");
     let log_file = std::fs::File::create(&log).unwrap();
@@ -160,7 +165,12 @@ fn try_start_daemon(data_dir: &Path, home: &Path) -> Option<Daemon> {
         .stderr(Stdio::from(log_file))
         .spawn()
         .expect("spawn hypervisor-daemon");
-    let mut daemon = Daemon { child, port, log };
+    Daemon { child, port, log }
+}
+
+fn try_start_daemon(data_dir: &Path, home: &Path) -> Option<Daemon> {
+    let mut daemon = spawn_daemon(data_dir, home);
+    let port = daemon.port;
     let deadline = Instant::now() + Duration::from_secs(180);
     loop {
         if daemon.child.try_wait().ok().flatten().is_some() {
@@ -185,6 +195,33 @@ fn try_start_daemon(data_dir: &Path, home: &Path) -> Option<Daemon> {
             Instant::now() < deadline,
             "the daemon did not come up; log:\n{}",
             std::fs::read_to_string(&daemon.log).unwrap_or_default()
+        );
+        std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
+/// A daemon start that must stop before readiness: the process exits without ever listening, and its log says the
+/// startup sweep blocked readiness. Returns the log.
+fn start_expecting_blocked_readiness(data_dir: &Path, home: &Path, case: &str) -> String {
+    let mut daemon = spawn_daemon(data_dir, home);
+    let deadline = Instant::now() + Duration::from_secs(180);
+    loop {
+        let exited = daemon.child.try_wait().ok().flatten().is_some();
+        let log = std::fs::read_to_string(&daemon.log).unwrap_or_default();
+        assert!(
+            !log.contains("hypervisor-daemon listening"),
+            "{case}: readiness was not blocked: the daemon is listening; log:\n{log}"
+        );
+        if exited {
+            assert!(
+                log.contains("run-scoped model token revocation blocks readiness"),
+                "{case}: the startup sweep is what stopped the daemon; log:\n{log}"
+            );
+            return log;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "{case}: the daemon neither exited nor listened; log:\n{log}"
         );
         std::thread::sleep(Duration::from_millis(250));
     }
@@ -520,6 +557,184 @@ fn a_requested_expiry_that_is_unreadable_or_past_is_refused_at_create() {
         assert!(
             !text.contains("ioi_mnt_"),
             "no token is returned for a refused create"
+        );
+    }
+}
+
+// Codex #36d r1: the startup sweep's inventory of capability-tokens/ must be complete. A token directory that does
+// not exist is an empty inventory; a directory, an entry or a record that cannot be read keeps the daemon from
+// readiness (it exits before it listens), so a run's token whose record could not be read at startup is never
+// honoured once reading recovers. Permission bits do not make a file unreadable to the namespace root these tests run
+// as, so the failures are made by what the entries are.
+
+#[cfg(unix)]
+#[test]
+fn startup_readiness_stays_blocked_while_the_token_directory_cannot_be_read() {
+    let (_dir, data, home) = fixture();
+    let tokens = data.join("capability-tokens");
+    std::fs::write(&tokens, b"not a directory").unwrap();
+    let log = start_expecting_blocked_readiness(&data, &home, "a file where the directory belongs");
+    assert!(log.contains("stage: \"directory\""), "{log}");
+    std::fs::rename(&tokens, data.join("capability-tokens.aside-file")).unwrap();
+    std::os::unix::fs::symlink(data.join("no-such-dir"), &tokens).unwrap();
+    let log = start_expecting_blocked_readiness(&data, &home, "a symlink to nothing in its place");
+    assert!(log.contains("stage: \"directory\""), "{log}");
+    // Reading recovers: the real directory, holding a run's token, is read and the sweep revokes the token.
+    std::fs::rename(&tokens, data.join("capability-tokens.aside-link")).unwrap();
+    let (token, _) = seed_run_scoped_token(&data, "run-scoped-after-directory", now_secs());
+    let daemon = start_daemon(&data, &home);
+    let (status, body) = chat(&daemon, &token);
+    assert_eq!(
+        status, 403,
+        "the run's token is revoked by the sweep: {body}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn startup_readiness_stays_blocked_while_a_token_directory_entry_cannot_be_read() {
+    let (_dir, data, home) = fixture();
+    let (token, _) = seed_run_scoped_token(&data, "run-scoped-entry", now_secs());
+    let tokens = data.join("capability-tokens");
+    let entry = tokens.join("pending.json");
+    std::os::unix::fs::symlink(data.join("no-such-record.json"), &entry).unwrap();
+    let log = start_expecting_blocked_readiness(&data, &home, "an entry that resolves to nothing");
+    assert!(log.contains("stage: \"entry\""), "{log}");
+    std::fs::rename(&entry, tokens.join("pending.aside-link")).unwrap();
+    std::fs::create_dir(&entry).unwrap();
+    let log = start_expecting_blocked_readiness(&data, &home, "a directory with a record's name");
+    assert!(log.contains("stage: \"entry\""), "{log}");
+    // Reading recovers: the entry is moved aside and the sweep revokes the run's token.
+    std::fs::rename(&entry, tokens.join("pending.aside-dir")).unwrap();
+    let daemon = start_daemon(&data, &home);
+    let (status, body) = chat(&daemon, &token);
+    assert_eq!(
+        status, 403,
+        "the run's token is revoked by the sweep: {body}"
+    );
+}
+
+/// Codex's case: the run's OWN record cannot be read while the daemon starts. Without a strict inventory the sweep
+/// passes it over, startup succeeds, and once the record reads again the token authorizes although its run ended
+/// with the earlier process.
+#[cfg(unix)]
+#[test]
+fn startup_readiness_stays_blocked_while_a_token_record_cannot_be_read() {
+    let (_dir, data, home) = fixture();
+    let (token, _) = seed_run_scoped_token(&data, "run-scoped-record", now_secs());
+    let tokens = data.join("capability-tokens");
+    let record = tokens.join("run-scoped-record.json");
+    let held = tokens.join("run-scoped-record.held");
+    std::fs::rename(&record, &held).unwrap();
+    // A regular file whose read fails (EIO: the reading process's own memory at offset 0).
+    std::os::unix::fs::symlink("/proc/self/mem", &record).unwrap();
+    let log = start_expecting_blocked_readiness(&data, &home, "the run's record cannot be read");
+    assert!(log.contains("stage: \"record\""), "{log}");
+    std::fs::rename(&record, tokens.join("run-scoped-record.aside-link")).unwrap();
+    let bytes = std::fs::read(&held).unwrap();
+    std::fs::write(&record, &bytes[..bytes.len() / 2]).unwrap();
+    let log = start_expecting_blocked_readiness(&data, &home, "the run's record is torn");
+    assert!(log.contains("stage: \"record\""), "{log}");
+    // Reading recovers: the whole record is back, and the sweep revokes the token before the listener opens.
+    std::fs::rename(&held, &record).unwrap();
+    let daemon = start_daemon(&data, &home);
+    let (status, body) = chat(&daemon, &token);
+    assert_eq!(
+        status, 403,
+        "a run's token whose record could not be read at an earlier start is never honoured: {body}"
+    );
+}
+
+#[test]
+fn an_absent_token_directory_is_an_empty_inventory_at_startup() {
+    let (_dir, data, home) = fixture();
+    assert!(std::fs::symlink_metadata(data.join("capability-tokens")).is_err());
+    let daemon = start_daemon(&data, &home);
+    let (token, _) = create_route_token(&daemon, None);
+    assert_eq!(logs_status(&daemon, &token), 200, "the daemon serves");
+}
+
+/// Codex #36d r1 (MINOR): every field of the issue record is read. The TTL must be the expiry less the issue instant
+/// (null with no expiry) and the audience null or a name; a record that says otherwise is refused, while the
+/// well-formed controls authorize.
+#[test]
+fn a_token_record_with_a_malformed_issue_record_is_refused() {
+    let (_dir, data, home) = fixture();
+    let issued = now_secs();
+    let authority = json!({
+        "grant_id": "grant://wallet/capability",
+        "audience": "hypervisor-session",
+        "allowed_scopes": ["server.logs:read"],
+        "denied_scopes": [],
+    });
+    let expiring = json!({
+        "schema_version": "ioi.model_mount.capability_token_issue.v1",
+        "issued_at_unix_secs": issued,
+        "expires_at_unix_secs": issued + 3600,
+        "ttl_secs": 3600,
+        "audience": "hypervisor-session",
+        "run_session_ref": null,
+    });
+    let mut lasting = expiring.clone();
+    lasting["expires_at_unix_secs"] = json!(null);
+    lasting["ttl_secs"] = json!(null);
+    let with = |base: &Value, field: &str, value: Value| {
+        let mut issue = base.clone();
+        issue[field] = value;
+        issue
+    };
+    let without = |base: &Value, field: &str| {
+        let mut issue = base.clone();
+        issue.as_object_mut().unwrap().remove(field);
+        issue
+    };
+    let mut seeded = Vec::new();
+    for (label, issue) in [
+        ("well formed, with an expiry", expiring.clone()),
+        ("well formed, no expiry", lasting.clone()),
+        (
+            "a TTL that is not the expiry less the issue instant",
+            with(&expiring, "ttl_secs", json!(60)),
+        ),
+        ("no TTL", without(&expiring, "ttl_secs")),
+        (
+            "a TTL that is not an integer",
+            with(&expiring, "ttl_secs", json!("3600")),
+        ),
+        (
+            "a TTL with no expiry",
+            with(&lasting, "ttl_secs", json!(3600)),
+        ),
+        ("no audience", without(&expiring, "audience")),
+        (
+            "an audience that is not a string",
+            with(&expiring, "audience", json!(7)),
+        ),
+    ] {
+        let (token, token_id) = fresh_token();
+        write_record(
+            &data,
+            &format!("issue-{}", seeded.len()),
+            &token_record(&token_id, &token, authority.clone(), Some(issue)),
+        );
+        seeded.push((label, token));
+    }
+    let daemon = start_daemon(&data, &home);
+    for (label, token) in &seeded {
+        let want = if label.starts_with("well formed") {
+            200
+        } else {
+            403
+        };
+        assert_eq!(
+            logs_status(&daemon, token),
+            want,
+            "{label}: {}",
+            if want == 200 {
+                "the control authorizes"
+            } else {
+                "a malformed issue record is refused"
+            }
         );
     }
 }

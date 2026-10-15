@@ -1310,6 +1310,15 @@ mod tests {
             ("expires_at_unix_secs", json!(T0)),
             ("expires_at_unix_secs", json!(null)),
             ("run_session_ref", json!("")),
+            // The TTL is the expiry less the issue instant, as an integer; the audience is null or a name.
+            ("ttl_secs", json!(59)),
+            ("ttl_secs", json!(61)),
+            ("ttl_secs", json!("60")),
+            ("ttl_secs", json!(60.5)),
+            ("ttl_secs", json!(null)),
+            ("audience", json!(7)),
+            ("audience", json!("")),
+            ("audience", json!(["a"])),
         ] {
             let mut bad = good.clone();
             bad[field] = value.clone();
@@ -1323,12 +1332,210 @@ mod tests {
             "expires_at_unix_secs",
             "run_session_ref",
             "issued_at_unix_secs",
+            "ttl_secs",
+            "audience",
         ] {
             let mut bad = good.clone();
             bad.as_object_mut().unwrap().remove(field);
             assert_eq!(issue_record_from(Some(&bad)), None, "{field} absent");
         }
         assert_eq!(issue_record_from(None), None);
+    }
+
+    /// A route token that requested no expiry: its expiry and TTL are both null and its audience is null or a name;
+    /// any other TTL, or a missing or mistyped field, reads as absent.
+    #[test]
+    fn a_null_expiry_issue_record_needs_a_null_ttl_and_a_typed_audience() {
+        let lasting = json!({
+            "schema_version": CAPABILITY_TOKEN_ISSUE_RECORD_SCHEMA,
+            "issued_at_unix_secs": T0,
+            "expires_at_unix_secs": null,
+            "ttl_secs": null,
+            "audience": null,
+            "run_session_ref": null,
+        });
+        assert_eq!(
+            issue_record_from(Some(&lasting)),
+            Some(IssueRecord {
+                expires_at_unix_secs: None,
+                run_session_ref: None,
+            }),
+            "no expiry, no TTL, no audience: well formed"
+        );
+        let mut named = lasting.clone();
+        named["audience"] = json!("hypervisor-session");
+        assert!(
+            issue_record_from(Some(&named)).is_some(),
+            "a named audience"
+        );
+        for (field, value) in [
+            ("ttl_secs", json!(60)),
+            ("ttl_secs", json!(0)),
+            ("ttl_secs", json!("")),
+            ("audience", json!(false)),
+            ("audience", json!({})),
+        ] {
+            let mut bad = lasting.clone();
+            bad[field] = value.clone();
+            assert_eq!(
+                issue_record_from(Some(&bad)),
+                None,
+                "with no expiry, {field} = {value} must read as absent"
+            );
+        }
+        for field in ["ttl_secs", "audience"] {
+            let mut bad = lasting.clone();
+            bad.as_object_mut().unwrap().remove(field);
+            assert_eq!(
+                issue_record_from(Some(&bad)),
+                None,
+                "with no expiry, {field} absent"
+            );
+        }
+    }
+
+    // Codex #36d r1: the daemon's startup sweep takes its inventory of capability-tokens/ through
+    // unrevoked_run_scoped_token_ids, and that inventory must be complete. Only a token directory that does not exist
+    // is an empty inventory; a directory, an entry or a record that cannot be read is an error (the daemon's readiness
+    // stays blocked on it), never a token passed over. Permission bits do not make a file unreadable to the
+    // namespace root these tests run as, so the failures are made by what the entries are.
+
+    /// A state dir without capability-tokens/.
+    fn bare_state() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "ioi-capability-token-inventory-test-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::SeqCst)
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// A state dir holding one persisted, unrevoked run-scoped token; returns (state, its token id).
+    fn state_with_a_run_token() -> (std::path::PathBuf, String) {
+        let state = scratch_state();
+        let run = run_scoped_create(&state, Some(&rfc3339(T0 + 7200))).expect("a run's token");
+        persist_in(&state, &run);
+        let run_id = run.public_response["token_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            unrevoked_run_scoped_token_ids(&state.to_string_lossy()).unwrap(),
+            vec![run_id.clone()],
+            "the run's token is in the inventory before anything is made unreadable"
+        );
+        (state, run_id)
+    }
+
+    fn assert_inventory_unreadable(state: &Path, stage: &str, case: &str) {
+        let inventory = unrevoked_run_scoped_token_ids(&state.to_string_lossy());
+        let shown = format!("{inventory:?}");
+        assert!(
+            shown.contains("CapabilityTokenInventoryUnreadable")
+                && shown.contains(&format!("stage: {stage:?}")),
+            "{case}: the startup inventory is an error at the {stage} (not a token passed over): {shown}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_startup_inventory_is_an_error_when_the_token_directory_cannot_be_read() {
+        let state = bare_state();
+        fs::write(state.join("capability-tokens"), b"not a directory").unwrap();
+        assert_inventory_unreadable(&state, "directory", "a file where the directory belongs");
+        let state = bare_state();
+        std::os::unix::fs::symlink(state.join("no-such-dir"), state.join("capability-tokens"))
+            .unwrap();
+        assert_inventory_unreadable(&state, "directory", "a symlink to nothing in its place");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_startup_inventory_is_an_error_when_an_entry_cannot_be_read() {
+        let (state, _) = state_with_a_run_token();
+        std::os::unix::fs::symlink(
+            state.join("no-such-record.json"),
+            state.join("capability-tokens").join("pending.json"),
+        )
+        .unwrap();
+        assert_inventory_unreadable(&state, "entry", "an entry that resolves to nothing");
+        let (state, _) = state_with_a_run_token();
+        fs::create_dir(state.join("capability-tokens").join("pending.json")).unwrap();
+        assert_inventory_unreadable(&state, "entry", "a directory with a record's name");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_startup_inventory_is_an_error_when_a_record_cannot_be_read() {
+        let (state, _) = state_with_a_run_token();
+        // A regular file whose read fails (EIO: the reading process's own memory at offset 0).
+        std::os::unix::fs::symlink(
+            "/proc/self/mem",
+            state.join("capability-tokens").join("pending.json"),
+        )
+        .unwrap();
+        assert_inventory_unreadable(&state, "record", "a record whose read fails");
+        let (state, _) = state_with_a_run_token();
+        let whole = serde_json::to_vec(&json!({
+            "operation_kind": "model_mount.capability_token.revoke",
+            "rust_core_boundary": "model_mount.capability_token",
+            "token_id": "capability_token:00112233445566778899aabbccddeeff",
+        }))
+        .unwrap();
+        fs::write(
+            state.join("capability-tokens").join("torn.json"),
+            &whole[..whole.len() / 2],
+        )
+        .unwrap();
+        assert_inventory_unreadable(&state, "record", "a torn record (half its bytes)");
+    }
+
+    #[test]
+    fn the_startup_inventory_needs_a_state_dir() {
+        for state_dir in ["", "  "] {
+            assert_eq!(
+                unrevoked_run_scoped_token_ids(state_dir),
+                Err(ModelMountError::MissingField("state_dir")),
+                "{state_dir:?} names no token directory, so no inventory can be taken"
+            );
+        }
+    }
+
+    #[test]
+    fn an_absent_token_directory_is_an_empty_startup_inventory() {
+        let state = bare_state();
+        assert!(fs::symlink_metadata(state.join("capability-tokens")).is_err());
+        assert_eq!(
+            unrevoked_run_scoped_token_ids(&state.to_string_lossy()),
+            Ok(Vec::new()),
+            "nothing was ever minted here"
+        );
+    }
+
+    /// The strict inventory is the startup sweep's alone: authorize still passes over a record it cannot read, and
+    /// decides the presented token by its own record.
+    #[cfg(unix)]
+    #[test]
+    fn authorize_still_passes_over_a_record_it_cannot_read() {
+        let state = scratch_state();
+        let plan = create_at(&state, Some(T0), Some(&rfc3339(T0 + 60))).expect("create");
+        persist_in(&state, &plan);
+        let tokens = state.join("capability-tokens");
+        fs::write(tokens.join("torn.json"), b"{\"operation_kind\": \"model_mo").unwrap();
+        std::os::unix::fs::symlink("/proc/self/mem", tokens.join("unreadable.json")).unwrap();
+        std::os::unix::fs::symlink(
+            state.join("no-such-record.json"),
+            tokens.join("dangling.json"),
+        )
+        .unwrap();
+        let token = plan.public_response["token"].as_str().unwrap();
+        assert!(
+            authorize_at(&state, token, Some(T0 + 1)).is_ok(),
+            "the token's own record decides"
+        );
     }
 }
 
