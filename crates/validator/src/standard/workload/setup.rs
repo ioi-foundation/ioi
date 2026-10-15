@@ -889,14 +889,29 @@ where
 }
 
 /// The split workload's IPC listen address when `IPC_SERVER_ADDR` holds `env_value` (BUILD-DELTA
-/// #72's interim rule, the IOI Director with HYP, 2026-10-15). Returns the address and, for a bind
-/// the operator must know about, a warning to log. RED (behaviour-preserving): the historical
-/// default, every interface, with no warning.
+/// #72's interim rule, the IOI Director with HYP, 2026-10-15). Unset: loopback only, because the
+/// workload IPC is plaintext and unauthenticated until #72 lands. An explicit value is kept; a
+/// non-loopback one comes back with a warning for the operator naming #72.
 pub fn resolve_ipc_server_addr(env_value: Option<String>) -> (String, Option<String>) {
-    (
-        env_value.unwrap_or_else(|| "0.0.0.0:8555".to_string()),
-        None,
-    )
+    let Some(addr) = env_value else {
+        return ("127.0.0.1:8555".to_string(), None);
+    };
+    let host = addr
+        .rsplit_once(':')
+        .map(|(host, _port)| host)
+        .unwrap_or(addr.as_str())
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    let loopback = host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback());
+    let warning = (!loopback).then(|| {
+        format!(
+            "workload IPC bound to {addr}, beyond loopback: the IPC is unauthenticated until BUILD-DELTA #72 lands; restrict access to this address"
+        )
+    });
+    (addr, warning)
 }
 
 #[cfg(test)]
