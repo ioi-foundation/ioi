@@ -926,3 +926,109 @@ fn t_api_pin_reads_table_form_dependencies() {
         "T-API: a feature added in a [dependencies.sha2] table changes the pinned specification"
     );
 }
+
+// ---- the pins see INSIDE inline modules and read QUOTED target-table headers (Codex #85 U1 r2 MAJOR 1)
+//
+// As above: one textual change to a copy of the real source or manifest (or two changes compared), and the listing
+// must change.
+
+#[test]
+fn t_api_pin_detects_a_changed_constant_inside_an_inline_module() {
+    let changed = edited(
+        CODEC,
+        "fuzz_support.rs",
+        "    pub const NOP: u8 = 0x00;",
+        "    pub const NOP: u16 = 0x00;",
+    );
+    assert_ne!(
+        interface_of(&changed),
+        interface(CODEC),
+        "T-API: a changed type of a public constant inside an inline module (fuzz_support::op::NOP) changes the listing"
+    );
+}
+
+#[test]
+fn t_api_pin_detects_an_added_declaration_inside_a_private_module() {
+    let changed = edited(
+        CODEC,
+        "wire.rs",
+        "    pub trait Sealed {}",
+        "    pub trait Sealed {}\n    /// Added.\n    pub struct Leak;",
+    );
+    assert_ne!(
+        interface_of(&changed),
+        interface(CODEC),
+        "T-API: a public declaration added inside a private inline module (wire::sealed) changes the listing"
+    );
+}
+
+#[test]
+fn t_api_pin_reads_nested_inline_modules() {
+    let nested = |value: &str| {
+        edited(
+            CODEC,
+            "fuzz_support.rs",
+            "    pub const NOP: u8 = 0x00;",
+            &format!(
+                "    pub const NOP: u8 = 0x00;\n    /// Added.\n    pub mod inner {{\n        /// Added.\n        pub const X: u8 = {};\n    }}",
+                value
+            ),
+        )
+    };
+    assert_ne!(
+        interface_of(&nested("1")),
+        interface_of(&nested("2")),
+        "T-API: a changed constant inside a module nested in an inline module (op::inner::X) changes the listing"
+    );
+}
+
+/// The codec manifest's last line (its [lints.rust] table's only entry).
+const CODEC_LAST_LINE: &str =
+    "unexpected_cfgs = { level = \"warn\", check-cfg = [\"cfg(fuzzing)\"] }";
+
+/// The codec manifest with `tables` appended after its last table ([lints.rust]).
+fn codec_manifest_with(tables: &str) -> String {
+    edited_manifest(
+        CODEC,
+        CODEC_LAST_LINE,
+        &format!("{}\n\n{}", CODEC_LAST_LINE, tables),
+    )
+}
+
+#[test]
+fn t_api_pin_reads_a_quoted_target_table_header() {
+    let linux = |feature: &str| {
+        codec_manifest_with(&format!(
+            "[target.'cfg(target_os = \"linux\")'.dependencies]\nserde = {{ version = \"1\", features = [\"{}\"] }}",
+            feature
+        ))
+    };
+    assert_ne!(
+        manifest_of(&linux("derive")),
+        manifest(CODEC),
+        "T-API: a dependency added under a quoted target-table header ([target.'cfg(target_os = \"linux\")'.dependencies]) changes the pinned specification"
+    );
+    assert_ne!(
+        manifest_of(&linux("derive")),
+        manifest_of(&linux("std")),
+        "T-API: a changed feature of a dependency under a quoted target-table header changes the pinned specification"
+    );
+    assert_eq!(
+        manifest_of(&codec_manifest_with(
+            "[target.'cfg(target_os = \"linux\")'.dependencies.serde]\nversion = \"1\"\nfeatures = [\"derive\"]"
+        )),
+        manifest_of(&linux("derive")),
+        "T-API: the same dependency written as a [target.'cfg(...)'.dependencies.serde] table has the same pinned specification"
+    );
+    let quoted = manifest_of(&codec_manifest_with(
+        "[target.'cfg(target_os = \"a.b#c\")'.dependencies]\nserde = \"1\"",
+    ));
+    assert!(
+        quoted
+            .0
+            .iter()
+            .any(|l| l == "[target.cfg(target_os = \"a.b#c\").dependencies serde]: version=1"),
+        "T-API: a quoted target name is ONE key (its '.' and '#' are inside the quotes): {:?}",
+        quoted.0
+    );
+}
