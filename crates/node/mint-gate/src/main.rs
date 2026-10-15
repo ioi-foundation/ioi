@@ -115,9 +115,10 @@
 //! NOT returned to the client: start_oss_runtime stores it in the daemon's EditorRuntime state and
 //! returns service metadata only; a later expose step passes it upstream to the editor proxy
 //! (bind_editor_proxy, registered), which injects it as the runtime's cookie (the runtime may then
-//! supply that cookie through its served workbench, a separate path). The RUN-SCOPED token (mint_run_scoped_model_token, registered) is
-//! NOT returned to the client: its caller handle_session_execute (a draw-site row) passes it to the
-//! harness's host lane and revokes it when the lane returns.
+//! supply that cookie through its served workbench, a separate path). The RUN-SCOPED token
+//! (mint_run_scoped_model_token, registered) is NOT returned to the client: its caller
+//! handle_session_execute (a draw-site row) passes it to the harness's host lane and revokes it
+//! when the lane returns.
 //!
 //! Usage: `cargo run --locked -p ioi-node-mint-gate [-- --print] [--configs a,b] [--expanded DIR]
 //! [--plan]`. Prints libtest-style lines (`test mint_gate::<check> ... ok|FAILED`). Exit: 0 PASS;
