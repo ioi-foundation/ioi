@@ -179,7 +179,10 @@ fn compute_root_from_commitment_proof(cp: &CommitmentProof) -> Result<Vec<u8>> {
 
 /// The height an IBC query or commitment root is served at: the caller's height, or else the
 /// latest COMMITTED (Agentgres-admitted) height, never the durable status, which counts signed but
-/// uncommitted blocks (FU-N11-DURABLE-STATUS-1 D2a, C5).
+/// uncommitted blocks (FU-N11-DURABLE-STATUS-1 D2a, C5). Since D2a RED-4 the anchor resolution
+/// below runs `ioi_api::chain::committed_query_anchor`, which inlines this same rule, so only this
+/// crate's tests still call it.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) async fn resolve_query_height(
     client: &(dyn WorkloadClientApi + '_),
     height: Option<u64>,
@@ -195,22 +198,14 @@ pub(crate) async fn resolve_query_height(
 /// COMMITTED tip's root as the workload's admitted-tip marker holds it, never a re-read of the
 /// block stored at that height. Before any admission (no tip) and for an explicit height, the
 /// root of the block stored at the resolved height (the committed height 0, genesis, before the
-/// first admission).
+/// first admission). FU-N11-DURABLE-STATUS-1 D2a RED-4: the logic MOVED unchanged to
+/// `ioi_api::chain::committed_query_anchor` (the admitted-index harness reads C5 through it); the
+/// one visible difference is the not-found error's text, now prefixed by ChainError's display.
 pub(crate) async fn resolve_query_anchor(
     client: &(dyn WorkloadClientApi + '_),
     height: Option<u64>,
 ) -> Result<(StateRoot, u64)> {
-    if height.is_none() {
-        if let Some(tip) = client.get_committed_tip().await? {
-            return Ok((StateRoot(tip.state_root), tip.height));
-        }
-    }
-    let query_height = resolve_query_height(client, height).await?;
-    let block = client
-        .get_block_by_height(query_height)
-        .await?
-        .ok_or_else(|| anyhow!("Block at height {} not found", query_height))?;
-    Ok((block.header.state_root, query_height))
+    Ok(ioi_api::chain::committed_query_anchor(client, height).await?)
 }
 
 pub struct DefaultIbcHost<V: Verifier> {

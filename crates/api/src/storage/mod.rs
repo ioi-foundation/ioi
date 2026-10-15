@@ -46,6 +46,24 @@ pub struct AdmittedTip {
     pub state_root: Vec<u8>,
 }
 
+/// One row of the workload's ADMITTED INDEX (FU-N11-DURABLE-STATUS-1 D2a RED-4 scaffold; the index
+/// replaces the admission-floor fence at GREEN-4): what the Agentgres admission publication
+/// recorded for `height`. Every committed read (the by-height record, the IBC explicit and latest
+/// heights, licence expiry, a trusted root) is served from ONE such record and nothing else. The
+/// index is written once per height, only by the publication; its max entry is the committed tip.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdmittedRecord {
+    /// The admitted block's height.
+    pub height: Height,
+    /// The admitted (certified) block hash.
+    pub block_hash: [u8; 32],
+    /// The admitted block's post-state root.
+    pub state_root: Vec<u8>,
+    /// The admitted header's timestamp (seconds), carried by the record and never re-read from a
+    /// stored block.
+    pub timestamp: u64,
+}
+
 /// Encodes a u64 into a big-endian byte array, suitable for ordered key scans.
 #[inline]
 pub fn be64(x: u64) -> [u8; 8] {
@@ -196,6 +214,24 @@ pub trait NodeStore: Send + Sync {
     fn put_admitted_tip(&self, _tip: &AdmittedTip) -> Result<(), StorageError> {
         Err(StorageError::Backend(
             "this node store keeps no admitted-tip marker".into(),
+        ))
+    }
+
+    /// The ADMITTED INDEX row for `height` (FU-N11-DURABLE-STATUS-1 D2a RED-4 scaffold): what the
+    /// admission publication recorded there, or `None` (not admitted, or above the max entry): a
+    /// committed read then refuses, never falls back to a stored block. The default keeps no
+    /// index and returns `None`, as every store does before GREEN-4.
+    fn get_admitted_record(&self, _height: Height) -> Result<Option<AdmittedRecord>, StorageError> {
+        Ok(None)
+    }
+
+    /// The ADMITTED INDEX's own writer (FU-N11-DURABLE-STATUS-1 D2a RED-4 scaffold): writes one row,
+    /// once per height. A different record at an existing height is refused and the row stays as
+    /// it was; the identical record is an idempotent no-op; no prune or epoch drop removes a row.
+    /// The default keeps no index and refuses every write.
+    fn put_admitted_record(&self, _record: &AdmittedRecord) -> Result<(), StorageError> {
+        Err(StorageError::Backend(
+            "this node store keeps no admitted index".into(),
         ))
     }
 }

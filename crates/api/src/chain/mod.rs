@@ -2,7 +2,7 @@
 //! Defines the core `ChainStateMachine` trait for blockchain state machines.
 
 use crate::app::{Block, ChainStatus, ChainTransaction};
-use crate::storage::AdmittedTip;
+use crate::storage::{AdmittedRecord, AdmittedTip};
 use crate::commitment::CommitmentScheme;
 use crate::consensus::PenaltyMechanism;
 use crate::state::{StateManager, Verifier};
@@ -166,6 +166,14 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         Ok(None)
     }
 
+    /// The workload's ADMITTED INDEX row for `height` (FU-N11-DURABLE-STATUS-1 D2a RED-4 scaffold;
+    /// GREEN-4 serves it over the workload IPC): what the admission publication recorded there.
+    /// `None` when the height is not admitted, or on a client without the committed surface: a
+    /// committed read at that height then refuses, never falls back to a stored block.
+    async fn get_admitted_record(&self, _height: u64) -> Result<Option<AdmittedRecord>, ChainError> {
+        Ok(None)
+    }
+
     /// Records the Agentgres-admitted tip, presenting the workload's admission capability
     /// EXPLICITLY (FU-N11-DURABLE-STATUS-1 D2a round 2, B2). Only the orchestration's privately
     /// owned admitted-tip publisher holds the capability; a shared workload client stores none,
@@ -216,6 +224,35 @@ pub async fn committed_state_root(
             "no block is committed yet: there is no trusted state root".into(),
         )),
     }
+}
+
+/// The state root and height an IBC query or commitment root is served at (C5). MOVED here
+/// unchanged from transport-verifier's `resolve_query_anchor` (with its `resolve_query_height`
+/// inlined) at FU-N11-DURABLE-STATUS-1 D2a RED-4, so the admitted-index harness reads C5 through
+/// the code the IBC host runs; the logic and the order of the reads are unchanged. For "latest",
+/// the committed tip's root as the workload's marker holds it. Before any admission (no tip) and
+/// for an explicit height, the root of the block stored at the resolved height (the committed
+/// height, 0 before the first admission).
+pub async fn committed_query_anchor(
+    client: &(dyn WorkloadClientApi + '_),
+    height: Option<u64>,
+) -> Result<(StateRoot, u64), ChainError> {
+    if height.is_none() {
+        if let Some(tip) = client.get_committed_tip().await? {
+            return Ok((StateRoot(tip.state_root), tip.height));
+        }
+    }
+    let query_height = match height {
+        Some(height) => height,
+        None => client.get_committed_status().await?.height,
+    };
+    let block = client
+        .get_block_by_height(query_height)
+        .await?
+        .ok_or_else(|| {
+            ChainError::Transaction(format!("Block at height {} not found", query_height))
+        })?;
+    Ok((block.header.state_root, query_height))
 }
 
 /// A base trait for a read-only, proof-verifying view of the world state.

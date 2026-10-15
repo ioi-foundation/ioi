@@ -313,6 +313,23 @@ impl AdmittedTipPublisher {
         };
         self.publish(workload, admitted_tip_of(block)?).await
     }
+
+    /// FU-N11-DURABLE-STATUS-1 D2a RED-4 SCAFFOLD, the publisher's ONE operation under the
+    /// admitted index: it publishes the Agentgres ledger's canonical head, which it reads ITSELF
+    /// (or, at GREEN-4, a block reachable from that head by parent_hash). It takes no tip and no
+    /// block from its caller. At RED-4 its body is today's startup reconcile
+    /// (`reconcile_workload_admitted_tip`: the ledger's last admitted block, then `reconcile`);
+    /// nothing in production calls it yet. GREEN-4 makes it the publisher's only operation
+    /// (`publish` and `reconcile` go, and with them every caller-supplied tip).
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) async fn publish_admitted_head(
+        &self,
+        ledger: &tokio::sync::Mutex<RuntimeFinalityCoordinator>,
+        workload: &dyn ioi_api::chain::WorkloadClientApi,
+    ) -> Result<()> {
+        let latest = ledger.lock().await.last_admitted_block()?;
+        self.reconcile(workload, latest.as_ref()).await
+    }
 }
 
 /// The tip Agentgres admission publishes for `block`: its height, admitted hash and state root.

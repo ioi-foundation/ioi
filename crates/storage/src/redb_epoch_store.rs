@@ -1847,3 +1847,9 @@ mod admitted_tip_no_downgrade_tests;
 // fence, reached directly (redb_epoch_store/admitted_tip_txn_fence_tests.rs).
 #[cfg(test)]
 mod admitted_tip_txn_fence_tests;
+
+// FU-N11-DURABLE-STATUS-1 D2a RED-4: the ADMITTED INDEX that replaces the fence: write-once per
+// height (T5), durable across a reopen (T6), and never read from a write in flight (T1 vi/vii)
+// (redb_epoch_store/admitted_index_tests.rs).
+#[cfg(test)]
+mod admitted_index_tests;
