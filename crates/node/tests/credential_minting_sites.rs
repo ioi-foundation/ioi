@@ -355,6 +355,95 @@ fn layer_two_refuses_an_invalid_toolchain_or_cargo_home_by_name() {
     }
 }
 
+/// A cargo home whose cached index holds one entry and whose registry/cache holds ONE entry,
+/// `name`, made by `make` (given the entry's path).
+fn cargo_home_with_one_cached_entry(
+    scratch: &Path,
+    label: &str,
+    name: &str,
+    make: impl FnOnce(&Path),
+) -> String {
+    let home = scratch.join(label);
+    let index = home.join("registry/index/some-index/.cache/so");
+    std::fs::create_dir_all(&index).expect("an index dir");
+    std::fs::write(index.join("some"), "x").expect("an index entry");
+    let cache = home.join("registry/cache/some-index");
+    std::fs::create_dir_all(&cache).expect("a cache dir");
+    make(&cache.join(name));
+    home.to_str().expect("a UTF-8 temp path").to_string()
+}
+
+/// Only a REGULAR file in registry/cache counts as a `.crate` file (Codex batch-4 delta r1's
+/// MINOR: the count matched any entry by its NAME, so a cargo home holding no crate archive passed
+/// it, and the OK line reported the entry as a checked `.crate` file). `make` puts an entry that
+/// is no regular file at the path it is given; preflight must refuse that cargo home BY NAME
+/// (exit 3), as it refuses one with no crate file at all. The control is the same cargo home with
+/// a regular file of that name, which passes the count, so the entry's type alone decides.
+fn refuses_a_crate_entry_that_is_no_regular_file(case: &str, name: &str, make: impl FnOnce(&Path)) {
+    let home = tempfile::tempdir().expect("a fresh HOME");
+    let scratch = tempfile::tempdir().expect("a scratch dir");
+    let toolchain = caller_toolchain();
+
+    let control = cargo_home_with_one_cached_entry(scratch.path(), "control", name, |path| {
+        std::fs::write(path, "a crate archive").expect("a regular crate file")
+    });
+    let (code, stdout) = preflight(
+        home.path(),
+        &[
+            ("EXP_TOOLCHAIN", toolchain.as_str()),
+            ("CARGO_HOME", control.as_str()),
+        ],
+    );
+    assert!(
+        code == Some(0) && stdout.contains(" and 1 .crate files in registry/cache;"),
+        "the control, a regular file named {name}, passes the count: {stdout}"
+    );
+
+    let cargo_home = cargo_home_with_one_cached_entry(scratch.path(), "case", name, make);
+    refused(
+        case,
+        preflight(
+            home.path(),
+            &[
+                ("EXP_TOOLCHAIN", toolchain.as_str()),
+                ("CARGO_HOME", cargo_home.as_str()),
+            ],
+        ),
+        &format!(
+            "CARGO_HOME={cargo_home} holds no offline registry: registry/cache holds no .crate file"
+        ),
+    );
+}
+
+/// A DIRECTORY named x.crate is no crate file: a cargo home whose registry/cache holds only it is
+/// refused by name (exit 3).
+#[test]
+fn layer_two_refuses_a_cargo_home_whose_only_crate_is_a_directory_by_name() {
+    refuses_a_crate_entry_that_is_no_regular_file(
+        "a cargo home whose only .crate entry is a directory",
+        "x.crate",
+        |path| std::fs::create_dir(path).expect("a directory named x.crate"),
+    );
+}
+
+/// A DANGLING SYMLINK named y.crate is no crate file: a cargo home whose registry/cache holds only
+/// it is refused by name (exit 3).
+#[test]
+fn layer_two_refuses_a_cargo_home_whose_only_crate_is_a_dangling_symlink_by_name() {
+    refuses_a_crate_entry_that_is_no_regular_file(
+        "a cargo home whose only .crate entry is a dangling symlink",
+        "y.crate",
+        |path| {
+            let target = path.with_file_name("absent-target.crate");
+            std::os::unix::fs::symlink(&target, path).expect("a symlink named y.crate");
+            assert!(
+                !target.exists() && path.symlink_metadata().is_ok() && !path.exists(),
+                "y.crate is a dangling symlink"
+            );
+        },
+    );
+}
+
 /// The scan never reaches a fallback for its two inputs, and with both passed, resolved from this
 /// test's own environment before HOME is replaced, its preflight runs under a FRESH, EMPTY HOME and
 /// leaves it empty: its toolchain is EXP_TOOLCHAIN's and its registry CARGO_HOME's. The OK line
