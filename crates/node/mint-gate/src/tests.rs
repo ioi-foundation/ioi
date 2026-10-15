@@ -468,6 +468,133 @@ fn every_sink_kind_makes_a_hand_out_candidate() {
     assert_eq!(ret, "return@3", "{ret}");
 }
 
+// ---- Codex batch-3 r7 (BUILD-DELTA #36): a draw handed out through `?` as an error, and a `&mut` parameter reached
+// through more than three reborrows (the Hypervisor Director's ruling "Codex batch-3 r7 (review-a at 223d39b32) = FAIL",
+// RULED (1)) ----
+
+const R7_SOURCE: &str = r#"
+fn via_question_mark() -> Result<(), String> {
+    Err::<(), String>(uuid::Uuid::new_v4().to_string())?;
+    Ok(())
+}
+fn through_reborrows(out: &mut String) {
+    let a = out;
+    let b = a;
+    let c = b;
+    let d = c;
+    *d = uuid::Uuid::new_v4().to_string();
+}
+fn through_six_reborrows(out: &mut String) {
+    let a = &mut *out;
+    let b = a;
+    let c = &mut *b;
+    let d = c;
+    let e = d;
+    let f = &mut *e;
+    f.push_str(&uuid::Uuid::new_v4().to_string());
+}
+fn via_map_err() -> Result<u8, String> {
+    let fresh = uuid::Uuid::new_v4().to_string();
+    "7".parse::<u8>().map_err(|_| fresh.clone())?;
+    Ok(0)
+}
+fn via_a_tracked_local() -> Result<(), String> {
+    let held: Result<(), String> = Err(uuid::Uuid::new_v4().to_string());
+    held?;
+    Ok(())
+}
+fn via_a_callee_error() -> Result<(), String> {
+    let fresh = uuid::Uuid::new_v4().to_string();
+    check(&fresh)?;
+    Ok(())
+}
+fn via_the_ok_half() -> Result<(), String> {
+    let id = Ok::<_, String>(uuid::Uuid::new_v4())?;
+    let _ = id;
+    Ok(())
+}
+fn inside_a_closure() -> Result<(), String> {
+    let run = || -> Result<(), String> {
+        Err(uuid::Uuid::new_v4().to_string())?;
+        Ok(())
+    };
+    let _ = run();
+    Ok(())
+}
+fn oscillating(out: &mut String, shared: &std::sync::Mutex<String>) {
+    let a = out;
+    let b = shared;
+    let a = b;
+    let b = a;
+    *b = uuid::Uuid::new_v4().to_string();
+}
+"#;
+
+fn r7_found() -> BTreeMap<String, handouts::Sinks> {
+    let parsed = SourceFile::parse("r7.rs", R7_SOURCE.to_string()).expect("parse");
+    let holders = fixture_holders(&parsed, R7_SOURCE);
+    assert_eq!(holders.len(), 9, "{holders:?}");
+    reconcile_file(&parsed, &holders).expect("reconcile")
+}
+
+#[test]
+fn a_draw_handed_out_as_an_error_through_question_mark_is_a_return_sink() {
+    // Codex r7 MAJOR (a), as written: the draw reaches the caller as the `Err` that `?` returns.
+    let found = r7_found();
+    assert_eq!(
+        found.get("fn via_question_mark").map(handouts::render),
+        Some("return@3".to_string()),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_mut_parameter_reached_through_four_or_more_reborrows_is_a_mut_parameter_sink() {
+    // Codex r7 MAJOR (b), as written (four reborrows), and six through `&mut *` reborrows: alias discovery runs to a
+    // fixpoint, not three passes.
+    let found = r7_found();
+    assert_eq!(
+        found.get("fn through_reborrows").map(handouts::render),
+        Some("&mut parameter@11".to_string()),
+        "{found:?}"
+    );
+    assert_eq!(
+        found.get("fn through_six_reborrows").map(handouts::render),
+        Some("&mut parameter@20".to_string()),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn question_mark_and_alias_discovery_keep_their_named_bounds() {
+    let found = r7_found();
+    let kinds = |item: &str| found.get(item).map(handouts::kinds);
+    // An error the function builds from the drawn value: an error adapter's argument, a tracked local.
+    assert_eq!(
+        found.get("fn via_map_err").map(handouts::render),
+        Some("closure capture@24; return@24".to_string()),
+        "{found:?}"
+    );
+    assert_eq!(
+        found.get("fn via_a_tracked_local").map(handouts::render),
+        Some("return@29".to_string()),
+        "{found:?}"
+    );
+    // Named limits: a callee's error is the callee's; `?` unwrapping the Ok half hands nothing out; a `?` inside a
+    // closure leaves the closure, not the function.
+    assert_eq!(kinds("fn via_a_callee_error"), None, "{found:?}");
+    assert_eq!(kinds("fn via_the_ok_half"), None, "{found:?}");
+    assert_eq!(kinds("fn inside_a_closure"), None, "{found:?}");
+    // Alias discovery that does not reach a fixpoint within the function's binding bound is not guessed: the holder
+    // is unanalyzed, a candidate until reviewed.
+    assert!(
+        found
+            .get("fn oscillating")
+            .is_some_and(|s| s.contains_key(handouts::UNANALYZED)),
+        "{found:?}"
+    );
+}
+
 #[test]
 fn a_holder_that_is_not_a_function_is_reviewed_as_it_is() {
     assert_eq!(handouts::item_sinks("use rand::RngCore", 3), None);

@@ -1,15 +1,23 @@
 //! THE HAND-OUT RECONCILE (BUILD-DELTA #36; Codex batch-3 r6 MAJOR 3, the Hypervisor Director's ruling
 //! (3) and the IOI Director's amendment (1): hand-out SINKS, not only return values). An own function
 //! whose body holds a REPORTED draw (layer 1: a deny-list use at its call site; layer 2: a primitive
-//! in its expansion) and lets the drawn value reach a SINK is a CANDIDATE hand-out: every caller would
-//! use a draw without naming a deny-list entry. The gate FAILS on a candidate that is neither
-//! registered (hand-outs.tsv and an own clippy.toml entry, so its callers are sites) nor excluded
-//! with its reason (DEPENDENCY-REVIEW.md, by its exact sink kinds).
+//! in its expansion) and in which THIS SYNTACTIC ANALYSIS sees the drawn value reach a SINK is a
+//! CANDIDATE hand-out: every caller would use a draw without naming a deny-list entry. The gate FAILS
+//! on a candidate that is neither registered (hand-outs.tsv and an own clippy.toml entry, so its
+//! callers are sites) nor excluded with its reason (DEPENDENCY-REVIEW.md, by its exact sink kinds).
+//! It is NOT a completeness proof: it sees what its rules below model, under the NAMED LIMITS, and
+//! no flow class it does not model (completeness is BUILD-DELTA #42's; main.rs states the claim).
 //!
 //! The SINKS, decided from the function's own syntax (`syn`; the compiler decided what is
 //! production code and where the draw is):
 //! - `return`: the function's value (its tail, through blocks, `if`, `match`, `async` blocks and
-//!   closures, or a `return` outside a closure) carries the drawn value;
+//!   closures, or a `return` outside a closure) carries the drawn value, or a `?` outside a closure
+//!   returns an ERROR that carries it (Codex batch-3 r7 MAJOR (a)): an error the function builds,
+//!   `Err(..)` of a tracked value, a tracked argument of an error adapter (`map_err`, `ok_or`,
+//!   `ok_or_else`, `or`, `or_else`, `context`, `with_context`, `wrap_err`, `wrap_err_with`,
+//!   `and_then`; a closure argument by what it captures or a draw inside it), the receiver's error
+//!   through an adapter that keeps it (`map`, `inspect`, `as_ref`, `cloned`, ...), or a tracked
+//!   local or place (its error or its value: over-approximated);
 //! - `&mut parameter`: it is written into a place rooted at a `&mut` parameter (`&mut self`
 //!   included), passed to a method of one, or a draw fills one;
 //! - `non-local write`: it is written into, or passed to a WRITE method of, a place rooted outside
@@ -25,13 +33,23 @@
 //! `let`, an assignment, a `for`, `if let`, `while let` or `match` pattern binds from a tracked
 //! value, every local a draw or a tracked call fills through `&mut`, and every local a method with a
 //! tracked argument is called on. This over-approximates (a candidate is reviewed, not assumed).
-//! NAMED LIMITS (sink kinds this cannot see; stated in the gate's header claim): a CALLEE that
-//! stores a value passed to it (one level: only the function holding the draw is read); I/O (a
-//! file, a socket, a child process, a log line, a database behind its own method name outside the
-//! write verbs); unsafe raw-pointer writes; shared state reached through a handle a call returns
-//! (`let h = registry(); h.insert(v)`) or through a method outside the interior-mutability list
-//! (`let mut slot = STATE.lock().map_err(..)?; *slot = v` reads `slot` as a local);
-//! the inside of a macro other than `write!`/`writeln!` (its arguments are read as tokens).
+//! ALIASES (a local bound from a place rooted outside the locals points into it, through any number
+//! of reborrows) are discovered to a FIXPOINT (Codex batch-3 r7 MAJOR (b)): each pass follows one
+//! more binding, so N bound names settle within N passes and pass N + 1 confirms it; a function whose
+//! aliases still change then (a name re-bound in a cycle of differently rooted places) is not
+//! guessed: it is an `unanalyzed item`, a candidate until reviewed.
+//! NAMED LIMITS (flows this cannot see; stated in the gate's header claim): a CALLEE that stores a
+//! value passed to it (one level: only the function holding the draw is read), or returns it in the
+//! error `?` propagates (a call's error, or a method's outside the error adapters, is the callee's);
+//! I/O (a file, a socket, a child process, a log line, a database behind its own method name
+//! outside the write verbs); unsafe raw-pointer writes; shared state reached through a handle a
+//! call returns (`let h = registry(); h.insert(v)`) or through a method outside the
+//! interior-mutability list (`let mut slot = STATE.lock().map_err(..)?; *slot = v` reads `slot` as
+//! a local); the inside of a macro other than `write!`/`writeln!` (its arguments are read as
+//! tokens); a `return` or a `?` inside a closure or an `async` block (it leaves the closure, whose
+//! value is read from its tail and its captures only); a name bound from several places takes the
+//! class of its last discovered NON-LOCAL alias binding in source order (one class per name; a
+//! later local rebinding does not clear it: a conservative over-approximation).
 
 use crate::source::range;
 use proc_macro2::{LineColumn, TokenStream, TokenTree};
@@ -145,6 +163,33 @@ const WRITE_VERBS: &[&str] = &[
     "register",
     "write_all",
     "entry",
+];
+
+/// Error adapters whose argument becomes the error `?` returns (the receiver's is replaced).
+const ERROR_REPLACE: &[&str] = &["map_err", "ok_or", "ok_or_else", "or", "or_else"];
+
+/// Error adapters that keep the receiver's error and may add their argument to it.
+const ERROR_ADD: &[&str] = &[
+    "context",
+    "with_context",
+    "wrap_err",
+    "wrap_err_with",
+    "and_then",
+];
+
+/// Adapters whose result keeps the receiver's error unchanged.
+const ERROR_KEEP: &[&str] = &[
+    "map",
+    "inspect",
+    "inspect_err",
+    "as_ref",
+    "as_mut",
+    "as_deref",
+    "as_deref_mut",
+    "cloned",
+    "copied",
+    "clone",
+    "flatten",
 ];
 
 /// By-value parameter types that are handles to shared state.
@@ -397,17 +442,30 @@ pub fn analyze(sig: &syn::Signature, block: &syn::Block, draws: &[LineColumn]) -
             }
         }
     }
-    // Aliases: a local bound from a place rooted outside the locals points into it.
-    for _ in 0..3 {
+    // Aliases: a local bound from a place rooted outside the locals points into it. To a FIXPOINT
+    // (Codex batch-3 r7 MAJOR (b)), bounded by the function's bound names: N names settle within N
+    // passes, the next confirms; still changing after N + 1 passes is unanalyzed, not guessed.
+    let limit = collect.bound.len() + 1;
+    let mut settled = false;
+    for _ in 0..limit {
         let mut aliases = Aliases {
             a: &a,
             found: Vec::new(),
         };
         aliases.visit_block(block);
-        let found = aliases.found;
-        for (name, class) in found {
-            a.alias.insert(name, class);
+        let mut next = a.alias.clone();
+        for (name, class) in aliases.found {
+            next.insert(name, class);
         }
+        if next == a.alias {
+            settled = true;
+            break;
+        }
+        a.alias = next;
+    }
+    if !settled {
+        let line = draws.iter().map(|d| d.line).min().unwrap_or(0);
+        a.sink(UNANALYZED, line);
     }
     // Track to a fixpoint, then record the sinks with the final tracking.
     let pre_sinks = a.sinks.clone();
@@ -664,6 +722,96 @@ impl Analysis<'_> {
             other => self.tokens_tracked(&other.to_token_stream()),
         }
     }
+
+    /// Does the ERROR that `?` returns from this operand carry the drawn value (Codex batch-3 r7
+    /// MAJOR (a))? An error the function builds: `Err(..)` of a tracked value, an error adapter's
+    /// tracked argument, the receiver's error through an adapter that keeps it, or a tracked local
+    /// or place (either half: over-approximated). A call's error, and a method's outside the error
+    /// adapters, is its callee's (a named limit).
+    fn err(&self, e: &Expr) -> bool {
+        match e {
+            Expr::Call(c) => {
+                let is_err = matches!(
+                    &*c.func,
+                    Expr::Path(p) if p.path.segments.last().is_some_and(|s| s.ident == "Err")
+                );
+                is_err && c.args.iter().any(|a| self.t(a))
+            }
+            Expr::MethodCall(m) => {
+                let name = m.method.to_string();
+                let name = name.as_str();
+                let argument = m.args.iter().any(|a| self.carries(a));
+                (ERROR_REPLACE.contains(&name) && argument)
+                    || (ERROR_ADD.contains(&name) && (argument || self.err(&m.receiver)))
+                    || (ERROR_KEEP.contains(&name) && self.err(&m.receiver))
+            }
+            Expr::Await(a) => self.err(&a.base),
+            Expr::Paren(p) => self.err(&p.expr),
+            Expr::Group(g) => self.err(&g.expr),
+            Expr::Block(b) => self.block_err(&b.block),
+            Expr::Unsafe(b) => self.block_err(&b.block),
+            Expr::Async(b) => self.block_err(&b.block),
+            Expr::If(i) => {
+                self.block_err(&i.then_branch)
+                    || i.else_branch.as_ref().is_some_and(|(_, e)| self.err(e))
+            }
+            Expr::Match(m) => m.arms.iter().any(|arm| self.err(&arm.body)),
+            other => self.t(other),
+        }
+    }
+
+    /// The error of a block's value.
+    fn block_err(&self, block: &syn::Block) -> bool {
+        match block.stmts.last() {
+            Some(Stmt::Expr(e, None)) => self.err(e),
+            _ => self.block_value(block),
+        }
+    }
+
+    /// Does an error adapter's argument carry the drawn value? A closure by what it captures or a
+    /// draw inside it (its own parameters are its inputs, the original error or value); anything
+    /// else by its value.
+    fn carries(&self, arg: &Expr) -> bool {
+        match arg {
+            Expr::Closure(c) => {
+                self.captures_tracked(Some(&c.inputs), &c.body) || self.seeded(&c.body)
+            }
+            other => self.t(other),
+        }
+    }
+
+    /// Does an expression hold a reported draw?
+    fn seeded(&self, e: &Expr) -> bool {
+        struct Seeded<'x, 'y> {
+            a: &'x Analysis<'y>,
+            hit: bool,
+        }
+        impl<'ast> Visit<'ast> for Seeded<'_, '_> {
+            fn visit_item(&mut self, _: &'ast syn::Item) {}
+            fn visit_expr(&mut self, node: &'ast Expr) {
+                if self.a.seeds.contains(&ptr(node)) {
+                    self.hit = true;
+                }
+                syn::visit::visit_expr(self, node);
+            }
+            fn visit_stmt_macro(&mut self, node: &'ast syn::StmtMacro) {
+                if self
+                    .a
+                    .macro_seeds
+                    .contains(&(node as *const syn::StmtMacro as usize))
+                {
+                    self.hit = true;
+                }
+                syn::visit::visit_stmt_macro(self, node);
+            }
+        }
+        let mut seeded = Seeded {
+            a: self,
+            hit: false,
+        };
+        seeded.visit_expr(e);
+        seeded.hit
+    }
 }
 
 struct Pass<'a, 'b> {
@@ -837,6 +985,12 @@ impl<'ast> Visit<'ast> for Pass<'_, '_> {
                     && self.a.returns_value
                     && r.expr.as_ref().is_some_and(|e| self.a.t(e))
                 {
+                    self.a.sink(RETURN, line());
+                }
+            }
+            // `?` returns its operand's error to the caller (Codex batch-3 r7 MAJOR (a)).
+            Expr::Try(t) => {
+                if self.depth == 0 && self.a.returns_value && self.a.err(&t.expr) {
                     self.a.sink(RETURN, line());
                 }
             }
