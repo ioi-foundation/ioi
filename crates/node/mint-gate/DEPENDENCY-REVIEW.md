@@ -202,11 +202,27 @@ exclusion or a registration that is no longer derived. A `-` file is a layer-2-o
 a production caller of a route-table-only handler, or the first caller of a no-caller function, re-opens its row by
 review, not by the gate (a named limit of the gate's claim).
 
+### Re-opened 2026-10-15: the `?` error sink and the alias fixpoint (Codex batch-3 r7)
+
+Codex batch-3 r7 (MAJOR; the Hypervisor Director's ruling "Codex batch-3 r7 (review-a at 223d39b32) = FAIL", RULED (1))
+found two flows the reconcile derived no sink for: a draw handed to the caller as the error `?` returns, and a write
+through a `&mut` parameter reached through more than three reborrows. src/handouts.rs now makes a `?` outside a closure
+whose operand's ERROR carries the drawn value a `return` sink, and runs alias discovery to a fixpoint (bounded by the
+function's bound names; a function that does not settle is an `unanalyzed item`). The candidate set at the head moved
+in exactly five rows and in no new candidate (a differential preview of the old and the fixed reconcile over every
+registered holder, its positions approximated from the source and checked to reproduce ticket t4's printed candidates
+166 of 166; local, not a record): two EXCLUDED rows gained a `return` sink, re-pinned here with their reasons unchanged
+(`fn async_main` of the hypervisor daemon: `server.await??`; `stage_and_start_model_proxy`: `tar?`); three rows kept
+their sink kinds and only gained lines (`build_export_bundle` and `IntentResolver::resolve_intent`, excluded;
+`firewall_receipt_keys::mint_key`, registered). No registration changed. The gate's claim is QUALIFIED in main.rs (RULED
+(2)): an inventory of the registered chains plus this syntactic analysis's candidates under its named limits, not a
+completeness proof (BUILD-DELTA #42's).
+
 <!-- reconcile-exclusions begin -->
 | file | item | sinks | reason |
 |---|---|---|---|
 | crates/node/src/bin/guardian.rs | fn main | closure capture | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
-| crates/node/src/bin/hypervisor-daemon.rs | fn async_main | closure capture | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
+| crates/node/src/bin/hypervisor-daemon.rs | fn async_main | closure capture,return | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows; its return sink (Codex batch-3 r7 (a): `server.await??`) is the accept loop's join or serve error |
 | crates/node/src/bin/hypervisor-daemon.rs | fn authorize | closure capture | closure captures consumed in place: the closure or async block runs inside the call and its value is not handed out |
 | crates/node/src/bin/hypervisor-daemon.rs | fn handle_token_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
 | crates/node/src/bin/hypervisor-daemon.rs | fn handle_token_revoke | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
@@ -257,7 +273,7 @@ review, not by the gate (a named limit of the gate's claim).
 | crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs | fn handle_backup_import | closure capture,return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
 | crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs | fn handle_mrun_acquire_lease | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
 | crates/node/src/bin/hypervisor_daemon_routes/microvm.rs | fn hostile_guest_proposal_roundtrip | closure capture,return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
-| crates/node/src/bin/hypervisor_daemon_routes/microvm.rs | fn stage_and_start_model_proxy | closure capture | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
+| crates/node/src/bin/hypervisor_daemon_routes/microvm.rs | fn stage_and_start_model_proxy | closure capture,return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret; its return sink (Codex batch-3 r7 (a): `tar?`) is the staging copy's I/O error |
 | crates/node/src/bin/hypervisor_daemon_routes/microvm.rs | impl HostileGuestRoundtripDir > fn create | return | temporary-path uniqueness: the draw names a temporary file, directory or socket the call uses itself, not an id or a secret |
 | crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs | fn handle_model_route_credential_bind | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
 | crates/node/src/bin/hypervisor_daemon_routes/operations_support_routes.rs | fn handle_incident_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |

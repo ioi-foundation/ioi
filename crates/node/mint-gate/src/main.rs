@@ -30,9 +30,11 @@
 //! - A registered credential MINT (mints.tsv) pins the digest of its REGION: the smallest
 //!   expression, statement or block of the minting function holding its reported draws and its
 //!   prefixed literals, so a change to how the credential is built from its draw re-opens review.
-//! - THE HAND-OUT RECONCILE (handouts.rs; Codex batch-3 r6 MAJOR 3): every own function holding a
-//!   reported draw whose drawn value reaches a SINK (a return value, a `&mut` parameter, a write to
-//!   a non-local place, a channel send, a static, a closure capture) is a CANDIDATE hand-out; each is
+//! - THE HAND-OUT RECONCILE (handouts.rs; Codex batch-3 r6 MAJOR 3 and r7): every own function
+//!   holding a reported draw in which THIS SYNTACTIC ANALYSIS sees the drawn value reach a SINK (a
+//!   return value, including an error `?` returns; a `&mut` parameter, through any number of
+//!   reborrows; a write to a non-local place; a channel send; a static; a closure capture) is a
+//!   CANDIDATE hand-out, under the analysis's named limits (THE CLAIM below); each is
 //!   registered in hand-outs.tsv (an own deny-list entry, so its callers are sites, iterated to a
 //!   fixpoint) or excluded with its reason and its exact sink kinds in DEPENDENCY-REVIEW.md, or the
 //!   gate fails. A registered row that is no longer derived, and an exclusion whose sinks changed or
@@ -56,9 +58,14 @@
 //! the compiler's own text (expanded.rs), compared with expanded-sites.tsv both ways, with the same
 //! canary checks.
 //!
-//! THE CLAIM, NARROWED (the Hypervisor Director's ruling "Codex batch-3 r6 (review-a at 8c2a99613) =
-//! FAIL" and the IOI Director's 2026-10-14 amendments (1)-(3)). This gate is an INVENTORY of the
-//! REGISTERED surface plus the MECHANICALLY DERIVED candidates; it is not a closed guarantee.
+//! THE CLAIM, QUALIFIED (the Hypervisor Director's rulings "Codex batch-3 r6 (review-a at
+//! 8c2a99613) = FAIL" and "Codex batch-3 r7 (review-a at 223d39b32) = FAIL" RULED (2), and the IOI
+//! Director's amendments). This gate is an INVENTORY; it is NOT A COMPLETENESS PROOF. The registry
+//! covers the REGISTERED CHAINS plus the hand-out candidates that THIS SYNTACTIC ANALYSIS
+//! (handouts.rs) derives, under its NAMED LIMITS: the flows the reconcile does not model and its
+//! name-based tracking (disclosed to Codex batch-3 r7 as D20), a layer-2-only holder's missing sink
+//! analysis (D21), the EXCLUDED-CALLER limit, and ANY OTHER FLOW CLASS THE ANALYSIS DOES NOT MODEL.
+//! Completeness is BUILD-DELTA #42's (the closed guarantee, below).
 //! COVERED, in every pinned configuration: (a) every production use of a deny-list entry: the
 //! reviewed dependency randomness APIs (DEPENDENCY-REVIEW.md, re-opened by deps.pin on any change of
 //! a dependency, a feature, a resolved feature, a feature selection or a forward, and by
@@ -67,17 +74,23 @@
 //! sites, to a fixpoint) or excluded with its reviewed reason; (c) each registered mint's region;
 //! (d) layer 2's mint formats and primitives in the expanded production source.
 //! NOT COVERED, each named:
-//! - sink kinds the reconcile cannot see: a CALLEE that stores a value passed to it (only the
-//!   function holding the draw is read); I/O (a file, a socket, a child process, a log line, a store
-//!   behind a method name outside its write verbs); unsafe raw-pointer writes; shared state reached
-//!   through a handle a call returns, or through a method outside its interior-mutability list (a
+//! - (D20) flows the reconcile does not model: a CALLEE that stores a value passed to it, or
+//!   returns it in the error `?` propagates (only the function holding the draw is read; a call's
+//!   error is the callee's); I/O (a file, a socket, a child process, a log line, a store behind a
+//!   method name outside its write verbs); unsafe raw-pointer writes; shared state reached through a
+//!   handle a call returns, or through a method outside its interior-mutability list (a
 //!   `lock().map_err(..)?` guard written through is read as a local); the inside of a macro other
-//!   than `write!`/`writeln!`. Its tracking is by NAME and flow-insensitive: it over-approximates,
-//!   and every over-approximated candidate is reviewed, not assumed;
-//! - a layer-2-only draw holder gets no sink analysis (it is a candidate until reviewed);
-//! - an EXCLUDED candidate's callers are never sites: an exclusion's reason is reviewed once, so a
-//!   new caller of an excluded function (a production caller of a route-table-only handler, the
-//!   first caller of a no-caller function) does not re-open it;
+//!   than `write!`/`writeln!`; a `return` or a `?` inside a closure or an `async` block (it leaves
+//!   the closure). Its tracking is by NAME and flow-insensitive (a name bound from several places
+//!   takes its last binding's class): it over-approximates, and every over-approximated candidate
+//!   is reviewed, not assumed;
+//! - (D21) a layer-2-only draw holder gets no sink analysis (it is a candidate until reviewed);
+//! - (the EXCLUDED-CALLER limit) an EXCLUDED candidate's callers are never sites: an exclusion's
+//!   reason is reviewed once, so a new caller of an excluded function (a production caller of a
+//!   route-table-only handler, the first caller of a no-caller function) does not re-open it;
+//! - ANY OTHER FLOW CLASS this syntactic analysis does not model: such a flow, found outside the
+//!   registered chains and these limits, is an acceptance case for BUILD-DELTA #42 (the IOI
+//!   Director's stopping rule for this review loop, 2026-10-15);
 //! - a randomness API of a dependency that the review missed is not a site until the review lists
 //!   it (the review re-opens on every dependency change); a dependency's INTERNAL draws (TLS
 //!   handshakes, hash-map seeds, `select!` fairness) are that dependency's code;
@@ -91,6 +104,16 @@
 //! THE CLOSED GUARANTEE is BUILD-DELTA #42 (bearer secrets enforced at the TYPE level: a bearer type
 //! whose only constructor draws from the OS RNG, so a derived bearer fails to compile), a NAMED
 //! POST-SITTING UNIT (S1; AMENDED 2026-10-14).
+//! SITTING COVERAGE (corrected after Codex batch-3 r7's NOTE): each minting site the sitting relies
+//! on is a registered chain whose callers are draw-site rows. The model-mount token
+//! (capability_token_control::plan_capability_token_control, a pinned ioi_mnt_ mint, forwarded by
+//! the registered ModelMountCore::plan_capability_token_control), the lease bearers
+//! (issue_bearer_capability_lease, a pinned ioi_lease_ mint, registered) and the editor and preview
+//! tokens (start_oss_runtime, a pinned mint, registered; bind_editor_proxy, registered; the editor
+//! and preview access leases through issue_bearer_capability_lease) end at the route handler that
+//! returns them to the client. The RUN-SCOPED token (mint_run_scoped_model_token, registered) is
+//! NOT returned to the client: its caller handle_session_execute (a draw-site row) passes it to the
+//! harness's host lane and revokes it when the lane returns.
 //!
 //! Usage: `cargo run --locked -p ioi-node-mint-gate [-- --print] [--configs a,b] [--expanded DIR]
 //! [--plan]`. Prints libtest-style lines (`test mint_gate::<check> ... ok|FAILED`). Exit: 0 PASS;
