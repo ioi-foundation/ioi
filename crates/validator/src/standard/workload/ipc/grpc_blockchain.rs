@@ -1575,3 +1575,7 @@ where
         }))
     }
 }
+
+// FU-N11-DURABLE-STATUS-1 D2a round 2, RED-3b: the no-downgrade condition on the fence (grpc_blockchain/admitted_tip_no_downgrade_tests.rs).
+#[cfg(test)]
+mod admitted_tip_no_downgrade_tests;

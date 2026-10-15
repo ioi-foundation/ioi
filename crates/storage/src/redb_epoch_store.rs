@@ -1579,3 +1579,7 @@ mod admitted_tip_tests {
             .expect("the tip over the stored block it names");
     }
 }
+
+// FU-N11-DURABLE-STATUS-1 D2a round 2, RED-3b: the no-downgrade condition at the block store (redb_epoch_store/admitted_tip_no_downgrade_tests.rs).
+#[cfg(test)]
+mod admitted_tip_no_downgrade_tests;
