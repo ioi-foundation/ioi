@@ -1,0 +1,30 @@
+{
+  "modules": 133,
+  "familyMentions": 313,
+  "tokenMentions": 145902,
+  "judgedTokenPositions": 299,
+  "productionWriterCalls": {
+    "family": 57,
+    "nonFamilyLiteral": 241,
+    "runtimeParameter": 294
+  },
+  "productionFsCalls": 258,
+  "unadjudicable": {
+    "foreign-qualified": 5094,
+    "opaque-initialiser": 3084,
+    "bare-undeclared": 555,
+    "ambiguous-module": 0,
+    "not-a-visible-const": 0,
+    "resolution-cycle": 0
+  },
+  "includes": {
+    "splicedCode": 0,
+    "dataStr": 80,
+    "dataBytes": 0,
+    "dataOpaqueArg": 12
+  },
+  "compileAssembly": {
+    "production": 0,
+    "test": 14
+  }
+}
