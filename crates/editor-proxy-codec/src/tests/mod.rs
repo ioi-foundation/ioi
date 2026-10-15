@@ -9,6 +9,7 @@
 //! - T-D2P (pure: descriptor facts and closure on rejection): `d2p.rs`.
 //! - T-EVENT and T-CANDIDATES (U1's part): `events.rs`.
 //! - the stable corpus replay and the named fuzz seeds: `replay.rs`.
+//! - T-SHAPE (the ADMIT digest-count limits by purpose and mode, Codex r1 MAJOR 1): `shape.rs`.
 
 mod canonical;
 mod d2p;
@@ -19,4 +20,5 @@ mod latch;
 mod limits;
 mod replay;
 mod session;
+mod shape;
 mod support;
