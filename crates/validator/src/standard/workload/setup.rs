@@ -887,3 +887,58 @@ where
 
     Ok((_workload_container, _machine_arc))
 }
+
+/// The split workload's IPC listen address when `IPC_SERVER_ADDR` holds `env_value` (BUILD-DELTA
+/// #72's interim rule, the IOI Director with HYP, 2026-10-15). Returns the address and, for a bind
+/// the operator must know about, a warning to log. RED (behaviour-preserving): the historical
+/// default, every interface, with no warning.
+pub fn resolve_ipc_server_addr(env_value: Option<String>) -> (String, Option<String>) {
+    (
+        env_value.unwrap_or_else(|| "0.0.0.0:8555".to_string()),
+        None,
+    )
+}
+
+#[cfg(test)]
+mod ipc_server_addr_tests {
+    use super::resolve_ipc_server_addr;
+
+    /// BUILD-DELTA #72 interim rule: with IPC_SERVER_ADDR unset the split workload binds loopback
+    /// only (its IPC is unauthenticated until #72 lands).
+    #[test]
+    fn an_unset_ipc_server_addr_binds_loopback() {
+        // RED #72: fails before the fix because the default is 0.0.0.0:8555 (every interface)
+        assert_eq!(resolve_ipc_server_addr(None).0, "127.0.0.1:8555");
+        assert_eq!(resolve_ipc_server_addr(None).1, None);
+    }
+
+    /// An explicit non-loopback bind is kept, and the operator is warned, by name, that the IPC
+    /// is unauthenticated until BUILD-DELTA #72.
+    #[test]
+    fn an_explicit_non_loopback_bind_is_kept_with_a_build_delta_72_warning() {
+        // RED #72: fails before the fix because no warning is produced
+        for value in ["0.0.0.0:8555", "10.1.2.3:9000", "[::]:8555"] {
+            let (addr, warning) = resolve_ipc_server_addr(Some(value.to_string()));
+            assert_eq!(addr, value, "an explicit setting is kept");
+            let warning = warning.expect("a non-loopback bind is warned about");
+            assert!(warning.contains("BUILD-DELTA #72"), "{warning}");
+        }
+    }
+
+    /// An explicit loopback bind (IPv4 or IPv6) is kept without a warning.
+    #[test]
+    fn an_explicit_loopback_bind_is_kept_without_a_warning() {
+        for value in [
+            "127.0.0.1:8555",
+            "127.0.0.1:9001",
+            "[::1]:8555",
+            "localhost:8555",
+        ] {
+            assert_eq!(
+                resolve_ipc_server_addr(Some(value.to_string())),
+                (value.to_string(), None),
+                "{value}"
+            );
+        }
+    }
+}
