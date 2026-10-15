@@ -50,9 +50,11 @@ pub(crate) fn test_encode_d2p(message: &InboundD2p) -> Vec<u8> {
     }
 }
 
-/// Every accepted P2D shape: READY, ADMIT n = 0..=8 for both purposes and several ids with
-/// arbitrary digest blocks, EVENT for every code at boundary counts.
-pub(crate) fn p2d_frames() -> Vec<Vec<u8>> {
+/// Every P2D shape the corpus builder covers: READY, ADMIT n = 0..=8 for both purposes and several
+/// ids with arbitrary digest blocks, EVENT for every code at boundary counts. A lease exchange
+/// with n >= 2 is among them but is NOT accepted (T-SHAPE: TooManyDigests); [`p2d_frames`] is the
+/// accepted subset.
+pub(crate) fn p2d_shapes() -> Vec<Vec<u8>> {
     let mut rng = Rng(0x85_c0de);
     let mut out = std::vec![ready_bytes()];
     for purpose in [1u8, 2] {
@@ -75,6 +77,21 @@ pub(crate) fn p2d_frames() -> Vec<Vec<u8>> {
         }
     }
     out
+}
+
+/// True for an ADMIT frame whose shape no mode accepts: a lease exchange with n >= 2 (DESIGN v2
+/// (3): it carries only its form token).
+pub(crate) fn is_refused_exchange_shape(frame: &[u8]) -> bool {
+    frame.len() >= 14 && frame[3] == crate::wire::KIND_ADMIT && frame[12] == 2 && frame[13] >= 2
+}
+
+/// Every ACCEPTED P2D shape: [`p2d_shapes`] without the lease exchanges above one digest (ADMIT
+/// n = 0..=8 forward, n = 0..=1 lease exchange).
+pub(crate) fn p2d_frames() -> Vec<Vec<u8>> {
+    p2d_shapes()
+        .into_iter()
+        .filter(|frame| !is_refused_exchange_shape(frame))
+        .collect()
 }
 
 /// Every accepted D2P shape: WELCOME in the three configurations at boundary ports with several

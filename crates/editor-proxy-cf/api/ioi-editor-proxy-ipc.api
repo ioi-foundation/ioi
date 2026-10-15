@@ -254,6 +254,7 @@ types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 types.rs: pub enum Purpose {
 types.rs: impl Purpose {
 types.rs: pub const fn wire(self) -> u8 {
+types.rs: pub const fn max_digests(self, mode: ModeKind) -> usize {
 types.rs: #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 types.rs: pub enum EventCode {
 types.rs: impl EventCode {

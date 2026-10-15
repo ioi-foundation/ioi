@@ -413,8 +413,8 @@ impl<H> DaemonSession<H> {
         if !legal {
             return self.refuse(IpcRefusal::OutOfOrder);
         }
-        // Row 6.
-        let message = match wire::decode_p2d_body(kind, body) {
+        // Row 6 (an ADMIT's digest count against its purpose's limit in this session's mode).
+        let message = match wire::decode_p2d_body(kind, body, self.mode) {
             Ok(message) => message,
             Err(code) => return self.refuse(code),
         };

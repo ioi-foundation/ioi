@@ -5,7 +5,8 @@ use ioi_proxy_digest::Sha256Digest;
 
 /// More than eight lease-token candidate occurrences in one request: the proxy answers the HTTP
 /// request with a fixed typed 400, sends NO ADMIT, makes no connector attempt, echoes no token,
-/// and closes the connection. The ninth candidate is never truncated away.
+/// and closes the connection. The ninth candidate is never truncated away. Outbound construction
+/// returns it too for a lease exchange with more than its one form token.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct TooManyLeaseCandidates;
 

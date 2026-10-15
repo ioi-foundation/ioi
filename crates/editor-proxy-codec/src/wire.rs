@@ -4,7 +4,7 @@
 //! | Direction/kind | Body | Total |
 //! |---|---|---|
 //! | P2D 0x01 READY | empty | 8 |
-//! | P2D 0x02 ADMIT | conn:u32, purpose:u8, n:u8 (0..=8), n x 32 bytes | 14+32n <= 270 |
+//! | P2D 0x02 ADMIT | conn:u32, purpose:u8, n:u8 (0..=8; at most 1 for a lease exchange or in static mode), n x 32 bytes | 14+32n <= 270 |
 //! | P2D 0x03 EVENT | conn:u32 (=0), code:u16 (1..=12), count:u32 (>=1) | 18 |
 //! | D2P 0x81 WELCOME | mode:u8, upstream:u8, public_port:u16, host_label:[u8;16], has_token:u8, token:[u8;64] | 93, one listener fd |
 //! | D2P 0x82 VERDICT | conn:u32, outcome:u8 | 13, one fd iff outcome=1 |
@@ -171,8 +171,9 @@ pub enum InboundP2d {
     Event(InboundEvent),
 }
 
-/// A decoded ADMIT: an id, a purpose and 0..=8 compare-only digests. No digest is retained after
-/// the lease comparison (the pending map stores only the id, purpose and deadline).
+/// A decoded ADMIT: an id, a purpose and 0..=8 compare-only digests (at most 1 for a lease
+/// exchange or in static mode). No digest is retained after the lease comparison (the pending map
+/// stores only the id, purpose and deadline).
 pub struct InboundAdmit {
     pub(crate) id: AdmissionId,
     pub(crate) purpose: Purpose,
@@ -271,8 +272,14 @@ impl InboundWelcome {
 }
 
 /// Precedence row 6 for P2D: the kind's minimum body (else LengthMismatch without reading
-/// fields), then the fields in wire order, then the exact body length.
-pub(crate) fn decode_p2d_body(kind: u8, body: &[u8]) -> Result<InboundP2d, IpcRefusal> {
+/// fields), then the fields in wire order, then the exact body length. ADMIT's `n` is checked
+/// against its purpose's limit in `mode` ([`Purpose::max_digests`]; without a mode, the stateless
+/// decoder's [`Purpose::max_digests_any_mode`]: 8 forward, 1 lease exchange).
+pub(crate) fn decode_p2d_body(
+    kind: u8,
+    body: &[u8],
+    mode: Option<ModeKind>,
+) -> Result<InboundP2d, IpcRefusal> {
     match kind {
         KIND_READY => {
             if !body.is_empty() {
@@ -290,7 +297,11 @@ pub(crate) fn decode_p2d_body(kind: u8, body: &[u8]) -> Result<InboundP2d, IpcRe
                 None => return Err(IpcRefusal::BadPurpose),
             };
             let n = body[5] as usize;
-            if n > MAX_DIGESTS {
+            let limit = match mode {
+                Some(mode) => purpose.max_digests(mode),
+                None => purpose.max_digests_any_mode(),
+            };
+            if n > limit {
                 return Err(IpcRefusal::TooManyDigests);
             }
             if body.len() != ADMIT_MIN_BODY + 32 * n {
@@ -402,11 +413,12 @@ pub(crate) fn decode_d2p_body(kind: u8, body: &[u8]) -> Result<InboundD2p, IpcRe
     }
 }
 
-/// The STATELESS P2D decoder: precedence rows 3, 4 and 6 (no ancillary, phase or id rules; the
-/// [`crate::DaemonSession`] applies all eight rows).
+/// The STATELESS P2D decoder: precedence rows 3, 4 and 6 (no ancillary, phase or id rules, and
+/// no serving mode: a lease exchange carries at most 1 digest, a forward admission at most 8; the
+/// [`crate::DaemonSession`] applies all eight rows and its mode's limit).
 pub fn decode_p2d(frame: &[u8]) -> Result<InboundP2d, IpcRefusal> {
     let (kind, body) = parse_header(frame, false, is_p2d_kind)?;
-    decode_p2d_body(kind, body)
+    decode_p2d_body(kind, body, None)
 }
 
 /// The STATELESS D2P decoder: precedence rows 3, 4 and 6 (no descriptors; the
@@ -567,7 +579,9 @@ impl<'a, H> D2pRecv<'a, H> {
 // ------------------------------------------------------------------------------------------------
 
 /// An ADMIT the proxy will send: a purpose and 0..=8 HASH-ONLY digests (built only from
-/// [`Sha256Digest`]s). The admission id is assigned by the [`crate::ProxySession`] actor.
+/// [`Sha256Digest`]s; a lease exchange carries at most its one form token, on every construction
+/// path). The admission id is assigned by the [`crate::ProxySession`] actor, whose prepare also
+/// refuses a static-mode admission with more than one digest (TooManyDigests).
 #[derive(Clone)]
 pub struct OutboundAdmit {
     purpose: Purpose,
@@ -576,7 +590,8 @@ pub struct OutboundAdmit {
 }
 
 impl OutboundAdmit {
-    /// An ADMIT of `purpose` carrying `digests` (at most 8, else the request is refused before IPC).
+    /// An ADMIT of `purpose` carrying `digests`: at most 8 for a forward admission and at most 1
+    /// (the form token) for a lease exchange, else it is refused here, before IPC.
     pub fn new(
         purpose: Purpose,
         digests: &[Sha256Digest],
@@ -618,7 +633,7 @@ impl OutboundAdmit {
         n: usize,
         digest: impl Fn(usize) -> [u8; 32],
     ) -> Result<OutboundAdmit, TooManyLeaseCandidates> {
-        if n > MAX_DIGESTS {
+        if n > purpose.max_digests_any_mode() {
             return Err(TooManyLeaseCandidates);
         }
         let mut digests = [[0u8; 32]; MAX_DIGESTS];

@@ -4,7 +4,9 @@
 //! deterministic bounded random run holds the invariants. `IPC_SEED_OUT=<dir>` writes the seeds
 //! to <dir>/<target>/ instead of comparing (how the committed corpus was produced).
 
-use super::canonical::{d2p_frames, p2d_frames, test_encode_d2p, test_encode_p2d};
+use super::canonical::{
+    d2p_frames, is_refused_exchange_shape, p2d_shapes, test_encode_d2p, test_encode_p2d,
+};
 use super::support::*;
 use crate::fuzz_support::op;
 use crate::{decode_d2p, decode_p2d, IpcRefusal, ProxyPhase};
@@ -509,14 +511,20 @@ fn proxy_combo(mode: u8, purpose: u8, outcome: u8, fds: u8) -> Option<IpcRefusal
 
 fn p2d_decode_seeds() -> Vec<(String, Vec<u8>)> {
     let mut out = Vec::new();
-    for (i, frame) in p2d_frames()
+    for (i, frame) in p2d_shapes()
         .into_iter()
         .enumerate()
         .filter(|(i, _)| i % 5 == 0)
     {
+        // A lease exchange with n >= 2 is refused (T-SHAPE); its seed is named for that.
+        let class = if is_refused_exchange_shape(&frame) {
+            "refuse-exchange"
+        } else {
+            "valid"
+        };
         for selector in [0u8, 2, 3] {
             out.push((
-                std::format!("valid-{}-s{}", i, selector),
+                std::format!("{}-{}-s{}", class, i, selector),
                 cat(&[&[selector], &frame]),
             ));
         }

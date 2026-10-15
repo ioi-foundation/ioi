@@ -54,7 +54,9 @@ pub enum IpcRefusal {
     // ---- row 6: body fields, in wire order ----
     /// ADMIT purpose not 1 or 2.
     BadPurpose,
-    /// ADMIT digest count above 8.
+    /// ADMIT digest count above its purpose's limit in the session's mode: 8 for a forward
+    /// admission in a forward mode; 1 for a lease exchange (its form token only) or a static-mode
+    /// admission (its selected token only).
     TooManyDigests,
     /// EVENT conn not 0.
     BadEventConnection,

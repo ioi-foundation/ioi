@@ -410,7 +410,8 @@ pub fn run_p2d_decode(data: &[u8]) {
     let stateless = decode_p2d(frame);
     if let Ok(InboundP2d::Admit(admit)) = &stateless {
         assert!(
-            admit.presented().len() <= 8 && frame.len() <= MAX_FRAME,
+            admit.presented().len() <= admit.purpose().max_digests_any_mode()
+                && frame.len() <= MAX_FRAME,
             "INVARIANT decode: an accepted ADMIT exceeds its bounds"
         );
     }
@@ -451,7 +452,8 @@ pub fn run_p2d_decode(data: &[u8]) {
 }
 
 /// Proxy phase by selector: 0 AwaitWelcome; 1/2/3 Active (TCP/UNIX/static) with admissions 1 and
-/// 2 (forward) and 3 (lease exchange) pending.
+/// 2 (forward; admission 2 carries 2 digests, or 1 in static mode, T-SHAPE) and 3 (lease
+/// exchange) pending.
 fn proxy_in(selector: u8, pool: &Pool) -> (ProxySession<Handle>, ModeKind) {
     match selector % 4 {
         0 => (proxy_awaiting_welcome(), ModeKind::Static),
@@ -459,7 +461,8 @@ fn proxy_in(selector: u8, pool: &Pool) -> (ProxySession<Handle>, ModeKind) {
             let mode = mode_for(s - 1);
             let mut p = proxy_active(pool, mode);
             let _ = proxy_send_admit(&mut p, Purpose::Forward, 1);
-            let _ = proxy_send_admit(&mut p, Purpose::Forward, 2);
+            let second = if mode == ModeKind::Static { 1 } else { 2 };
+            let _ = proxy_send_admit(&mut p, Purpose::Forward, second);
             let _ = proxy_send_admit(&mut p, Purpose::LeaseExchange, 1);
             (p, mode)
         }
@@ -688,7 +691,17 @@ impl World {
                 }
                 DaemonStep::Teardown => self.d_done = true,
                 DaemonStep::Terminal => panic!("INVARIANT latch: daemon Terminal before terminal"),
-                DaemonStep::Admit(_) => self.report.admits += 1,
+                DaemonStep::Admit(admit) => {
+                    let mode = self.d.test_only_mode().unwrap_or(ModeKind::Static);
+                    assert!(
+                        admit.presented().len() <= admit.purpose().max_digests(mode),
+                        "INVARIANT shape: the daemon admitted {} digests for {:?} in {:?}",
+                        admit.presented().len(),
+                        admit.purpose(),
+                        mode
+                    );
+                    self.report.admits += 1;
+                }
                 DaemonStep::VerdictSent(_) => self.report.verdicts_sent += 1,
                 DaemonStep::Persist(records) => {
                     assert!(

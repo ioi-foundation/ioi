@@ -1,5 +1,7 @@
 //! The protocol's small closed value types.
 
+use crate::wire::MAX_DIGESTS;
+
 /// An ADMISSION OPERATION's id (not a TCP connection: one browser connection can perform several
 /// admissions). The proxy actor allocates them from 1, strictly increasing, never reused or
 /// wrapped; [`u32::MAX`] is usable once. Ids are not secrets: `from_raw` exists for adapters and
@@ -42,6 +44,27 @@ impl Purpose {
             1 => Some(Purpose::Forward),
             2 => Some(Purpose::LeaseExchange),
             _ => None,
+        }
+    }
+
+    /// The most digests one ADMIT of this purpose may carry in `mode` (DESIGN v2 (3)): a forward
+    /// admission in a forward mode carries every counted header/cookie candidate (8); a lease
+    /// exchange carries ONLY its submitted form token, and a static-mode admission ONLY its
+    /// selected token (1). More refuses TooManyDigests (precedence row 6) in both sessions.
+    pub const fn max_digests(self, mode: ModeKind) -> usize {
+        match (self, mode) {
+            (Purpose::Forward, ModeKind::ForwardTcp | ModeKind::ForwardUnix) => MAX_DIGESTS,
+            _ => 1,
+        }
+    }
+
+    /// The limit without a serving mode (outbound construction and the stateless decoder): 8 for
+    /// a forward admission, 1 for a lease exchange in every mode. The sessions apply
+    /// [`Purpose::max_digests`] for their mode.
+    pub(crate) const fn max_digests_any_mode(self) -> usize {
+        match self {
+            Purpose::Forward => MAX_DIGESTS,
+            Purpose::LeaseExchange => 1,
         }
     }
 }

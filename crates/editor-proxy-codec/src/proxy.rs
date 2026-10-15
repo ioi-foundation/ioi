@@ -468,8 +468,23 @@ impl<H> ProxySession<H> {
         ProxyStep::Send(op)
     }
 
+    /// The typed builder's rules before send, in precedence order: row 5 (not Active, a send in
+    /// progress), row 6 (the digest count against its purpose's limit in this session's mode: a
+    /// static-mode admission carries at most its one selected token), then row 8 (exhaustion,
+    /// capacity, rate). Each failure latches.
     fn on_prepare_admit(&mut self, admit: OutboundAdmit) -> ProxyStep<H> {
-        if let Err(blocked) = self.can_prepare_admit() {
+        let blocked = self.can_prepare_admit().err();
+        if matches!(
+            blocked,
+            Some(AdmitBlocked::NotActive | AdmitBlocked::SendInProgress)
+        ) {
+            return self.refuse(IpcRefusal::OutOfOrder);
+        }
+        let mode = self.mode.unwrap_or(ModeKind::Static);
+        if admit.digest_count() > admit.purpose().max_digests(mode) {
+            return self.refuse(IpcRefusal::TooManyDigests);
+        }
+        if let Some(blocked) = blocked {
             return self.refuse(match blocked {
                 AdmitBlocked::NotActive | AdmitBlocked::SendInProgress => IpcRefusal::OutOfOrder,
                 AdmitBlocked::Exhausted => IpcRefusal::ConnExhausted,

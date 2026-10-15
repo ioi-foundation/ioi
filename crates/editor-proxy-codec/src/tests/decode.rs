@@ -159,7 +159,7 @@ fn t_decode_p2d_body_rows_in_wire_order() {
         "count u32::MAX is valid"
     );
     assert!(
-        p2d_err(&admit_bytes(0, 2, &[[0; 32]; 8])).is_none(),
+        p2d_err(&admit_bytes(0, 1, &[[0; 32]; 8])).is_none(),
         "id 0 decodes (row 8 refuses)"
     );
 }
