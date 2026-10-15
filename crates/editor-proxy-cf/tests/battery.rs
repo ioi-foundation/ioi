@@ -442,40 +442,7 @@ impl Env {
                 .arg(format!("{}={}", crate_name, path.display()));
         }
         let output = command.output().expect("SETUP_ERROR: rustc did not start");
-        let mut errors = Vec::new();
-        for line in String::from_utf8_lossy(&output.stderr).lines() {
-            let Ok(diag) = serde_json::from_str::<Value>(line) else {
-                continue;
-            };
-            if diag["level"] != "error" {
-                continue;
-            }
-            let message = diag["message"].as_str().unwrap_or("").to_string();
-            if message.starts_with("aborting due to") {
-                continue;
-            }
-            let code = diag["code"]["code"].as_str().map(|c| c.to_string());
-            let mut lines = Vec::new();
-            if let Some(spans) = diag["spans"].as_array() {
-                for span in spans.iter().filter(|s| s["is_primary"] == true) {
-                    let mut current = span;
-                    loop {
-                        if let Some(line) = current["line_start"].as_u64() {
-                            lines.push(line);
-                        }
-                        if current["expansion"].is_null() {
-                            break;
-                        }
-                        current = &current["expansion"]["span"];
-                    }
-                }
-            }
-            errors.push(Error {
-                code,
-                lines,
-                message,
-            });
-        }
+        let mut errors = parse_errors(&String::from_utf8_lossy(&output.stderr));
         if errors.is_empty() && !output.status.success() {
             errors.push(Error {
                 code: None,
@@ -547,6 +514,45 @@ impl Env {
         }
         Ok(out.join("libioi_editor_proxy_ipc.rmeta"))
     }
+}
+
+/// The `error` diagnostics of rustc's JSON stderr.
+fn parse_errors(stderr: &str) -> Vec<Error> {
+    let mut errors = Vec::new();
+    for line in stderr.lines() {
+        let Ok(diag) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        if diag["level"] != "error" {
+            continue;
+        }
+        let message = diag["message"].as_str().unwrap_or("").to_string();
+        if message.starts_with("aborting due to") {
+            continue;
+        }
+        let code = diag["code"]["code"].as_str().map(|c| c.to_string());
+        let mut lines = Vec::new();
+        if let Some(spans) = diag["spans"].as_array() {
+            for span in spans.iter().filter(|s| s["is_primary"] == true) {
+                let mut current = span;
+                loop {
+                    if let Some(line) = current["line_start"].as_u64() {
+                        lines.push(line);
+                    }
+                    if current["expansion"].is_null() {
+                        break;
+                    }
+                    current = &current["expansion"]["span"];
+                }
+            }
+        }
+        errors.push(Error {
+            code,
+            lines,
+            message,
+        });
+    }
+    errors
 }
 
 fn first(errors: &[Error]) -> String {
@@ -633,7 +639,7 @@ enum Outcome {
     SetupError(String),
 }
 
-fn judge_negative(fixture: &Fixture, errors: &[Error], marker: u64) -> Outcome {
+fn judge_negative(fixture: &Fixture, errors: &[Error], _file: &Path, marker: u64) -> Outcome {
     if errors.is_empty() {
         return Outcome::AssertionFail(
             "the negative COMPILED against production: the restriction is missing".to_string(),
@@ -709,7 +715,7 @@ fn run_battery(
             &production.list(env),
             false,
         );
-        let verdict = judge_negative(fixture, &errors, marker);
+        let verdict = judge_negative(fixture, &errors, &path, marker);
         println!(
             "CF {} NEGATIVE {:?} (want {} at line {}; got {})",
             fixture.id,
@@ -890,4 +896,121 @@ fn compile_fail_battery() {
     };
     assert_eq!(results.len(), expected, "every fixture ran");
     println!("CF BATTERY OK");
+}
+
+// ---- the negative judge is file-aware and validates EVERY diagnostic (Codex #85 U1 r1 MINOR 4) ----
+
+/// One synthetic rustc JSON `error` diagnostic of `code`, with its primary span at `file`:`line`
+/// and, if given, one macro expansion site at `site`.
+fn synthetic(code: &str, file: &Path, line: u64, site: Option<(&Path, u64)>) -> String {
+    let expansion = match site {
+        None => Value::Null,
+        Some((site_file, site_line)) => serde_json::json!({
+            "span": {
+                "file_name": site_file.display().to_string(),
+                "line_start": site_line,
+                "line_end": site_line,
+                "is_primary": false,
+                "expansion": null
+            },
+            "macro_decl_name": "format_args!",
+            "def_site_span": null
+        }),
+    };
+    serde_json::json!({
+        "$message_type": "diagnostic",
+        "message": "synthetic",
+        "code": { "code": code, "explanation": null },
+        "level": "error",
+        "spans": [{
+            "file_name": file.display().to_string(),
+            "line_start": line,
+            "line_end": line,
+            "is_primary": true,
+            "expansion": expansion
+        }],
+        "children": [],
+        "rendered": null
+    })
+    .to_string()
+}
+
+/// cf02 (E0277 at its marked operation), its fixture path and its marker line.
+fn cf02() -> (&'static Fixture, PathBuf, u64) {
+    let fixture = FIXTURES.iter().find(|f| f.id == "cf02").expect("cf02");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join(fixture.file);
+    let marker =
+        marker_line(&fs::read_to_string(&path).expect("cf02 text"), "cf02").expect("marker");
+    (fixture, path, marker)
+}
+
+#[test]
+fn t_judge_negative_rejects_a_planted_unrelated_same_code_error() {
+    let (fixture, path, marker) = cf02();
+    let stderr = [
+        synthetic("E0277", &path, marker, None),
+        synthetic("E0277", &path, marker + 2, None),
+    ]
+    .join("\n");
+    let verdict = judge_negative(fixture, &parse_errors(&stderr), &path, marker);
+    assert!(
+        matches!(verdict, Outcome::SetupError(_)),
+        "T-JUDGE: a second, unrelated E0277 elsewhere in the fixture is a SETUP_ERROR, got {:?}",
+        verdict
+    );
+}
+
+#[test]
+fn t_judge_negative_is_file_aware() {
+    let (fixture, path, marker) = cf02();
+    let elsewhere = Path::new("/nonexistent/elsewhere/lib.rs");
+    let stderr = synthetic("E0277", elsewhere, marker, None);
+    let verdict = judge_negative(fixture, &parse_errors(&stderr), &path, marker);
+    assert!(
+        matches!(verdict, Outcome::SetupError(_)),
+        "T-JUDGE: an E0277 at the marker's line number in ANOTHER file is a SETUP_ERROR, got {:?}",
+        verdict
+    );
+}
+
+#[test]
+fn t_judge_negative_accepts_diagnostics_at_the_marked_operation() {
+    let (fixture, path, marker) = cf02();
+    let std_macros = Path::new("/rustc/library/core/src/macros/mod.rs");
+    for (what, stderr) in [
+        (
+            "one error at the operation",
+            synthetic("E0277", &path, marker, None),
+        ),
+        (
+            "two errors, both at the operation (cf03's shape)",
+            [
+                synthetic("E0277", &path, marker, None),
+                synthetic("E0277", &path, marker, None),
+            ]
+            .join("\n"),
+        ),
+        (
+            "a primary span in a std macro whose expansion site is the operation (cf12's shape)",
+            synthetic("E0277", std_macros, 108, Some((&path, marker))),
+        ),
+    ] {
+        let verdict = judge_negative(fixture, &parse_errors(&stderr), &path, marker);
+        assert_eq!(verdict, Outcome::Pass, "control: {}", what);
+    }
+    let verdict = judge_negative(fixture, &parse_errors(""), &path, marker);
+    assert!(
+        matches!(verdict, Outcome::AssertionFail(_)),
+        "control: no error = the restriction is missing"
+    );
+    let stderr = synthetic("E0308", &path, marker, None);
+    assert!(
+        matches!(
+            judge_negative(fixture, &parse_errors(&stderr), &path, marker),
+            Outcome::SetupError(_)
+        ),
+        "control: another code is a SETUP_ERROR"
+    );
 }
