@@ -202,6 +202,10 @@ jobs:
       # ioi-node's binaries and ioi-services over every pinned configuration, compared both ways with
       # crates/node/mint-gate/draw-sites.tsv, the canary counted in every invocation). LAYER 2, the expanded-source scan
       # (crates/node/mint-gate/expanded-scan.sh, the pinned 1.93.1 expanding with RUSTC_BOOTSTRAP), is a required PRE-MERGE step, not run here.
+      # Its caller passes EXP_TOOLCHAIN and CARGO_HOME, resolved BEFORE any HOME is replaced, for example
+      # EXP_TOOLCHAIN="$(rustup run 1.93.1 rustc --print sysroot)". The scan has no host-path fallback and refuses
+      # either one unset, by name. The security regression step above runs its `--preflight` both ways
+      # (credential_minting_sites).
       - name: credential-minting inventory (compiler-resolved)
         if: ${{ !cancelled() && steps.daemon_build.outcome == 'success' }}
         run: cargo run --locked -p ioi-node-mint-gate
