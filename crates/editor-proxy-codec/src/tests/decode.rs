@@ -95,6 +95,13 @@ fn t_decode_header_rows_in_order() {
         Some(LengthMismatch),
         "body_len shorter than the received body"
     );
+    let mut short_len = event_bytes(0, 1, 1);
+    short_len[4] = 9;
+    assert_eq!(
+        p2d_err(&short_len),
+        Some(LengthMismatch),
+        "body_len 9 with a valid 10-byte EVENT body (row 4, not row 6)"
+    );
     // Multidefect pairs: each earlier field wins.
     let both = with_header(with_header(ready.clone(), 0, b'X'), 2, 9);
     assert_eq!(p2d_err(&both), Some(BadMagic), "magic before version");
@@ -300,6 +307,20 @@ fn t_precedence_session_rows_across_layers() {
         step.kind(),
         DaemonStepKind::Refused(AncillaryFromProxy),
         "row 2 first"
+    );
+    // Row 2: a control indication alone (no MSG_CTRUNC) on a valid READY.
+    let mut d = daemon_new();
+    let ready = ready_bytes();
+    let step = d.step(DaemonInput::Recv(P2dRecv {
+        bytes: &ready,
+        msg_trunc: false,
+        msg_ctrunc: false,
+        control_present: true,
+    }));
+    assert_eq!(
+        step.kind(),
+        DaemonStepKind::Refused(AncillaryFromProxy),
+        "row 2: any ancillary indication from the proxy"
     );
     // Row 3 before row 4: MSG_TRUNC with a bad magic.
     let mut d = daemon_new();

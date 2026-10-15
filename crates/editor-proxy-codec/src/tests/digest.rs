@@ -62,6 +62,33 @@ fn t_digest_compare_only_refuses_malformed_stored_configuration() {
     }
 }
 
+/// A non-hex byte whose (masked) value would decode to the SAME byte must still compare false:
+/// 'g' in a high-nibble position whose true nibble is 0 ('g' - 'a' + 10 = 16, and 16 << 4 wraps
+/// to 0 in a u8), so only the bad-digit flag can refuse it.
+#[test]
+fn t_digest_compare_only_refuses_a_non_hex_digit_even_when_it_decodes_to_the_same_byte() {
+    let mut checked = 0;
+    for input in [&b"lease-token"[..], b"x", b"abc", b"valid", b"y"] {
+        let (digest, bytes) = decoded(input);
+        let good = hex(&bytes);
+        for position in (0..64).step_by(2) {
+            if good.as_bytes()[position] != b'0' {
+                continue;
+            }
+            let mut text = good.clone().into_bytes();
+            text[position] = b'g';
+            let text = String::from_utf8(text).expect("ascii");
+            assert!(
+                !digest.matches_stored_hex(&text),
+                "T-DIGEST: 'g' for the high nibble 0 at {} compares false",
+                position
+            );
+            checked += 1;
+        }
+    }
+    assert!(checked > 0, "SETUP: at least one high nibble 0 was found");
+}
+
 #[test]
 fn t_digest_compare_only_refuses_every_single_nibble_difference() {
     let (digest, bytes) = decoded(b"x");

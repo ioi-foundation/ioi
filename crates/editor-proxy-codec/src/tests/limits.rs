@@ -18,6 +18,122 @@ fn admit() -> OutboundAdmit {
     OutboundAdmit::new(Purpose::Forward, &[Sha256Digest::of(b"x")]).expect("one digest")
 }
 
+// ---- the DESIGN v2 constants ---------------------------------------------------------------------
+
+/// The numeric limits and windows DESIGN v2 (2)-(3) fixes (the other tests use the named constants,
+/// so a changed value would otherwise pass them): pending 64, completed FIFO 64, 2000 admissions
+/// per 10 s window, a 5 s startup and 1 s send deadline, 64-frame batches, 512-byte frames, 8
+/// digests, and the event windows (proxy 1 s, daemon 10 s).
+#[test]
+fn t_limits_the_design_constants() {
+    assert_eq!(crate::MAX_PENDING, 64, "pending");
+    assert_eq!(crate::COMPLETED_FIFO, 64, "completed FIFO");
+    assert_eq!(crate::RATE_MAX_ADMITS, 2000, "admissions per window");
+    assert_eq!(RATE_WINDOW_NS, 10_000_000_000, "the admission window");
+    assert_eq!(STARTUP_DEADLINE_NS, 5_000_000_000, "the startup deadline");
+    assert_eq!(SEND_DEADLINE_NS, 1_000_000_000, "the send deadline");
+    assert_eq!(crate::MAX_FRAMES_PER_BATCH, 64, "frames per batch");
+    assert_eq!(crate::MAX_FRAME, 512, "the frame limit incl. the header");
+    assert_eq!(crate::wire::MAX_DIGESTS, 8, "digests per ADMIT");
+    assert_eq!(
+        crate::PROXY_EVENT_WINDOW_NS,
+        1_000_000_000,
+        "the proxy event window"
+    );
+    assert_eq!(
+        crate::DAEMON_EVENT_WINDOW_NS,
+        10_000_000_000,
+        "the daemon event window"
+    );
+}
+
+/// Each actor's rate epoch is its OWN WELCOME activation (DESIGN v2 (2)): with WELCOME at spawn +
+/// 3 s, window 0 lasts until spawn + 13 s on both sides (not spawn + 10 s).
+#[test]
+fn t_limits_the_rate_epoch_is_each_actors_own_welcome_activation() {
+    const LATE: u64 = 3_000_000_000;
+    let pool = Pool::new();
+    let mut d = daemon_new();
+    assert_eq!(drecv_k(&mut d, &ready_bytes()), Dk::RunF0);
+    let _ = d.step(DaemonInput::F0(F0Result::Pass));
+    assert_eq!(d.step(DaemonInput::Tick(T0 + LATE)).kind(), Dk::Idle);
+    let lst = pool.make(listener());
+    let _ = d.step(DaemonInput::PrepareWelcome(
+        welcome_spec(ModeKind::ForwardTcp),
+        lst,
+    ));
+    assert_eq!(dwhole(&mut d), Dk::WelcomeSent);
+    for id in 1..=2000 {
+        assert_eq!(daemon_exchange(&mut d, id), (Dk::Admit, Dk::VerdictSent));
+    }
+    assert_eq!(
+        d.step(DaemonInput::Tick(T0 + RATE_WINDOW_NS)).kind(),
+        Dk::Idle
+    );
+    assert_eq!(
+        drecv_k(&mut d, &admit1(2001)),
+        Dk::Refused(RateExceeded),
+        "T-LIMITS daemon: window 0 runs from WELCOME (spawn + 3 s), not from spawn"
+    );
+    let mut d = daemon_new();
+    let _ = drecv_k(&mut d, &ready_bytes());
+    let _ = d.step(DaemonInput::F0(F0Result::Pass));
+    let _ = d.step(DaemonInput::Tick(T0 + LATE));
+    let lst = pool.make(listener());
+    let _ = d.step(DaemonInput::PrepareWelcome(
+        welcome_spec(ModeKind::ForwardTcp),
+        lst,
+    ));
+    let _ = dwhole(&mut d);
+    for id in 1..=2000 {
+        let _ = daemon_exchange(&mut d, id);
+    }
+    let _ = d.step(DaemonInput::Tick(T0 + LATE + RATE_WINDOW_NS));
+    assert_eq!(
+        drecv_k(&mut d, &admit1(2001)),
+        Dk::Admit,
+        "control: window 1 starts at WELCOME + 10 s"
+    );
+    let mut p = proxy_new();
+    let _ = p.step(ProxyInput::PrepareReady);
+    assert_eq!(pwhole(&mut p), Pk::Idle);
+    assert_eq!(p.step(ProxyInput::Tick(T0 + LATE)).kind(), Pk::Idle);
+    assert_eq!(
+        precv_k(
+            &mut p,
+            &pool,
+            &welcome_for(ModeKind::ForwardTcp),
+            &[listener()]
+        ),
+        Pk::Welcome
+    );
+    for _ in 0..2000 {
+        let id = proxy_send_admit(&mut p, Purpose::Forward, 1).expect("sent");
+        assert_eq!(
+            precv_k(&mut p, &pool, &verdict_bytes(id.get(), 0), &[]),
+            Pk::Verdict
+        );
+    }
+    assert_eq!(
+        p.step(ProxyInput::Tick(T0 + RATE_WINDOW_NS)).kind(),
+        Pk::Idle
+    );
+    assert_eq!(
+        p.can_prepare_admit(),
+        Err(AdmitBlocked::RateLimited),
+        "T-LIMITS proxy: window 0 runs from WELCOME (start + 3 s), not from start"
+    );
+    assert_eq!(
+        p.step(ProxyInput::Tick(T0 + LATE + RATE_WINDOW_NS)).kind(),
+        Pk::Idle
+    );
+    assert_eq!(
+        p.can_prepare_admit(),
+        Ok(()),
+        "control: window 1 at WELCOME + 10 s"
+    );
+}
+
 // ---- T-LIMITS, daemon ----------------------------------------------------------------------------
 
 #[test]
