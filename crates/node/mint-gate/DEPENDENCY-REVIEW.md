@@ -223,7 +223,6 @@ completeness proof (BUILD-DELTA #42's).
 |---|---|---|---|
 | crates/node/src/bin/guardian.rs | fn main | closure capture | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows |
 | crates/node/src/bin/hypervisor-daemon.rs | fn async_main | closure capture,return | binary entry point: no own caller (a bin's main, or the async body its main runs); its draws stay draw-site rows; its return sink (Codex batch-3 r7 (a): `server.await??`) is the accept loop's join or serve error |
-| crates/node/src/bin/hypervisor-daemon.rs | fn authorize | closure capture | closure captures consumed in place: the closure or async block runs inside the call and its value is not handed out |
 | crates/node/src/bin/hypervisor-daemon.rs | fn handle_token_create | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
 | crates/node/src/bin/hypervisor-daemon.rs | fn handle_token_revoke | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |
 | crates/node/src/bin/hypervisor-daemon.rs | fn handle_tokens_list | return | HTTP handler referenced only by the route table (hypervisor-daemon.rs): its sink is the response to the client; its draws stay draw-site rows and its mints stay pinned |

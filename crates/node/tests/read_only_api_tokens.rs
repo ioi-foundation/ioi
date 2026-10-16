@@ -1025,3 +1025,23 @@ fn a_read_only_call_on_an_allowlisted_route_changes_nothing() {
         failures.join("\n")
     );
 }
+
+/// BUILD-DELTA #36d: the registered API-token mint (handle_api_token_create) called 256 times through its real route:
+/// every token value distinct, prefixed and the right length, and every id distinct.
+#[test]
+fn two_hundred_fifty_six_api_tokens_minted_through_the_route_are_distinct_and_the_right_length() {
+    let f = fixture();
+    let mut values = std::collections::HashSet::new();
+    let mut ids = std::collections::HashSet::new();
+    for _ in 0..256 {
+        let (value, id) = f.mint(false);
+        assert_eq!(
+            value.len(),
+            "ioi_pat_".len() + 64,
+            "expected length: {value}"
+        );
+        assert!(value.starts_with("ioi_pat_"), "prefix: {value}");
+        assert!(values.insert(value), "a repeated token value");
+        assert!(ids.insert(id), "a repeated token id");
+    }
+}

@@ -165,6 +165,21 @@ pub enum ModelMountError {
     CatalogProviderNotConfigurable,
     CapabilityTokenNotFound,
     CapabilityTokenUnauthorized,
+    /// The token is at or past the expiry its durable issue record carries (BUILD-DELTA #21(c)).
+    CapabilityTokenExpired,
+    /// The token's record carries no valid issue record, so its expiry cannot be read from disk (refused).
+    CapabilityTokenIssueRecordAbsent,
+    /// A create's requested expiry cannot be read, is not after now, or a run's token requests none.
+    CapabilityTokenExpiryInvalid,
+    /// The startup sweep's inventory of capability-tokens/ cannot be complete: the token directory (other than one
+    /// that does not exist), one of its entries or one of its records cannot be read. The daemon's readiness stays
+    /// blocked on it (BUILD-DELTA #21(c)).
+    CapabilityTokenInventoryUnreadable {
+        /// "directory", "entry" or "record".
+        stage: &'static str,
+        path: String,
+        error: String,
+    },
     NoRouteCandidate,
     InstanceLifecycleStatusMismatch,
     InvalidAcceptedReceiptSequence,

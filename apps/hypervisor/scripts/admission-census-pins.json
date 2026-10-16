@@ -1,7 +1,7 @@
 {
   "modules": 133,
   "familyMentions": 313,
-  "tokenMentions": 146226,
+  "tokenMentions": 146430,
   "judgedTokenPositions": 299,
   "productionWriterCalls": {
     "family": 57,
@@ -10,8 +10,8 @@
   },
   "productionFsCalls": 258,
   "unadjudicable": {
-    "foreign-qualified": 5116,
-    "opaque-initialiser": 3099,
+    "foreign-qualified": 5118,
+    "opaque-initialiser": 3101,
     "bare-undeclared": 555,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

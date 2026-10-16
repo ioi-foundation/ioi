@@ -1,7 +1,10 @@
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use std::{fs, path::Path};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use super::{
     non_empty_string, push_unique_ref, require_non_empty, sha256_hex, trimmed_string,
@@ -33,6 +36,14 @@ pub struct ModelMountCapabilityTokenControlRequest {
     pub authority_grant_refs: Vec<String>,
     #[serde(default)]
     pub authority_receipt_refs: Vec<String>,
+    /// The caller's clock (unix seconds): the issue instant of a create, the use instant of an authorize. Both
+    /// REQUIRE it; the kernel never reads a clock itself (BUILD-DELTA #21(c)).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now_unix_secs: Option<i64>,
+    /// A create for one session's run (the daemon's run-scoped mint sets it, and nothing else does): the token is
+    /// revoked when no run of that session is live, and its expiry is required.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_session_ref: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -57,6 +68,19 @@ pub struct ModelMountCapabilityTokenControlPlan {
 
 /// Marks a token record minted from the OS RNG. Records without it were derived and are not honoured.
 const CAPABILITY_TOKEN_ENTROPY: &str = "os_rng_256_v1";
+
+/// The issue record a create writes into the token's own durable record (BUILD-DELTA #21(c)): issued-at, expiry,
+/// audience and the run it serves. Every authorize reads the expiry back from it; a token record without a valid one
+/// is refused (pre-Alpha starts fresh: nothing is migrated, nothing is read as "no expiry").
+const CAPABILITY_TOKEN_ISSUE_RECORD_SCHEMA: &str = "ioi.model_mount.capability_token_issue.v1";
+
+/// A token's issue record as read back from disk (its issued-at is validated on read; the use decides by expiry).
+#[derive(Debug, Clone, PartialEq)]
+struct IssueRecord {
+    /// None: the create requested no expiry (route tokens only; a run's token always has one).
+    expires_at_unix_secs: Option<i64>,
+    run_session_ref: Option<String>,
+}
 
 fn hex_lower(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -84,6 +108,8 @@ struct CapabilityTokenRecord {
     allowed_scopes: Vec<String>,
     denied_scopes: Vec<String>,
     revoked: bool,
+    /// None: absent or invalid on disk, so the token is refused.
+    issue: Option<IssueRecord>,
 }
 
 impl ModelMountCapabilityTokenControlRequest {
@@ -103,9 +129,13 @@ impl ModelMountCapabilityTokenControlRequest {
         }
         option_string(&self.state_dir, "state_dir")?;
         match self.operation_kind.as_str() {
+            "model_mount.capability_token.create" => {
+                self.clock()?;
+            }
             "model_mount.capability_token.authorize" => {
                 option_string(&self.token_hash, "token_hash")?;
                 option_string(&self.required_scope, "required_scope")?;
+                self.clock()?;
             }
             "model_mount.capability_token.revoke" => {
                 option_string(&self.token_id, "token_id")?;
@@ -115,6 +145,147 @@ impl ModelMountCapabilityTokenControlRequest {
         }
         Ok(())
     }
+
+    /// The caller's clock reading; an operation that needs one and names none is refused (fail closed).
+    fn clock(&self) -> Result<i64, ModelMountError> {
+        self.now_unix_secs
+            .filter(|now| *now >= 0)
+            .ok_or(ModelMountError::MissingField("now_unix_secs"))
+    }
+
+    /// The session whose run a create serves, if any.
+    fn run_session(&self) -> Option<&str> {
+        self.run_session_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|session| !session.is_empty())
+    }
+}
+
+/// The expiry a create requests (body `expiresAt`, RFC 3339), checked before anything is drawn: one that cannot be
+/// read or is not after `now` is refused, never read as "no expiry"; a run's token must have one.
+fn requested_expiry(
+    request: &ModelMountCapabilityTokenControlRequest,
+    body: &Map<String, Value>,
+    now: i64,
+) -> Result<Option<i64>, ModelMountError> {
+    let expires_at = match body.get("expiresAt") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) => Some(
+            time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339)
+                .map_err(|_| ModelMountError::CapabilityTokenExpiryInvalid)?
+                .unix_timestamp(),
+        ),
+        Some(_) => return Err(ModelMountError::CapabilityTokenExpiryInvalid),
+    };
+    match expires_at {
+        Some(expires_at) if expires_at <= now => Err(ModelMountError::CapabilityTokenExpiryInvalid),
+        None if request.run_session().is_some() => {
+            Err(ModelMountError::CapabilityTokenExpiryInvalid)
+        }
+        expires_at => Ok(expires_at),
+    }
+}
+
+/// The issue record a create writes into the token's durable record.
+fn issue_record_value(
+    issued_at: i64,
+    expires_at: Option<i64>,
+    audience: Option<&str>,
+    run_session_ref: Option<&str>,
+) -> Value {
+    json!({
+        "schema_version": CAPABILITY_TOKEN_ISSUE_RECORD_SCHEMA,
+        "issued_at_unix_secs": issued_at,
+        "expires_at_unix_secs": expires_at,
+        "ttl_secs": expires_at.map(|expires_at| expires_at - issued_at),
+        "audience": audience,
+        "run_session_ref": run_session_ref,
+    })
+}
+
+/// A token's issue record read back from disk; anything malformed reads as absent (and is refused). Every field a
+/// create writes is read: each must be present with its type, the TTL must be the expiry less the issue instant (both
+/// null when the create requested no expiry), and the audience is null or a name.
+fn issue_record_from(value: Option<&Value>) -> Option<IssueRecord> {
+    let value = value?.as_object()?;
+    if value.get("schema_version").and_then(Value::as_str)
+        != Some(CAPABILITY_TOKEN_ISSUE_RECORD_SCHEMA)
+    {
+        return None;
+    }
+    let issued_at_unix_secs = value
+        .get("issued_at_unix_secs")
+        .and_then(Value::as_i64)
+        .filter(|issued| *issued >= 0)?;
+    let expires_at_unix_secs = match value.get("expires_at_unix_secs") {
+        None => return None,
+        Some(Value::Null) => None,
+        Some(expires) => Some(
+            expires
+                .as_i64()
+                .filter(|expires| *expires > issued_at_unix_secs)?,
+        ),
+    };
+    let ttl_secs = match value.get("ttl_secs") {
+        None => return None,
+        Some(Value::Null) => None,
+        Some(ttl) => Some(ttl.as_i64()?),
+    };
+    if ttl_secs != expires_at_unix_secs.map(|expires| expires - issued_at_unix_secs) {
+        return None;
+    }
+    match value.get("audience") {
+        None => return None,
+        Some(Value::Null) => {}
+        Some(audience) => {
+            audience.as_str().and_then(non_empty_string)?;
+        }
+    }
+    let run_session_ref = match value.get("run_session_ref") {
+        None => return None,
+        Some(Value::Null) => None,
+        Some(session) => Some(session.as_str().and_then(non_empty_string)?),
+    };
+    if run_session_ref.is_some() && expires_at_unix_secs.is_none() {
+        return None;
+    }
+    Some(IssueRecord {
+        expires_at_unix_secs,
+        run_session_ref,
+    })
+}
+
+/// Whether a matched token may be used at `now`, decided from its PERSISTED issue record on every use.
+fn token_is_current(token: &CapabilityTokenRecord, now: i64) -> Result<(), ModelMountError> {
+    let issue = token
+        .issue
+        .as_ref()
+        .ok_or(ModelMountError::CapabilityTokenIssueRecordAbsent)?;
+    match issue.expires_at_unix_secs {
+        Some(expires_at) if now >= expires_at => Err(ModelMountError::CapabilityTokenExpired),
+        _ => Ok(()),
+    }
+}
+
+/// The run-scoped tokens not yet revoked. At its startup the daemon revokes every one: no run is live in a process
+/// that has just started (BUILD-DELTA #21(c)). The inventory is STRICT: only a token directory that does not exist is
+/// empty, and a directory, entry or record that cannot be read is returned as an error (the daemon's readiness stays
+/// blocked on it), so a token whose record cannot be read now is never passed over and honoured once it reads again.
+pub(super) fn unrevoked_run_scoped_token_ids(
+    state_dir: &str,
+) -> Result<Vec<String>, ModelMountError> {
+    Ok(load_capability_tokens_strict(state_dir)?
+        .into_iter()
+        .filter(|token| {
+            !token.revoked
+                && token
+                    .issue
+                    .as_ref()
+                    .is_some_and(|issue| issue.run_session_ref.is_some())
+        })
+        .map(|token| token.token_id)
+        .collect())
 }
 
 pub(super) fn plan_capability_token_control(
@@ -147,6 +318,13 @@ pub(super) fn plan_capability_token_control(
     let mut grant_id = None;
     let mut audience = None;
     let mut minted_token_hash = token_hash.clone();
+    // BUILD-DELTA #21(c): a create's requested expiry is read, and refused if it cannot be honoured, before anything
+    // is drawn; it is written below into the token's own durable record.
+    let create_expiry = if operation_kind == "model_mount.capability_token.create" {
+        Some(requested_expiry(request, body, request.clock()?)?)
+    } else {
+        None
+    };
 
     match operation_kind.as_str() {
         "model_mount.capability_token.create" => {
@@ -221,6 +399,8 @@ pub(super) fn plan_capability_token_control(
             if !scope_authorized(&required_scope, &token.allowed_scopes, &token.denied_scopes) {
                 return Err(ModelMountError::CapabilityTokenUnauthorized);
             }
+            // BUILD-DELTA #21(c): the expiry is the one persisted at mint, read from disk on this use.
+            token_is_current(token, request.clock()?)?;
             token_id = Some(token.token_id.clone());
             grant_id = token.grant_id.clone();
             audience = token.audience.clone();
@@ -293,7 +473,7 @@ pub(super) fn plan_capability_token_control(
         format!("receipt://model_mount/capability_token/{record_id}").as_str(),
     );
     let evidence_refs = capability_token_control_evidence_refs();
-    let record = json!({
+    let mut record = json!({
         "id": record_id,
         "record_id": record_id,
         "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
@@ -326,6 +506,15 @@ pub(super) fn plan_capability_token_control(
         "control_hash": control_hash,
         "planned_at": generated_at,
     });
+    // BUILD-DELTA #21(c): the issue record goes into the SAME durable record as the token (one write at mint).
+    if let Some(expires_at) = create_expiry {
+        record["issue_record"] = issue_record_value(
+            request.clock()?,
+            expires_at,
+            audience.as_deref(),
+            request.run_session(),
+        );
+    }
     Ok(ModelMountCapabilityTokenControlPlan {
         schema_version: MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_PLAN_SCHEMA_VERSION.to_string(),
         object: "ioi.model_mount_capability_token_control_plan".to_string(),
@@ -365,6 +554,9 @@ fn capability_token_control_evidence_refs() -> Vec<String> {
     ]
 }
 
+/// The token records for authorize, list and revoke. A token directory, entry or record that cannot be read is
+/// passed over, so a token whose own record cannot be read is not honoured. The startup sweep reads strictly instead
+/// (load_capability_tokens_strict).
 fn load_capability_tokens(
     state_dir: Option<&str>,
 ) -> Result<Vec<CapabilityTokenRecord>, ModelMountError> {
@@ -375,19 +567,92 @@ fn load_capability_tokens(
     let Ok(entries) = fs::read_dir(dir) else {
         return Ok(Vec::new());
     };
-    let mut creates = Vec::new();
-    let mut revoked = Vec::new();
-    for entry in entries.flatten() {
+    let records = entries.flatten().filter_map(|entry| {
         let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+        if !is_token_record_path(&path) {
+            return None;
+        }
+        let bytes = fs::read(path).ok()?;
+        serde_json::from_slice::<Value>(&bytes).ok()
+    });
+    Ok(capability_tokens_from(records))
+}
+
+/// The startup sweep's inventory: every record the lenient reader could ever read, or an error. Only a token
+/// directory that does not exist (nothing was ever minted under `state_dir`) is empty; a symlink in its place that
+/// names nothing is not absent.
+fn load_capability_tokens_strict(
+    state_dir: &str,
+) -> Result<Vec<CapabilityTokenRecord>, ModelMountError> {
+    let state_dir =
+        non_empty_string(state_dir).ok_or(ModelMountError::MissingField("state_dir"))?;
+    let dir = Path::new(&state_dir).join("capability-tokens");
+    let entries = match fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound && nothing_at(&dir) => {
+            return Ok(Vec::new());
+        }
+        Err(error) => return Err(inventory_unreadable("directory", &dir, error)),
+    };
+    let paths = entries.map(|entry| entry.map(|entry| entry.path()));
+    Ok(capability_tokens_from(strict_token_records(&dir, paths)?))
+}
+
+/// Whether nothing at all is at `path`, not even a symlink that names nothing.
+fn nothing_at(path: &Path) -> bool {
+    matches!(fs::symlink_metadata(path), Err(error) if error.kind() == io::ErrorKind::NotFound)
+}
+
+/// Every record among `entries` (the paths the listing of `dir` returned), each read in full and parsed. The first
+/// entry that cannot be listed, resolved to a regular file, read or parsed is the error.
+fn strict_token_records(
+    dir: &Path,
+    entries: impl Iterator<Item = io::Result<PathBuf>>,
+) -> Result<Vec<Value>, ModelMountError> {
+    let mut records = Vec::new();
+    for entry in entries {
+        let path = entry.map_err(|error| inventory_unreadable("entry", dir, error))?;
+        if !is_token_record_path(&path) {
             continue;
         }
-        let Ok(bytes) = fs::read(path) else {
-            continue;
-        };
-        let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
-            continue;
-        };
+        let metadata =
+            fs::metadata(&path).map_err(|error| inventory_unreadable("entry", &path, error))?;
+        if !metadata.is_file() {
+            return Err(inventory_unreadable("entry", &path, "not a regular file"));
+        }
+        let bytes =
+            fs::read(&path).map_err(|error| inventory_unreadable("record", &path, error))?;
+        records.push(
+            serde_json::from_slice::<Value>(&bytes)
+                .map_err(|error| inventory_unreadable("record", &path, error))?,
+        );
+    }
+    Ok(records)
+}
+
+fn inventory_unreadable(
+    stage: &'static str,
+    path: &Path,
+    error: impl std::fmt::Display,
+) -> ModelMountError {
+    ModelMountError::CapabilityTokenInventoryUnreadable {
+        stage,
+        path: path.display().to_string(),
+        error: error.to_string(),
+    }
+}
+
+/// The entries either reader treats as token records: `*.json`.
+fn is_token_record_path(path: &Path) -> bool {
+    path.extension().and_then(|value| value.to_str()) == Some("json")
+}
+
+/// The token records among parsed records: each create with a usable shape, marked revoked when a revoke record
+/// names it. Anything else is not a token record and is passed over by both readers.
+fn capability_tokens_from(records: impl IntoIterator<Item = Value>) -> Vec<CapabilityTokenRecord> {
+    let mut creates = Vec::new();
+    let mut revoked = Vec::new();
+    for value in records {
         if value.get("rust_core_boundary").and_then(Value::as_str)
             != Some("model_mount.capability_token")
         {
@@ -442,12 +707,13 @@ fn load_capability_tokens(
                 .map(|map| string_array_field(map, "denied_scopes"))
                 .unwrap_or_default(),
             revoked: false,
+            issue: issue_record_from(value.get("issue_record")),
         });
     }
     for token in &mut creates {
         token.revoked = revoked.iter().any(|token_id| token_id == &token.token_id);
     }
-    Ok(creates)
+    creates
 }
 
 fn public_token_list(tokens: &[CapabilityTokenRecord]) -> Vec<Value> {
@@ -611,6 +877,8 @@ mod tests {
             receipt_refs: vec![],
             authority_grant_refs: vec!["grant://wallet/capability".to_string()],
             authority_receipt_refs: vec!["receipt://wallet/capability".to_string()],
+            now_unix_secs: Some(1_760_000_000),
+            run_session_ref: None,
         }
     }
 
@@ -867,5 +1135,559 @@ mod tests {
             plan_capability_token_control(&invalid).unwrap_err(),
             ModelMountError::MissingField("state_dir")
         );
+    }
+
+    // BUILD-DELTA #21(c): a token's issue record (issued-at, expiry, audience) is written in the same
+    // durable record as the token, and every authorize reads its expiry back from disk. The clock is an
+    // explicit input (`now_unix_secs`), so these tests choose the instant. Requests are built from JSON.
+
+    const T0: i64 = 1_760_000_000;
+
+    fn rfc3339(unix_secs: i64) -> String {
+        time::OffsetDateTime::from_unix_timestamp(unix_secs)
+            .unwrap()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap()
+    }
+
+    fn request_from(fields: Value) -> ModelMountCapabilityTokenControlRequest {
+        let mut request = json!({
+            "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+            "source": "test.capability_token_control",
+            "body": {
+                "audience": "hypervisor-session",
+                "allowed_scopes": ["model.chat:*"],
+                "grant_id": "grant://wallet/capability"
+            },
+            "authority_grant_refs": ["grant://wallet/capability"],
+        });
+        for (key, value) in fields.as_object().unwrap() {
+            request[key] = value.clone();
+        }
+        serde_json::from_value(request).expect("a token control request")
+    }
+
+    fn create_at(
+        state: &Path,
+        now: Option<i64>,
+        expires_at: Option<&str>,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        let mut fields = json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "state_dir": state.to_string_lossy(),
+        });
+        if let Some(now) = now {
+            fields["now_unix_secs"] = json!(now);
+        }
+        if let Some(expires_at) = expires_at {
+            fields["body"] = json!({
+                "audience": "hypervisor-session",
+                "allowed_scopes": ["model.chat:*"],
+                "grant_id": "grant://wallet/capability",
+                "expiresAt": expires_at,
+            });
+        }
+        plan_capability_token_control(&request_from(fields))
+    }
+
+    fn persist_in(state: &Path, plan: &ModelMountCapabilityTokenControlPlan) {
+        fs::write(
+            state
+                .join("capability-tokens")
+                .join(format!("{}.json", plan.record_id.replace(':', "_"))),
+            serde_json::to_vec(&plan.record).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn authorize_at(
+        state: &Path,
+        token: &str,
+        now: Option<i64>,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        let mut fields = json!({
+            "operation_kind": "model_mount.capability_token.authorize",
+            "state_dir": state.to_string_lossy(),
+            "token_hash": sha256_hex(token.as_bytes()).unwrap(),
+            "required_scope": "model.chat:hello",
+        });
+        if let Some(now) = now {
+            fields["now_unix_secs"] = json!(now);
+        }
+        plan_capability_token_control(&request_from(fields))
+    }
+
+    #[test]
+    fn a_create_writes_its_issue_record_into_the_durable_token_record() {
+        let state = scratch_state();
+        let plan = create_at(&state, Some(T0), Some(&rfc3339(T0 + 60))).expect("create");
+        assert_eq!(
+            plan.record["issue_record"],
+            json!({
+                "schema_version": "ioi.model_mount.capability_token_issue.v1",
+                "issued_at_unix_secs": T0,
+                "expires_at_unix_secs": T0 + 60,
+                "ttl_secs": 60,
+                "audience": "hypervisor-session",
+                "run_session_ref": null,
+            }),
+            "the issue record is part of the record the daemon persists: {}",
+            plan.record
+        );
+        let token = plan.public_response["token"].as_str().unwrap();
+        assert!(
+            !plan.record.to_string().contains(token),
+            "the plaintext token is not in the durable record"
+        );
+    }
+
+    #[test]
+    fn authorize_refuses_a_token_at_its_persisted_expiry() {
+        let state = scratch_state();
+        let plan = create_at(&state, Some(T0), Some(&rfc3339(T0 + 60))).expect("create");
+        persist_in(&state, &plan);
+        let token = plan.public_response["token"].as_str().unwrap();
+        assert!(
+            authorize_at(&state, token, Some(T0 + 59)).is_ok(),
+            "valid one second before its expiry"
+        );
+        let refused = authorize_at(&state, token, Some(T0 + 60));
+        assert!(
+            format!("{refused:?}").contains("CapabilityTokenExpired"),
+            "refused at its expiry, read from the persisted record: {refused:?}"
+        );
+        assert!(
+            format!("{:?}", authorize_at(&state, token, Some(T0 + 86_400)))
+                .contains("CapabilityTokenExpired"),
+            "and at every use after it"
+        );
+    }
+
+    #[test]
+    fn a_token_record_without_an_issue_record_is_refused() {
+        let state = scratch_state();
+        let token = "ioi_mnt_00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+        // The shape a create wrote before issue records existed: random, hashed, no durable expiry.
+        let record = json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "rust_core_boundary": "model_mount.capability_token",
+            "token_id": "capability_token:00112233445566778899aabbccddeeff",
+            "token_hash": sha256_hex(token.as_bytes()).unwrap(),
+            "token_entropy": "os_rng_256_v1",
+            "capability_token_authority": {
+                "allowed_scopes": ["model.chat:*"], "denied_scopes": [], "audience": "a", "grant_id": "g"
+            },
+            "planned_at": "rust_model_mount_core",
+        });
+        fs::write(
+            state.join("capability-tokens").join("no-issue-record.json"),
+            serde_json::to_vec(&record).unwrap(),
+        )
+        .unwrap();
+        let refused = authorize_at(&state, token, Some(T0));
+        assert!(
+            format!("{refused:?}").contains("CapabilityTokenIssueRecordAbsent"),
+            "a token that cannot prove its expiry from disk is refused: {refused:?}"
+        );
+    }
+
+    #[test]
+    fn authorize_without_a_clock_is_refused() {
+        let state = scratch_state();
+        let plan = create_at(&state, Some(T0), None).expect("create");
+        persist_in(&state, &plan);
+        let token = plan.public_response["token"].as_str().unwrap();
+        assert!(authorize_at(&state, token, Some(T0)).is_ok());
+        assert_eq!(
+            format!("{:?}", authorize_at(&state, token, None).map(|_| ())),
+            format!(
+                "{:?}",
+                Err::<(), _>(ModelMountError::MissingField("now_unix_secs"))
+            ),
+            "an authorize that names no instant is refused"
+        );
+    }
+
+    #[test]
+    fn a_create_whose_requested_expiry_is_unreadable_or_not_after_now_is_refused() {
+        let state = scratch_state();
+        for expires_at in [rfc3339(T0), rfc3339(T0 - 1), "tomorrow".to_string()] {
+            let refused = create_at(&state, Some(T0), Some(&expires_at));
+            assert!(
+                format!("{refused:?}").contains("CapabilityTokenExpiryInvalid"),
+                "expiresAt {expires_at:?} is refused, never read as no expiry: {refused:?}"
+            );
+        }
+        assert_eq!(
+            format!(
+                "{:?}",
+                create_at(&state, None, Some(&rfc3339(T0 + 60))).map(|_| ())
+            ),
+            format!(
+                "{:?}",
+                Err::<(), _>(ModelMountError::MissingField("now_unix_secs"))
+            ),
+            "a create that names no instant is refused"
+        );
+    }
+
+    fn run_scoped_create(
+        state: &Path,
+        expires_at: Option<&str>,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        let mut body = json!({
+            "audience": "session:run",
+            "allowed_scopes": ["model.chat:*"],
+            "grant_id": "receipt://hypervisor/session-execute/run",
+        });
+        if let Some(expires_at) = expires_at {
+            body["expiresAt"] = json!(expires_at);
+        }
+        plan_capability_token_control(&request_from(json!({
+            "operation_kind": "model_mount.capability_token.create",
+            "state_dir": state.to_string_lossy(),
+            "now_unix_secs": T0,
+            "run_session_ref": "session:run",
+            "body": body,
+        })))
+    }
+
+    #[test]
+    fn a_run_scoped_token_carries_its_run_and_an_expiry_and_is_listed_until_revoked() {
+        let state = scratch_state();
+        assert_eq!(
+            run_scoped_create(&state, None).unwrap_err(),
+            ModelMountError::CapabilityTokenExpiryInvalid,
+            "a run's token always has an expiry"
+        );
+        let run = run_scoped_create(&state, Some(&rfc3339(T0 + 7200))).expect("a run's token");
+        assert_eq!(run.record["issue_record"]["run_session_ref"], "session:run");
+        assert_eq!(run.record["issue_record"]["ttl_secs"], 7200);
+        persist_in(&state, &run);
+        let route = create_at(&state, Some(T0), None).expect("a route token");
+        persist_in(&state, &route);
+        let run_id = run.public_response["token_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            unrevoked_run_scoped_token_ids(&state.to_string_lossy()).unwrap(),
+            vec![run_id.clone()],
+            "only the run's token is the startup sweep's"
+        );
+        let revoke = plan_capability_token_control(&request_from(json!({
+            "operation_kind": "model_mount.capability_token.revoke",
+            "state_dir": state.to_string_lossy(),
+            "token_id": run_id,
+        })))
+        .expect("revoke");
+        persist_in(&state, &revoke);
+        assert!(unrevoked_run_scoped_token_ids(&state.to_string_lossy())
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn a_malformed_issue_record_reads_as_absent() {
+        let good = json!({
+            "schema_version": CAPABILITY_TOKEN_ISSUE_RECORD_SCHEMA,
+            "issued_at_unix_secs": T0,
+            "expires_at_unix_secs": T0 + 60,
+            "ttl_secs": 60,
+            "audience": "a",
+            "run_session_ref": "session:run",
+        });
+        assert!(issue_record_from(Some(&good)).is_some());
+        for (field, value) in [
+            (
+                "schema_version",
+                json!("ioi.model_mount.capability_token_issue.v0"),
+            ),
+            ("issued_at_unix_secs", json!("1760000000")),
+            ("issued_at_unix_secs", json!(-1)),
+            ("expires_at_unix_secs", json!(T0)),
+            ("expires_at_unix_secs", json!(null)),
+            ("run_session_ref", json!("")),
+            // The TTL is the expiry less the issue instant, as an integer; the audience is null or a name.
+            ("ttl_secs", json!(59)),
+            ("ttl_secs", json!(61)),
+            ("ttl_secs", json!("60")),
+            ("ttl_secs", json!(60.5)),
+            ("ttl_secs", json!(null)),
+            ("audience", json!(7)),
+            ("audience", json!("")),
+            ("audience", json!(["a"])),
+        ] {
+            let mut bad = good.clone();
+            bad[field] = value.clone();
+            assert_eq!(
+                issue_record_from(Some(&bad)),
+                None,
+                "{field} = {value} must read as absent"
+            );
+        }
+        for field in [
+            "expires_at_unix_secs",
+            "run_session_ref",
+            "issued_at_unix_secs",
+            "ttl_secs",
+            "audience",
+        ] {
+            let mut bad = good.clone();
+            bad.as_object_mut().unwrap().remove(field);
+            assert_eq!(issue_record_from(Some(&bad)), None, "{field} absent");
+        }
+        assert_eq!(issue_record_from(None), None);
+    }
+
+    /// A route token that requested no expiry: its expiry and TTL are both null and its audience is null or a name;
+    /// any other TTL, or a missing or mistyped field, reads as absent.
+    #[test]
+    fn a_null_expiry_issue_record_needs_a_null_ttl_and_a_typed_audience() {
+        let lasting = json!({
+            "schema_version": CAPABILITY_TOKEN_ISSUE_RECORD_SCHEMA,
+            "issued_at_unix_secs": T0,
+            "expires_at_unix_secs": null,
+            "ttl_secs": null,
+            "audience": null,
+            "run_session_ref": null,
+        });
+        assert_eq!(
+            issue_record_from(Some(&lasting)),
+            Some(IssueRecord {
+                expires_at_unix_secs: None,
+                run_session_ref: None,
+            }),
+            "no expiry, no TTL, no audience: well formed"
+        );
+        let mut named = lasting.clone();
+        named["audience"] = json!("hypervisor-session");
+        assert!(
+            issue_record_from(Some(&named)).is_some(),
+            "a named audience"
+        );
+        for (field, value) in [
+            ("ttl_secs", json!(60)),
+            ("ttl_secs", json!(0)),
+            ("ttl_secs", json!("")),
+            ("audience", json!(false)),
+            ("audience", json!({})),
+        ] {
+            let mut bad = lasting.clone();
+            bad[field] = value.clone();
+            assert_eq!(
+                issue_record_from(Some(&bad)),
+                None,
+                "with no expiry, {field} = {value} must read as absent"
+            );
+        }
+        for field in ["ttl_secs", "audience"] {
+            let mut bad = lasting.clone();
+            bad.as_object_mut().unwrap().remove(field);
+            assert_eq!(
+                issue_record_from(Some(&bad)),
+                None,
+                "with no expiry, {field} absent"
+            );
+        }
+    }
+
+    // Codex #36d r1: the daemon's startup sweep takes its inventory of capability-tokens/ through
+    // unrevoked_run_scoped_token_ids, and that inventory must be complete. Only a token directory that does not exist
+    // is an empty inventory; a directory, an entry or a record that cannot be read is an error (the daemon's readiness
+    // stays blocked on it), never a token passed over. Permission bits do not make a file unreadable to the
+    // namespace root these tests run as, so the failures are made by what the entries are.
+
+    /// A state dir without capability-tokens/.
+    fn bare_state() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "ioi-capability-token-inventory-test-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::SeqCst)
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// A state dir holding one persisted, unrevoked run-scoped token; returns (state, its token id).
+    fn state_with_a_run_token() -> (std::path::PathBuf, String) {
+        let state = scratch_state();
+        let run = run_scoped_create(&state, Some(&rfc3339(T0 + 7200))).expect("a run's token");
+        persist_in(&state, &run);
+        let run_id = run.public_response["token_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            unrevoked_run_scoped_token_ids(&state.to_string_lossy()).unwrap(),
+            vec![run_id.clone()],
+            "the run's token is in the inventory before anything is made unreadable"
+        );
+        (state, run_id)
+    }
+
+    fn assert_inventory_unreadable(state: &Path, stage: &str, case: &str) {
+        let inventory = unrevoked_run_scoped_token_ids(&state.to_string_lossy());
+        let shown = format!("{inventory:?}");
+        assert!(
+            shown.contains("CapabilityTokenInventoryUnreadable")
+                && shown.contains(&format!("stage: {stage:?}")),
+            "{case}: the startup inventory is an error at the {stage} (not a token passed over): {shown}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_startup_inventory_is_an_error_when_the_token_directory_cannot_be_read() {
+        let state = bare_state();
+        fs::write(state.join("capability-tokens"), b"not a directory").unwrap();
+        assert_inventory_unreadable(&state, "directory", "a file where the directory belongs");
+        let state = bare_state();
+        std::os::unix::fs::symlink(state.join("no-such-dir"), state.join("capability-tokens"))
+            .unwrap();
+        assert_inventory_unreadable(&state, "directory", "a symlink to nothing in its place");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_startup_inventory_is_an_error_when_an_entry_cannot_be_read() {
+        let (state, _) = state_with_a_run_token();
+        std::os::unix::fs::symlink(
+            state.join("no-such-record.json"),
+            state.join("capability-tokens").join("pending.json"),
+        )
+        .unwrap();
+        assert_inventory_unreadable(&state, "entry", "an entry that resolves to nothing");
+        let (state, _) = state_with_a_run_token();
+        fs::create_dir(state.join("capability-tokens").join("pending.json")).unwrap();
+        assert_inventory_unreadable(&state, "entry", "a directory with a record's name");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_startup_inventory_is_an_error_when_a_record_cannot_be_read() {
+        let (state, _) = state_with_a_run_token();
+        // A regular file whose read fails (EIO: the reading process's own memory at offset 0).
+        std::os::unix::fs::symlink(
+            "/proc/self/mem",
+            state.join("capability-tokens").join("pending.json"),
+        )
+        .unwrap();
+        assert_inventory_unreadable(&state, "record", "a record whose read fails");
+        let (state, _) = state_with_a_run_token();
+        let whole = serde_json::to_vec(&json!({
+            "operation_kind": "model_mount.capability_token.revoke",
+            "rust_core_boundary": "model_mount.capability_token",
+            "token_id": "capability_token:00112233445566778899aabbccddeeff",
+        }))
+        .unwrap();
+        fs::write(
+            state.join("capability-tokens").join("torn.json"),
+            &whole[..whole.len() / 2],
+        )
+        .unwrap();
+        assert_inventory_unreadable(&state, "record", "a torn record (half its bytes)");
+    }
+
+    #[test]
+    fn the_startup_inventory_needs_a_state_dir() {
+        for state_dir in ["", "  "] {
+            assert_eq!(
+                unrevoked_run_scoped_token_ids(state_dir),
+                Err(ModelMountError::MissingField("state_dir")),
+                "{state_dir:?} names no token directory, so no inventory can be taken"
+            );
+        }
+    }
+
+    #[test]
+    fn an_absent_token_directory_is_an_empty_startup_inventory() {
+        let state = bare_state();
+        assert!(fs::symlink_metadata(state.join("capability-tokens")).is_err());
+        assert_eq!(
+            unrevoked_run_scoped_token_ids(&state.to_string_lossy()),
+            Ok(Vec::new()),
+            "nothing was ever minted here"
+        );
+    }
+
+    /// The strict inventory is the startup sweep's alone: authorize still passes over a record it cannot read, and
+    /// decides the presented token by its own record.
+    #[cfg(unix)]
+    #[test]
+    fn authorize_still_passes_over_a_record_it_cannot_read() {
+        let state = scratch_state();
+        let plan = create_at(&state, Some(T0), Some(&rfc3339(T0 + 60))).expect("create");
+        persist_in(&state, &plan);
+        let tokens = state.join("capability-tokens");
+        fs::write(tokens.join("torn.json"), b"{\"operation_kind\": \"model_mo").unwrap();
+        std::os::unix::fs::symlink("/proc/self/mem", tokens.join("unreadable.json")).unwrap();
+        std::os::unix::fs::symlink(
+            state.join("no-such-record.json"),
+            tokens.join("dangling.json"),
+        )
+        .unwrap();
+        let token = plan.public_response["token"].as_str().unwrap();
+        assert!(
+            authorize_at(&state, token, Some(T0 + 1)).is_ok(),
+            "the token's own record decides"
+        );
+    }
+
+    /// An entry the directory listing itself cannot return (an I/O error from the listing, which no file a test can
+    /// make produces) is an inventory error too, before any later entry is looked at.
+    #[test]
+    fn an_entry_the_listing_cannot_return_is_an_inventory_error() {
+        let dir = scratch_state().join("capability-tokens");
+        let entries = vec![
+            Err(io::Error::other("the listing failed")),
+            Ok(dir.join("never-read.json")),
+        ];
+        match strict_token_records(&dir, entries.into_iter()) {
+            Err(ModelMountError::CapabilityTokenInventoryUnreadable { stage, path, error }) => {
+                assert_eq!(stage, "entry");
+                assert_eq!(path, dir.display().to_string());
+                assert!(error.contains("the listing failed"), "{error}");
+            }
+            other => panic!("a listing error is an inventory error: {other:?}"),
+        }
+    }
+}
+
+/// BUILD-DELTA #36d: the registered mint (the create arm) called 256 times through the real planner: every token and
+/// every id distinct and the right length.
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn two_hundred_fifty_six_minted_tokens_and_ids_are_distinct_and_the_right_length() {
+        let state = std::env::temp_dir().join(format!(
+            "ioi-capability-token-entropy-{}",
+            std::process::id()
+        ));
+        let create: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
+            "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+            "operation_kind": "model_mount.capability_token.create",
+            "state_dir": state.to_string_lossy(),
+            "now_unix_secs": 1_760_000_000,
+            "body": { "audience": "a", "allowed_scopes": ["model.chat:*"], "grant_id": "g" },
+        }))
+        .expect("a create request");
+        let mut tokens = std::collections::HashSet::new();
+        let mut ids = std::collections::HashSet::new();
+        for _ in 0..256 {
+            let plan = plan_capability_token_control(&create).expect("a create plan");
+            let token = plan.public_response["token"].as_str().unwrap().to_string();
+            let id = plan.public_response["token_id"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            assert_eq!(token.len(), "ioi_mnt_".len() + 64, "{token}");
+            assert_eq!(id.len(), "capability_token:".len() + 32, "{id}");
+            assert!(tokens.insert(token) && ids.insert(id), "a repeated draw");
+        }
     }
 }

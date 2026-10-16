@@ -2098,3 +2098,85 @@ mod tests {
         );
     }
 }
+
+/// BUILD-DELTA #36d: the registered mints called 256 times as the boundary calls them (each writes its capability
+/// record): every guest capability token and every host trigger distinct, prefixed and the right length.
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn two_hundred_fifty_six_effect_tokens_are_distinct_and_the_right_length() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let data_dir = dir.path().to_str().expect("a utf-8 path");
+        let mut seen = std::collections::HashSet::new();
+        for draw in 0..256 {
+            let proposal = mint_guest_effect_capability(
+                data_dir,
+                "workload-isolation-binding://run-entropy",
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "principal://worker-entropy",
+                &format!("nonce-entropy-{draw}"),
+                "hypervisor-final-invoker",
+                "provider-resource://akash/deployment",
+                "result-destination://aft/u1",
+                &json!({"operation":"create_deployment","deposit_usd":1.0}),
+                1_000,
+                61_000,
+            )
+            .expect("a guest effect capability");
+            let token = proposal["capability_token"]
+                .as_str()
+                .expect("a capability token")
+                .to_string();
+            assert_eq!(token.len(), "wec_".len() + 64, "expected length: {token}");
+            assert!(token.starts_with("wec_"), "prefix: {token}");
+            assert!(seen.insert(token.clone()), "a repeated draw: {token}");
+        }
+    }
+
+    #[test]
+    fn two_hundred_fifty_six_host_triggers_are_distinct_and_the_right_length() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let data_dir = dir.path().to_str().expect("a utf-8 path");
+        let mut seen = std::collections::HashSet::new();
+        for draw in 0..256 {
+            let full_request = json!({
+                "provider_id": "provider-account",
+                "op": "create",
+                "environment_ref": "env-entropy",
+                "owner_ref": "org://local",
+                "idempotency_key": format!("entropy-{draw}"),
+                "plan": {"deposit_usd": 1.0},
+                "operation_proposal_ref": "provider-operation-proposal://popp_entropy",
+                "wallet_approval_grant": { "grant_ref": "wallet.network://grant/entropy" }
+            });
+            let bundle = mint_guest_governed_provider_effect_capability(
+                data_dir,
+                "workload-isolation-binding://run-entropy-provider",
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "principal://worker-entropy-provider",
+                &format!("nonce-entropy-provider-{draw}"),
+                "provider-resource://provider-account/env-entropy",
+                "result-destination://aft/u1",
+                &full_request,
+                "user://operator",
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                1_000,
+                61_000,
+            )
+            .expect("a governed provider effect capability");
+            let trigger = bundle["host_trigger"]
+                .as_str()
+                .expect("a host trigger")
+                .to_string();
+            assert_eq!(
+                trigger.len(),
+                "wbt_".len() + 64,
+                "expected length: {trigger}"
+            );
+            assert!(trigger.starts_with("wbt_"), "prefix: {trigger}");
+            assert!(seen.insert(trigger.clone()), "a repeated draw: {trigger}");
+        }
+    }
+}

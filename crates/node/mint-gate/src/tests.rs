@@ -837,3 +837,63 @@ fn a_scoped_canary_mark_names_its_scope() {
     assert_eq!(deny_mark("deny: k::g"), Some(("k::g".to_string(), None)));
     assert_eq!(deny_mark("canary: production"), None);
 }
+
+/// BUILD-DELTA #36d (the retired lint's function-local-const RED, ported): a prefix held in a FUNCTION-LOCAL const is
+/// counted by layer 2 at its own item (`fn f > const P`), and a registry that does not name it fails the comparison.
+/// So is an unregistered credential-shaped prefix in a credential-named function's local const.
+#[test]
+fn a_function_local_const_holding_a_prefix_is_an_unregistered_site() {
+    let text = r##"
+mod a {
+    pub fn mint_token() -> String {
+        const P: &str = "ioi_pat_";
+        let mut b = [0u8; 4];
+        ::rand::RngCore::fill_bytes(&mut ::rand::rngs::OsRng, &mut b);
+        ::alloc::fmt::format(format_args!("{0}{1}", P, b[0]))
+    }
+    pub fn mint_secret() -> String {
+        const Q: &str = "zzk_";
+        Q.to_string()
+    }
+}
+"##;
+    let hits = expanded::scan(text, &["ioi_pat_".to_string()]).expect("scan");
+    let get = |item: &str, kind: &str, what: &str| {
+        hits.get(&(item.to_string(), kind.to_string(), what.to_string()))
+            .copied()
+            .unwrap_or(0)
+    };
+    assert_eq!(
+        get("mod a > fn mint_token > const P", "prefix", "ioi_pat_"),
+        1,
+        "{hits:#?}"
+    );
+    assert_eq!(
+        get("mod a > fn mint_secret > const Q", "shaped", "zzk_"),
+        1,
+        "{hits:#?}"
+    );
+    // The registry names every other site (the draw, its primitives) but neither const.
+    let found: BTreeMap<Vec<String>, usize> = hits
+        .iter()
+        .map(|((item, kind, what), n)| {
+            (
+                vec!["t".to_string(), item.clone(), kind.clone(), what.clone()],
+                *n,
+            )
+        })
+        .collect();
+    let registry: String = found
+        .iter()
+        .filter(|(key, _)| !key[1].contains("> const "))
+        .map(|(key, n)| format!("{}\t*\t{n}\tDRAW x\n", key.join("\t")))
+        .collect();
+    let rows = read_rows("e.tsv", &registry, 4, &configs()).expect("rows");
+    let drift = compare("default", &found, &rows, &|_| true).join("\n");
+    for item in ["fn mint_token > const P", "fn mint_secret > const Q"] {
+        assert!(
+            drift.contains("UNREGISTERED [default]") && drift.contains(item),
+            "{item}: {drift}"
+        );
+    }
+}

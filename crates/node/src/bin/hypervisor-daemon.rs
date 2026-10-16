@@ -348,8 +348,6 @@ pub(crate) struct DaemonState {
     // The operator home dir for user-scoped skill/hook sources (~/.claude/...).
     pub(crate) home_dir: String,
     pub(crate) base_url: String,
-    // Expiry enforcement (execution semantics): token_hash -> unix-seconds, 0 = none.
-    token_expiry: Mutex<HashMap<String, i64>>,
     // Inter-frame delay for streaming SSE so clients can abort mid-stream.
     stream_frame_delay_ms: u64,
     // Unique per daemon boot; supervised processes from a prior boot project as
@@ -414,7 +412,6 @@ pub(crate) fn test_daemon_state(data_dir: &str) -> Arc<DaemonState> {
         workspace_root: data_dir.to_string(),
         home_dir: data_dir.to_string(),
         base_url: "http://127.0.0.1:9".to_string(),
-        token_expiry: Mutex::new(HashMap::new()),
         stream_frame_delay_ms: 0,
         boot_id: "boot_test".to_string(),
         internal_dispatch_token: "idisp_test_internal_dispatch_token".to_string(),
@@ -748,6 +745,19 @@ async fn async_main() -> anyhow::Result<()> {
             "akash restart recovery: stranded deployment(s) marked reconciliation_required"
         );
     }
+    // BUILD-DELTA #21(c) — a run-scoped model-mount token belongs to a run, and no run is live in a process that
+    // has just started: every one still unrevoked is revoked durably before the listener opens. A revocation that
+    // cannot be written blocks readiness (fail closed); the token's persisted expiry is checked on every use too.
+    let revoked_run_tokens =
+        revoke_run_scoped_model_tokens_at_startup(&data_dir).map_err(|error| {
+            anyhow::anyhow!("run-scoped model token revocation blocks readiness: {error}")
+        })?;
+    if revoked_run_tokens > 0 {
+        tracing::warn!(
+            count = revoked_run_tokens,
+            "run-scoped model-mount tokens of runs that ended with an earlier process revoked"
+        );
+    }
     // WS-3r — reconcile editor services on boot: a runtime persisted `ready` did not survive the
     // restart, so mark it degraded (restart required) rather than claim a phantom-ready editor.
     let _ = editor_host::reconcile_editor_services(&data_dir);
@@ -823,7 +833,6 @@ async fn async_main() -> anyhow::Result<()> {
         workspace_root,
         home_dir,
         base_url: format!("http://{addr}"),
-        token_expiry: Mutex::new(HashMap::new()),
         stream_frame_delay_ms,
         boot_id: format!("boot_{}", uuid::Uuid::new_v4()),
         // Per-boot internal dispatch secret (identity-gated automations run lane): lives only in
@@ -5490,13 +5499,6 @@ fn now_unix_secs() -> i64 {
         .unwrap_or(0)
 }
 
-fn parse_expiry_secs(value: &str) -> Option<i64> {
-    use time::format_description::well_known::Rfc3339;
-    time::OffsetDateTime::parse(value, &Rfc3339)
-        .ok()
-        .map(|dt| dt.unix_timestamp())
-}
-
 /// Persist a kernel-authored Agentgres record so the read projections replay it.
 /// The kernel record carries its own admission evidence; the daemon only writes
 /// it to the canonical record dir under state_dir.
@@ -5548,7 +5550,8 @@ fn bearer_token(headers: &HeaderMap) -> Option<String> {
 
 /// Wallet-rooted capability gate. 401 if no bearer; 403 if the scope is
 /// denied/expired/revoked. The kernel authorizes the scope against the admitted
-/// grant; the daemon additionally enforces expiry (execution semantics).
+/// grant and checks the token's expiry against its PERSISTED issue record at this
+/// instant, on every use (BUILD-DELTA #21(c)); no process memory holds an expiry.
 fn authorize(st: &DaemonState, headers: &HeaderMap, required_scope: &str) -> Result<(), AppError> {
     let Some(token) = bearer_token(headers) else {
         return Err(AppError(
@@ -5563,40 +5566,31 @@ fn authorize(st: &DaemonState, headers: &HeaderMap, required_scope: &str) -> Res
         "state_dir": st.data_dir,
         "token_hash": token_hash,
         "required_scope": required_scope,
+        "now_unix_secs": now_unix_secs(),
     }))
     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    let plan = ModelMountCore
+    ModelMountCore
         .plan_capability_token_control(&req)
         .map_err(|error| AppError(StatusCode::FORBIDDEN, debug_string(error)))?;
-    // Expiry is looked up by the token_id of the token the kernel authorized (compared in constant
-    // time), never by a value the caller presented.
-    let authorized_id = plan.record["token_id"].as_str().unwrap_or_default();
-    if let Some(expiry) = st
-        .token_expiry
-        .lock()
-        .ok()
-        .and_then(|map| map.get(authorized_id).copied())
-    {
-        if expiry != 0 && expiry <= now_unix_secs() {
-            return Err(AppError(
-                StatusCode::FORBIDDEN,
-                "capability token expired".to_string(),
-            ));
-        }
-    }
     Ok(())
 }
+
+/// The lifetime of a run's model-mount token (ADR 0053 § 2): written into its durable issue record at mint.
+const RUN_SCOPED_MODEL_TOKEN_TTL_SECS: i64 = 2 * 3600;
 
 /// ADR 0053 § 2 / M13.9 — a RUN-SCOPED model-mount capability token for a session execution
 /// against a remote route: minted through the same kernel call the token route uses, scoped to
 /// `model.chat:*`, audience = the run's session, grant = the run's lane receipt, two-hour expiry.
-/// Returns (raw token, token id). The raw token goes only to the harness child's environment.
+/// The kernel writes issued-at, the expiry, the audience and the run's session into the token's
+/// own durable record at mint (BUILD-DELTA #21(c)). Returns (raw token, token id). The raw token
+/// goes only to the harness child's environment.
 pub(crate) fn mint_run_scoped_model_token(
     st: &DaemonState,
     session_ref: &str,
     grant_ref: &str,
 ) -> Result<(String, String), String> {
-    let expires_at = now_unix_secs() + 2 * 3600;
+    let issued_at = now_unix_secs();
+    let expires_at = issued_at + RUN_SCOPED_MODEL_TOKEN_TTL_SECS;
     let expires_iso = time::OffsetDateTime::from_unix_timestamp(expires_at)
         .ok()
         .and_then(|dt| {
@@ -5618,6 +5612,8 @@ pub(crate) fn mint_run_scoped_model_token(
         "state_dir": st.data_dir,
         "body": body,
         "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+        "now_unix_secs": issued_at,
+        "run_session_ref": session_ref,
     }))
     .map_err(|error| error.to_string())?;
     let plan = ModelMountCore
@@ -5642,42 +5638,77 @@ pub(crate) fn mint_run_scoped_model_token(
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    if !token_id.is_empty() {
-        if let Ok(mut map) = st.token_expiry.lock() {
-            map.insert(token_id.clone(), expires_at);
-        }
-    }
     Ok((token, token_id))
 }
 
-/// Revoke a run-scoped token when its lane returns (the kernel's own revoke operation).
-pub(crate) fn revoke_run_scoped_model_token(
-    st: &DaemonState,
-    token_id: &str,
-) -> Result<(), String> {
+/// Revoke a run-scoped token (the kernel's own revoke operation): when its run ends in this process
+/// (its owner, RunScopedModelToken, is dropped) and at startup for every run of an earlier process.
+pub(crate) fn revoke_run_scoped_model_token(data_dir: &str, token_id: &str) -> Result<(), String> {
     let req: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
         "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
         "operation_kind": "model_mount.capability_token.revoke",
-        "state_dir": st.data_dir,
+        "state_dir": data_dir,
         "token_id": token_id,
     }))
     .map_err(|error| error.to_string())?;
     let plan = ModelMountCore
         .plan_capability_token_control(&req)
         .map_err(|error| debug_string(error))?;
-    persist_record(
-        &st.data_dir,
-        &plan.record_dir,
-        &plan.record_id,
-        &plan.record,
-    )
-    .map_err(|error| error.to_string())?;
+    persist_record(data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
+/// BUILD-DELTA #21(c) — the startup sweep: no run is live in a process that has just started, so
+/// every run-scoped model-mount token still unrevoked belongs to a run that ended with an earlier
+/// process, and each is revoked durably. Any failure is returned (the caller blocks readiness).
+fn revoke_run_scoped_model_tokens_at_startup(data_dir: &str) -> Result<usize, String> {
+    let token_ids = ModelMountCore
+        .unrevoked_run_scoped_capability_token_ids(data_dir)
+        .map_err(debug_string)?;
+    for token_id in &token_ids {
+        revoke_run_scoped_model_token(data_dir, token_id)
+            .map_err(|error| format!("revoking {token_id}: {error}"))?;
+    }
+    Ok(token_ids.len())
+}
+
+/// A run's model-mount token, owned by the run (BUILD-DELTA #21(c)). Dropping it revokes the token:
+/// when the lane returns, and when the run is interrupted in this process (the request future is
+/// dropped, or a panic unwinds). A run interrupted by the process ending is revoked by the startup
+/// sweep before the next process serves; the token's persisted expiry bounds it in every case.
+pub(crate) struct RunScopedModelToken {
+    data_dir: String,
+    pub(crate) token: String,
+    pub(crate) token_id: String,
+}
+
+impl RunScopedModelToken {
+    /// The run takes the (token, token id) pair `mint_run_scoped_model_token` has just minted for
+    /// it. The run's handler calls the mint itself, so the handler stays the mint's registered call
+    /// site in batch 3's mint gate (BUILD-DELTA #36).
+    pub(crate) fn own(data_dir: &str, (token, token_id): (String, String)) -> Self {
+        Self {
+            data_dir: data_dir.to_string(),
+            token,
+            token_id,
+        }
+    }
+}
+
+impl Drop for RunScopedModelToken {
+    fn drop(&mut self) {
+        // A revoke that cannot be written leaves the token to its durable expiry and to the next
+        // startup sweep; there is no caller here to hand the error to.
+        let _ = revoke_run_scoped_model_token(&self.data_dir, &self.token_id);
+    }
+}
+
 /// POST /v1/model-mount/tokens — mint a wallet-rooted capability token via the
-/// kernel; persist the redacted Agentgres record (token_hash only); return the
-/// raw token once. Unauthenticated (the grant body carries the authority).
+/// kernel; persist the redacted Agentgres record (token_hash only, with its issue
+/// record: issued-at and the requested `expiresAt`, BUILD-DELTA #21(c)); return the
+/// raw token once. An `expiresAt` that cannot be read or is not in the future is
+/// refused. Unauthenticated (the grant body carries the authority).
 async fn handle_token_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
@@ -5688,6 +5719,7 @@ async fn handle_token_create(
         "state_dir": st.data_dir,
         "body": body,
         "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+        "now_unix_secs": now_unix_secs(),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
     let plan = ModelMountCore
@@ -5700,20 +5732,6 @@ async fn handle_token_create(
         &plan.record,
     )
     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    if let Some(token_id) = plan
-        .public_response
-        .get("token_id")
-        .and_then(|v| v.as_str())
-    {
-        let expiry = body
-            .get("expiresAt")
-            .and_then(|v| v.as_str())
-            .and_then(parse_expiry_secs)
-            .unwrap_or(0);
-        if let Ok(mut map) = st.token_expiry.lock() {
-            map.insert(token_id.to_string(), expiry);
-        }
-    }
     // The e2e uses both `token` (bearer) and `id` (revocation); map token_id -> id.
     let mut response = plan.public_response.clone();
     if let (Some(object), Some(token_id)) = (
@@ -10250,5 +10268,211 @@ mod cron_tests {
         assert!(validate_schedule_spec(&json!({"type":"cron","cron":"0 9 * * 8"})).is_err());
         assert!(schedule_next_run(&json!({"every_minutes": 5}), "2026-06-29T00:00:00Z").is_some());
         assert!(schedule_next_run(&Value::Null, "2026-06-29T00:00:00Z").is_none());
+    }
+}
+
+/// BUILD-DELTA #21(c): the cell's run-scoped model-mount token, through the REAL mint. Its issue record
+/// (issued-at, expiry, audience, the run's session) is written durably at mint, and authorize reads the
+/// expiry from that persisted record on every use, never from process memory.
+#[cfg(test)]
+mod run_scoped_model_token_issue_tests {
+    use super::*;
+
+    const SESSION: &str = "session:run-scoped-issue";
+    const GRANT: &str = "receipt://hypervisor/session-execute/run-scoped-issue";
+
+    /// Every create record under capability-tokens/, with its path.
+    fn create_records(data_dir: &std::path::Path) -> Vec<(std::path::PathBuf, Value)> {
+        let mut records = Vec::new();
+        for entry in std::fs::read_dir(data_dir.join("capability-tokens")).expect("the token dir") {
+            let path = entry.expect("an entry").path();
+            let value: Value =
+                serde_json::from_str(&std::fs::read_to_string(&path).expect("a record"))
+                    .expect("a JSON record");
+            if value["operation_kind"] == "model_mount.capability_token.create" {
+                records.push((path, value));
+            }
+        }
+        records
+    }
+
+    fn bearer(token: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {token}").parse().expect("a header value"),
+        );
+        headers
+    }
+
+    #[test]
+    fn the_run_scoped_mint_writes_its_issue_record_durably_at_mint() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let st = test_daemon_state(dir.path().to_str().expect("a utf-8 path"));
+        let before = now_unix_secs();
+        let (token, token_id) =
+            mint_run_scoped_model_token(&st, SESSION, GRANT).expect("the run-scoped mint");
+        let after = now_unix_secs();
+        let records = create_records(dir.path());
+        let (_, record) = records
+            .iter()
+            .find(|(_, record)| record["token_id"] == token_id.as_str())
+            .expect("the token's durable create record");
+        let issue = &record["issue_record"];
+        let issued = issue["issued_at_unix_secs"]
+            .as_i64()
+            .unwrap_or_else(|| panic!("issued-at is not in the durable record: {record}"));
+        assert!(
+            before <= issued && issued <= after,
+            "issued-at is the mint's instant"
+        );
+        assert_eq!(
+            issue["expires_at_unix_secs"].as_i64(),
+            Some(issued + 2 * 3600),
+            "the two-hour expiry is in the durable record"
+        );
+        assert_eq!(issue["ttl_secs"], json!(2 * 3600));
+        assert_eq!(issue["audience"], json!(SESSION));
+        assert_eq!(issue["run_session_ref"], json!(SESSION));
+        assert_eq!(
+            issue["schema_version"],
+            json!("ioi.model_mount.capability_token_issue.v1")
+        );
+        for (path, _) in &records {
+            assert!(
+                !std::fs::read_to_string(path).unwrap().contains(&token),
+                "the plaintext token is never stored"
+            );
+        }
+    }
+
+    #[test]
+    fn a_run_scoped_token_is_refused_once_its_persisted_expiry_has_passed() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let st = test_daemon_state(dir.path().to_str().expect("a utf-8 path"));
+        let (token, token_id) =
+            mint_run_scoped_model_token(&st, SESSION, GRANT).expect("the run-scoped mint");
+        assert!(
+            authorize(&st, &bearer(&token), "model.chat:*").is_ok(),
+            "valid while its run lives"
+        );
+        // Two hours and a second pass, without a restart: the persisted issue record is moved back by
+        // exactly that, which is what the clock passing it means to a check that reads the record.
+        let (path, mut record) = create_records(dir.path())
+            .into_iter()
+            .find(|(_, record)| record["token_id"] == token_id.as_str())
+            .expect("the token's durable create record");
+        let now = now_unix_secs();
+        record["issue_record"] = json!({
+            "schema_version": "ioi.model_mount.capability_token_issue.v1",
+            "issued_at_unix_secs": now - 2 * 3600 - 1,
+            "expires_at_unix_secs": now - 1,
+            "ttl_secs": 2 * 3600,
+            "audience": SESSION,
+            "run_session_ref": SESSION,
+        });
+        std::fs::write(&path, serde_json::to_vec_pretty(&record).unwrap()).unwrap();
+        match authorize(&st, &bearer(&token), "model.chat:*") {
+            Ok(()) => panic!("a run-scoped token past its persisted expiry still authorizes"),
+            Err(AppError(status, message)) => assert_eq!(
+                status,
+                StatusCode::FORBIDDEN,
+                "refused past its persisted expiry: {message}"
+            ),
+        }
+    }
+
+    #[test]
+    fn two_run_scoped_mints_with_identical_inputs_differ_and_the_id_is_not_part_of_the_token() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let st = test_daemon_state(dir.path().to_str().expect("a utf-8 path"));
+        let first = mint_run_scoped_model_token(&st, SESSION, GRANT).expect("the first mint");
+        let second = mint_run_scoped_model_token(&st, SESSION, GRANT).expect("the second mint");
+        assert_ne!(
+            first.0, second.0,
+            "identical inputs never give the same token"
+        );
+        assert_ne!(first.1, second.1, "nor the same id");
+        for (token, token_id) in [&first, &second] {
+            let token_hex = token.strip_prefix("ioi_mnt_").expect("the ioi_mnt_ prefix");
+            assert_eq!(token_hex.len(), 64, "256 bits");
+            let id_hex = token_id
+                .strip_prefix("capability_token:")
+                .expect("the id prefix");
+            assert!(id_hex.len() >= 16, "the id is drawn: {token_id}");
+            assert!(
+                !token_hex.starts_with(&id_hex[..8]),
+                "the id shares no prefix with the token"
+            );
+            assert!(
+                !token_hex.contains(&id_hex[..16]),
+                "no 16-hex run of the id is in the token"
+            );
+        }
+    }
+
+    fn refused(st: &DaemonState, token: &str) -> bool {
+        matches!(
+            authorize(st, &bearer(token), "model.chat:*"),
+            Err(AppError(status, _)) if status == StatusCode::FORBIDDEN
+        )
+    }
+
+    /// The run's token as session execute takes it: the REAL mint, owned by the run.
+    fn owned_mint(st: &DaemonState) -> RunScopedModelToken {
+        RunScopedModelToken::own(
+            &st.data_dir,
+            mint_run_scoped_model_token(st, SESSION, GRANT).expect("a mint"),
+        )
+    }
+
+    #[test]
+    fn a_run_that_ends_in_this_process_revokes_its_token_however_it_ends() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let st = test_daemon_state(dir.path().to_str().expect("a utf-8 path"));
+
+        // The lane returns.
+        let returned = owned_mint(&st);
+        let token = returned.token.clone();
+        assert!(authorize(&st, &bearer(&token), "model.chat:*").is_ok());
+        drop(returned);
+        assert!(refused(&st, &token), "revoked when the lane returns");
+
+        // The run's request future is dropped mid-lane (an interrupted request).
+        let interrupted = owned_mint(&st);
+        let token = interrupted.token.clone();
+        assert!(authorize(&st, &bearer(&token), "model.chat:*").is_ok());
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let lane = runtime.spawn(async move {
+            let _owned = interrupted;
+            std::future::pending::<()>().await;
+        });
+        runtime.block_on(tokio::task::yield_now());
+        lane.abort();
+        assert!(
+            runtime
+                .block_on(lane)
+                .is_err_and(|error| error.is_cancelled()),
+            "the lane was interrupted"
+        );
+        assert!(
+            refused(&st, &token),
+            "revoked when the run's future is dropped"
+        );
+
+        // The lane panics.
+        let token = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let panicking = owned_mint(&st);
+            let token = panicking.token.clone();
+            assert!(authorize(&st, &bearer(&token), "model.chat:*").is_ok());
+            std::panic::panic_any(token)
+        }))
+        .expect_err("the lane panicked")
+        .downcast::<String>()
+        .expect("the token travels in the panic");
+        assert!(refused(&st, &token), "revoked when the lane unwinds");
     }
 }

@@ -1280,3 +1280,34 @@ pub(crate) async fn handle_authority_receipts(
     body["receipts"] = json!(receipts);
     Json(body)
 }
+
+/// BUILD-DELTA #36d: the registered mint called 256 times as the routes call it (each issue writes its lease record):
+/// every bearer distinct, prefixed and the right length.
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn two_hundred_fifty_six_lease_bearers_are_distinct_and_the_right_length() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let data_dir = dir.path().to_str().expect("a utf-8 path");
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..256 {
+            let (_, bearer) = issue_bearer_capability_lease(
+                data_dir,
+                "principal://entropy-test",
+                "environment.operate",
+                json!({ "environment_ref": "env-entropy-test" }),
+                3600,
+            );
+            let bearer = bearer.expect("a bearer is issued");
+            assert_eq!(
+                bearer.len(),
+                "ioi_lease_".len() + 64,
+                "expected length: {bearer}"
+            );
+            assert!(bearer.starts_with("ioi_lease_"), "prefix: {bearer}");
+            assert!(seen.insert(bearer.clone()), "a repeated draw: {bearer}");
+        }
+    }
+}

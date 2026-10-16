@@ -28586,9 +28586,12 @@ pub(crate) async fn handle_session_execute(
     // for this run's session, scoped to `model.chat:*`, revoked when the lane returns. It is the
     // estate's own revocable capability primitive, never a provider credential; the provider's
     // sealed key never leaves the daemon. A local (ollama) route keeps the credential-free env.
+    // BUILD-DELTA #21(c): the run OWNS the token, so it is revoked however the run ends here (the
+    // lane returning, or this request's future dropped or unwinding); a run that ends with the
+    // process is revoked by the next process's startup sweep.
     let run_model_token = if model_transport.as_deref() == Some("openai_compatible") {
         match crate::mint_run_scoped_model_token(&st, &session_id, &lane_receipt_ref) {
-            Ok(minted) => Some(minted),
+            Ok(minted) => Some(crate::RunScopedModelToken::own(&st.data_dir, minted)),
             Err(detail) => {
                 return session_execution_failure_response(format!(
                     "run-scoped model-mount token could not be minted for the remote route: {detail}"
@@ -28626,15 +28629,13 @@ pub(crate) async fn handle_session_execute(
             &workspace_root,
             &intent,
             model_endpoint.as_deref(),
-            run_model_token.as_ref().map(|(token, _)| token.as_str()),
+            run_model_token.as_ref().map(|minted| minted.token.as_str()),
         )
         .await
     };
-    if let Some((_, token_id)) = run_model_token.as_ref() {
-        // Best effort: the token also carries its own expiry, so a failed revoke narrows nothing
-        // permanently; the revoke is recorded by the kernel when it lands.
-        let _ = crate::revoke_run_scoped_model_token(&st, token_id);
-    }
+    // The lane returned: dropping the token revokes it (best effort: its persisted expiry and the
+    // next startup sweep bound it if the revoke cannot be written).
+    drop(run_model_token);
     let finished_at = iso_now();
 
     // Real workspace diff — whatever the harness actually wrote (git or walk).
@@ -33024,5 +33025,35 @@ mod bootstrap_token_compare_tests {
         }
         let (status, body) = bootstrap(token.clone()).await;
         assert_eq!(status, StatusCode::OK, "the token bootstraps: {body}");
+    }
+}
+
+/// BUILD-DELTA #36d: the registered mints' REAL draws, called 256 times: every draw distinct and the right length.
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    fn assert_distinct(draw: impl Fn() -> String, expected_len: usize, prefix: &str) {
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..256 {
+            let value = draw();
+            assert_eq!(value.len(), expected_len, "expected length: {value}");
+            assert!(value.starts_with(prefix), "prefix {prefix}: {value}");
+            assert!(seen.insert(value.clone()), "a repeated draw: {value}");
+        }
+    }
+
+    #[test]
+    fn two_hundred_fifty_six_opaque_tokens_are_distinct_and_the_right_length() {
+        assert_distinct(
+            || gen_opaque("ioi_sess"),
+            "ioi_sess_".len() + 64,
+            "ioi_sess_",
+        );
+    }
+
+    #[test]
+    fn two_hundred_fifty_six_random_tokens_are_distinct_and_the_right_length() {
+        assert_distinct(|| random_token(32), 32, "");
     }
 }
