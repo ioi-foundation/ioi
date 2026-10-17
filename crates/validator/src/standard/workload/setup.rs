@@ -891,11 +891,18 @@ where
 /// The split workload's IPC listen address when `IPC_SERVER_ADDR` holds `env_value` (BUILD-DELTA
 /// #72's interim rule, the IOI Director with HYP, 2026-10-15). Unset: loopback only, because the
 /// workload IPC is plaintext and unauthenticated until #72 lands. An explicit value is kept; a
-/// non-loopback one comes back with a warning for the operator naming #72.
+/// non-loopback one comes back with a warning for the operator naming #72. A `localhost` host (any
+/// letter case) comes back as 127.0.0.1 with its port kept (D2a review round 3, m5): the IPC server
+/// parses its listen address as a numeric socket address (`WorkloadIpcServer::run`).
 pub fn resolve_ipc_server_addr(env_value: Option<String>) -> (String, Option<String>) {
     let Some(addr) = env_value else {
         return ("127.0.0.1:8555".to_string(), None);
     };
+    if let Some((host, port)) = addr.rsplit_once(':') {
+        if host.eq_ignore_ascii_case("localhost") {
+            return (format!("127.0.0.1:{port}"), None);
+        }
+    }
     let host = addr
         .rsplit_once(':')
         .map(|(host, _port)| host)

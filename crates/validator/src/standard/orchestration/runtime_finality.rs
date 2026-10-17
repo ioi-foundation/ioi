@@ -190,23 +190,41 @@ pub(crate) struct RuntimeFinalityCoordinator {
     /// only holder of the workload admission capability, installed once at startup and reachable
     /// only from this module.
     admitted_tip_publisher: Option<Arc<AdmittedTipPublisher>>,
+    /// Where the last publication's gap walk ended (D2a round 3, m3): the next one jumps from
+    /// `top` to `bottom` instead of re-walking heights the workload already holds. In memory only.
+    admitted_span: Option<AdmittedSpan>,
+}
+
+/// A run of the admitted chain the publication has verified and the workload's index holds
+/// (FU-N11-DURABLE-STATUS-1 D2a round 3, m3): every block on the parent_hash chain from `top` down
+/// to `bottom` is the head of a committed admission effect at its parent's height + 1, and its
+/// index row was written or found present. The chain is append-only, so a span stays true; it is
+/// used only while the workload still holds the bottom row (a wiped index falls back to the walk).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AdmittedSpan {
+    top: [u8; 32],
+    bottom: [u8; 32],
+    bottom_height: u64,
 }
 
 /// How long one admitted-index RPC to the workload may take. The publication never holds the
 /// coordinator's lock while it waits.
 const ADMITTED_PUBLICATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
-/// The most heights one publication fills below the ledger head by its parent_hash walk.
+/// The most heights one publication visits below the ledger head by its parent_hash walk (held
+/// rows count; the jump over the last verified span does not), so one call is bounded and
+/// repeated calls make progress (D2a round 3, m3).
 const ADMITTED_GAP_FILL_LIMIT: usize = 64;
 
 /// The orchestration's ONLY holder of the workload's admission capability and of the private gRPC
 /// channel through which the workload's admitted index is written (FU-N11-DURABLE-STATUS-1 D2a).
-/// The binary builds it once at startup (in-process: the capability it shares with its in-process
-/// workload server; split-process: the workload's private capability file) and hands it to the
-/// orchestrator, which installs it in the runtime-finality coordinator. It has NO operation of its
-/// own: the coordinator's [`RuntimeFinalityCoordinator::publish_admitted_head`], which reads the
+/// It is PRIVATE to this module (D2a round 3, B1 hygiene): a binary hands the orchestrator an
+/// [`AdmissionCapabilitySource`] (in-process: the capability it shares with its in-process
+/// workload server; split-process: the workload's private capability file), and the coordinator
+/// builds the publisher from it at its set-once install. It has NO operation of its own: the
+/// coordinator's [`RuntimeFinalityCoordinator::publish_admitted_head`], which reads the
 /// coordinator's own ledger, is the only thing that sends through it, so nothing can hand it a tip
 /// or a block to publish. The shared workload client has no way to write the index.
-pub struct AdmittedTipPublisher {
+struct AdmittedTipPublisher {
     capability: std::sync::Mutex<Option<crate::standard::workload::admitted_tip::WorkloadCapability>>,
     capability_file: Option<PathBuf>,
     workload_endpoint: String,
@@ -221,8 +239,9 @@ impl std::fmt::Debug for AdmittedTipPublisher {
 
 impl AdmittedTipPublisher {
     /// For an in-process binary: the capability it shares with its in-process workload server,
-    /// whose IPC listens on `workload_address`.
-    pub fn in_process(
+    /// whose IPC listens on `workload_address`. Module-private: reached only through
+    /// [`AdmissionCapabilitySource::in_process`].
+    fn in_process(
         capability: crate::standard::workload::admitted_tip::WorkloadCapability,
         workload_address: &str,
     ) -> Self {
@@ -238,8 +257,8 @@ impl AdmittedTipPublisher {
     /// refusal (a restarted workload rotates its capability), a publication re-reads the file once
     /// and retries. A missing or malformed file leaves the publisher without a capability
     /// (fail-closed: nothing is recorded and the committed height stays where it is) until a
-    /// re-read finds one.
-    pub fn from_capability_file(path: PathBuf, workload_address: &str) -> Self {
+    /// re-read finds one. Module-private: reached only through [`AdmissionCapabilitySource::file`].
+    fn from_capability_file(path: PathBuf, workload_address: &str) -> Self {
         let capability = crate::standard::workload::admitted_tip::read_capability_file(&path).ok();
         Self {
             capability: std::sync::Mutex::new(capability),
@@ -1808,6 +1827,7 @@ impl RuntimeFinalityCoordinator {
             staged_verifications: std::sync::atomic::AtomicUsize::new(0),
             pending_native_aft: Vec::new(),
             admitted_tip_publisher: None,
+            admitted_span: None,
         };
         coordinator.verify_all_staged()?;
         coordinator.cutover_locators.unclassified = coordinator
@@ -1820,32 +1840,22 @@ impl RuntimeFinalityCoordinator {
         Ok(coordinator)
     }
 
-    /// Installs the orchestration's admitted-tip publisher, ONCE, at startup
-    /// (FU-N11-DURABLE-STATUS-1 D2a round 2, B2). The coordinator owns it privately; a second
-    /// install is refused.
-    pub(crate) fn install_admitted_tip_publisher(
+    /// Installs the orchestration's admitted-tip publisher, built HERE from `source`, ONCE, at
+    /// startup (FU-N11-DURABLE-STATUS-1 D2a round 2, B2; round 3, B1 hygiene: the publisher's
+    /// constructors are private to this module, and this set-once install, which the
+    /// orchestrator's startup calls with the source the binary set, is the only way to one). The
+    /// coordinator owns it privately; a second install is refused.
+    pub(crate) fn install_admission_capability(
         &mut self,
-        publisher: AdmittedTipPublisher,
+        source: AdmissionCapabilitySource,
     ) -> Result<()> {
         if self.admitted_tip_publisher.is_some() {
             return Err(anyhow!(
                 "the admitted-tip publisher is installed once, at startup"
             ));
         }
-        self.admitted_tip_publisher = Some(Arc::new(publisher));
+        self.admitted_tip_publisher = Some(Arc::new(source.into_publisher()));
         Ok(())
-    }
-
-    /// Installs the admitted-tip publisher built from `source`, ONCE, at startup
-    /// (FU-N11-DURABLE-STATUS-1 D2a round 3, B1 hygiene: the publisher is built only inside this
-    /// module). RED-5 scaffold: it delegates to `install_admitted_tip_publisher`; GREEN-5's
-    /// lifecycle install calls it.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn install_admission_capability(
-        &mut self,
-        source: AdmissionCapabilitySource,
-    ) -> Result<()> {
-        self.install_admitted_tip_publisher(source.into_publisher())
     }
 
     /// The installed publisher. Private to this module: only the ledger-reading publication below
@@ -1855,54 +1865,110 @@ impl RuntimeFinalityCoordinator {
     }
 
     /// THE admitted-index publication, the publisher's ONE operation (FU-N11-DURABLE-STATUS-1 D2a
-    /// GREEN-4; NET-DECISIONS 1). It reads THIS coordinator's own ledger: it publishes the
-    /// canonical head (`last_admitted_block`), then walks parent_hash down through the staged
-    /// envelopes and publishes each height the workload's index does not hold yet (a gap left by
-    /// a missed publication), stopping at the first height it holds, at height 1, at a parent
-    /// without a staged envelope, or after `ADMITTED_GAP_FILL_LIMIT` heights. It takes no tip and
-    /// no block from its caller, so it publishes only what Agentgres admitted. It is an associated
-    /// function over the coordinator's mutex so that the lock is held only to read the ledger,
-    /// never across an RPC to the workload. Nothing admitted yet (the genesis head): a no-op.
+    /// GREEN-4; NET-DECISIONS 1; round 3 GREEN-5). It reads THIS coordinator's own ledger and
+    /// publishes a block ONLY if it is the head of a COMMITTED admission effect in this spine's own
+    /// records (B1, a data rule: [`Self::is_committed_admission_head`]); the bootstrap (genesis)
+    /// head never is, so a ledger whose canonical head was never admitted publishes nothing. It
+    /// publishes the canonical head (`last_admitted_block`), then walks parent_hash down through
+    /// the staged envelopes, the same rule for every block, and publishes each height the
+    /// workload's index does not hold (a gap left by a missed publication). The walk continues
+    /// PAST held rows to the absent ones (m3), jumps over the span the previous publication
+    /// verified, and visits at most `ADMITTED_GAP_FILL_LIMIT` heights per call, so repeated
+    /// publications complete the index. It stops at height 1, at a parent without a staged
+    /// envelope, or at a parent that is not the head of a committed admission effect (Ok), and
+    /// REPORTS a committed parent whose height is not its child's height - 1 (Err). It takes no
+    /// tip and no block from its caller. It is an associated function over the coordinator's mutex
+    /// so that the lock is held only to read the ledger, never across an RPC to the workload.
     pub(crate) async fn publish_admitted_head(ledger: &tokio::sync::Mutex<Self>) -> Result<()> {
-        let (publisher, head) = {
+        let (publisher, head, span) = {
             let coordinator = ledger.lock().await;
             let Some(publisher) = coordinator.admitted_tip_publisher() else {
                 return Err(anyhow!(
                     "no admitted-tip publisher is installed; the admitted index is not updated"
                 ));
             };
-            (publisher, coordinator.last_admitted_block()?)
-        };
-        let Some(head) = head else {
-            return Ok(());
+            let Some(head) = coordinator.last_admitted_block()? else {
+                return Ok(());
+            };
+            if !coordinator.is_committed_admission_head(&head)? {
+                return Ok(());
+            }
+            (publisher, head, coordinator.admitted_span)
         };
         publisher.send(&admitted_record_of(&head)?).await?;
+        let top = block_hash(&head)?;
+        // The previous walk's span is used only while the workload still holds its bottom row.
+        let mut resume = None;
+        if let Some(span) = span {
+            if publisher.workload_holds(span.bottom_height).await? {
+                resume = Some(span);
+            }
+        }
         let mut child = head;
-        for _ in 0..ADMITTED_GAP_FILL_LIMIT {
+        let mut child_hash = top;
+        let mut visited = 0;
+        loop {
+            if let Some(span) = resume.filter(|span| span.top == child_hash) {
+                resume = None;
+                child = ledger.lock().await.read_staged(&span.bottom)?.block;
+                child_hash = span.bottom;
+            }
             let Some(parent_height) = child.header.height.checked_sub(1).filter(|h| *h >= 1) else {
                 break;
             };
-            if publisher.workload_holds(parent_height).await? {
+            if visited == ADMITTED_GAP_FILL_LIMIT {
                 break;
             }
+            visited += 1;
             let parent = {
                 let coordinator = ledger.lock().await;
                 if !coordinator.has_staged_block(&child.header.parent_hash) {
                     break;
                 }
-                coordinator.read_staged(&child.header.parent_hash)?.block
+                let parent = coordinator.read_staged(&child.header.parent_hash)?.block;
+                if !coordinator.is_committed_admission_head(&parent)? {
+                    break;
+                }
+                parent
             };
             if parent.header.height != parent_height {
                 return Err(anyhow!(
-                    "the staged parent of admitted block {} is at height {}, not {parent_height}",
+                    "the admitted parent of admitted block {} is at height {}, not {parent_height}",
                     child.header.height,
                     parent.header.height
                 ));
             }
-            publisher.send(&admitted_record_of(&parent)?).await?;
+            if !publisher.workload_holds(parent_height).await? {
+                publisher.send(&admitted_record_of(&parent)?).await?;
+            }
+            child_hash = child.header.parent_hash;
             child = parent;
         }
+        ledger.lock().await.admitted_span = Some(AdmittedSpan {
+            top,
+            bottom: child_hash,
+            bottom_height: child.header.height,
+        });
         Ok(())
+    }
+
+    /// B1 as a DATA rule (FU-N11-DURABLE-STATUS-1 D2a round 3; DISPOSITION condition 1): whether
+    /// `block` is the head of a COMMITTED admission effect in this coordinator's OWN spine. The
+    /// admission of a block commits the effect `runtime-effect-<hex(block hash)>` (admit_material)
+    /// whose bundle's resulting canonical head names the block; nothing a caller supplies enters
+    /// the answer. The spine's bootstrap (genesis) head has no such effect, so it is never
+    /// publishable.
+    fn is_committed_admission_head(&self, block: &Block<ChainTransaction>) -> Result<bool> {
+        let effect_id = format!("runtime-effect-{}", hex::encode(block_hash(block)?));
+        let Some(effect) = self.store.committed(&effect_id) else {
+            return Ok(false);
+        };
+        let resulting_head = effect
+            .record
+            .bundle
+            .pointer("/checkpoint/resulting_canonical_head")
+            .and_then(Value::as_str);
+        Ok(resulting_head == Some(canonical_block_head(block)?.as_str()))
     }
 
     pub(crate) fn active_profile(&self) -> Result<RuntimeFinalityProfile> {

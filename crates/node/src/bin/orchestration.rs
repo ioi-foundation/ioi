@@ -294,10 +294,11 @@ where
 
     // FU-N11-DURABLE-STATUS-1 D2a: this boot's workload admission capability goes ONLY to the
     // orchestration's admitted-tip publisher, with its own private channel to the same workload IPC
-    // address as the shared client (which has no way to write the admitted index). The
-    // publisher reads the private file the workload writes before it serves, and re-reads it once
-    // after a refusal (a restarted workload rotates it). Without it, admitted tips are not recorded
-    // (fail-closed).
+    // address as the shared client (which has no way to write the admitted index). The binary
+    // hands over the capability file as the publisher's SOURCE; the publisher, built from it inside
+    // the orchestration (round 3), reads the private file the workload writes before it serves,
+    // and re-reads it once after a refusal (a restarted workload rotates it). Without it, admitted
+    // tips are not recorded (fail-closed).
     let admitted_tip_publisher =
         match ioi_validator::standard::workload::admitted_tip::capability_file_path_from_env() {
             Some(path) => {
@@ -312,7 +313,7 @@ where
                     );
                 }
                 Some(
-                    ioi_validator::standard::orchestration::AdmittedTipPublisher::from_capability_file(
+                    ioi_validator::standard::orchestration::AdmissionCapabilitySource::file(
                         path,
                         workload_client.destination_addr(),
                     ),

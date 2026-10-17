@@ -1375,11 +1375,12 @@ where
         .map_err(|error| {
             ValidatorError::Other(format!("runtime finality startup refusal: {error}"))
         })?;
-        // FU-N11-DURABLE-STATUS-1 D2a round 2: the coordinator takes the admitted-tip publisher
-        // (the only holder of the workload admission capability) and owns it privately.
+        // FU-N11-DURABLE-STATUS-1 D2a rounds 2-3: the coordinator builds the admitted-tip publisher
+        // (the only holder of the workload admission capability) from the source the binary set,
+        // at its set-once install, and owns it privately.
         match self.take_admitted_tip_publisher() {
-            Some(publisher) => runtime_finality
-                .install_admitted_tip_publisher(publisher)
+            Some(source) => runtime_finality
+                .install_admission_capability(source)
                 .map_err(|error| ValidatorError::Other(error.to_string()))?,
             None => tracing::warn!(
                 target: "orchestration",

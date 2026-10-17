@@ -108,14 +108,11 @@ mod events;
 mod finalize;
 mod lifecycle;
 pub(crate) mod runtime_finality;
-/// The orchestration's admitted-tip publisher, the only holder of the workload admission
-/// capability and of the private channel the admitted index is written through
-/// (FU-N11-DURABLE-STATUS-1 D2a); the node binaries build one and hand it to the orchestrator with
-/// [`Orchestrator::set_admitted_tip_publisher`].
-pub use runtime_finality::AdmittedTipPublisher;
-/// Where the admitted-tip publisher takes the workload's admission capability from
+/// Where the orchestration's admitted-tip publisher takes the workload's admission capability from
 /// (FU-N11-DURABLE-STATUS-1 D2a round 3): an in-process capability or the workload's capability
-/// file. The publisher itself is built only inside its module, from this source.
+/// file. The node binaries build one and hand it to the orchestrator with
+/// [`Orchestrator::set_admitted_tip_publisher`]; the publisher itself is built only inside its
+/// module, from this source, at the runtime-finality coordinator's set-once install.
 pub use runtime_finality::AdmissionCapabilitySource;
 
 /// Transition logic
@@ -318,9 +315,10 @@ where
     /// Shared event broadcaster.
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
     runtime_finality_root: PathBuf,
-    /// The admitted-tip publisher the binary set (FU-N11-DURABLE-STATUS-1 D2a round 2), until the
-    /// runtime-finality coordinator takes it at startup and owns it privately.
-    admitted_tip_publisher: std::sync::Mutex<Option<AdmittedTipPublisher>>,
+    /// The admission-capability source the binary set (FU-N11-DURABLE-STATUS-1 D2a rounds 2-3),
+    /// until the runtime-finality coordinator takes it at startup, builds the publisher from it and
+    /// owns that privately.
+    admitted_tip_publisher: std::sync::Mutex<Option<AdmissionCapabilitySource>>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -405,19 +403,20 @@ where
         })
     }
 
-    /// Hands the orchestrator the admitted-tip publisher (FU-N11-DURABLE-STATUS-1 D2a round 2): the
-    /// only holder of the workload admission capability. Set once, before start; the
-    /// runtime-finality coordinator takes it when it opens. Without one, admitted tips are not
-    /// recorded in the workload (its committed height stays at its last record, 0 on a fresh node).
-    pub fn set_admitted_tip_publisher(&self, publisher: AdmittedTipPublisher) {
+    /// Hands the orchestrator the SOURCE of the admitted-tip publisher's capability
+    /// (FU-N11-DURABLE-STATUS-1 D2a rounds 2-3): the publisher, the only holder of the workload
+    /// admission capability, is built from it inside its module when the runtime-finality
+    /// coordinator opens. Set once, before start. Without one, admitted tips are not recorded in
+    /// the workload (its committed height stays at its last record, 0 on a fresh node).
+    pub fn set_admitted_tip_publisher(&self, source: AdmissionCapabilitySource) {
         match self.admitted_tip_publisher.lock() {
-            Ok(mut slot) if slot.is_none() => *slot = Some(publisher),
+            Ok(mut slot) if slot.is_none() => *slot = Some(source),
             _ => log::warn!("Attempted to set the admitted-tip publisher more than once."),
         }
     }
 
-    /// Takes the publisher for the runtime-finality coordinator (startup only).
-    pub(crate) fn take_admitted_tip_publisher(&self) -> Option<AdmittedTipPublisher> {
+    /// Takes the capability source for the runtime-finality coordinator's install (startup only).
+    pub(crate) fn take_admitted_tip_publisher(&self) -> Option<AdmissionCapabilitySource> {
         self.admitted_tip_publisher
             .lock()
             .ok()
