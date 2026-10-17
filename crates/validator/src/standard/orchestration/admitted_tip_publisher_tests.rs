@@ -9,12 +9,20 @@
 //! The workload is a SPY ChainControl served over loopback gRPC (the publisher's real private
 //! channel reaches it): it records every RecordAdmittedTip as (capability, record), accepts only
 //! the capability it is told to, and answers GetAdmittedRecord from the rows it accepted.
+//!
+//! RED-5 (review round 3, d2a/review3/DISPOSITION.md): every publisher is installed through the
+//! capability SOURCE (`AdmissionCapabilitySource`), the only way to a publisher outside its module
+//! after GREEN-5. New: B1 as a DATA rule (a block is published only as the head of a COMMITTED
+//! admission effect in the ledger's own spine; the bootstrap head never is), the M2 negative pins
+//! of the gap walk (a competing candidate; an ancestor at the wrong height), and m3 (the walk
+//! resumes past held rows, bounded per call).
 
 use super::runtime_finality::{
-    admit_available, reconcile_workload_admitted_tip, AdmittedTipPublisher,
-    RuntimeFinalityCoordinator,
+    admit_available, canonical_block_head, reconcile_workload_admitted_tip,
+    runtime_finality_initial_head, RuntimeFinalityCoordinator,
 };
 use super::sync_harness::{harness_block, harness_hash, Harness};
+use super::AdmissionCapabilitySource;
 use crate::standard::workload::admitted_tip::{write_capability_file, WorkloadCapability};
 use ioi_api::storage::AdmittedRecord;
 use ioi_ipc::blockchain::chain_control_server::{ChainControl, ChainControlServer};
@@ -41,6 +49,9 @@ struct SpyWorkload {
     accepted: Mutex<Option<[u8; 32]>>,
     presented: Mutex<Vec<([u8; 32], AdmittedRecord)>>,
     index: Mutex<BTreeMap<u64, AdmittedRecord>>,
+    /// RED-5 m3: the 1-based number of the presented record the workload refuses, ONCE (an
+    /// interruption in the middle of a gap fill).
+    refuse_once_at: Mutex<Option<usize>>,
 }
 
 impl SpyWorkload {
@@ -56,8 +67,17 @@ impl SpyWorkload {
         }
         self
     }
+    /// The workload refuses the `n`th presented record once (it is unavailable for that call).
+    fn refusing_once_at(self: Arc<Self>, n: usize) -> Arc<Self> {
+        *self.refuse_once_at.lock().unwrap() = Some(n);
+        self
+    }
     fn presented(&self) -> Vec<([u8; 32], AdmittedRecord)> {
         self.presented.lock().unwrap().clone()
+    }
+    /// The heights the workload's index holds, ascending.
+    fn heights(&self) -> Vec<u64> {
+        self.index.lock().unwrap().keys().copied().collect()
     }
     fn index(&self) -> Vec<AdmittedRecord> {
         self.index.lock().unwrap().values().cloned().collect()
@@ -140,10 +160,20 @@ impl ChainControl for SpyWorkload {
             state_root: request.state_root,
             timestamp: request.timestamp,
         };
-        self.presented
-            .lock()
-            .unwrap()
-            .push((capability, record.clone()));
+        let count = {
+            let mut presented = self.presented.lock().unwrap();
+            presented.push((capability, record.clone()));
+            presented.len()
+        };
+        {
+            let mut refuse = self.refuse_once_at.lock().unwrap();
+            if *refuse == Some(count) {
+                *refuse = None;
+                return Err(Status::unavailable(
+                    "the workload was interrupted during the gap fill",
+                ));
+            }
+        }
         if *self.accepted.lock().unwrap() != Some(capability) {
             return Err(Status::permission_denied(
                 "the workload capability does not match",
@@ -216,13 +246,22 @@ fn capability_file(dir: &tempfile::TempDir, capability: [u8; 32]) -> std::path::
     path
 }
 
-/// Installs `publisher` in the harness's ledger (once, at startup).
-async fn install(h: &Harness, publisher: AdmittedTipPublisher) {
-    h.context
-        .runtime_finality
+/// Installs the publisher built from `source` in the harness's ledger (once, at startup). RED-5:
+/// through the capability SOURCE, the only way to a publisher outside its module after GREEN-5
+/// (each V9-V15 call site migrated; no assertion changed).
+async fn install(h: &Harness, source: AdmissionCapabilitySource) {
+    install_in(&h.context.runtime_finality, source).await;
+}
+
+/// Installs the publisher built from `source` in `ledger` (once, at startup).
+async fn install_in(
+    ledger: &tokio::sync::Mutex<RuntimeFinalityCoordinator>,
+    source: AdmissionCapabilitySource,
+) {
+    ledger
         .lock()
         .await
-        .install_admitted_tip_publisher(publisher)
+        .install_admission_capability(source)
         .expect("install the publisher at startup");
 }
 
@@ -241,7 +280,7 @@ async fn the_publisher_presents_its_own_capability_for_the_admitted_tip() {
     let address = serve(spy.clone()).await;
     install(
         &h,
-        AdmittedTipPublisher::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
     )
     .await;
     RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
@@ -262,7 +301,7 @@ async fn a_publisher_without_a_capability_sends_nothing_and_the_marker_is_unchan
     let address = serve(spy.clone()).await;
     install(
         &h,
-        AdmittedTipPublisher::from_capability_file(dir.path().join("missing.capability"), &address),
+        AdmissionCapabilitySource::file(dir.path().join("missing.capability"), &address),
     )
     .await;
     assert!(
@@ -288,11 +327,7 @@ async fn after_a_workload_restart_the_publisher_rereads_the_rotated_capability_o
         .holding(&[record_of(&h.admitted[0]), record_of(&h.admitted[1])]);
     let address = serve(spy.clone()).await;
     let path = capability_file(&dir, CAPABILITY);
-    install(
-        &h,
-        AdmittedTipPublisher::from_capability_file(path.clone(), &address),
-    )
-    .await;
+    install(&h, AdmissionCapabilitySource::file(path.clone(), &address)).await;
     // The workload restarts: a new capability, written to the same private file.
     write_capability_file(&path, &WorkloadCapability::from_bytes(ROTATED)).unwrap();
     RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
@@ -317,11 +352,7 @@ async fn a_refusal_after_the_reread_is_returned_without_a_retry_loop() {
     let spy = SpyWorkload::accepting(ROTATED);
     let address = serve(spy.clone()).await;
     let path = capability_file(&dir, CAPABILITY);
-    install(
-        &h,
-        AdmittedTipPublisher::from_capability_file(path, &address),
-    )
-    .await;
+    install(&h, AdmissionCapabilitySource::file(path, &address)).await;
     assert!(
         RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
             .await
@@ -349,7 +380,7 @@ async fn the_publisher_reconciles_the_latest_admitted_tip() {
     let address = serve(spy.clone()).await;
     install(
         &empty,
-        AdmittedTipPublisher::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
     )
     .await;
     RuntimeFinalityCoordinator::publish_admitted_head(&empty.context.runtime_finality)
@@ -365,7 +396,7 @@ async fn the_publisher_reconciles_the_latest_admitted_tip() {
     let address = serve(spy.clone()).await;
     install(
         &h,
-        AdmittedTipPublisher::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
     )
     .await;
     RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
@@ -390,7 +421,7 @@ async fn the_admission_path_publishes_the_admitted_blocks_tip_through_the_publis
     let address = serve(spy.clone()).await;
     install(
         &h,
-        AdmittedTipPublisher::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
     )
     .await;
     let b2 = harness_block(h.admitted_hash(1), 2, 0);
@@ -424,7 +455,7 @@ async fn startup_reconciles_the_workload_marker_to_the_latest_admitted_block() {
     let address = serve(spy.clone()).await;
     install(
         &h,
-        AdmittedTipPublisher::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
     )
     .await;
     assert!(
@@ -447,7 +478,8 @@ async fn startup_reconciles_the_workload_marker_to_the_latest_admitted_block() {
 
 /// GREEN-4 PIN (no RED: the walk is GREEN-4's; NET-DECISIONS 1 and 4). A publication was missed at
 /// height 3 (the workload holds 1 and 2). The ledger head is 4: the publication publishes 4, then
-/// walks parent_hash down and fills 3, and stops at 2, which the workload holds.
+/// walks parent_hash down and fills 3; the heights the workload holds (2 and 1) are not presented
+/// again. (RED-5: wording only, true of GREEN-4's stop at 2 and of GREEN-5's walk past held rows.)
 #[tokio::test]
 async fn the_publication_fills_a_gap_below_the_head_by_its_parent_hash_walk() {
     let h = Harness::new(4).await;
@@ -456,7 +488,7 @@ async fn the_publication_fills_a_gap_below_the_head_by_its_parent_hash_walk() {
     let address = serve(spy.clone()).await;
     install(
         &h,
-        AdmittedTipPublisher::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
     )
     .await;
     RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
@@ -468,10 +500,327 @@ async fn the_publication_fills_a_gap_below_the_head_by_its_parent_hash_walk() {
             (CAPABILITY, record_of(&h.admitted[3])),
             (CAPABILITY, record_of(&h.admitted[2])),
         ],
-        "the head, then the missed height; the walk stops at the first height the workload holds"
+        "the head, then the missed height; no height the workload holds is presented again"
     );
     assert_eq!(
         spy.index(),
         h.admitted.iter().map(record_of).collect::<Vec<_>>()
+    );
+}
+
+// --- RED-5 (review round 3): B1 as a DATA rule ----------------------------------------------------
+
+/// A single-authority ledger (opened as the sync harness opens one) whose BOOTSTRAP canonical head,
+/// the spine genesis's `initial_canonical_head`, is `initial`.
+fn ledger_bootstrapped_at(
+    dir: &tempfile::TempDir,
+    initial: String,
+) -> tokio::sync::Mutex<RuntimeFinalityCoordinator> {
+    use ioi_api::crypto::SerializableKey;
+    let seed = [42u8; 32];
+    let key = ioi_crypto::sign::eddsa::Ed25519PrivateKey::from_bytes(&seed).unwrap();
+    tokio::sync::Mutex::new(
+        RuntimeFinalityCoordinator::open(
+            dir.path().join("finality"),
+            "bootstrap-head".into(),
+            ioi_types::config::RuntimeFinalityProfile::SingleAuthorityV1,
+            "bootstrap-head-writer".into(),
+            move || Ok(initial),
+            format!(
+                "key://test/{}",
+                hex::encode(key.public_key().unwrap().as_bytes())
+            ),
+            &seed,
+        )
+        .expect("open a ledger on a bootstrap head"),
+    )
+}
+
+/// RED-5 B1 (i) (review round 3 BLOCKER B1; DISPOSITION condition 1). A fresh ledger whose
+/// BOOTSTRAP head is B1, a block that was executed and STAGED but that Agentgres never admitted
+/// (zero admissions): the publication publishes NOTHING. B1 is the spine's initial canonical head,
+/// not the head of a committed admission effect. Fails at 9ad9cf0e4: `last_admitted_block`
+/// returns whatever staged block the canonical head names (runtime_finality.rs:1852-1866 there),
+/// so B1's record is presented and indexed.
+#[tokio::test]
+async fn b1_i_a_bootstrap_head_that_was_never_admitted_is_never_published() {
+    let dir = tempfile::tempdir().unwrap();
+    let b1 = harness_block([0; 32], 1, 0);
+    let ledger = ledger_bootstrapped_at(&dir, canonical_block_head(&b1).unwrap());
+    ledger
+        .lock()
+        .await
+        .stage_block(b1.clone(), Vec::new())
+        .expect("stage B1, never admitted");
+    let spy = SpyWorkload::accepting(CAPABILITY);
+    let address = serve(spy.clone()).await;
+    install_in(
+        &ledger,
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+    )
+    .await;
+
+    let result = RuntimeFinalityCoordinator::publish_admitted_head(&ledger).await;
+    assert!(
+        spy.presented().is_empty(),
+        "the never-admitted bootstrap head is not presented: {:?}",
+        spy.presented()
+    );
+    assert!(spy.index().is_empty(), "no row");
+    result.expect("a bootstrap head is not an admission: nothing to publish");
+}
+
+/// RED-5 B1 (i), the same rule for every block of the gap walk. The bootstrap head B1 (staged,
+/// never admitted) is the PARENT of B2, which Agentgres does admit. The publication publishes B2
+/// only: the walk stops at B1, the head of no committed admission effect. Fails at 9ad9cf0e4: the
+/// walk follows B2's parent_hash to the staged B1 and publishes it (runtime_finality.rs:1808-1830
+/// there).
+#[tokio::test]
+async fn b1_i_the_gap_walk_never_publishes_a_bootstrap_parent_of_an_admitted_block() {
+    let dir = tempfile::tempdir().unwrap();
+    let b1 = harness_block([0; 32], 1, 0);
+    let b2 = harness_block(harness_hash(&b1), 2, 0);
+    let ledger = ledger_bootstrapped_at(&dir, canonical_block_head(&b1).unwrap());
+    {
+        let mut coordinator = ledger.lock().await;
+        coordinator
+            .stage_block(b1.clone(), Vec::new())
+            .expect("stage B1, never admitted");
+        coordinator
+            .stage_block(b2.clone(), Vec::new())
+            .expect("stage B2");
+        coordinator
+            .admit_single_authority(harness_hash(&b2), 1_700_000_000_002)
+            .expect("Agentgres admits B2 on the bootstrap head B1");
+    }
+    let spy = SpyWorkload::accepting(CAPABILITY);
+    let address = serve(spy.clone()).await;
+    install_in(
+        &ledger,
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+    )
+    .await;
+
+    RuntimeFinalityCoordinator::publish_admitted_head(&ledger)
+        .await
+        .expect("publish the admitted head");
+    assert_eq!(
+        spy.presented(),
+        vec![(CAPABILITY, record_of(&b2))],
+        "the admitted B2 only; never its bootstrap parent B1"
+    );
+    assert_eq!(spy.index(), vec![record_of(&b2)]);
+}
+
+/// RED-5 B1 (iii) CONTROL (a GUARD: it passes at 9ad9cf0e4 and kills a rule that refuses a REAL
+/// admission). The same B1 bytes on an ordinary ledger (bootstrap head = the zero hash, B1's
+/// parent): staged only, nothing is published; after Agentgres admits B1, B1 is published.
+#[tokio::test]
+async fn b1_iii_after_a_real_admission_the_same_block_is_published() {
+    let dir = tempfile::tempdir().unwrap();
+    let b1 = harness_block([0; 32], 1, 0);
+    let ledger = ledger_bootstrapped_at(&dir, runtime_finality_initial_head(None).unwrap());
+    ledger
+        .lock()
+        .await
+        .stage_block(b1.clone(), Vec::new())
+        .expect("stage B1");
+    let spy = SpyWorkload::accepting(CAPABILITY);
+    let address = serve(spy.clone()).await;
+    install_in(
+        &ledger,
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+    )
+    .await;
+
+    RuntimeFinalityCoordinator::publish_admitted_head(&ledger)
+        .await
+        .expect("nothing admitted: nothing to publish");
+    assert!(spy.presented().is_empty(), "a staged block is not admitted");
+
+    ledger
+        .lock()
+        .await
+        .admit_single_authority(harness_hash(&b1), 1_700_000_000_001)
+        .expect("Agentgres admits B1");
+    RuntimeFinalityCoordinator::publish_admitted_head(&ledger)
+        .await
+        .expect("publish the admitted B1");
+    assert_eq!(spy.presented(), vec![(CAPABILITY, record_of(&b1))]);
+    assert_eq!(spy.index(), vec![record_of(&b1)]);
+}
+
+// --- RED-5 (review round 3 MAJOR M2): negative pins of the gap walk ---------------------------------
+
+/// RED-5 M2 GUARD (passes at 9ad9cf0e4; killed by M-walk-by-height). Heights 1..=4 are admitted;
+/// the workload holds 1 and 2 (3 was missed). Two height-3 candidates that Agentgres never
+/// admitted are staged beside the admitted B3, one with a smaller and one with a larger block hash
+/// than B3, so a walk that chooses "the staged block at height 3" by hash order picks a
+/// competitor. The walk follows B4's parent_hash: index[3] is B3's record and no competitor is
+/// ever presented.
+#[tokio::test]
+async fn a_competing_staged_candidate_off_the_admitted_parent_chain_is_never_published() {
+    let h = Harness::new(4).await;
+    let b3 = harness_hash(&h.admitted[2]);
+    let candidates: Vec<_> = (1..=u8::MAX)
+        .map(|salt| harness_block(h.admitted_hash(2), 3, salt))
+        .collect();
+    let below = candidates
+        .iter()
+        .find(|candidate| harness_hash(candidate) < b3)
+        .expect("a competitor whose hash is below B3's")
+        .clone();
+    let above = candidates
+        .iter()
+        .find(|candidate| harness_hash(candidate) > b3)
+        .expect("a competitor whose hash is above B3's")
+        .clone();
+    {
+        let mut coordinator = h.context.runtime_finality.lock().await;
+        for competitor in [&below, &above] {
+            coordinator
+                .stage_block(competitor.clone(), Vec::new())
+                .expect("stage a never-admitted competitor at height 3");
+        }
+    }
+    let spy = SpyWorkload::accepting(CAPABILITY)
+        .holding(&[record_of(&h.admitted[0]), record_of(&h.admitted[1])]);
+    let address = serve(spy.clone()).await;
+    install(
+        &h,
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+    )
+    .await;
+
+    RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
+        .await
+        .expect("publish the head and fill the gap");
+    let competitors = [record_of(&below), record_of(&above)];
+    assert!(
+        spy.presented()
+            .iter()
+            .all(|(_, record)| !competitors.contains(record)),
+        "no competing candidate is ever presented: {:?}",
+        spy.presented()
+    );
+    assert_eq!(
+        spy.presented(),
+        vec![
+            (CAPABILITY, record_of(&h.admitted[3])),
+            (CAPABILITY, record_of(&h.admitted[2])),
+        ],
+        "the head, then the admitted B3 by B4's parent_hash"
+    );
+    assert_eq!(
+        spy.index(),
+        h.admitted.iter().map(record_of).collect::<Vec<_>>(),
+        "index[3] is the admitted B3's record"
+    );
+}
+
+/// RED-5 M2 GUARD (passes at 9ad9cf0e4; killed by M-walk-no-height-check). Agentgres admitted
+/// B1..B3 and then X at height 5 whose parent_hash is B3 (height 3): single-authority admission
+/// binds the parent, not height continuity (d2a/red5/NOTES.md (1); the OPEN-FACT expect below names
+/// the case where it does not). The workload holds nothing. The publication publishes X; the walk
+/// stops at X's parent B3, whose height is not X's height - 1, publishes nothing at or below it
+/// (B3, though admitted, is not the block at height 4), and REPORTS the malformed link.
+#[tokio::test]
+async fn an_admitted_ancestor_at_the_wrong_height_stops_the_gap_walk() {
+    let h = Harness::new(3).await;
+    let x = harness_block(h.admitted_hash(3), 5, 0);
+    {
+        let mut coordinator = h.context.runtime_finality.lock().await;
+        coordinator
+            .stage_block(x.clone(), Vec::new())
+            .expect("stage X at height 5 on B3");
+        coordinator
+            .admit_single_authority(harness_hash(&x), 1_700_000_000_005)
+            .expect("OPEN-FACT: single-authority admission refused a height-skipping child of the admitted head");
+    }
+    let spy = SpyWorkload::accepting(CAPABILITY);
+    let address = serve(spy.clone()).await;
+    install(
+        &h,
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+    )
+    .await;
+
+    let result =
+        RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality).await;
+    assert_eq!(
+        spy.presented(),
+        vec![(CAPABILITY, record_of(&x))],
+        "X only; nothing at or below its wrong-height parent"
+    );
+    assert_eq!(spy.index(), vec![record_of(&x)]);
+    assert!(
+        result.is_err(),
+        "the malformed parent link is reported, not silently accepted"
+    );
+}
+
+// --- RED-5 (review round 3 m3): the gap walk resumes, bounded per call ------------------------------
+
+/// RED-5 m3. Heights 1..=70 are admitted (above the per-call limit of 64) and the workload holds
+/// none of them. The first publication is INTERRUPTED after a parent write: the head (70) and its
+/// parent (69) land, the third record (68) is refused once. Each later publication continues PAST
+/// the rows the workload holds to the first absent one, fills at most 64 heights per call, and
+/// repeated publications complete the index. Fails at 9ad9cf0e4 at the second call: the walk stops
+/// at the first held row (69), so no publication ever fills 68..1 (runtime_finality.rs:1813-1815
+/// there).
+#[tokio::test]
+async fn an_interrupted_gap_fill_resumes_past_held_rows_bounded_per_call() {
+    const HEIGHTS: u64 = 70;
+    const PER_CALL_LIMIT: usize = 64;
+    let h = Harness::new(HEIGHTS).await;
+    let spy = SpyWorkload::accepting(CAPABILITY).refusing_once_at(3);
+    let address = serve(spy.clone()).await;
+    install(
+        &h,
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+    )
+    .await;
+
+    let first =
+        RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality).await;
+    assert!(
+        first.is_err(),
+        "the interrupted publication reports the refusal"
+    );
+    assert_eq!(
+        spy.heights(),
+        vec![HEIGHTS - 1, HEIGHTS],
+        "the head and its parent landed before the interruption"
+    );
+
+    RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
+        .await
+        .expect("the second publication resumes");
+    let second = spy.heights();
+    assert!(
+        second.contains(&(HEIGHTS - 2)),
+        "progress: the walk passed the held row {} and filled {}: {second:?}",
+        HEIGHTS - 1,
+        HEIGHTS - 2
+    );
+    let lowest = second[0];
+    assert_eq!(
+        second,
+        (lowest..=HEIGHTS).collect::<Vec<_>>(),
+        "the rows are one contiguous run down from the head"
+    );
+    assert!(
+        second.len() <= 2 + PER_CALL_LIMIT,
+        "bounded: one publication fills at most {PER_CALL_LIMIT} heights, got {} rows",
+        second.len()
+    );
+
+    RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
+        .await
+        .expect("the third publication resumes");
+    assert_eq!(
+        spy.index(),
+        h.admitted.iter().map(record_of).collect::<Vec<_>>(),
+        "three publications index every admitted height with its record"
     );
 }

@@ -322,6 +322,66 @@ impl AdmittedTipPublisher {
     }
 }
 
+/// Where the admitted-tip publisher takes the workload's admission capability from
+/// (FU-N11-DURABLE-STATUS-1 D2a round 3, B1 hygiene). A node binary hands the orchestrator a
+/// SOURCE, never a publisher: the publisher is built inside this module, at the coordinator's
+/// set-once install ([`RuntimeFinalityCoordinator::install_admission_capability`]).
+pub struct AdmissionCapabilitySource(AdmissionCapabilitySourceKind);
+
+enum AdmissionCapabilitySourceKind {
+    InProcess {
+        capability: crate::standard::workload::admitted_tip::WorkloadCapability,
+        workload_address: String,
+    },
+    File {
+        path: PathBuf,
+        workload_address: String,
+    },
+}
+
+impl std::fmt::Debug for AdmissionCapabilitySource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("AdmissionCapabilitySource(<capability redacted>)")
+    }
+}
+
+impl AdmissionCapabilitySource {
+    /// For an in-process binary: the capability it shares with its in-process workload server,
+    /// whose IPC listens on `workload_address`.
+    pub fn in_process(
+        capability: crate::standard::workload::admitted_tip::WorkloadCapability,
+        workload_address: &str,
+    ) -> Self {
+        Self(AdmissionCapabilitySourceKind::InProcess {
+            capability,
+            workload_address: workload_address.to_string(),
+        })
+    }
+
+    /// For a split-process orchestration: the workload's private capability file (read at the
+    /// install, and re-read once after a refusal, when a restarted workload has rotated it).
+    pub fn file(path: PathBuf, workload_address: &str) -> Self {
+        Self(AdmissionCapabilitySourceKind::File {
+            path,
+            workload_address: workload_address.to_string(),
+        })
+    }
+
+    /// The publisher for this source, built only here, inside the publisher's module.
+    fn into_publisher(self) -> AdmittedTipPublisher {
+        match self.0 {
+            AdmissionCapabilitySourceKind::InProcess {
+                capability,
+                workload_address,
+            } => AdmittedTipPublisher::in_process(capability, &workload_address),
+            AdmissionCapabilitySourceKind::File {
+                path,
+                workload_address,
+            } => AdmittedTipPublisher::from_capability_file(path, &workload_address),
+        }
+    }
+}
+
 /// The workload IPC endpoint for `address` (as the shared workload client forms it).
 fn workload_endpoint(address: &str) -> String {
     if address.starts_with("http") {
@@ -1774,6 +1834,18 @@ impl RuntimeFinalityCoordinator {
         }
         self.admitted_tip_publisher = Some(Arc::new(publisher));
         Ok(())
+    }
+
+    /// Installs the admitted-tip publisher built from `source`, ONCE, at startup
+    /// (FU-N11-DURABLE-STATUS-1 D2a round 3, B1 hygiene: the publisher is built only inside this
+    /// module). RED-5 scaffold: it delegates to `install_admitted_tip_publisher`; GREEN-5's
+    /// lifecycle install calls it.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn install_admission_capability(
+        &mut self,
+        source: AdmissionCapabilitySource,
+    ) -> Result<()> {
+        self.install_admitted_tip_publisher(source.into_publisher())
     }
 
     /// The installed publisher. Private to this module: only the ledger-reading publication below

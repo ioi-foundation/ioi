@@ -28,16 +28,17 @@
 //! every mutating write SUCCEEDED (no fence in the path). Each test collects EVERY violation and
 //! reports them by class, so a failure names all of its causes.
 //!
-//! Also here: T2 (the publisher, built outside its module, publishes only the ledger head), T5
+//! Also here: T2 (the publisher, built outside its module, publishes only the ledger head), RED-5's
+//! B1 (ii) (a ledger bootstrapped on an executed, never-admitted block publishes nothing), T5
 //! through the publication handler (write-once), T6 (restart). The store-layer T5/T6 and the
 //! IN-FLIGHT cases (vi)/(vii), which this crate cannot hold deterministically (the store's caches
 //! and its write lock are private to ioi-storage), are in ioi-storage
 //! `redb_epoch_store::admitted_index_tests`.
 
 use crate::standard::orchestration::runtime_finality::{
-    runtime_finality_initial_head, RuntimeFinalityCoordinator,
+    canonical_block_head, runtime_finality_initial_head, RuntimeFinalityCoordinator,
 };
-use crate::standard::orchestration::AdmittedTipPublisher;
+use crate::standard::orchestration::AdmissionCapabilitySource;
 use crate::standard::workload::admitted_tip::{write_capability_file, WorkloadCapability};
 use crate::standard::workload::ipc::grpc_blockchain::ChainControlImpl;
 use crate::standard::workload::ipc::RpcContext;
@@ -1302,13 +1303,14 @@ async fn t2_a_publisher_built_outside_its_module_publishes_only_the_ledger_head(
     workload.execute(&blocks).await;
     // Built HERE, outside runtime_finality, from the workload's capability file; installed in the
     // ledger, whose ledger-reading publication is the publisher's only operation (GREEN-4,
-    // NET-DECISIONS 1; the declared T2 fixture line).
-    let publisher =
-        AdmittedTipPublisher::from_capability_file(capability_file(dir.path()), &workload.address);
+    // NET-DECISIONS 1; the declared T2 fixture line). RED-5: through the capability SOURCE, the
+    // only constructor reachable outside the publisher's module after GREEN-5 (no assertion
+    // changed).
+    let source = AdmissionCapabilitySource::file(capability_file(dir.path()), &workload.address);
     ledger
         .lock()
         .await
-        .install_admitted_tip_publisher(publisher)
+        .install_admission_capability(source)
         .expect("install the publisher");
 
     RuntimeFinalityCoordinator::publish_admitted_head(&ledger)
@@ -1336,5 +1338,113 @@ async fn t2_a_publisher_built_outside_its_module_publishes_only_the_ledger_head(
         workload.store.get_admitted_tip().ok().flatten(),
         Some(tip_of(&head)),
         "the max entry is unchanged"
+    );
+}
+
+// --- RED-5 B1 (ii): the reviewer's case, outside the publisher's module -----------------------------
+
+/// A single-authority Agentgres ledger in `dir` (as `open_ledger` opens one) whose BOOTSTRAP
+/// canonical head, the spine genesis's `initial_canonical_head`, is `initial`.
+fn open_ledger_bootstrapped_at(dir: &Path, initial: String) -> RuntimeFinalityCoordinator {
+    let seed = [42u8; 32];
+    let key = ioi_crypto::sign::eddsa::Ed25519PrivateKey::from_bytes(&seed).expect("ledger key");
+    RuntimeFinalityCoordinator::open(
+        dir.join("finality"),
+        "admitted-index".into(),
+        RuntimeFinalityProfile::SingleAuthorityV1,
+        "admitted-index-writer".into(),
+        move || Ok(initial),
+        format!(
+            "key://test/{}",
+            hex::encode(key.public_key().expect("ledger public key").as_bytes())
+        ),
+        &seed,
+    )
+    .expect("open the ledger on a bootstrap head")
+}
+
+/// RED-5 B1 (ii) (review round 3 BLOCKER B1, the reviewer's case; DISPOSITION condition 1). In a
+/// module OUTSIDE the publisher's (this one), against the REAL workload: a ledger whose BOOTSTRAP
+/// head is B (height 1), which the workload EXECUTED and the ledger STAGED but Agentgres never
+/// admitted (zero admissions), gets its publisher through the only constructor reachable here
+/// (the capability source) and publishes: nothing is indexed (no row, no max entry).
+/// CONTROL (iii): Agentgres admits B's child B' (height 2) on that bootstrap head; the publication
+/// indexes B' and never B, not even as B''s parent. Fails at 9ad9cf0e4 at the first check: B is
+/// published from `last_admitted_block` (runtime_finality.rs:1852-1866 there) and the workload's
+/// handler indexes it (B is the block stored at height 1).
+#[tokio::test]
+async fn b1_ii_a_ledger_bootstrapped_on_an_executed_unadmitted_block_publishes_nothing() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let producer = Keypair::generate_ed25519();
+    let blocks = executed_chain(&producer, false);
+    let (b, child) = (&blocks[1], &blocks[2]);
+
+    let mut ledger = open_ledger_bootstrapped_at(
+        dir.path(),
+        canonical_block_head(b).expect("B's canonical head"),
+    );
+    ledger
+        .stage_block(b.clone(), Vec::new())
+        .expect("stage B, never admitted");
+    let ledger = tokio::sync::Mutex::new(ledger);
+
+    let workload = Workload::start(&dir.path().join("state.db")).await;
+    workload.execute(&blocks).await;
+    let source = AdmissionCapabilitySource::file(capability_file(dir.path()), &workload.address);
+    ledger
+        .lock()
+        .await
+        .install_admission_capability(source)
+        .expect("install the publisher");
+
+    let first = RuntimeFinalityCoordinator::publish_admitted_head(&ledger).await;
+    let rows: Vec<u64> = (0..=N + 1)
+        .filter(|height| {
+            workload
+                .store
+                .get_admitted_record(*height)
+                .ok()
+                .flatten()
+                .is_some()
+        })
+        .collect();
+    assert!(
+        rows.is_empty(),
+        "the never-admitted bootstrap head B is not indexed: rows {rows:?} (publication {first:?})"
+    );
+    assert_eq!(
+        workload.store.get_admitted_tip().ok().flatten(),
+        None,
+        "no max entry"
+    );
+    first.expect("a bootstrap head is not an admission: nothing to publish");
+
+    {
+        let mut ledger = ledger.lock().await;
+        ledger
+            .stage_block(child.clone(), Vec::new())
+            .expect("stage B'");
+        ledger
+            .admit_single_authority(hash_of(child), 1_700_000_000_002)
+            .expect("Agentgres admits B' on the bootstrap head B");
+    }
+    RuntimeFinalityCoordinator::publish_admitted_head(&ledger)
+        .await
+        .expect("CONTROL: the admitted B' publishes");
+    let admitted = record_of(child);
+    assert_eq!(
+        workload.store.get_admitted_record(2).ok().flatten(),
+        Some(admitted.clone()),
+        "CONTROL: index[2] is the admitted B' record"
+    );
+    assert_eq!(
+        workload.store.get_admitted_record(1).ok().flatten(),
+        None,
+        "B is never indexed, not even as the parent of the admitted B'"
+    );
+    assert_eq!(
+        workload.store.get_admitted_tip().ok().flatten(),
+        Some(tip_of(&admitted)),
+        "the max entry is B'"
     );
 }

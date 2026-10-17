@@ -113,6 +113,10 @@ pub(crate) mod runtime_finality;
 /// (FU-N11-DURABLE-STATUS-1 D2a); the node binaries build one and hand it to the orchestrator with
 /// [`Orchestrator::set_admitted_tip_publisher`].
 pub use runtime_finality::AdmittedTipPublisher;
+/// Where the admitted-tip publisher takes the workload's admission capability from
+/// (FU-N11-DURABLE-STATUS-1 D2a round 3): an in-process capability or the workload's capability
+/// file. The publisher itself is built only inside its module, from this source.
+pub use runtime_finality::AdmissionCapabilitySource;
 
 /// Transition logic
 pub mod transition;

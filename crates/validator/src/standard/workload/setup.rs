@@ -940,20 +940,40 @@ mod ipc_server_addr_tests {
         }
     }
 
-    /// An explicit loopback bind (IPv4 or IPv6) is kept without a warning.
+    /// An explicit loopback bind (IPv4 or IPv6) is kept without a warning. RED-5 (D2a review round
+    /// 3, m5), INVERTED for `localhost` only: "localhost:8555" now comes back as the numeric
+    /// "127.0.0.1:8555" (see `a_localhost_bind_is_normalized_to_a_numeric_loopback_address`).
     #[test]
     fn an_explicit_loopback_bind_is_kept_without_a_warning() {
-        for value in [
-            "127.0.0.1:8555",
-            "127.0.0.1:9001",
-            "[::1]:8555",
-            "localhost:8555",
+        for (value, expected) in [
+            ("127.0.0.1:8555", "127.0.0.1:8555"),
+            ("127.0.0.1:9001", "127.0.0.1:9001"),
+            ("[::1]:8555", "[::1]:8555"),
+            ("localhost:8555", "127.0.0.1:8555"),
         ] {
             assert_eq!(
                 resolve_ipc_server_addr(Some(value.to_string())),
-                (value.to_string(), None),
+                (expected.to_string(), None),
                 "{value}"
             );
+        }
+    }
+
+    /// RED-5 (D2a review round 3, m5). The workload IPC server parses its listen address as a
+    /// numeric socket address (ipc/mod.rs:195, `self.address.parse()?` in
+    /// `WorkloadIpcServer::run`), so a `localhost` bind, which is classified as loopback, must come
+    /// back as 127.0.0.1 with its port kept (in any letter case) and without a warning. Fails at
+    /// 9ad9cf0e4: "localhost:8555" is returned unchanged and does not parse.
+    #[test]
+    fn a_localhost_bind_is_normalized_to_a_numeric_loopback_address() {
+        for (value, port) in [("localhost:8555", 8555), ("LocalHost:9001", 9001)] {
+            let (addr, warning) = resolve_ipc_server_addr(Some(value.to_string()));
+            assert_eq!(
+                addr.parse::<std::net::SocketAddr>().ok(),
+                Some(std::net::SocketAddr::from(([127, 0, 0, 1], port))),
+                "{value} -> {addr}"
+            );
+            assert_eq!(warning, None, "{value}");
         }
     }
 }

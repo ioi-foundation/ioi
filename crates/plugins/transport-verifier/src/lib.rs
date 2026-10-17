@@ -515,6 +515,9 @@ mod committed_height_tests {
     struct RewrittenStoreClient;
 
     const ADMITTED_HEIGHT: u64 = 3;
+    /// RED-5 (M2, C5): the height whose by-height query the workload MISADDRESSES, answering with
+    /// the admitted height's record.
+    const MISADDRESSED_HEIGHT: u64 = 5;
 
     #[async_trait::async_trait]
     impl WorkloadClientApi for RewrittenStoreClient {
@@ -595,14 +598,16 @@ mod committed_height_tests {
             }))
         }
         // GREEN-4: the admitted index holds rows 1..=3; row 3's root is the admitted 0xA3, while
-        // the block stored at 3 was rewritten to 0xB4.
+        // the block stored at 3 was rewritten to 0xB4. RED-5 (M2, C5): the query for height 5 is
+        // answered with height 3's record (a misaddressed or replayed row).
         async fn get_admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>, ChainError> {
-            let root = if height == ADMITTED_HEIGHT { 0xA3 } else { height as u8 };
-            Ok((height >= 1 && height <= ADMITTED_HEIGHT).then(|| AdmittedRecord {
-                height,
+            let row = if height == MISADDRESSED_HEIGHT { ADMITTED_HEIGHT } else { height };
+            let root = if row == ADMITTED_HEIGHT { 0xA3 } else { row as u8 };
+            Ok((row >= 1 && row <= ADMITTED_HEIGHT).then(|| AdmittedRecord {
+                height: row,
                 block_hash: [root; 32],
                 state_root: vec![root; 32],
-                timestamp: 1_700_000_000 + height,
+                timestamp: 1_700_000_000 + row,
             }))
         }
         fn as_any(&self) -> &dyn std::any::Any {
@@ -643,6 +648,21 @@ mod committed_height_tests {
         assert!(
             block_on(resolve_query_anchor(&RewrittenStoreClient, Some(4))).is_err(),
             "a height that is not admitted is refused, although a block is stored there"
+        );
+    }
+
+    /// RED-5 M2 GUARD (C5; review round 3 MAJOR M2; passes at 9ad9cf0e4, killed by
+    /// M-c5-record-height-unchecked). The workload answers the by-height query for 5 with height
+    /// 3's record: the anchor is REFUSED, never height 5 paired with height 3's root.
+    #[test]
+    fn an_explicit_ibc_height_answered_with_another_heights_record_is_refused() {
+        let anchor = block_on(resolve_query_anchor(
+            &RewrittenStoreClient,
+            Some(MISADDRESSED_HEIGHT),
+        ));
+        assert!(
+            anchor.is_err(),
+            "height 5 must not be anchored at height 3's record: {anchor:?}"
         );
     }
 }
