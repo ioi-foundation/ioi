@@ -1099,12 +1099,18 @@ impl NodeStore for RedbEpochStore {
         let w = self.write_txn()?;
         let e_prefix = enc_epoch(epoch);
 
-        fn delete_prefix(
+        // FU-N11-STORE-DROP-SEALED-EPOCH-1: each table is opened through its OWN typed definition.
+        // redb refuses to reopen a typed table under another value type, so the untyped
+        // `TableDefinition<&[u8], &[u8]>` this helper built before failed at VERSIONS on every call
+        // and nothing was deleted. The four sharded tables' keys are epoch-prefixed, so the epoch's
+        // rows are exactly the keys that start with `prefix`. (A node written in this epoch that a
+        // later version still references is dropped with it: FU-N11-EPOCH-DROP-REFCOUNT-1; the GC
+        // call stays commented out until that lands.)
+        fn delete_prefix<V: redb::RedbValue + 'static>(
             tx: &WriteTransaction,
-            table_name: &str,
+            def: TableDefinition<&'static [u8], V>,
             prefix: &[u8],
         ) -> Result<(), StorageError> {
-            let def: TableDefinition<&[u8], &[u8]> = TableDefinition::new(table_name);
             let mut table = tx
                 .open_table(def)
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
@@ -1123,10 +1129,10 @@ impl NodeStore for RedbEpochStore {
             }
             Ok(())
         }
-        delete_prefix(&w, "VERSIONS", &e_prefix)?;
-        delete_prefix(&w, "CHANGES", &e_prefix)?;
-        delete_prefix(&w, "REFS", &e_prefix)?;
-        delete_prefix(&w, "NODES", &e_prefix)?;
+        delete_prefix(&w, VERSIONS, &e_prefix)?;
+        delete_prefix(&w, CHANGES, &e_prefix)?;
+        delete_prefix(&w, REFS, &e_prefix)?;
+        delete_prefix(&w, NODES, &e_prefix)?;
 
         {
             let mut m = w
