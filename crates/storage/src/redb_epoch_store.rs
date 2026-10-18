@@ -1417,3 +1417,9 @@ mod admitted_tip_tests {
 // (redb_epoch_store/admitted_index_tests.rs).
 #[cfg(test)]
 mod admitted_index_tests;
+
+// FU-N11-STORE-DROP-SEALED-EPOCH-1 RED: drop_sealed_epoch deletes exactly its epoch's rows
+// (VERSIONS/CHANGES/REFS/NODES by key prefix, the MANIFEST row) and a second drop is an Ok no-op
+// (redb_epoch_store/drop_sealed_epoch_tests.rs).
+#[cfg(test)]
+mod drop_sealed_epoch_tests;
