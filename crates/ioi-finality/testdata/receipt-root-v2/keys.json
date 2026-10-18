@@ -1,0 +1,27 @@
+{
+  "expires_at": 4102444800,
+  "issued_at": 0,
+  "issuer_id": "system://al4-test-system",
+  "key_set_id": "keyset://al4-test/receipt-root-v2",
+  "key_set_type": "ioi.authority-key-set",
+  "keys": [
+    {
+      "expires_at": 4102444800,
+      "key_id": "key://al4-test/receipt-root-v2/outbox-1",
+      "not_before": 0,
+      "public_key": "q1-M5wbs2Sm_g08-r7OosY71GRZNVwRWAzCHqaboVcQ",
+      "signature_suite": "ed25519",
+      "status": "active"
+    },
+    {
+      "expires_at": 4102444800,
+      "key_id": "key://al4-test/receipt-root-v2/outbox-2",
+      "not_before": 0,
+      "public_key": "sRD-598uVVQFHNOhy1zmaITtXdXKOPulekSVMrs5qxA",
+      "signature_suite": "ed25519",
+      "status": "active"
+    }
+  ],
+  "schema_version": "ioi.foundations.authority-key-set.v1",
+  "version": 1
+}

@@ -1,0 +1,17 @@
+{
+  "algorithm": "ioi.receipt-merkle-rfc9162-jcs-sha256.v1",
+  "claimed_receipt_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "class": "negative",
+  "description": "No receipts, and the claimed root is the RFC 9162 empty-tree hash SHA-256(\"\").",
+  "expected": {
+    "error": "empty_range",
+    "net_code_hint": "E_LAYER_SCHEMA (bundle v2 receipts minItems 1) or E_RANGE",
+    "result": "refused"
+  },
+  "id": "NEG-EMPTY-RANGE",
+  "receipt_range": {
+    "first": 5,
+    "last": 4
+  },
+  "receipts": []
+}

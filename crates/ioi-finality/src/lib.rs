@@ -2718,7 +2718,11 @@ fn material_root_rewrite(
     material_root(domain, materials)
 }
 
+#[cfg(test)]
+mod al4_export_tests;
 #[cfg(feature = "portable-assurance")]
 pub mod portable_assurance;
+#[cfg(test)]
+mod receipt_root_v2_tests;
 #[cfg(test)]
 mod tests;

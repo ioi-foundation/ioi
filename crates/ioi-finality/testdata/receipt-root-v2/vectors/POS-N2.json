@@ -1,0 +1,99 @@
+{
+  "algorithm": "ioi.receipt-merkle-rfc9162-jcs-sha256.v1",
+  "claimed_receipt_root": "sha256:304d1c46324572ae51cccd970e4aa984341bcde74eabd93f7d82ad889ba86b51",
+  "class": "positive",
+  "description": "Two receipts, range 7..8: one node over two leaves.",
+  "expected": {
+    "receipt_root": "sha256:304d1c46324572ae51cccd970e4aa984341bcde74eabd93f7d82ad889ba86b51",
+    "result": "verified"
+  },
+  "id": "POS-N2",
+  "intermediate": {
+    "envelope_digests": [
+      "sha256:29f07f38c921ff2ecd194ab0c343e0216dc869f12f3a55b329029ec1d34b5584",
+      "sha256:91d3586259a3996afd60876ceaf25e4c13fba344b7934a4ca5d3a2d113886526"
+    ],
+    "leaf_hashes_hex": [
+      "93ba475a611c5e8956978e4097744021a1eb7f11de1fc350f235d9370e9df240",
+      "4278034f0fc4b4699112df1087ad70e58e28c6539363a633171dbce5b1ea1a4e"
+    ],
+    "leaf_inputs_hex": [
+      "494f492d524543454950542d4d45524b4c452d4c4541462d5631007b22656e76656c6f70655f646967657374223a227368613235363a32396630376633386339323166663265636431393461623063333433653032313664633836396631326633613535623332393032396563316433346235353834222c2273657175656e6365223a377d",
+      "494f492d524543454950542d4d45524b4c452d4c4541462d5631007b22656e76656c6f70655f646967657374223a227368613235363a39316433353836323539613339393661666436303837366365616632356534633133666261333434623739333461346361356433613264313133383836353236222c2273657175656e6365223a387d"
+    ]
+  },
+  "layer1": [
+    {
+      "counting_keys": [
+        "key://al4-test/receipt-root-v2/outbox-1"
+      ],
+      "layer1": "verified: 1 distinct keyed signature(s) count, t = 1",
+      "sequence": 7,
+      "signatures": [
+        {
+          "counts": true,
+          "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+          "producer_encoding": "standard padded (conforming)",
+          "reason": "verifies under the key its keyid selects",
+          "verifies_with": [
+            "key://al4-test/receipt-root-v2/outbox-1"
+          ]
+        }
+      ],
+      "threshold": 1
+    },
+    {
+      "counting_keys": [
+        "key://al4-test/receipt-root-v2/outbox-1"
+      ],
+      "layer1": "verified: 1 distinct keyed signature(s) count, t = 1",
+      "sequence": 8,
+      "signatures": [
+        {
+          "counts": true,
+          "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+          "producer_encoding": "standard padded (conforming)",
+          "reason": "verifies under the key its keyid selects",
+          "verifies_with": [
+            "key://al4-test/receipt-root-v2/outbox-1"
+          ]
+        }
+      ],
+      "threshold": 1
+    }
+  ],
+  "receipt_range": {
+    "first": 7,
+    "last": 8
+  },
+  "receipts": [
+    {
+      "body": {
+        "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYmFzZSI6eyJhY2NlcHRhbmNlX3JlZiI6bnVsbCwiYWN0b3JfaWQiOiJzeXN0ZW06Ly9hbDQtdGVzdC1zeXN0ZW0iLCJhZGp1ZGljYXRpb25fcmVmIjpudWxsLCJhcnRpZmFjdF9yZWZzIjpbXSwiYXR0ZXN0ZWRfYm91bmRhcnlfZmFjdF9yZWZzIjpbImVmZmVjdDovL2FsNC10ZXN0L2UtNyJdLCJhdXRob3JpdHlfZ3JhbnRfaWQiOiJncmFudDovL2FsNC10ZXN0L2ctMSIsImF1dGhvcml0eV9zY29wZXMiOlsic2NvcGU6YXJ0aWZhY3QuZGVsaXZlciJdLCJjbGFpbV9zY29wZV9yZWYiOm51bGwsImV2aWRlbmNlX2J1bmRsZV9yZWZzIjpbXSwiaW5wdXRfaGFzaCI6InNoYTI1Njo3YTk1ZWNiYzg0MTQwNDUwYTI0NDllMTM0OGU3NmExZWM2Mzg3MDM3OWNlY2NlYjZiMjUzMzgwMmE1YmQ4NjhiIiwib3V0cHV0X2hhc2giOiJzaGEyNTY6MWVjMTMyNjJlZDBlNmIyYTQxZWIzZGI3ZjAyNGM3MTc3Y2JhODAzYjQ1YThlOGI4Njc0ZmEzMTQ1MzIxOTYzZCIsInBvbGljeV9oYXNoIjoic2hhMjU2OmUxNmZmYzNkZTQxZTE1NDc3YmVhNjcxNmU4MjA1MGJiOWI2YTY0MzFiM2ViODRkMDE4YzRjMTkxMjk5NDE0ZmYiLCJwcmltaXRpdmVfY2FwYWJpbGl0aWVzIjpbInByaW06ZnMucmVhZCJdLCJwdWJsaWNfY29tbWl0bWVudF9yZWYiOm51bGwsInJlY2VpcHRfaWQiOiJyZWNlaXB0Oi8vYWw0LXRlc3QvcnVuLTEvci03IiwicmVjZWlwdF9wcm9maWxlX3JlZiI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJyZWNlaXB0X3R5cGUiOiJlZmZlY3QuYWRtaXR0ZWQiLCJydW5faWQiOiJydW46Ly9hbDQtdGVzdC9ydW4tMSIsInNldHRsZW1lbnRfcmVmIjpudWxsLCJ0YXNrX2lkIjpudWxsLCJ0aW1lc3RhbXAiOiIyMDI2LTEwLTEyVDIwOjAwOjA3WiIsInZlcmlmaWNhdGlvbl9yZWYiOm51bGx9LCJwcm9maWxlIjp7ImF0dGVtcHQiOjEsImVmZmVjdF9pZCI6ImVmZmVjdDovL2FsNC10ZXN0L2UtNyIsImxzbiI6MTAyMSwic2hhcmQiOiJzaGFyZDovL2FsNC10ZXN0L3MtMCJ9fSwicHJlZGljYXRlVHlwZSI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJzdWJqZWN0IjpbeyJkaWdlc3QiOnsic2hhMjU2IjoiN2E5NWVjYmM4NDE0MDQ1MGEyNDQ5ZTEzNDhlNzZhMWVjNjM4NzAzNzljZWNjZWI2YjI1MzM4MDJhNWJkODY4YiJ9LCJuYW1lIjoiaW9pOmlucHV0In0seyJkaWdlc3QiOnsic2hhMjU2IjoiMWVjMTMyNjJlZDBlNmIyYTQxZWIzZGI3ZjAyNGM3MTc3Y2JhODAzYjQ1YThlOGI4Njc0ZmEzMTQ1MzIxOTYzZCJ9LCJuYW1lIjoiaW9pOm91dHB1dCJ9XX0=",
+        "payloadType": "application/vnd.in-toto+json",
+        "signatures": [
+          {
+            "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+            "sig": "AcBC4eJ9BfF+PAv8HtfiORlwcSaqV4vGOIQ1Gzr0tOQCG92ejP3Iat41D565yNMhLunKSYM5OcNoU+h6W4HuAw=="
+          }
+        ]
+      },
+      "body_hash": "sha256:29f07f38c921ff2ecd194ab0c343e0216dc869f12f3a55b329029ec1d34b5584",
+      "sequence": 7
+    },
+    {
+      "body": {
+        "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYmFzZSI6eyJhY2NlcHRhbmNlX3JlZiI6bnVsbCwiYWN0b3JfaWQiOiJzeXN0ZW06Ly9hbDQtdGVzdC1zeXN0ZW0iLCJhZGp1ZGljYXRpb25fcmVmIjpudWxsLCJhcnRpZmFjdF9yZWZzIjpbXSwiYXR0ZXN0ZWRfYm91bmRhcnlfZmFjdF9yZWZzIjpbImVmZmVjdDovL2FsNC10ZXN0L2UtOCJdLCJhdXRob3JpdHlfZ3JhbnRfaWQiOiJncmFudDovL2FsNC10ZXN0L2ctMSIsImF1dGhvcml0eV9zY29wZXMiOlsic2NvcGU6YXJ0aWZhY3QuZGVsaXZlciJdLCJjbGFpbV9zY29wZV9yZWYiOm51bGwsImV2aWRlbmNlX2J1bmRsZV9yZWZzIjpbXSwiaW5wdXRfaGFzaCI6InNoYTI1NjplNmUyNmY5MzIxNDA0YWQ0OGRjOWYxZDUyYTQ2NzgxOGNmMWE5MDNhOWQ5MjIyYTIxNTcyODFmNGI2MGQxNjI4Iiwib3V0cHV0X2hhc2giOiJzaGEyNTY6YmUzMzAyZDhkNDhhODNlYmEwZDExNzVmMzQ2OGEzNWI3ODZmYWU0OWJlMmZkODdhZDMzZjI0ZmM0NzA5ZDExNCIsInBvbGljeV9oYXNoIjoic2hhMjU2OmUxNmZmYzNkZTQxZTE1NDc3YmVhNjcxNmU4MjA1MGJiOWI2YTY0MzFiM2ViODRkMDE4YzRjMTkxMjk5NDE0ZmYiLCJwcmltaXRpdmVfY2FwYWJpbGl0aWVzIjpbInByaW06ZnMucmVhZCJdLCJwdWJsaWNfY29tbWl0bWVudF9yZWYiOm51bGwsInJlY2VpcHRfaWQiOiJyZWNlaXB0Oi8vYWw0LXRlc3QvcnVuLTEvci04IiwicmVjZWlwdF9wcm9maWxlX3JlZiI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJyZWNlaXB0X3R5cGUiOiJlZmZlY3QuYWRtaXR0ZWQiLCJydW5faWQiOiJydW46Ly9hbDQtdGVzdC9ydW4tMSIsInNldHRsZW1lbnRfcmVmIjpudWxsLCJ0YXNrX2lkIjpudWxsLCJ0aW1lc3RhbXAiOiIyMDI2LTEwLTEyVDIwOjAwOjA4WiIsInZlcmlmaWNhdGlvbl9yZWYiOm51bGx9LCJwcm9maWxlIjp7ImF0dGVtcHQiOjEsImVmZmVjdF9pZCI6ImVmZmVjdDovL2FsNC10ZXN0L2UtOCIsImxzbiI6MTAyNCwic2hhcmQiOiJzaGFyZDovL2FsNC10ZXN0L3MtMCJ9fSwicHJlZGljYXRlVHlwZSI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJzdWJqZWN0IjpbeyJkaWdlc3QiOnsic2hhMjU2IjoiZTZlMjZmOTMyMTQwNGFkNDhkYzlmMWQ1MmE0Njc4MThjZjFhOTAzYTlkOTIyMmEyMTU3MjgxZjRiNjBkMTYyOCJ9LCJuYW1lIjoiaW9pOmlucHV0In0seyJkaWdlc3QiOnsic2hhMjU2IjoiYmUzMzAyZDhkNDhhODNlYmEwZDExNzVmMzQ2OGEzNWI3ODZmYWU0OWJlMmZkODdhZDMzZjI0ZmM0NzA5ZDExNCJ9LCJuYW1lIjoiaW9pOm91dHB1dCJ9XX0=",
+        "payloadType": "application/vnd.in-toto+json",
+        "signatures": [
+          {
+            "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+            "sig": "vHvvEImJVkMyQ1rqhkYes+LzbyJmfe74oxBY3Sq9yOEZAXN8uhww6/2dWkHbBJnCPbfnqxLO9kt+OGcks6smCg=="
+          }
+        ]
+      },
+      "body_hash": "sha256:91d3586259a3996afd60876ceaf25e4c13fba344b7934a4ca5d3a2d113886526",
+      "sequence": 8
+    }
+  ]
+}

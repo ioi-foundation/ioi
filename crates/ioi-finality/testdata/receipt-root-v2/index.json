@@ -1,0 +1,190 @@
+{
+  "algorithm": "ioi.receipt-merkle-rfc9162-jcs-sha256.v1",
+  "definitions": {
+    "base64": "producers emit standard padded Base64 (RFC 4648 section 4); verifiers accept standard or URL-safe (one alphabet per string, padding optional), as DSSE v1.0.2 requires; D(E) is over the carried strings, so a re-encoded envelope has a different D(E) (Q7 as amended 2026-10-12)",
+    "envelope_digest": "D(E) = \"sha256:\" + hex(SHA-256(JCS(E'))), E' = {payloadType, payload, signatures[{keyid (iff present), sig}] in carried order}; unknown members excluded",
+    "leaf_input": "d(i) = ASCII \"IOI-RECEIPT-MERKLE-LEAF-V1\" || 0x00 || JCS({\"envelope_digest\": D(E_i), \"sequence\": s_i})",
+    "receipt_root": "\"sha256:\" + lowercase hex of the 32-byte MTH; receipts ascending and contiguous over receipt_range; an empty range is refused",
+    "tree": "RFC 9162 section 2.1.1 MTH: leaf SHA-256(0x00 || d), node SHA-256(0x01 || left || right), k = the largest power of two < n, no odd-node duplication"
+  },
+  "generator": "gen_receipt_root_v2.py",
+  "generator_sha256": "7c43d0c12cef49febebf2e008bc9a2eeb8d0264a6a2036307f02e666cd4d63e3",
+  "key_registry_fp": "sha256:b03335d58fd99c163437da4d2d373fa05e66e9c5e57ba4eb618b05a7bf495e1c",
+  "key_set": "keys.json (authority-key-set v1 shape)",
+  "net_code_hints": {
+    "body_hash_mismatch": "E_HASH_BINDING",
+    "empty_range": "E_LAYER_SCHEMA (bundle v2 receipts minItems 1) or E_RANGE",
+    "envelope_malformed": "E_DSSE_SHAPE",
+    "root_mismatch": "E_RECEIPT_ROOT",
+    "sequence_duplicate": "E_RANGE",
+    "sequence_gap": "E_RANGE",
+    "sequence_order": "E_RANGE",
+    "sequence_outside_range": "E_RANGE"
+  },
+  "reference_error_precedence": [
+    "empty_range",
+    "sequence_outside_range",
+    "sequence_duplicate",
+    "sequence_order",
+    "sequence_gap",
+    "envelope_malformed",
+    "body_hash_mismatch",
+    "root_mismatch"
+  ],
+  "ruling": "records/DIRECTOR-RULINGS-BUILD.md 2026-10-12 16:04 EDT: AL4 ANSWERS to NET's verifier Q3-Q14 RECEIVED and RULED",
+  "vectors": [
+    {
+      "class": "positive",
+      "expected": {
+        "receipt_root": "sha256:a8cc104ff7a4dc7d08bb82033e3c95427a333d651f88b4483c50a1ab4d00f638",
+        "result": "verified"
+      },
+      "file": "vectors/POS-N1.json",
+      "id": "POS-N1"
+    },
+    {
+      "class": "positive",
+      "expected": {
+        "receipt_root": "sha256:304d1c46324572ae51cccd970e4aa984341bcde74eabd93f7d82ad889ba86b51",
+        "result": "verified"
+      },
+      "file": "vectors/POS-N2.json",
+      "id": "POS-N2"
+    },
+    {
+      "class": "positive",
+      "expected": {
+        "receipt_root": "sha256:fe45ce386f05bca21c9eb7a407cea3966f8612261dcf0db2cc35d0b8bff32640",
+        "result": "verified"
+      },
+      "file": "vectors/POS-N3.json",
+      "id": "POS-N3"
+    },
+    {
+      "class": "positive",
+      "expected": {
+        "receipt_root": "sha256:5752f2c5064d846ddeb9f5ca7f6c82479618630490d81dd7fb619c2c9e41e883",
+        "result": "verified"
+      },
+      "file": "vectors/POS-N5.json",
+      "id": "POS-N5"
+    },
+    {
+      "class": "positive",
+      "expected": {
+        "receipt_root": "sha256:4ddc1002e8ebaf3af5e4b63f4c3989dd6f78b29376fa0c4a107a778d4c2e8609",
+        "result": "verified"
+      },
+      "file": "vectors/POS-N7.json",
+      "id": "POS-N7"
+    },
+    {
+      "class": "negative",
+      "expected": {
+        "error": "sequence_order",
+        "net_code_hint": "E_RANGE",
+        "result": "refused"
+      },
+      "file": "vectors/NEG-REORDERED-ARRAY.json",
+      "id": "NEG-REORDERED-ARRAY"
+    },
+    {
+      "class": "negative",
+      "expected": {
+        "error": "root_mismatch",
+        "net_code_hint": "E_RECEIPT_ROOT",
+        "result": "refused"
+      },
+      "file": "vectors/NEG-ROOT-OVER-SWAPPED-LEAVES.json",
+      "id": "NEG-ROOT-OVER-SWAPPED-LEAVES"
+    },
+    {
+      "class": "negative",
+      "expected": {
+        "error": "sequence_gap",
+        "net_code_hint": "E_RANGE",
+        "result": "refused"
+      },
+      "file": "vectors/NEG-SEQUENCE-GAP.json",
+      "id": "NEG-SEQUENCE-GAP"
+    },
+    {
+      "class": "negative",
+      "expected": {
+        "error": "sequence_duplicate",
+        "net_code_hint": "E_RANGE",
+        "result": "refused"
+      },
+      "file": "vectors/NEG-DUPLICATE-SEQUENCE.json",
+      "id": "NEG-DUPLICATE-SEQUENCE"
+    },
+    {
+      "class": "invariance",
+      "expected": {
+        "receipt_root": "sha256:a8cc104ff7a4dc7d08bb82033e3c95427a333d651f88b4483c50a1ab4d00f638",
+        "result": "verified"
+      },
+      "file": "vectors/INV-UNKNOWN-MEMBER.json",
+      "id": "INV-UNKNOWN-MEMBER"
+    },
+    {
+      "class": "negative",
+      "expected": {
+        "error": "root_mismatch",
+        "net_code_hint": "E_RECEIPT_ROOT",
+        "result": "refused"
+      },
+      "file": "vectors/NEG-DROPPED-SIGNATURE.json",
+      "id": "NEG-DROPPED-SIGNATURE"
+    },
+    {
+      "class": "negative",
+      "expected": {
+        "error": "empty_range",
+        "net_code_hint": "E_LAYER_SCHEMA (bundle v2 receipts minItems 1) or E_RANGE",
+        "result": "refused"
+      },
+      "file": "vectors/NEG-EMPTY-RANGE.json",
+      "id": "NEG-EMPTY-RANGE"
+    },
+    {
+      "class": "negative",
+      "expected": {
+        "error": "root_mismatch",
+        "net_code_hint": "E_RECEIPT_ROOT",
+        "result": "refused"
+      },
+      "file": "vectors/NEG-SEQUENCE-SHIFT.json",
+      "id": "NEG-SEQUENCE-SHIFT"
+    },
+    {
+      "class": "negative",
+      "expected": {
+        "error": "root_mismatch",
+        "net_code_hint": "E_RECEIPT_ROOT",
+        "result": "refused"
+      },
+      "file": "vectors/NEG-ODD-NODE-DUPLICATION.json",
+      "id": "NEG-ODD-NODE-DUPLICATION"
+    },
+    {
+      "class": "invariance",
+      "expected": {
+        "error": "root_mismatch",
+        "net_code_hint": "E_RECEIPT_ROOT",
+        "result": "refused"
+      },
+      "file": "vectors/INV-URLSAFE-SIGNATURE.json",
+      "id": "INV-URLSAFE-SIGNATURE"
+    },
+    {
+      "class": "invariance",
+      "expected": {
+        "receipt_root": "sha256:ebabb310e5aef033002686bcf3e0860a341a7402f68766393e61db8c673dcd8a",
+        "result": "verified"
+      },
+      "file": "vectors/INV-KEYIDLESS-COSIGNATURE.json",
+      "id": "INV-KEYIDLESS-COSIGNATURE"
+    }
+  ]
+}
