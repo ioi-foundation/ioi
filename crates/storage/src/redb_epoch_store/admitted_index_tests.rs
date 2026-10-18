@@ -281,11 +281,11 @@ fn t5_prune_and_epoch_drop_never_remove_an_index_row() {
         "the prune removed the admitted heights' state versions ({} pruned)",
         pruned.heights_pruned
     );
-    // GREEN-4 fixture correction: drop_sealed_epoch errors in this store today (it reopens the
-    // typed VERSIONS table through an untyped definition, a defect older than D2a; the GC keeps it
-    // disabled), so its result is ignored, as RED-3's S6 ignored it. The prune above is the
-    // effective removal here.
-    let _ = store.drop_sealed_epoch(0);
+    // FU-N11-STORE-DROP-SEALED-EPOCH-1 RED: the drop's result is ASSERTED. GREEN-4 ignored it
+    // (`let _ =`, as RED-3's S6 did) because drop_sealed_epoch errored in this store (it reopened
+    // the typed VERSIONS table through an untyped definition, a defect older than D2a); it must
+    // now succeed over the pruned epoch 0 and still leave every index row.
+    store.drop_sealed_epoch(0).expect("drop epoch 0");
     store.override_head(1).expect("move HEAD below the max");
     assert_index_holds(
         &store,
