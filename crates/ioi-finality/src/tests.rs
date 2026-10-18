@@ -20,34 +20,64 @@ use ioi_types::config::RuntimeFinalityProfile;
 use std::fs;
 use std::path::PathBuf;
 
-fn fixture(relative: &str) -> Value {
+pub(crate) fn fixture(relative: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative);
     serde_json::from_str(&fs::read_to_string(path).expect("fixture readable"))
         .expect("fixture parses")
 }
 
-fn signed_bundle() -> Value {
-    let template = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+pub(crate) const SINGLE_AUTHORITY_TEMPLATE: &str =
+    "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json";
+
+/// The DSSE envelopes of the receipt-root-v2 conformance vector POS-N7, in
+/// carried order.
+pub(crate) fn dsse_envelopes() -> Vec<Value> {
+    fixture("testdata/receipt-root-v2/vectors/POS-N7.json")["receipts"]
+        .as_array()
+        .expect("POS-N7 receipts")
+        .iter()
+        .map(|receipt| receipt["body"].clone())
+        .collect()
+}
+
+/// A v2 template whose `receipts[].body` are DSSE envelopes. receipt_root v2
+/// (`ioi.receipt-merkle-rfc9162-jcs-sha256.v1`) commits each receipt body's
+/// canonical DSSE-envelope digest D(E), which is undefined for the
+/// `{"outcome":"ok"}` bodies the registered fixtures still carry (the D3 canon
+/// delta). Only the bodies change: `prepare_checkpoint` rewrites every derived
+/// field, `body_hash` included.
+pub(crate) fn v2_template(relative: &str) -> Value {
+    let mut template = fixture(relative);
+    let envelopes = dsse_envelopes();
+    for (index, receipt) in template["receipts"]
+        .as_array_mut()
+        .expect("template receipts")
+        .iter_mut()
+        .enumerate()
+    {
+        receipt["body"] = envelopes[index % envelopes.len()].clone();
+    }
+    template
+}
+
+pub(crate) fn signed_bundle() -> Value {
+    let template = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
     emit_single_authority(template, "key://acme/finality/1", &signing_key)
         .expect("supported fixture emits")
 }
 
-fn signed_chain() -> (Value, Value) {
-    let first = signed_bundle();
-    let mut next = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
-    next["bundle_id"] = Value::String("proof://acme/2".into());
-    next["checkpoint"]["checkpoint_id"] = Value::String("receipt-checkpoint://acme/2".into());
+/// `next` re-identified as the successor of the emitted genesis bundle `first`
+/// (`suffix` names it): the predecessor links, state continuity, and the touched
+/// object advanced one version. Its operations and receipts are the caller's.
+pub(crate) fn successor_of(first: &Value, mut next: Value, suffix: &str) -> Value {
+    next["bundle_id"] = Value::String(format!("proof://acme/{suffix}"));
+    next["checkpoint"]["checkpoint_id"] =
+        Value::String(format!("receipt-checkpoint://acme/{suffix}"));
     next["checkpoint"]["finality_certificate"]["certificate_id"] =
-        Value::String("finality-certificate://acme/2".into());
+        Value::String(format!("finality-certificate://acme/{suffix}"));
     next["checkpoint"]["availability_manifest"]["manifest_id"] =
-        Value::String("availability-manifest://acme/2".into());
-    next["operations"][0]["sequence"] = json!(1);
-    next["receipts"][0]["sequence"] = json!(1);
+        Value::String(format!("availability-manifest://acme/{suffix}"));
     next["previous_state_entries"] = first["resulting_state_entries"].clone();
     next["resulting_state_entries"][0]["value_hash"] =
         Value::String(format!("sha256:{}", "22".repeat(32)));
@@ -68,6 +98,14 @@ fn signed_chain() -> (Value, Value) {
         .clone();
     next["checkpoint"]["conflict_authority_binding"]["touched_objects"][0]["resulting_head"] =
         next["resulting_state_entries"][0]["value_hash"].clone();
+    next
+}
+
+fn signed_chain() -> (Value, Value) {
+    let first = signed_bundle();
+    let mut next = successor_of(&first, v2_template(SINGLE_AUTHORITY_TEMPLATE), "2");
+    next["operations"][0]["sequence"] = json!(1);
+    next["receipts"][0]["sequence"] = json!(1);
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
     let next = emit_single_authority(next, "key://acme/finality/1", &signing_key)
         .expect("chained fixture emits");
@@ -87,9 +125,7 @@ fn emitted_single_authority_bundle_verifies_offline() {
 
 #[test]
 fn declared_payload_availability_is_recomputed_offline() {
-    let mut template = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let mut template = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     template["requested_axes"] = json!(["availability"]);
     template["checkpoint"]["finality_certificate"]["claimed_axes"] = json!(["availability"]);
     template["checkpoint"]["verifier_contract"]["axes"] = json!([{
@@ -180,9 +216,7 @@ fn unsupported_profile_and_axis_are_unavailable() {
         Err(VerificationError::UnsupportedAxis("currentness".into()))
     );
 
-    let mut recognition = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let mut recognition = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     recognition["checkpoint"]["recognition"]["recognition_class"] = Value::String("K7".into());
     recognition["checkpoint"]["recognition"]["ordinary_admission_permitted"] = json!(false);
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
@@ -205,9 +239,7 @@ fn predecessor_body_substitution_is_recomputed_and_refused() {
 
 #[test]
 fn certificate_cannot_claim_unverified_availability() {
-    let mut template = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let mut template = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     template["checkpoint"]["finality_certificate"]["claimed_axes"] =
         json!(["integrity", "availability"]);
     template["checkpoint"]["verifier_contract"]["axes"] = json!([
@@ -256,9 +288,7 @@ fn same_epoch_predecessor_cannot_change_issuer_key() {
 
 #[test]
 fn recognition_and_binding_invariant_domains_must_match() {
-    let mut template = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let mut template = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     template["checkpoint"]["recognition"]["invariant_domain_refs"] =
         json!(["invariant://acme/substituted"]);
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
@@ -267,9 +297,7 @@ fn recognition_and_binding_invariant_domains_must_match() {
 
 #[test]
 fn empty_or_ephemeral_availability_claim_fails_closed() {
-    let mut template = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let mut template = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     template["requested_axes"] = json!(["availability"]);
     template["checkpoint"]["finality_certificate"]["claimed_axes"] = json!(["availability"]);
     template["checkpoint"]["verifier_contract"]["axes"] = json!([{
@@ -302,9 +330,7 @@ fn empty_or_ephemeral_availability_claim_fails_closed() {
 
 #[test]
 fn unavailable_declared_verifier_input_refuses() {
-    let mut template = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let mut template = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     template["checkpoint"]["verifier_contract"]["axes"][0]["required_input_contract_ids"] =
         json!(["schema://acme/unavailable/v1"]);
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
@@ -328,7 +354,7 @@ fn bft_member_keys() -> Vec<Ed25519PrivateKey> {
 }
 
 fn bft_template() -> Value {
-    let mut template = fixture(BFT_TEMPLATE);
+    let mut template = v2_template(BFT_TEMPLATE);
     for (index, key) in bft_member_keys().iter().enumerate() {
         let public = key.public_key().expect("member public key");
         template["checkpoint"]["finality_certificate"]["consensus_evidence"]["members"][index]
@@ -545,9 +571,7 @@ fn votes_do_not_transfer_between_checkpoints_or_views() {
 
 #[test]
 fn consensus_evidence_is_bound_to_its_variant_in_both_directions() {
-    let mut single = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let mut single = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     single["checkpoint"]["finality_certificate"]["consensus_evidence"] =
         bft_template()["checkpoint"]["finality_certificate"]["consensus_evidence"].clone();
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
@@ -652,9 +676,7 @@ fn profile_labels_resolve_before_admission_and_never_reach_the_wire() {
 
     // A resolved member that disagrees with the wire refuses rather than
     // rewriting the wire to match the caller.
-    let single = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let single = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     assert!(matches!(
         prepare_checkpoint(single, "aft"),
         Err(VerificationError::UnsupportedProfile { .. })
@@ -733,9 +755,7 @@ fn membership_may_not_move_inside_one_authority_epoch() {
 
 #[test]
 fn checkpoint_state_version_must_advance_exactly_once() {
-    let mut template = fixture(
-        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    );
+    let mut template = v2_template(SINGLE_AUTHORITY_TEMPLATE);
     template["checkpoint"]["resulting_state_commitment"]["version"] = json!(2);
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
     assert!(emit_single_authority(template, "key://acme/finality/1", &signing_key).is_err());
@@ -954,7 +974,7 @@ fn native_effect_fixture(
 /// The template with its availability declaration filled in from the real
 /// header bytes, the way a runtime would publish the block before certifying.
 fn native_template(header_bytes: &[u8]) -> Value {
-    let mut template = fixture(NATIVE_TEMPLATE);
+    let mut template = v2_template(NATIVE_TEMPLATE);
     template["checkpoint"]["availability_manifest"]["payloads"][0]["payload_hash"] =
         Value::String(hash_bytes(header_bytes));
     template["checkpoint"]["availability_manifest"]["payloads"][0]["byte_length"] =

@@ -1,0 +1,16 @@
+{
+  "derivation": "seed_i = SHA-256(ASCII \"IOI AL4 receipt-root-v2 vectors TEST-ONLY key <i>\")",
+  "seeds": [
+    {
+      "key_id": "key://al4-test/receipt-root-v2/outbox-1",
+      "public_key_hex": "ab5f8ce706ecd929bf834f3eafb3a8b18ef519164d570456033087a9a6e855c4",
+      "seed_hex": "a2398aca1ec4d234e7e241b97bdbac7766749399b3f496d0cb6ec9b639b31002"
+    },
+    {
+      "key_id": "key://al4-test/receipt-root-v2/outbox-2",
+      "public_key_hex": "b110fee7df2e5554051cd3a1cb5ce66884ed5dd5ca38fba57a449532bb39ab10",
+      "seed_hex": "9846ba17ba0b22acdc7c5368abbc5127fd249e345198fc9431f5c9668ab67838"
+    }
+  ],
+  "warning": "TEST-ONLY seeds, published so anyone can reproduce every signature. Never trust them."
+}

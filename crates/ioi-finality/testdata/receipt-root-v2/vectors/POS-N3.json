@@ -1,0 +1,132 @@
+{
+  "algorithm": "ioi.receipt-merkle-rfc9162-jcs-sha256.v1",
+  "claimed_receipt_root": "sha256:fe45ce386f05bca21c9eb7a407cea3966f8612261dcf0db2cc35d0b8bff32640",
+  "class": "positive",
+  "description": "Three receipts (an unpaired leaf is promoted, never duplicated). Sequence 101's envelope's ONLY signature has no keyid: D(E) and the root are defined, and Layer 1 refuses the envelope because no signature counts toward t = 1 (canon draft section 1.4 rule 3).",
+  "expected": {
+    "receipt_root": "sha256:fe45ce386f05bca21c9eb7a407cea3966f8612261dcf0db2cc35d0b8bff32640",
+    "result": "verified"
+  },
+  "id": "POS-N3",
+  "intermediate": {
+    "envelope_digests": [
+      "sha256:7003117f62a0563d84ede30a612a98d7b9718a39a155b432be1bce090fbe5518",
+      "sha256:ecb1ce56bb2b6ebdb2f1bd947a949e0a49657d13fedd97b767b6f65d0ddbb6a4",
+      "sha256:9bbe45812629387bf6eaf77165eaeccc60c3a3864f7ddbdf94127ca742f4c34e"
+    ],
+    "leaf_hashes_hex": [
+      "9fc1c94cf0f90a277599602869a2df694fe26c290ebdcc2f9a47470d3463d571",
+      "40e98ee0f015714a142e47fae4c8ce03f8c0f83e6a00b53a1c3c5cf06f105445",
+      "b44a0c7d77d764fe52ac6c1cb5c8c9d868a6e4d66a36f93f29a29254e3ad33f7"
+    ],
+    "leaf_inputs_hex": [
+      "494f492d524543454950542d4d45524b4c452d4c4541462d5631007b22656e76656c6f70655f646967657374223a227368613235363a37303033313137663632613035363364383465646533306136313261393864376239373138613339613135356234333262653162636530393066626535353138222c2273657175656e6365223a3130307d",
+      "494f492d524543454950542d4d45524b4c452d4c4541462d5631007b22656e76656c6f70655f646967657374223a227368613235363a65636231636535366262326236656264623266316264393437613934396530613439363537643133666564643937623736376236663635643064646262366134222c2273657175656e6365223a3130317d",
+      "494f492d524543454950542d4d45524b4c452d4c4541462d5631007b22656e76656c6f70655f646967657374223a227368613235363a39626265343538313236323933383762663665616637373136356561656363633630633361333836346637646462646639343132376361373432663463333465222c2273657175656e6365223a3130327d"
+    ]
+  },
+  "layer1": [
+    {
+      "counting_keys": [
+        "key://al4-test/receipt-root-v2/outbox-1"
+      ],
+      "layer1": "verified: 1 distinct keyed signature(s) count, t = 1",
+      "sequence": 100,
+      "signatures": [
+        {
+          "counts": true,
+          "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+          "producer_encoding": "standard padded (conforming)",
+          "reason": "verifies under the key its keyid selects",
+          "verifies_with": [
+            "key://al4-test/receipt-root-v2/outbox-1"
+          ]
+        }
+      ],
+      "threshold": 1
+    },
+    {
+      "counting_keys": [],
+      "layer1": "refused: fewer than t = 1 keyed signatures verify",
+      "sequence": 101,
+      "signatures": [
+        {
+          "counts": false,
+          "keyid": null,
+          "producer_encoding": "standard padded (conforming)",
+          "reason": "no keyid (unset or empty): never counts toward the threshold",
+          "verifies_with": [
+            "key://al4-test/receipt-root-v2/outbox-1"
+          ]
+        }
+      ],
+      "threshold": 1
+    },
+    {
+      "counting_keys": [
+        "key://al4-test/receipt-root-v2/outbox-1"
+      ],
+      "layer1": "verified: 1 distinct keyed signature(s) count, t = 1",
+      "sequence": 102,
+      "signatures": [
+        {
+          "counts": true,
+          "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+          "producer_encoding": "standard padded (conforming)",
+          "reason": "verifies under the key its keyid selects",
+          "verifies_with": [
+            "key://al4-test/receipt-root-v2/outbox-1"
+          ]
+        }
+      ],
+      "threshold": 1
+    }
+  ],
+  "receipt_range": {
+    "first": 100,
+    "last": 102
+  },
+  "receipts": [
+    {
+      "body": {
+        "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYmFzZSI6eyJhY2NlcHRhbmNlX3JlZiI6bnVsbCwiYWN0b3JfaWQiOiJzeXN0ZW06Ly9hbDQtdGVzdC1zeXN0ZW0iLCJhZGp1ZGljYXRpb25fcmVmIjpudWxsLCJhcnRpZmFjdF9yZWZzIjpbXSwiYXR0ZXN0ZWRfYm91bmRhcnlfZmFjdF9yZWZzIjpbImVmZmVjdDovL2FsNC10ZXN0L2UtMTAwIl0sImF1dGhvcml0eV9ncmFudF9pZCI6ImdyYW50Oi8vYWw0LXRlc3QvZy0xIiwiYXV0aG9yaXR5X3Njb3BlcyI6WyJzY29wZTphcnRpZmFjdC5kZWxpdmVyIl0sImNsYWltX3Njb3BlX3JlZiI6bnVsbCwiZXZpZGVuY2VfYnVuZGxlX3JlZnMiOltdLCJpbnB1dF9oYXNoIjoic2hhMjU2OjNmMWJlMmNlNGQ3YTViYjYyZTQ3MWM4NDNlNTM0Mjk0NmQ0Y2FkYTEyYWI3ZjNkMmIxMjA1NTVmN2I0YTU1MWEiLCJvdXRwdXRfaGFzaCI6InNoYTI1NjozY2MzOGMxMDIyMzkyNmFiY2ZhOTRlMmM5MjY2MzYxODQ2NzljNjM4ZTZmNjk1YjIyNjQzN2VhOGQwZjYzZTVlIiwicG9saWN5X2hhc2giOiJzaGEyNTY6ZTE2ZmZjM2RlNDFlMTU0NzdiZWE2NzE2ZTgyMDUwYmI5YjZhNjQzMWIzZWI4NGQwMThjNGMxOTEyOTk0MTRmZiIsInByaW1pdGl2ZV9jYXBhYmlsaXRpZXMiOlsicHJpbTpmcy5yZWFkIl0sInB1YmxpY19jb21taXRtZW50X3JlZiI6bnVsbCwicmVjZWlwdF9pZCI6InJlY2VpcHQ6Ly9hbDQtdGVzdC9ydW4tMS9yLTEwMCIsInJlY2VpcHRfcHJvZmlsZV9yZWYiOiJzY2hlbWE6Ly9pb2kvdGVzdC9hbDQvcmVjZWlwdC1yb290LXYyLXZlY3Rvci1wcm9maWxlL3YxIiwicmVjZWlwdF90eXBlIjoiZWZmZWN0LmFkbWl0dGVkIiwicnVuX2lkIjoicnVuOi8vYWw0LXRlc3QvcnVuLTEiLCJzZXR0bGVtZW50X3JlZiI6bnVsbCwidGFza19pZCI6bnVsbCwidGltZXN0YW1wIjoiMjAyNi0xMC0xMlQyMDowMTo0MFoiLCJ2ZXJpZmljYXRpb25fcmVmIjpudWxsfSwicHJvZmlsZSI6eyJhdHRlbXB0IjoxLCJlZmZlY3RfaWQiOiJlZmZlY3Q6Ly9hbDQtdGVzdC9lLTEwMCIsImxzbiI6MTMwMCwic2hhcmQiOiJzaGFyZDovL2FsNC10ZXN0L3MtMCJ9fSwicHJlZGljYXRlVHlwZSI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJzdWJqZWN0IjpbeyJkaWdlc3QiOnsic2hhMjU2IjoiM2YxYmUyY2U0ZDdhNWJiNjJlNDcxYzg0M2U1MzQyOTQ2ZDRjYWRhMTJhYjdmM2QyYjEyMDU1NWY3YjRhNTUxYSJ9LCJuYW1lIjoiaW9pOmlucHV0In0seyJkaWdlc3QiOnsic2hhMjU2IjoiM2NjMzhjMTAyMjM5MjZhYmNmYTk0ZTJjOTI2NjM2MTg0Njc5YzYzOGU2ZjY5NWIyMjY0MzdlYThkMGY2M2U1ZSJ9LCJuYW1lIjoiaW9pOm91dHB1dCJ9XX0=",
+        "payloadType": "application/vnd.in-toto+json",
+        "signatures": [
+          {
+            "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+            "sig": "xPk0T3otXIL2nJZ0RfcmtAJY/E5TO6Sp0eRLodTWDsrbtjiwJylua/QaJUoq9rMRLlRMFeSwX4Lyot50M6zXCA=="
+          }
+        ]
+      },
+      "body_hash": "sha256:7003117f62a0563d84ede30a612a98d7b9718a39a155b432be1bce090fbe5518",
+      "sequence": 100
+    },
+    {
+      "body": {
+        "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYmFzZSI6eyJhY2NlcHRhbmNlX3JlZiI6bnVsbCwiYWN0b3JfaWQiOiJzeXN0ZW06Ly9hbDQtdGVzdC1zeXN0ZW0iLCJhZGp1ZGljYXRpb25fcmVmIjpudWxsLCJhcnRpZmFjdF9yZWZzIjpbXSwiYXR0ZXN0ZWRfYm91bmRhcnlfZmFjdF9yZWZzIjpbImVmZmVjdDovL2FsNC10ZXN0L2UtMTAxIl0sImF1dGhvcml0eV9ncmFudF9pZCI6ImdyYW50Oi8vYWw0LXRlc3QvZy0xIiwiYXV0aG9yaXR5X3Njb3BlcyI6WyJzY29wZTphcnRpZmFjdC5kZWxpdmVyIl0sImNsYWltX3Njb3BlX3JlZiI6bnVsbCwiZXZpZGVuY2VfYnVuZGxlX3JlZnMiOltdLCJpbnB1dF9oYXNoIjoic2hhMjU2OjA5ZDllNTUwODFmMGM3N2IxMjU0OTUwM2VlMjBkOTBjNmQ1YzU4MmEyZTM3OTFmNGUwYmRjZTNlMmM3YjI1OTEiLCJvdXRwdXRfaGFzaCI6InNoYTI1NjoxZTZiZDIzZTkwYzU3MTU1NmQyYWI1MzU0NGIxMDI5OGFiMjg5YTlkNGMzOTI4YWI2MmI0ZTlkNDYwMjU4MTFjIiwicG9saWN5X2hhc2giOiJzaGEyNTY6ZTE2ZmZjM2RlNDFlMTU0NzdiZWE2NzE2ZTgyMDUwYmI5YjZhNjQzMWIzZWI4NGQwMThjNGMxOTEyOTk0MTRmZiIsInByaW1pdGl2ZV9jYXBhYmlsaXRpZXMiOlsicHJpbTpmcy5yZWFkIl0sInB1YmxpY19jb21taXRtZW50X3JlZiI6bnVsbCwicmVjZWlwdF9pZCI6InJlY2VpcHQ6Ly9hbDQtdGVzdC9ydW4tMS9yLTEwMSIsInJlY2VpcHRfcHJvZmlsZV9yZWYiOiJzY2hlbWE6Ly9pb2kvdGVzdC9hbDQvcmVjZWlwdC1yb290LXYyLXZlY3Rvci1wcm9maWxlL3YxIiwicmVjZWlwdF90eXBlIjoiZWZmZWN0LmFkbWl0dGVkIiwicnVuX2lkIjoicnVuOi8vYWw0LXRlc3QvcnVuLTEiLCJzZXR0bGVtZW50X3JlZiI6bnVsbCwidGFza19pZCI6bnVsbCwidGltZXN0YW1wIjoiMjAyNi0xMC0xMlQyMDowMTo0MVoiLCJ2ZXJpZmljYXRpb25fcmVmIjpudWxsfSwicHJvZmlsZSI6eyJhdHRlbXB0IjoxLCJlZmZlY3RfaWQiOiJlZmZlY3Q6Ly9hbDQtdGVzdC9lLTEwMSIsImxzbiI6MTMwMywic2hhcmQiOiJzaGFyZDovL2FsNC10ZXN0L3MtMCJ9fSwicHJlZGljYXRlVHlwZSI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJzdWJqZWN0IjpbeyJkaWdlc3QiOnsic2hhMjU2IjoiMDlkOWU1NTA4MWYwYzc3YjEyNTQ5NTAzZWUyMGQ5MGM2ZDVjNTgyYTJlMzc5MWY0ZTBiZGNlM2UyYzdiMjU5MSJ9LCJuYW1lIjoiaW9pOmlucHV0In0seyJkaWdlc3QiOnsic2hhMjU2IjoiMWU2YmQyM2U5MGM1NzE1NTZkMmFiNTM1NDRiMTAyOThhYjI4OWE5ZDRjMzkyOGFiNjJiNGU5ZDQ2MDI1ODExYyJ9LCJuYW1lIjoiaW9pOm91dHB1dCJ9XX0=",
+        "payloadType": "application/vnd.in-toto+json",
+        "signatures": [
+          {
+            "sig": "TJwgxnGMZqAjtWEQvQ3psaxOi3peRawn4jT6eYKXzl9PkSm/Ljzqek4ztIaq15OWtNCiAqMehjJ9zICAN9XVBQ=="
+          }
+        ]
+      },
+      "body_hash": "sha256:ecb1ce56bb2b6ebdb2f1bd947a949e0a49657d13fedd97b767b6f65d0ddbb6a4",
+      "sequence": 101
+    },
+    {
+      "body": {
+        "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYmFzZSI6eyJhY2NlcHRhbmNlX3JlZiI6bnVsbCwiYWN0b3JfaWQiOiJzeXN0ZW06Ly9hbDQtdGVzdC1zeXN0ZW0iLCJhZGp1ZGljYXRpb25fcmVmIjpudWxsLCJhcnRpZmFjdF9yZWZzIjpbImFydGlmYWN0Oi8vc2hhMjU2LzlmNTNhYmU4ZmZlY2Y5YWFiYTE5YmNhNzRiMDFlNzU5MDRkYjBjMTI1MmQwNTQ3OTEzN2MwZWU1YWYyYjU3NGIiXSwiYXR0ZXN0ZWRfYm91bmRhcnlfZmFjdF9yZWZzIjpbImVmZmVjdDovL2FsNC10ZXN0L2UtMTAyIl0sImF1dGhvcml0eV9ncmFudF9pZCI6ImdyYW50Oi8vYWw0LXRlc3QvZy0xIiwiYXV0aG9yaXR5X3Njb3BlcyI6WyJzY29wZTphcnRpZmFjdC5kZWxpdmVyIl0sImNsYWltX3Njb3BlX3JlZiI6bnVsbCwiZXZpZGVuY2VfYnVuZGxlX3JlZnMiOltdLCJpbnB1dF9oYXNoIjoic2hhMjU2OmQ0OTdkMmUzOThjMTUxMTUyOWExNGU2ZDI4Yjc5OGE3Njk4ZGNiNGQ0Y2IwMDgzNThhZjcyYTI5ZDhjMGYyYmIiLCJvdXRwdXRfaGFzaCI6InNoYTI1Njo1ZjBkNWE3MmQyYWMwZWI2NGYxNTY2Nzg4MTk4ZmYxZGJmMzZkYmZlMWQ1YzdmYTJmZjViYzc0OGQ0MTAzYjIyIiwicG9saWN5X2hhc2giOiJzaGEyNTY6ZTE2ZmZjM2RlNDFlMTU0NzdiZWE2NzE2ZTgyMDUwYmI5YjZhNjQzMWIzZWI4NGQwMThjNGMxOTEyOTk0MTRmZiIsInByaW1pdGl2ZV9jYXBhYmlsaXRpZXMiOlsicHJpbTpmcy5yZWFkIl0sInB1YmxpY19jb21taXRtZW50X3JlZiI6bnVsbCwicmVjZWlwdF9pZCI6InJlY2VpcHQ6Ly9hbDQtdGVzdC9ydW4tMS9yLTEwMiIsInJlY2VpcHRfcHJvZmlsZV9yZWYiOiJzY2hlbWE6Ly9pb2kvdGVzdC9hbDQvcmVjZWlwdC1yb290LXYyLXZlY3Rvci1wcm9maWxlL3YxIiwicmVjZWlwdF90eXBlIjoiZWZmZWN0LmFkbWl0dGVkIiwicnVuX2lkIjoicnVuOi8vYWw0LXRlc3QvcnVuLTEiLCJzZXR0bGVtZW50X3JlZiI6bnVsbCwidGFza19pZCI6bnVsbCwidGltZXN0YW1wIjoiMjAyNi0xMC0xMlQyMDowMTo0MloiLCJ2ZXJpZmljYXRpb25fcmVmIjpudWxsfSwicHJvZmlsZSI6eyJhdHRlbXB0IjoxLCJlZmZlY3RfaWQiOiJlZmZlY3Q6Ly9hbDQtdGVzdC9lLTEwMiIsImxzbiI6MTMwNiwic2hhcmQiOiJzaGFyZDovL2FsNC10ZXN0L3MtMCJ9fSwicHJlZGljYXRlVHlwZSI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJzdWJqZWN0IjpbeyJkaWdlc3QiOnsic2hhMjU2IjoiZDQ5N2QyZTM5OGMxNTExNTI5YTE0ZTZkMjhiNzk4YTc2OThkY2I0ZDRjYjAwODM1OGFmNzJhMjlkOGMwZjJiYiJ9LCJuYW1lIjoiaW9pOmlucHV0In0seyJkaWdlc3QiOnsic2hhMjU2IjoiNWYwZDVhNzJkMmFjMGViNjRmMTU2Njc4ODE5OGZmMWRiZjM2ZGJmZTFkNWM3ZmEyZmY1YmM3NDhkNDEwM2IyMiJ9LCJuYW1lIjoiaW9pOm91dHB1dCJ9LHsiZGlnZXN0Ijp7InNoYTI1NiI6IjlmNTNhYmU4ZmZlY2Y5YWFiYTE5YmNhNzRiMDFlNzU5MDRkYjBjMTI1MmQwNTQ3OTEzN2MwZWU1YWYyYjU3NGIifSwibmFtZSI6ImFydGlmYWN0Oi8vc2hhMjU2LzlmNTNhYmU4ZmZlY2Y5YWFiYTE5YmNhNzRiMDFlNzU5MDRkYjBjMTI1MmQwNTQ3OTEzN2MwZWU1YWYyYjU3NGIifV19",
+        "payloadType": "application/vnd.in-toto+json",
+        "signatures": [
+          {
+            "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+            "sig": "jDdPqeKxYgyII8FdBEg+KicD9UKcZpagnWf9sJlA7tfpRitv3RpoLpqMbjEnpofm4+VgEM+J5SNOPXCac57sDQ=="
+          }
+        ]
+      },
+      "body_hash": "sha256:9bbe45812629387bf6eaf77165eaeccc60c3a3864f7ddbdf94127ca742f4c34e",
+      "sequence": 102
+    }
+  ]
+}

@@ -252,11 +252,23 @@ fn authority() -> AuthoritySnapshot {
     }
 }
 
+/// The registered single-authority v2 fixture with its receipt body replaced by
+/// a DSSE envelope. receipt_root v2 commits each receipt body's canonical
+/// DSSE-envelope digest D(E), which is undefined for the fixture's
+/// `{"outcome":"ok"}` body (the D3 canon delta); the envelope comes from
+/// ioi-finality's receipt-root-v2 conformance vectors (POS-N1).
 fn template() -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
         "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
     );
-    serde_json::from_slice(&fs::read(path).expect("fixture readable")).expect("fixture parses")
+    let mut value: Value =
+        serde_json::from_slice(&fs::read(path).expect("fixture readable")).expect("fixture parses");
+    let vector_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../ioi-finality/testdata/receipt-root-v2/vectors/POS-N1.json");
+    let vector: Value = serde_json::from_slice(&fs::read(vector_path).expect("vector readable"))
+        .expect("vector parses");
+    value["receipts"][0]["body"] = vector["receipts"][0]["body"].clone();
+    value
 }
 
 /// The single-authority fixture re-labelled onto the AFT profile pair. Only

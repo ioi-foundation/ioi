@@ -91,6 +91,18 @@
 //! than the schema's: see [`verify_variant_evidence_presence`], which both the
 //! emitter and the verifier run. `ReceiptCheckpoint` v1 and `ReceiptProofBundle`
 //! v1 are untouched and remain refused by this verifier.
+//!
+//! ## receipt_root
+//!
+//! A v2 checkpoint's `receipt_root` is [`RECEIPT_ROOT_ALGORITHM`]: the RFC 9162
+//! Merkle Tree Hash over one leaf per receipt, each binding the receipt body's
+//! canonical DSSE-envelope digest D(E) to its absolute sequence. The receipts
+//! are taken in their CARRIED order, which must already be strictly ascending
+//! and cover `receipt_range` exactly: disorder, a duplicate, a gap, an empty
+//! range, a body that is not a DSSE envelope, and a `body_hash` other than D(E)
+//! are refused, and nothing is ever re-sorted. Both [`prepare_checkpoint`] and
+//! [`verify_bundle`] compute it. The flat list hash this crate used before is a
+//! different algorithm and fills no v2 `receipt_root`.
 
 #![forbid(unsafe_code)]
 
@@ -157,6 +169,20 @@ const DECLARED_ASSOCIATION: &str = "declared_association_v1";
 pub const FULL_BLOCK_EFFECT_COMMITMENT: &str = "full_block_effect_commitment_v1";
 
 const FULL_BLOCK_OPERATION_ROOT_DOMAIN: &str = "ioi.full-block-operation-root.scale.v1";
+
+/// The algorithm of a v2 checkpoint's `receipt_root`. The checkpoint carries no
+/// algorithm member: the binding is by the contract version.
+///
+/// - Leaf input `d(i) = "IOI-RECEIPT-MERKLE-LEAF-V1" || 0x00 ||
+///   JCS({"envelope_digest": D(E_i), "sequence": s_i})`, where D(E) is the
+///   canonical DSSE-envelope digest (see `envelope_digest`).
+/// - The RFC 9162 §2.1.1 Merkle Tree Hash over `d(0..n)` in carried order: leaf
+///   `SHA-256(0x00 || d)`, node `SHA-256(0x01 || left || right)`, split at the
+///   largest power of two below n, no odd-node duplication.
+/// - Encoded `"sha256:"` + lowercase hex.
+pub const RECEIPT_ROOT_ALGORITHM: &str = "ioi.receipt-merkle-rfc9162-jcs-sha256.v1";
+
+const RECEIPT_LEAF_TAG: &[u8] = b"IOI-RECEIPT-MERKLE-LEAF-V1";
 
 fn native_signature_suite_name(suite: SignatureSuite) -> Result<&'static str, VerificationError> {
     match suite {
@@ -739,6 +765,236 @@ fn material_root(
         hash_value(&json!({"domain": domain, "hashes": Value::Array(hashes)}))?,
         rows,
     ))
+}
+
+/// Why a receipt set yields no v2 `receipt_root`. When several apply, the first
+/// in this order is reported (the conformance vectors' reference precedence).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReceiptRootRefusal {
+    EmptyRange,
+    SequenceOutsideRange,
+    SequenceDuplicate,
+    SequenceOrder,
+    SequenceGap,
+    EnvelopeMalformed,
+    BodyHashMismatch,
+}
+
+impl ReceiptRootRefusal {
+    fn name(self) -> &'static str {
+        match self {
+            Self::EmptyRange => "empty_range",
+            Self::SequenceOutsideRange => "sequence_outside_range",
+            Self::SequenceDuplicate => "sequence_duplicate",
+            Self::SequenceOrder => "sequence_order",
+            Self::SequenceGap => "sequence_gap",
+            Self::EnvelopeMalformed => "envelope_malformed",
+            Self::BodyHashMismatch => "body_hash_mismatch",
+        }
+    }
+}
+
+fn refuse_receipts(
+    reason: ReceiptRootRefusal,
+    detail: impl std::fmt::Display,
+) -> VerificationError {
+    VerificationError::Binding(format!("receipt_root {}: {detail}", reason.name()))
+}
+
+/// D(E), the canonical DSSE-envelope digest: `"sha256:" + hex(SHA-256(JCS(E')))`
+/// where `E' = {payloadType, payload, signatures: [{keyid (iff present), sig}]}`
+/// with the signatures in carried order.
+///
+/// Unknown members of the envelope and of each signature are excluded. The
+/// signatures are included, so dropping, adding, reordering or altering one
+/// changes D(E). Strings are taken exactly as carried: a Base64 value is never
+/// re-encoded, so a re-encoded envelope is a different envelope. A body without
+/// the DSSE members is refused.
+fn envelope_digest(envelope: &Value) -> Result<String, VerificationError> {
+    let malformed = |detail: &str| refuse_receipts(ReceiptRootRefusal::EnvelopeMalformed, detail);
+    let envelope = envelope
+        .as_object()
+        .ok_or_else(|| malformed("the receipt body is not an object"))?;
+    let (payload_type, payload, signatures) = match (
+        envelope.get("payloadType").and_then(Value::as_str),
+        envelope.get("payload").and_then(Value::as_str),
+        envelope.get("signatures").and_then(Value::as_array),
+    ) {
+        (Some(payload_type), Some(payload), Some(signatures)) => {
+            (payload_type, payload, signatures)
+        }
+        _ => {
+            return Err(malformed(
+                "payloadType, payload or signatures is missing or mistyped",
+            ))
+        }
+    };
+    let mut projected = Vec::with_capacity(signatures.len());
+    for signature in signatures {
+        let signature = signature
+            .as_object()
+            .ok_or_else(|| malformed("a signature is not an object"))?;
+        let sig = signature
+            .get("sig")
+            .and_then(Value::as_str)
+            .ok_or_else(|| malformed("a signature has no string sig"))?;
+        let mut item = Map::new();
+        if let Some(keyid) = signature.get("keyid") {
+            let keyid = keyid
+                .as_str()
+                .ok_or_else(|| malformed("a signature keyid is not a string"))?;
+            item.insert("keyid".into(), Value::String(keyid.to_owned()));
+        }
+        item.insert("sig".into(), Value::String(sig.to_owned()));
+        projected.push(Value::Object(item));
+    }
+    hash_value(&json!({
+        "payloadType": payload_type,
+        "payload": payload,
+        "signatures": projected,
+    }))
+}
+
+/// `"IOI-RECEIPT-MERKLE-LEAF-V1" || 0x00 || JCS({"envelope_digest", "sequence"})`.
+fn receipt_leaf_input(envelope_digest: &str, sequence: u64) -> Result<Vec<u8>, VerificationError> {
+    let statement = serde_jcs::to_vec(&json!({
+        "envelope_digest": envelope_digest,
+        "sequence": sequence,
+    }))
+    .map_err(|error| VerificationError::Field(format!("JCS encoding: {error}")))?;
+    let mut leaf = Vec::with_capacity(RECEIPT_LEAF_TAG.len() + 1 + statement.len());
+    leaf.extend_from_slice(RECEIPT_LEAF_TAG);
+    leaf.push(0x00);
+    leaf.extend_from_slice(&statement);
+    Ok(leaf)
+}
+
+/// The RFC 9162 §2.1.1 Merkle Tree Hash over an ordered list of leaf inputs:
+/// leaf `SHA-256(0x00 || d)`, node `SHA-256(0x01 || left || right)`, split at
+/// the largest power of two below n. An unpaired subtree enters its parent
+/// unchanged; nothing is duplicated. The empty list's hash, `SHA-256()`, is
+/// never a `receipt_root`: [`receipt_merkle_root`] refuses an empty range first.
+fn rfc9162_tree_hash(leaves: &[Vec<u8>]) -> [u8; 32] {
+    match leaves.len() {
+        0 => Sha256::digest(b"").into(),
+        1 => {
+            let mut leaf = Sha256::new();
+            leaf.update([0x00_u8]);
+            leaf.update(&leaves[0]);
+            leaf.finalize().into()
+        }
+        n => {
+            let split = 1_usize << (usize::BITS - 1 - (n - 1).leading_zeros());
+            let mut node = Sha256::new();
+            node.update([0x01_u8]);
+            node.update(rfc9162_tree_hash(&leaves[..split]));
+            node.update(rfc9162_tree_hash(&leaves[split..]));
+            node.finalize().into()
+        }
+    }
+}
+
+/// The receipts' sequences, in CARRIED order, once they are known to cover
+/// `first..=last` exactly: refuses an empty range, then a sequence outside it, a
+/// duplicate, a carried order that is not strictly ascending, and a gap. The
+/// receipts are never re-sorted.
+fn receipt_sequences(range: (u64, u64), receipts: &[Value]) -> Result<Vec<u64>, VerificationError> {
+    use ReceiptRootRefusal::*;
+    let (first, last) = range;
+    if receipts.is_empty() || last < first {
+        return Err(refuse_receipts(
+            EmptyRange,
+            format!(
+                "receipt_range {first}..{last} with {} receipts",
+                receipts.len()
+            ),
+        ));
+    }
+    let sequences = receipts
+        .iter()
+        .map(|receipt| number(receipt, "sequence"))
+        .collect::<Result<Vec<_>, _>>()?;
+    if let Some(sequence) = sequences
+        .iter()
+        .find(|sequence| **sequence < first || **sequence > last)
+    {
+        return Err(refuse_receipts(
+            SequenceOutsideRange,
+            format!("sequence {sequence} is outside {first}..{last}"),
+        ));
+    }
+    let mut seen = BTreeSet::new();
+    if let Some(sequence) = sequences.iter().find(|sequence| !seen.insert(**sequence)) {
+        return Err(refuse_receipts(
+            SequenceDuplicate,
+            format!("sequence {sequence} is carried twice"),
+        ));
+    }
+    if let Some(pair) = sequences.windows(2).find(|pair| pair[1] <= pair[0]) {
+        return Err(refuse_receipts(
+            SequenceOrder,
+            format!(
+                "sequence {} is carried after {}; receipts are never re-sorted",
+                pair[1], pair[0]
+            ),
+        ));
+    }
+    if sequences.first() != Some(&first)
+        || sequences.last() != Some(&last)
+        || sequences.windows(2).any(|pair| pair[1] != pair[0] + 1)
+    {
+        return Err(refuse_receipts(
+            SequenceGap,
+            format!("the receipts do not cover {first}..{last}"),
+        ));
+    }
+    Ok(sequences)
+}
+
+/// A v2 `receipt_root` ([`RECEIPT_ROOT_ALGORITHM`]) over `receipts` as carried,
+/// for the inclusive `range`. After the sequence checks of `receipt_sequences`,
+/// each receipt's `body_hash` must equal D(body). Returns the root and the
+/// `(sequence, D(body))` rows in carried order.
+fn receipt_merkle_root(
+    range: (u64, u64),
+    receipts: &[Value],
+) -> Result<(String, Vec<(u64, String)>), VerificationError> {
+    let sequences = receipt_sequences(range, receipts)?;
+    let mut rows = Vec::with_capacity(receipts.len());
+    let mut leaves = Vec::with_capacity(receipts.len());
+    for (receipt, sequence) in receipts.iter().zip(sequences) {
+        let digest = envelope_digest(field(receipt, "body")?)?;
+        if text(receipt, "body_hash")? != digest {
+            return Err(refuse_receipts(
+                ReceiptRootRefusal::BodyHashMismatch,
+                format!("sequence {sequence}: body_hash is not D(body)"),
+            ));
+        }
+        leaves.push(receipt_leaf_input(&digest, sequence)?);
+        rows.push((sequence, digest));
+    }
+    Ok((hash_prefixed(&rfc9162_tree_hash(&leaves)), rows))
+}
+
+/// The range a template's receipts claim: their least and greatest carried
+/// sequence. Finding it reorders nothing; [`receipt_merkle_root`] then refuses
+/// any carried order that is not exactly that range, ascending.
+fn carried_receipt_range(receipts: &[Value]) -> Result<(u64, u64), VerificationError> {
+    let mut sequences = receipts.iter().map(|receipt| number(receipt, "sequence"));
+    let Some(first) = sequences.next() else {
+        return Err(refuse_receipts(
+            ReceiptRootRefusal::EmptyRange,
+            "the template carries no receipts",
+        ));
+    };
+    let first = first?;
+    let (mut least, mut greatest) = (first, first);
+    for sequence in sequences {
+        let sequence = sequence?;
+        least = least.min(sequence);
+        greatest = greatest.max(sequence);
+    }
+    Ok((least, greatest))
 }
 
 fn state_root(entries: &[Value]) -> Result<String, VerificationError> {
@@ -1755,8 +2011,10 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
 
     let (operation_root, operations) =
         material_root("ioi.operation-root.v1", array(bundle, "operations")?)?;
-    let (receipt_root, receipts) =
-        material_root("ioi.individual-receipt-root.v1", array(bundle, "receipts")?)?;
+    let (receipt_root, receipts) = receipt_merkle_root(
+        range(checkpoint, "receipt_range")?,
+        array(bundle, "receipts")?,
+    )?;
     check_eq(
         &operation_root,
         text(checkpoint, "operation_root")?,
@@ -2127,10 +2385,16 @@ pub fn prepare_checkpoint(
         "ioi.operation-root.v1",
         array_mut(&mut bundle, "operations")?,
     )?;
-    let (receipt_root, receipts) = material_root_rewrite(
-        "ioi.individual-receipt-root.v1",
-        array_mut(&mut bundle, "receipts")?,
-    )?;
+    // Refuse a carried order before deriving anything from it, then write each
+    // body_hash as D(body); the receipts are never sorted.
+    let template_receipts = array_mut(&mut bundle, "receipts")?;
+    let receipt_range = carried_receipt_range(template_receipts)?;
+    receipt_sequences(receipt_range, template_receipts)?;
+    for receipt in template_receipts.iter_mut() {
+        let digest = envelope_digest(field(receipt, "body")?)?;
+        set_text(receipt, "body_hash", digest)?;
+    }
+    let (receipt_root, receipts) = receipt_merkle_root(receipt_range, template_receipts)?;
     let previous_state_root = state_root(array(&bundle, "previous_state_entries")?)?;
     let resulting_state_root = state_root(array(&bundle, "resulting_state_entries")?)?;
 
@@ -2718,7 +2982,11 @@ fn material_root_rewrite(
     material_root(domain, materials)
 }
 
+#[cfg(test)]
+mod al4_export_tests;
 #[cfg(feature = "portable-assurance")]
 pub mod portable_assurance;
+#[cfg(test)]
+mod receipt_root_v2_tests;
 #[cfg(test)]
 mod tests;

@@ -1,0 +1,39 @@
+{
+  "algorithm": "ioi.receipt-merkle-rfc9162-jcs-sha256.v1",
+  "claimed_receipt_root": "sha256:a8cc104ff7a4dc7d08bb82033e3c95427a333d651f88b4483c50a1ab4d00f638",
+  "class": "invariance",
+  "derived_from": "POS-N1",
+  "description": "POS-N1's envelope with an unknown top-level member and an unknown signature member. D(E) is unchanged, so POS-N1's root verifies.",
+  "envelope_digest_check": {
+    "must": "equal",
+    "mutated_digest": "sha256:aeac1d734ff26d638b3403e7df0a696140253d70fab78db188ac9b042e848931",
+    "reference_digest": "sha256:aeac1d734ff26d638b3403e7df0a696140253d70fab78db188ac9b042e848931"
+  },
+  "expected": {
+    "receipt_root": "sha256:a8cc104ff7a4dc7d08bb82033e3c95427a333d651f88b4483c50a1ab4d00f638",
+    "result": "verified"
+  },
+  "id": "INV-UNKNOWN-MEMBER",
+  "receipt_range": {
+    "first": 0,
+    "last": 0
+  },
+  "receipts": [
+    {
+      "body": {
+        "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYmFzZSI6eyJhY2NlcHRhbmNlX3JlZiI6bnVsbCwiYWN0b3JfaWQiOiJzeXN0ZW06Ly9hbDQtdGVzdC1zeXN0ZW0iLCJhZGp1ZGljYXRpb25fcmVmIjpudWxsLCJhcnRpZmFjdF9yZWZzIjpbImFydGlmYWN0Oi8vc2hhMjU2L2VkNDJhZTNjMzZjNWM4Y2VhZjA2NGM4N2E4Y2FlNWUzMGQ1M2Q5N2RmNGIwMTZlNDA0MzVhNjhhMGJmYzhlNzciXSwiYXR0ZXN0ZWRfYm91bmRhcnlfZmFjdF9yZWZzIjpbImVmZmVjdDovL2FsNC10ZXN0L2UtMCJdLCJhdXRob3JpdHlfZ3JhbnRfaWQiOiJncmFudDovL2FsNC10ZXN0L2ctMSIsImF1dGhvcml0eV9zY29wZXMiOlsic2NvcGU6YXJ0aWZhY3QuZGVsaXZlciJdLCJjbGFpbV9zY29wZV9yZWYiOm51bGwsImV2aWRlbmNlX2J1bmRsZV9yZWZzIjpbXSwiaW5wdXRfaGFzaCI6InNoYTI1NjowZDY0NmE2MGNlYmZmZjUzNGI3YzYzNzUxMGRjYzhkZWZhNjE5OGMzNDZjZmZlN2VmNjdmMjc5NTdmY2JhZjBiIiwib3V0cHV0X2hhc2giOiJzaGEyNTY6MjdkNzVlMTQ4ODkxYmRkOGUyNDg4OTM5NmUzN2Q0YWIyZDgyNTVlNTlmNDkyMDRmOWE1NWJjMzZkNzk4OTg5YSIsInBvbGljeV9oYXNoIjoic2hhMjU2OmUxNmZmYzNkZTQxZTE1NDc3YmVhNjcxNmU4MjA1MGJiOWI2YTY0MzFiM2ViODRkMDE4YzRjMTkxMjk5NDE0ZmYiLCJwcmltaXRpdmVfY2FwYWJpbGl0aWVzIjpbInByaW06ZnMucmVhZCJdLCJwdWJsaWNfY29tbWl0bWVudF9yZWYiOm51bGwsInJlY2VpcHRfaWQiOiJyZWNlaXB0Oi8vYWw0LXRlc3QvcnVuLTEvci0wIiwicmVjZWlwdF9wcm9maWxlX3JlZiI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJyZWNlaXB0X3R5cGUiOiJlZmZlY3QuYWRtaXR0ZWQiLCJydW5faWQiOiJydW46Ly9hbDQtdGVzdC9ydW4tMSIsInNldHRsZW1lbnRfcmVmIjpudWxsLCJ0YXNrX2lkIjpudWxsLCJ0aW1lc3RhbXAiOiIyMDI2LTEwLTEyVDIwOjAwOjAwWiIsInZlcmlmaWNhdGlvbl9yZWYiOm51bGx9LCJwcm9maWxlIjp7ImF0dGVtcHQiOjEsImVmZmVjdF9pZCI6ImVmZmVjdDovL2FsNC10ZXN0L2UtMCIsImxzbiI6MTAwMCwic2hhcmQiOiJzaGFyZDovL2FsNC10ZXN0L3MtMCJ9fSwicHJlZGljYXRlVHlwZSI6InNjaGVtYTovL2lvaS90ZXN0L2FsNC9yZWNlaXB0LXJvb3QtdjItdmVjdG9yLXByb2ZpbGUvdjEiLCJzdWJqZWN0IjpbeyJkaWdlc3QiOnsic2hhMjU2IjoiMGQ2NDZhNjBjZWJmZmY1MzRiN2M2Mzc1MTBkY2M4ZGVmYTYxOThjMzQ2Y2ZmZTdlZjY3ZjI3OTU3ZmNiYWYwYiJ9LCJuYW1lIjoiaW9pOmlucHV0In0seyJkaWdlc3QiOnsic2hhMjU2IjoiMjdkNzVlMTQ4ODkxYmRkOGUyNDg4OTM5NmUzN2Q0YWIyZDgyNTVlNTlmNDkyMDRmOWE1NWJjMzZkNzk4OTg5YSJ9LCJuYW1lIjoiaW9pOm91dHB1dCJ9LHsiZGlnZXN0Ijp7InNoYTI1NiI6ImVkNDJhZTNjMzZjNWM4Y2VhZjA2NGM4N2E4Y2FlNWUzMGQ1M2Q5N2RmNGIwMTZlNDA0MzVhNjhhMGJmYzhlNzcifSwibmFtZSI6ImFydGlmYWN0Oi8vc2hhMjU2L2VkNDJhZTNjMzZjNWM4Y2VhZjA2NGM4N2E4Y2FlNWUzMGQ1M2Q5N2RmNGIwMTZlNDA0MzVhNjhhMGJmYzhlNzcifV19",
+        "payloadType": "application/vnd.in-toto+json",
+        "signatures": [
+          {
+            "keyid": "key://al4-test/receipt-root-v2/outbox-1",
+            "sig": "aBSgzguoJ0MVHsPwLFyUt23Ouu9Ji0zzO9gFRSpIepvL7hBwip/A+xX37XBCwCyay6aye5HbohBkA90x47zpCA==",
+            "x-certificate-hint": "ignored"
+          }
+        ],
+        "x-ioi-annotation": "carried by a relay; no signature covers it"
+      },
+      "body_hash": "sha256:aeac1d734ff26d638b3403e7df0a696140253d70fab78db188ac9b042e848931",
+      "sequence": 0
+    }
+  ]
+}
