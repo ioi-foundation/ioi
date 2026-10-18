@@ -5035,4 +5035,169 @@ mod tests {
             RuntimeFinalityProfile::BftConsensusAftV1
         );
     }
+
+    // --- RED-6 (D2a review round 4, finding 1(a)): a PRESENT admission effect naming ANOTHER head -----------------
+
+    /// RED-6 fixture support. Commits the staged block `hash` exactly as `admit_material` does (the same bundle,
+    /// outbox and commit; the block carries no consequence manifest), but under the caller's `effect_id`. Only a test can
+    /// name an effect identity: this forges a spine in which a block's derived effect id is PRESENT but names another
+    /// head.
+    fn commit_staged_under_effect_id(
+        coordinator: &mut RuntimeFinalityCoordinator,
+        hash: [u8; 32],
+        effect_id: &str,
+        recorded_at_ms: u64,
+    ) {
+        let staged = coordinator.read_staged(&hash).unwrap();
+        assert!(admitted_effect_manifest(&staged.block).unwrap().is_none());
+        let suffix = hex::encode(hash);
+        let active = coordinator
+            .store
+            .spine_state()
+            .active()
+            .map_err(|error| anyhow!(error.to_string()))
+            .unwrap()
+            .clone();
+        let authority_owner = ExactAuthority(active.authority.clone());
+        let profile = runtime_profile(active.identity.profile).unwrap();
+        let (operation_first, receipt_first, previous_ref, previous_hash) =
+            next_material_coordinates(&coordinator.store).unwrap();
+        let location = coordinator.staged_path(&hash).display().to_string();
+        let bundle = emit_runtime_bundle_v3(
+            RuntimeBundleV3Input {
+                bundle_id: &format!("proof://ioi/runtime/{suffix}"),
+                checkpoint_id: &format!("receipt-checkpoint://ioi/runtime/{suffix}"),
+                certificate_id: &format!("finality-certificate://ioi/runtime/{suffix}"),
+                availability_manifest_id: &format!("availability-manifest://ioi/runtime/{suffix}"),
+                block_payload_ref: &format!("payload://ioi/runtime/block/{suffix}"),
+                domain_id: &coordinator.domain_id,
+                authority_epoch: active.authority.authority_epoch,
+                authority_revocation_epoch: active.authority.revocation_epoch,
+                profile,
+                profile_epoch: active.profile_epoch,
+                writer_identity: &active.writer_identity,
+                fence_token: active.fence_token,
+                operation_sequence_first: operation_first,
+                receipt_sequence_first: receipt_first,
+                previous_checkpoint_ref: previous_ref.as_deref(),
+                previous_checkpoint_hash: previous_hash.as_deref(),
+                authority_policy_root: &active.bindings.policy_digest,
+                governance_policy_root: &active.bindings.governance_policy_digest,
+                availability_policy_root: &active.bindings.availability_policy_digest,
+                retention_policy_root: &active.bindings.retention_policy_digest,
+                location_ref: &location,
+                failure_domain_ref: &format!(
+                    "failure-domain://ioi/local/{}",
+                    coordinator.domain_id
+                ),
+                verifier_contract_hash: &active.bindings.verifier_contract_digest,
+                issuer_key_id: &coordinator.issuer_key_id,
+                block: &staged.block,
+                receipts: &staged.receipts,
+                native_aft: None,
+                hash_async: None,
+            },
+            &coordinator.signing_key,
+        )
+        .unwrap();
+        let outbox = build_outbox(effect_id, &staged.block, &bundle).unwrap();
+        let prepared = coordinator
+            .store
+            .prepare_runtime_bundle(
+                effect_id.to_string(),
+                bundle,
+                active.authority,
+                &authority_owner,
+                outbox,
+            )
+            .unwrap();
+        let commit = coordinator
+            .store
+            .commit(prepared, &authority_owner, recorded_at_ms)
+            .unwrap();
+        assert_eq!(commit.disposition, CommitDisposition::Committed);
+        coordinator
+            .cutover_locators
+            .unclassified
+            .push_back(commit.effect.record.effect_id.clone());
+        coordinator
+            .refresh_staged_after_admission(staged.block.header.height)
+            .unwrap();
+    }
+
+    /// RED-6 GUARD (D2a review round 4, finding 1(a); passes at e331375ae, killed by M-head-equality-bypassed). A block
+    /// whose derived admission effect `runtime-effect-<hex(hash)>` is PRESENT in the spine, but whose resulting canonical
+    /// head names ANOTHER block, is not the head of a committed admission effect: nothing is published. The forged spine:
+    /// C (height 1, on the zero head) is committed under B's derived id, then B (height 2, on C) under another id, so the
+    /// canonical head is B and B's derived effect names C.
+    #[tokio::test]
+    async fn b1_a_present_effect_naming_another_head_publishes_nothing() {
+        use super::super::admitted_tip_publisher_tests::{serve, SpyWorkload, CAPABILITY};
+        let dir = tempdir().unwrap();
+        let seed = [31_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let mut coordinator = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/b1a".into(),
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            "writer://test/b1a".into(),
+            || runtime_finality_initial_head(None),
+            issuer,
+            &seed,
+        )
+        .unwrap();
+        let c = empty_block([0; 32], 1);
+        let c_hash = block_hash(&c).unwrap();
+        let b = empty_block(c_hash, 2);
+        let b_hash = block_hash(&b).unwrap();
+        coordinator.stage_block(c.clone(), Vec::new()).unwrap();
+        coordinator.stage_block(b.clone(), Vec::new()).unwrap();
+        let b_effect = format!("runtime-effect-{}", hex::encode(b_hash));
+        commit_staged_under_effect_id(&mut coordinator, c_hash, &b_effect, 1);
+        commit_staged_under_effect_id(&mut coordinator, b_hash, &format!("{b_effect}-head"), 2);
+
+        assert_eq!(coordinator.last_admitted_block().unwrap(), Some(b.clone()));
+        let named = coordinator
+            .store
+            .committed(&b_effect)
+            .expect("B's derived admission effect is PRESENT")
+            .record
+            .bundle
+            .pointer("/checkpoint/resulting_canonical_head")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        assert_eq!(
+            named,
+            Some(canonical_block_head(&c).unwrap()),
+            "B's derived effect names C, not B"
+        );
+        assert!(
+            !coordinator.is_committed_admission_head(&b).unwrap(),
+            "B is not the head of a committed admission effect"
+        );
+
+        let ledger = tokio::sync::Mutex::new(coordinator);
+        let spy = SpyWorkload::accepting(CAPABILITY);
+        let address = serve(spy.clone()).await;
+        ledger
+            .lock()
+            .await
+            .install_admission_capability(AdmissionCapabilitySource::in_process(
+                crate::standard::workload::admitted_tip::WorkloadCapability::from_bytes(CAPABILITY),
+                &address,
+            ))
+            .unwrap();
+        RuntimeFinalityCoordinator::publish_admitted_head(&ledger)
+            .await
+            .expect("a head without committed admission provenance: nothing to publish");
+        assert!(
+            spy.presented().is_empty(),
+            "nothing is presented: {:?}",
+            spy.presented()
+        );
+    }
 }

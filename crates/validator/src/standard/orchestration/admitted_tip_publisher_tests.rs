@@ -16,6 +16,11 @@
 //! admission effect in the ledger's own spine; the bootstrap head never is), the M2 negative pins
 //! of the gap walk (a competing candidate; an ancestor at the wrong height), and m3 (the walk
 //! resumes past held rows, bounded per call).
+//!
+//! RED-6 (review round 4, d2a/review4/DISPOSITION.md): a second publisher install is refused and the first stays
+//! (finding 1(b), a GUARD); a span whose bottom staged envelope is missing is cleared and a later walk fills the rows it
+//! skipped (finding 3, a RED). Finding 1(a)'s GUARD (a PRESENT effect naming another head) needs runtime_finality's
+//! private access to forge the spine, so it lives in that module's tests and uses this spy.
 
 use super::runtime_finality::{
     admit_available, canonical_block_head, reconcile_workload_admitted_tip,
@@ -38,14 +43,15 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use tonic::{Request, Response, Status};
 
-/// The capability the workload accepts in most tests.
-const CAPABILITY: [u8; 32] = [0x5A; 32];
+/// The capability the workload accepts in most tests. (RED-6: `pub(super)`, with the spy and `serve`, for
+/// runtime_finality's forged-spine fixture, which needs that module's private access.)
+pub(super) const CAPABILITY: [u8; 32] = [0x5A; 32];
 /// A restarted workload's rotated capability.
 const ROTATED: [u8; 32] = [0x6B; 32];
 
 /// The workload end of the publisher's private channel (see the module docs).
 #[derive(Default)]
-struct SpyWorkload {
+pub(super) struct SpyWorkload {
     accepted: Mutex<Option<[u8; 32]>>,
     presented: Mutex<Vec<([u8; 32], AdmittedRecord)>>,
     index: Mutex<BTreeMap<u64, AdmittedRecord>>,
@@ -55,7 +61,7 @@ struct SpyWorkload {
 }
 
 impl SpyWorkload {
-    fn accepting(capability: [u8; 32]) -> Arc<Self> {
+    pub(super) fn accepting(capability: [u8; 32]) -> Arc<Self> {
         let spy = Self::default();
         *spy.accepted.lock().unwrap() = Some(capability);
         Arc::new(spy)
@@ -72,12 +78,19 @@ impl SpyWorkload {
         *self.refuse_once_at.lock().unwrap() = Some(n);
         self
     }
-    fn presented(&self) -> Vec<([u8; 32], AdmittedRecord)> {
+    pub(super) fn presented(&self) -> Vec<([u8; 32], AdmittedRecord)> {
         self.presented.lock().unwrap().clone()
     }
     /// The heights the workload's index holds, ascending.
     fn heights(&self) -> Vec<u64> {
         self.index.lock().unwrap().keys().copied().collect()
+    }
+    /// RED-6: the workload no longer holds these rows (rows lost outside the append-only index model).
+    fn forget(&self, heights: &[u64]) {
+        let mut index = self.index.lock().unwrap();
+        for height in heights {
+            index.remove(height);
+        }
     }
     fn index(&self) -> Vec<AdmittedRecord> {
         self.index.lock().unwrap().values().cloned().collect()
@@ -208,7 +221,7 @@ impl ChainControl for SpyWorkload {
 }
 
 /// Serves `spy` on an ephemeral loopback port and returns its address.
-async fn serve(spy: Arc<SpyWorkload>) -> String {
+pub(super) async fn serve(spy: Arc<SpyWorkload>) -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind loopback");
@@ -822,5 +835,98 @@ async fn an_interrupted_gap_fill_resumes_past_held_rows_bounded_per_call() {
         spy.index(),
         h.admitted.iter().map(record_of).collect::<Vec<_>>(),
         "three publications index every admitted height with its record"
+    );
+}
+
+// --- RED-6 (review round 4): an unpinned refusal and a stuck span ---------------------------------
+
+/// RED-6 GUARD (D2a review round 4, finding 1(b); passes at e331375ae, killed by M-second-install-replaces). A SECOND
+/// install of the admitted-tip publisher is refused, and the FIRST publisher stays installed: the publication presents
+/// the first install's capability.
+#[tokio::test]
+async fn a_second_publisher_install_is_refused_and_the_first_publisher_still_sends() {
+    let h = Harness::new(3).await;
+    let spy = SpyWorkload::accepting(CAPABILITY)
+        .holding(&[record_of(&h.admitted[0]), record_of(&h.admitted[1])]);
+    let address = serve(spy.clone()).await;
+    install(
+        &h,
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+    )
+    .await;
+    let second = h
+        .context
+        .runtime_finality
+        .lock()
+        .await
+        .install_admission_capability(AdmissionCapabilitySource::in_process(
+            WorkloadCapability::from_bytes(ROTATED),
+            &address,
+        ));
+    assert!(second.is_err(), "a second install is refused");
+    RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
+        .await
+        .expect("the first publisher publishes the ledger head");
+    assert_eq!(
+        spy.presented(),
+        vec![(CAPABILITY, record_of(&h.admitted[2]))],
+        "the FIRST install's publisher (its capability) sends"
+    );
+}
+
+/// RED-6 (D2a review round 4, finding 3). Heights 1..=4 are admitted and the first publication fills the index; its span
+/// runs from 4 down to 1. Then the span's BOTTOM staged envelope (block 1's) disappears while its index row stays, and the
+/// workload loses rows 2 and 3, inside the span. Of the next two publications at most one errs: the unusable span is
+/// cleared, and a later publication walks from the head and fills 3 and 2 again (it stops at block 2, whose parent's
+/// envelope is gone). Fails at e331375ae: the span is kept, every later publication jumps to the missing envelope and errs
+/// (runtime_finality.rs:1913 there), and rows 2 and 3 stay absent.
+#[tokio::test]
+async fn a_span_whose_bottom_envelope_is_missing_is_cleared_and_a_later_walk_fills_the_skipped_rows(
+) {
+    let h = Harness::new(4).await;
+    let spy = SpyWorkload::accepting(CAPABILITY);
+    let address = serve(spy.clone()).await;
+    install(
+        &h,
+        AdmissionCapabilitySource::in_process(WorkloadCapability::from_bytes(CAPABILITY), &address),
+    )
+    .await;
+    RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality)
+        .await
+        .expect("the first publication fills the index");
+    assert_eq!(
+        spy.heights(),
+        vec![1, 2, 3, 4],
+        "the first publication's walk"
+    );
+
+    let envelope = h
+        .context
+        .runtime_finality
+        .lock()
+        .await
+        .consequence_runtime_root()
+        .join("staged")
+        .join(format!("{}.scale", hex::encode(h.admitted_hash(1))));
+    std::fs::remove_file(&envelope).expect("remove the span bottom's staged envelope");
+    spy.forget(&[2, 3]);
+
+    let second =
+        RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality).await;
+    let third =
+        RuntimeFinalityCoordinator::publish_admitted_head(&h.context.runtime_finality).await;
+    assert_eq!(
+        spy.heights(),
+        vec![1, 2, 3, 4],
+        "a later publication walks from the head and fills the rows the stuck span skipped \
+         (second: {second:?}, third: {third:?})"
+    );
+    let errors = [second.is_err(), third.is_err()]
+        .iter()
+        .filter(|failed| **failed)
+        .count();
+    assert!(
+        errors <= 1,
+        "the missing envelope errs at most once ({errors} errors)"
     );
 }
