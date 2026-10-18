@@ -1910,7 +1910,17 @@ impl RuntimeFinalityCoordinator {
         loop {
             if let Some(span) = resume.filter(|span| span.top == child_hash) {
                 resume = None;
-                child = ledger.lock().await.read_staged(&span.bottom)?.block;
+                // D2a review round 4, finding 3: a span whose bottom envelope cannot be read is
+                // CLEARED (this publication errs once), so the next one walks from the head.
+                let bottom = {
+                    let mut coordinator = ledger.lock().await;
+                    let bottom = coordinator.read_staged(&span.bottom);
+                    if bottom.is_err() {
+                        coordinator.admitted_span = None;
+                    }
+                    bottom
+                };
+                child = bottom?.block;
                 child_hash = span.bottom;
             }
             let Some(parent_height) = child.header.height.checked_sub(1).filter(|h| *h >= 1) else {
