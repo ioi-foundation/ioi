@@ -2,6 +2,7 @@
 //! Defines the core `ChainStateMachine` trait for blockchain state machines.
 
 use crate::app::{Block, ChainStatus, ChainTransaction};
+use crate::storage::{AdmittedRecord, AdmittedTip};
 use crate::commitment::CommitmentScheme;
 use crate::consensus::PenaltyMechanism;
 use crate::state::{StateManager, Verifier};
@@ -148,8 +149,80 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         self.get_status().await
     }
 
+    /// The COMMITTED chain status: the workload's Agentgres-admitted tip marker
+    /// (FU-N11-DURABLE-STATUS-1 D2a). Every "latest" or "trusted" read keys on it, never on
+    /// `get_status`, whose durable height counts signed but uncommitted blocks. A workload with
+    /// no marker (a fresh node, or before its first admission) reports height 0.
+    async fn get_committed_status(&self) -> Result<ChainStatus, ChainError> {
+        Ok(ChainStatus::default())
+    }
+
+    /// The COMMITTED tip (FU-N11-DURABLE-STATUS-1 D2a): the height, block hash and state root of
+    /// the MAX ROW of the workload's admitted index, never re-read from the block stored at that
+    /// height (a stored block is mutable storage; the index is what Agentgres admitted). `None`
+    /// before the first admission, and on a client without the committed surface: a trusted read
+    /// then has no root, never the durable tip's.
+    async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>, ChainError> {
+        Ok(None)
+    }
+
+    /// The workload's ADMITTED INDEX row for `height` (FU-N11-DURABLE-STATUS-1 D2a): what the
+    /// admission publication recorded there. `None` when the height is not admitted (or above the
+    /// max), or on a client without the committed surface: a committed read at that height then
+    /// refuses, never falls back to a stored block.
+    async fn get_admitted_record(&self, _height: u64) -> Result<Option<AdmittedRecord>, ChainError> {
+        Ok(None)
+    }
+
     /// Returns the client as a type-erased `Any` trait object.
     fn as_any(&self) -> &dyn Any;
+}
+
+/// The state root of the latest COMMITTED block (the Agentgres-admitted tip), for callers that
+/// need a trusted root (C7). It is the root of the MAX ROW of the workload's admitted index
+/// (FU-N11-DURABLE-STATUS-1 D2a): never a re-read of the block stored at that height, which is
+/// mutable storage. It errors when no tip is committed yet, rather than falling back to any
+/// stored block.
+pub async fn committed_state_root(
+    client: &(dyn WorkloadClientApi + '_),
+) -> Result<StateRoot, ChainError> {
+    match client.get_committed_tip().await? {
+        Some(tip) if tip.height > 0 => Ok(StateRoot(tip.state_root)),
+        _ => Err(ChainError::Transaction(
+            "no block is committed yet: there is no trusted state root".into(),
+        )),
+    }
+}
+
+/// The state root and height an IBC query or commitment root is served at (C5; the IBC host's
+/// `query` and `commitment_root` both go through it), FROM ONE ADMITTED-INDEX RECORD
+/// (FU-N11-DURABLE-STATUS-1 D2a GREEN-4):
+/// - an explicit height is served from that height's record, and REFUSED when the height is not
+///   admitted (above the max, or a gap);
+/// - "latest" is the max record, and REFUSED before the first admission.
+/// It never reads a stored block and never combines two observations.
+pub async fn committed_query_anchor(
+    client: &(dyn WorkloadClientApi + '_),
+    height: Option<u64>,
+) -> Result<(StateRoot, u64), ChainError> {
+    match height {
+        Some(height) => match client.get_admitted_record(height).await? {
+            Some(record) if record.height == height => Ok((StateRoot(record.state_root), height)),
+            Some(record) => Err(ChainError::Transaction(format!(
+                "the admitted record served for height {height} names height {}",
+                record.height
+            ))),
+            None => Err(ChainError::Transaction(format!(
+                "height {height} is not admitted: no committed root is served for it"
+            ))),
+        },
+        None => match client.get_committed_tip().await? {
+            Some(tip) => Ok((StateRoot(tip.state_root), tip.height)),
+            None => Err(ChainError::Transaction(
+                "no block is committed yet: there is no latest committed root".into(),
+            )),
+        },
+    }
 }
 
 /// A base trait for a read-only, proof-verifying view of the world state.

@@ -31,6 +31,39 @@ impl std::fmt::Debug for NodeHash {
     }
 }
 
+/// The node's Agentgres-admitted tip: the highest block the orchestration's Agentgres admission
+/// has recorded as committed (FU-N11-DURABLE-STATUS-1 D2a). It is the source of every
+/// "committed" read (IBC latest height, licence expiry, a trusted state root), never the
+/// workload's durable status, which counts signed but uncommitted blocks.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdmittedTip {
+    /// The admitted block's height.
+    pub height: Height,
+    /// The admitted (certified) block hash. It may differ from the stored header's hash when a
+    /// view-change winner names a different parent; the execution surface is what must match.
+    pub block_hash: [u8; 32],
+    /// The admitted block's post-state root.
+    pub state_root: Vec<u8>,
+}
+
+/// One row of the workload's ADMITTED INDEX (FU-N11-DURABLE-STATUS-1 D2a; it replaced the
+/// admission-floor fence at GREEN-4): what the Agentgres admission publication recorded for
+/// `height`. Every committed read (the by-height record, the IBC explicit and latest
+/// heights, licence expiry, a trusted root) is served from ONE such record and nothing else. The
+/// index is written once per height, only by the publication; its max entry is the committed tip.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdmittedRecord {
+    /// The admitted block's height.
+    pub height: Height,
+    /// The admitted (certified) block hash.
+    pub block_hash: [u8; 32],
+    /// The admitted block's post-state root.
+    pub state_root: Vec<u8>,
+    /// The admitted header's timestamp (seconds), carried by the record and never re-read from a
+    /// stored block.
+    pub timestamp: u64,
+}
+
 /// Encodes a u64 into a big-endian byte array, suitable for ordered key scans.
 #[inline]
 pub fn be64(x: u64) -> [u8; 8] {
@@ -159,4 +192,40 @@ pub trait NodeStore: Send + Sync {
         limit: u32,
         max_bytes: u32,
     ) -> Result<Vec<Block<ChainTransaction>>, StorageError>;
+
+    /// The committed tip (FU-N11-DURABLE-STATUS-1 D2a): the MAX ROW of the admitted index, or
+    /// `None` before the first admission.
+    fn get_admitted_tip(&self) -> Result<Option<AdmittedTip>, StorageError> {
+        Ok(self.get_latest_admitted_record()?.map(|record| AdmittedTip {
+            height: record.height,
+            block_hash: record.block_hash,
+            state_root: record.state_root,
+        }))
+    }
+
+    /// THE ADMITTED INDEX (FU-N11-DURABLE-STATUS-1 D2a GREEN-4): the row the admission publication
+    /// recorded for `height`, or `None` (not admitted, or above the max row): a committed read at
+    /// that height then refuses; it never falls back to a stored block. The default keeps no index.
+    fn get_admitted_record(&self, _height: Height) -> Result<Option<AdmittedRecord>, StorageError> {
+        Ok(None)
+    }
+
+    /// The admitted index's MAX row (the committed tip with its timestamp), or `None` before the
+    /// first admission. The default keeps no index.
+    fn get_latest_admitted_record(&self) -> Result<Option<AdmittedRecord>, StorageError> {
+        Ok(None)
+    }
+
+    /// The admitted index's ONLY writer, called only by the admission publication's handler. It is
+    /// written once per height: the identical record is an idempotent no-op; a different record at
+    /// a present height is refused and the row stays; an absent height is written whether it is
+    /// above the max or below it (a gap fill). No other write path (blocks, state versions, the
+    /// WAL replay, prune, epoch drop) reads or changes a row, and committed reads come from one
+    /// row each, so writes to the mutable block and state store never change a committed read.
+    /// The default keeps no index and refuses every write.
+    fn put_admitted_record(&self, _record: &AdmittedRecord) -> Result<(), StorageError> {
+        Err(StorageError::Backend(
+            "this node store keeps no admitted index".into(),
+        ))
+    }
 }

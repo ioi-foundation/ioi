@@ -22,7 +22,10 @@ use ioi_state::tree::jellyfish::JellyfishMerkleTree;
 use ioi_storage::metrics as storage_metrics;
 use ioi_types::config::WorkloadConfig;
 // Import the shared components from the validator library
-use ioi_validator::standard::workload::{ipc::WorkloadIpcServer, setup::setup_workload};
+use ioi_validator::standard::workload::{
+    ipc::WorkloadIpcServer,
+    setup::{resolve_ipc_server_addr, setup_workload},
+};
 use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
@@ -66,11 +69,43 @@ where
 
     // 2. Start the Standard IPC Server
     // The IPC server now internally handles both Legacy JSON-RPC and the new gRPC Data Plane
-    let ipc_server_addr =
-        std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());
+    // BUILD-DELTA #72 interim rule: loopback unless IPC_SERVER_ADDR says otherwise, and a
+    // non-loopback bind is warned about (the workload IPC is unauthenticated until #72).
+    let (ipc_server_addr, bind_warning) =
+        resolve_ipc_server_addr(std::env::var("IPC_SERVER_ADDR").ok());
+    if let Some(warning) = bind_warning {
+        tracing::warn!(target: "workload", "{warning}");
+    }
 
     let ipc_server: WorkloadIpcServer<ST, CS> =
         WorkloadIpcServer::new(ipc_server_addr, workload_container, machine_arc).await?;
+
+    // FU-N11-DURABLE-STATUS-1 D2a: a split-process orchestration reads this boot's admission
+    // capability from a private file; without it, admitted tips are not recorded (fail-closed).
+    use ioi_validator::standard::workload::admitted_tip::{
+        capability_file_path_from_env, write_capability_file_creating_private_dir,
+    };
+    match capability_file_path_from_env() {
+        Some(path) => match write_capability_file_creating_private_dir(
+            &path,
+            ipc_server.admission_capability(),
+        ) {
+            Ok(()) => tracing::info!(
+                target: "workload",
+                path = %path.display(),
+                "Wrote this boot's workload admission capability."
+            ),
+            Err(error) => tracing::warn!(
+                target: "workload",
+                error = %error,
+                "Workload admission capability not written; admitted tips will not be recorded."
+            ),
+        },
+        None => tracing::warn!(
+            target: "workload",
+            "Neither IOI_WORKLOAD_CAPABILITY_FILE nor CERTS_DIR is set; admitted tips will not be recorded (committed height stays 0)."
+        ),
+    }
 
     tracing::info!(target: "workload", "Standard Workload initialized. Running Hybrid IPC server.");
     ipc_server.run().await?;

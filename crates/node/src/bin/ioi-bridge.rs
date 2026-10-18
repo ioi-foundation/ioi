@@ -234,6 +234,11 @@ async fn main() -> Result<()> {
     let server_machine = machine.clone();
     let server_addr = workload_ipc_addr.to_string();
 
+    // FU-N11-DURABLE-STATUS-1 D2a: one per-boot admission capability, shared in memory by the
+    // in-process workload server and the orchestration's admitted-tip publisher (round 2).
+    let admission_capability =
+        ioi_validator::standard::workload::admitted_tip::WorkloadCapability::generate();
+    let server_admission_capability = admission_capability.clone();
     let mut workload_server_handle = tokio::spawn(async move {
         let server = ioi_validator::standard::workload::ipc::WorkloadIpcServer::new(
             server_addr,
@@ -241,7 +246,8 @@ async fn main() -> Result<()> {
             server_machine,
         )
         .await
-        .map_err(|e| anyhow!(e))?;
+        .map_err(|e| anyhow!(e))?
+        .with_admission_capability(server_admission_capability);
         server.run().await.map_err(|e| anyhow!(e))
     });
 
@@ -303,6 +309,16 @@ async fn main() -> Result<()> {
 
     let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);
     orchestrator.set_chain_and_workload_client(machine.clone(), workload_client);
+    // FU-N11-DURABLE-STATUS-1 D2a: the per-boot admission capability goes ONLY to the
+    // orchestration's admitted-tip publisher, with its own private channel to the workload IPC
+    // (the shared workload client has no way to write the admitted index). The binary hands over
+    // its SOURCE; the publisher is built from it inside the orchestration (round 3).
+    orchestrator.set_admitted_tip_publisher(
+        ioi_validator::standard::orchestration::AdmissionCapabilitySource::in_process(
+            admission_capability,
+            workload_ipc_addr,
+        ),
+    );
 
     println!("\n✅ IOI Validator Node (Type A) Started.");
     println!("   - Consensus: Aft deterministic (Active)");

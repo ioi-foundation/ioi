@@ -1363,7 +1363,7 @@ where
                     .to_bytes()
             )
         );
-        let runtime_finality = super::runtime_finality::RuntimeFinalityCoordinator::open(
+        let mut runtime_finality = super::runtime_finality::RuntimeFinalityCoordinator::open(
             self.runtime_finality_root.clone(),
             format!("chain://ioi/{}", self.config.chain_id.0),
             configured_profile,
@@ -1375,6 +1375,18 @@ where
         .map_err(|error| {
             ValidatorError::Other(format!("runtime finality startup refusal: {error}"))
         })?;
+        // FU-N11-DURABLE-STATUS-1 D2a rounds 2-3: the coordinator builds the admitted-tip publisher
+        // (the only holder of the workload admission capability) from the source the binary set,
+        // at its set-once install, and owns it privately.
+        match self.take_admitted_tip_publisher() {
+            Some(source) => runtime_finality
+                .install_admission_capability(source)
+                .map_err(|error| ValidatorError::Other(error.to_string()))?,
+            None => tracing::warn!(
+                target: "orchestration",
+                "No admitted-tip publisher was set; the workload's committed height will not advance."
+            ),
+        }
         let agentgres_admitted_block = runtime_finality.last_admitted_block().map_err(|error| {
             ValidatorError::Other(format!(
                 "runtime finality canonical-tip recovery refusal: {error}"
@@ -1503,6 +1515,17 @@ where
                     "runtime finality committed-workload recovery refusal: {error}"
                 ))
             })?;
+        // FU-N11-DURABLE-STATUS-1 D2a (m4): reconcile the workload's admitted index with the
+        // Agentgres ledger (its head, and any gap below it by the parent_hash walk), so a
+        // publication missed while the workload was down or rotating its capability is not stale.
+        // Never fatal: the next admission publishes again.
+        if let Err(error) = super::runtime_finality::reconcile_workload_admitted_tip(&context).await {
+            tracing::warn!(
+                target: "orchestration",
+                error = %error,
+                "Startup reconciliation of the workload's admitted tip failed; the next admission advances it."
+            );
+        }
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
         let receiver = receiver_opt.take().ok_or(ValidatorError::Other(

@@ -887,3 +887,100 @@ where
 
     Ok((_workload_container, _machine_arc))
 }
+
+/// The split workload's IPC listen address when `IPC_SERVER_ADDR` holds `env_value` (BUILD-DELTA
+/// #72's interim rule, the IOI Director with HYP, 2026-10-15). Unset: loopback only, because the
+/// workload IPC is plaintext and unauthenticated until #72 lands. An explicit value is kept; a
+/// non-loopback one comes back with a warning for the operator naming #72. A `localhost` host (any
+/// letter case) comes back as 127.0.0.1 with its port kept (D2a review round 3, m5): the IPC server
+/// parses its listen address as a numeric socket address (`WorkloadIpcServer::run`).
+pub fn resolve_ipc_server_addr(env_value: Option<String>) -> (String, Option<String>) {
+    let Some(addr) = env_value else {
+        return ("127.0.0.1:8555".to_string(), None);
+    };
+    if let Some((host, port)) = addr.rsplit_once(':') {
+        if host.eq_ignore_ascii_case("localhost") {
+            return (format!("127.0.0.1:{port}"), None);
+        }
+    }
+    let host = addr
+        .rsplit_once(':')
+        .map(|(host, _port)| host)
+        .unwrap_or(addr.as_str())
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    let loopback = host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback());
+    let warning = (!loopback).then(|| {
+        format!(
+            "workload IPC bound to {addr}, beyond loopback: the IPC is unauthenticated until BUILD-DELTA #72 lands; restrict access to this address"
+        )
+    });
+    (addr, warning)
+}
+
+#[cfg(test)]
+mod ipc_server_addr_tests {
+    use super::resolve_ipc_server_addr;
+
+    /// BUILD-DELTA #72 interim rule: with IPC_SERVER_ADDR unset the split workload binds loopback
+    /// only (its IPC is unauthenticated until #72 lands).
+    #[test]
+    fn an_unset_ipc_server_addr_binds_loopback() {
+        // RED #72: fails before the fix because the default is 0.0.0.0:8555 (every interface)
+        assert_eq!(resolve_ipc_server_addr(None).0, "127.0.0.1:8555");
+        assert_eq!(resolve_ipc_server_addr(None).1, None);
+    }
+
+    /// An explicit non-loopback bind is kept, and the operator is warned, by name, that the IPC
+    /// is unauthenticated until BUILD-DELTA #72.
+    #[test]
+    fn an_explicit_non_loopback_bind_is_kept_with_a_build_delta_72_warning() {
+        // RED #72: fails before the fix because no warning is produced
+        for value in ["0.0.0.0:8555", "10.1.2.3:9000", "[::]:8555"] {
+            let (addr, warning) = resolve_ipc_server_addr(Some(value.to_string()));
+            assert_eq!(addr, value, "an explicit setting is kept");
+            let warning = warning.expect("a non-loopback bind is warned about");
+            assert!(warning.contains("BUILD-DELTA #72"), "{warning}");
+        }
+    }
+
+    /// An explicit loopback bind (IPv4 or IPv6) is kept without a warning. RED-5 (D2a review round
+    /// 3, m5), INVERTED for `localhost` only: "localhost:8555" now comes back as the numeric
+    /// "127.0.0.1:8555" (see `a_localhost_bind_is_normalized_to_a_numeric_loopback_address`).
+    #[test]
+    fn an_explicit_loopback_bind_is_kept_without_a_warning() {
+        for (value, expected) in [
+            ("127.0.0.1:8555", "127.0.0.1:8555"),
+            ("127.0.0.1:9001", "127.0.0.1:9001"),
+            ("[::1]:8555", "[::1]:8555"),
+            ("localhost:8555", "127.0.0.1:8555"),
+        ] {
+            assert_eq!(
+                resolve_ipc_server_addr(Some(value.to_string())),
+                (expected.to_string(), None),
+                "{value}"
+            );
+        }
+    }
+
+    /// RED-5 (D2a review round 3, m5). The workload IPC server parses its listen address as a
+    /// numeric socket address (ipc/mod.rs:195, `self.address.parse()?` in
+    /// `WorkloadIpcServer::run`), so a `localhost` bind, which is classified as loopback, must come
+    /// back as 127.0.0.1 with its port kept (in any letter case) and without a warning. Fails at
+    /// 9ad9cf0e4: "localhost:8555" is returned unchanged and does not parse.
+    #[test]
+    fn a_localhost_bind_is_normalized_to_a_numeric_loopback_address() {
+        for (value, port) in [("localhost:8555", 8555), ("LocalHost:9001", 9001)] {
+            let (addr, warning) = resolve_ipc_server_addr(Some(value.to_string()));
+            assert_eq!(
+                addr.parse::<std::net::SocketAddr>().ok(),
+                Some(std::net::SocketAddr::from(([127, 0, 0, 1], port))),
+                "{value} -> {addr}"
+            );
+            assert_eq!(warning, None, "{value}");
+        }
+    }
+}

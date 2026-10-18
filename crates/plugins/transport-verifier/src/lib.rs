@@ -12,7 +12,7 @@ use ioi_state::tree::iavl::{self, IavlProof};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        SignatureProof, SignatureSuite, StateRoot, SystemPayload, SystemTransaction,
     },
     codec,
 };
@@ -177,6 +177,18 @@ fn compute_root_from_commitment_proof(cp: &CommitmentProof) -> Result<Vec<u8>> {
         .map_err(|e| anyhow!("calculate_existence_root: {e}"))
 }
 
+/// The state root and height an IBC query or commitment root is served at (FU-N11-DURABLE-STATUS-1
+/// D2a, C5; both `query` and `commitment_root` go through it): ONE record of the workload's
+/// admitted index, through `ioi_api::chain::committed_query_anchor`. An explicit height is served
+/// from its record and refused when it is not admitted; "latest" is the max record and refused
+/// before the first admission. No stored block is ever read.
+pub(crate) async fn resolve_query_anchor(
+    client: &(dyn WorkloadClientApi + '_),
+    height: Option<u64>,
+) -> Result<(StateRoot, u64)> {
+    Ok(ioi_api::chain::committed_query_anchor(client, height).await?)
+}
+
 pub struct DefaultIbcHost<V: Verifier> {
     workload_client: Arc<WorkloadClient>,
     _verifier: V,
@@ -221,24 +233,15 @@ impl<V: Verifier + 'static> DefaultIbcHost<V> {
 #[async_trait]
 impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
     async fn query(&self, path: &str, height: Option<u64>) -> Result<QueryHostResponse> {
-        let query_height = if let Some(h) = height {
-            h
-        } else {
-            self.workload_client.get_status().await?.height
-        };
-
-        let block = self
-            .workload_client
-            .get_block_by_height(query_height)
-            .await?
-            .ok_or_else(|| anyhow!("Block at height {} not found for query", query_height))?;
+        let (query_root, query_height) =
+            resolve_query_anchor(self.workload_client.as_ref(), height).await?;
 
         let ns_prefix = service_namespace_prefix("ibc");
         let full_key = [ns_prefix.as_slice(), path.as_bytes()].concat();
 
         let response = self
             .workload_client
-            .query_state_at(block.header.state_root, &full_key)
+            .query_state_at(query_root, &full_key)
             .await?;
 
         use ioi_state::primitives::hash::HashProof;
@@ -320,18 +323,346 @@ impl<V: Verifier + Send + Sync + 'static> IbcHost for DefaultIbcHost<V> {
     }
 
     async fn commitment_root(&self, height: Option<u64>) -> Result<(Vec<u8>, u64)> {
-        let query_height = if let Some(h) = height {
-            h
-        } else {
-            self.workload_client.get_status().await?.height
+        let (query_root, query_height) =
+            resolve_query_anchor(self.workload_client.as_ref(), height).await?;
+        Ok((query_root.0, query_height))
+    }
+}
+
+#[cfg(test)]
+mod committed_height_tests {
+    //! FU-N11-DURABLE-STATUS-1 D2a RED-C5: the IBC host serves "latest" at the COMMITTED height.
+    use super::resolve_query_anchor;
+    use ioi_api::storage::{AdmittedRecord, AdmittedTip};
+    use ioi_api::chain::{BlockExecutionReceipt, QueryStateResponse, WorkloadClientApi};
+    use ioi_types::app::{AccountId, Block, ChainStatus, ChainTransaction, StateAnchor, StateRoot};
+    use ioi_types::error::ChainError;
+
+    /// Polls a future that completes without waking (the client below never awaits I/O).
+    fn block_on<F: std::future::Future>(future: F) -> F::Output {
+        let mut future = std::pin::pin!(future);
+        let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+        match future.as_mut().poll(&mut context) {
+            std::task::Poll::Ready(output) => output,
+            std::task::Poll::Pending => panic!("the status-only client never pends"),
+        }
+    }
+
+    fn unused<T>() -> Result<T, ChainError> {
+        Err(ChainError::Transaction("unused by the status-only client".into()))
+    }
+
+    /// A workload client whose durable status (`get_status`) runs ahead of its committed status.
+    #[derive(Debug)]
+    struct StatusOnlyClient {
+        durable: u64,
+        committed: u64,
+    }
+
+    #[async_trait::async_trait]
+    impl WorkloadClientApi for StatusOnlyClient {
+        async fn process_block(
+            &self,
+            _block: Block<ChainTransaction>,
+        ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>, Vec<BlockExecutionReceipt>), ChainError>
+        {
+            unused()
+        }
+        async fn get_blocks_range(
+            &self,
+            _since: u64,
+            _max_blocks: u32,
+            _max_bytes: u32,
+        ) -> Result<Vec<Block<ChainTransaction>>, ChainError> {
+            unused()
+        }
+        async fn get_block_by_height(
+            &self,
+            _height: u64,
+        ) -> Result<Option<Block<ChainTransaction>>, ChainError> {
+            unused()
+        }
+        async fn check_transactions_at(
+            &self,
+            _anchor: StateAnchor,
+            _expected_timestamp_secs: u64,
+            _txs: Vec<ChainTransaction>,
+        ) -> Result<Vec<Result<(), String>>, ChainError> {
+            unused()
+        }
+        async fn query_state_at(
+            &self,
+            _root: StateRoot,
+            _key: &[u8],
+        ) -> Result<QueryStateResponse, ChainError> {
+            unused()
+        }
+        async fn query_raw_state(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
+            unused()
+        }
+        async fn prefix_scan(&self, _prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError> {
+            unused()
+        }
+        async fn get_staked_validators(
+            &self,
+        ) -> Result<std::collections::BTreeMap<AccountId, u64>, ChainError> {
+            unused()
+        }
+        async fn get_genesis_status(&self) -> Result<bool, ChainError> {
+            unused()
+        }
+        async fn update_block_header(&self, _block: Block<ChainTransaction>) -> Result<(), ChainError> {
+            unused()
+        }
+        async fn get_state_root(&self) -> Result<StateRoot, ChainError> {
+            unused()
+        }
+        async fn get_status(&self) -> Result<ChainStatus, ChainError> {
+            Ok(ChainStatus {
+                height: self.durable,
+                ..Default::default()
+            })
+        }
+        async fn get_committed_status(&self) -> Result<ChainStatus, ChainError> {
+            Ok(ChainStatus {
+                height: self.committed,
+                ..Default::default()
+            })
+        }
+        // GREEN-4: the workload's admitted index holds rows 1..=committed (root [h; 32]).
+        async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>, ChainError> {
+            Ok((self.committed > 0).then(|| AdmittedTip {
+                height: self.committed,
+                block_hash: [self.committed as u8; 32],
+                state_root: vec![self.committed as u8; 32],
+            }))
+        }
+        async fn get_admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>, ChainError> {
+            Ok((height >= 1 && height <= self.committed).then(|| AdmittedRecord {
+                height,
+                block_hash: [height as u8; 32],
+                state_root: vec![height as u8; 32],
+                timestamp: 1_700_000_000 + height,
+            }))
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    /// RED-C5, INVERTED at GREEN-4 (it asserted, through `resolve_query_height`, that an explicit
+    /// height is "served as asked" and that "latest" is the committed status height). "Latest" is
+    /// served at the max admitted record (height 4, its root), never the durable height 9; an
+    /// explicit height above the max (7) is now REFUSED, not served as asked.
+    #[test]
+    fn an_ibc_query_without_a_height_is_served_at_the_committed_height() {
+        let client = StatusOnlyClient {
+            durable: 9,
+            committed: 4,
         };
+        assert_eq!(
+            block_on(resolve_query_anchor(&client, None)).expect("latest anchor"),
+            (StateRoot(vec![4; 32]), 4)
+        );
+        assert!(
+            block_on(resolve_query_anchor(&client, Some(7))).is_err(),
+            "an explicit height above the admitted max is refused"
+        );
+    }
 
-        let block = self
-            .workload_client
-            .get_block_by_height(query_height)
-            .await?
-            .ok_or_else(|| anyhow!("Block at height {} not found", query_height))?;
+    // --- D2a round 2 (RED-3), B1 (i): "latest" is anchored at the MARKER's root -----------------
 
-        Ok((block.header.state_root.0, query_height))
+    /// The block a workload stores at `height` with root `[root; 32]`.
+    fn stored_block(height: u64, root: u8) -> Block<ChainTransaction> {
+        use ioi_types::app::{BlockHeader, QuorumCertificate, SignatureSuite};
+        Block {
+            header: BlockHeader {
+                height,
+                view: 0,
+                parent_hash: [1; 32],
+                parent_state_root: StateRoot(vec![2; 32]),
+                state_root: StateRoot(vec![root; 32]),
+                transactions_root: vec![3; 32],
+                timestamp: 1_700_000_000 + height,
+                timestamp_ms: (1_700_000_000 + height) * 1_000,
+                gas_used: 0,
+                validator_set: vec![vec![4; 32]],
+                producer_account_id: AccountId([5; 32]),
+                producer_key_suite: SignatureSuite::ED25519,
+                producer_pubkey_hash: [6; 32],
+                producer_pubkey: vec![7; 32],
+                oracle_counter: 0,
+                oracle_trace_hash: [0; 32],
+                guardian_certificate: None,
+                sealed_finality_proof: None,
+                canonical_order_certificate: None,
+                timeout_certificate: None,
+                aft_timeout_certificate: None,
+                parent_qc: QuorumCertificate::default(),
+                previous_canonical_collapse_commitment_hash: [0; 32],
+                canonical_collapse_extension_certificate: None,
+                publication_frontier: None,
+                signature: Vec::new(),
+            },
+            transactions: Vec::new(),
+        }
+    }
+
+    /// A workload whose block at the admitted height 3 was REWRITTEN after admission (its stored
+    /// root is 0xB4, e.g. height 4's uncommitted root) while its admitted-tip marker still holds
+    /// the admitted root 0xA3. Every other stored height h has root h.
+    #[derive(Debug)]
+    struct RewrittenStoreClient;
+
+    const ADMITTED_HEIGHT: u64 = 3;
+    /// RED-5 (M2, C5): the height whose by-height query the workload MISADDRESSES, answering with
+    /// the admitted height's record.
+    const MISADDRESSED_HEIGHT: u64 = 5;
+
+    #[async_trait::async_trait]
+    impl WorkloadClientApi for RewrittenStoreClient {
+        async fn process_block(
+            &self,
+            _block: Block<ChainTransaction>,
+        ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>, Vec<BlockExecutionReceipt>), ChainError>
+        {
+            unused()
+        }
+        async fn get_blocks_range(
+            &self,
+            _since: u64,
+            _max_blocks: u32,
+            _max_bytes: u32,
+        ) -> Result<Vec<Block<ChainTransaction>>, ChainError> {
+            unused()
+        }
+        async fn get_block_by_height(
+            &self,
+            height: u64,
+        ) -> Result<Option<Block<ChainTransaction>>, ChainError> {
+            let root = if height == ADMITTED_HEIGHT { 0xB4 } else { height as u8 };
+            Ok(Some(stored_block(height, root)))
+        }
+        async fn check_transactions_at(
+            &self,
+            _anchor: StateAnchor,
+            _expected_timestamp_secs: u64,
+            _txs: Vec<ChainTransaction>,
+        ) -> Result<Vec<Result<(), String>>, ChainError> {
+            unused()
+        }
+        async fn query_state_at(
+            &self,
+            _root: StateRoot,
+            _key: &[u8],
+        ) -> Result<QueryStateResponse, ChainError> {
+            unused()
+        }
+        async fn query_raw_state(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, ChainError> {
+            unused()
+        }
+        async fn prefix_scan(&self, _prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError> {
+            unused()
+        }
+        async fn get_staked_validators(
+            &self,
+        ) -> Result<std::collections::BTreeMap<AccountId, u64>, ChainError> {
+            unused()
+        }
+        async fn get_genesis_status(&self) -> Result<bool, ChainError> {
+            unused()
+        }
+        async fn update_block_header(&self, _block: Block<ChainTransaction>) -> Result<(), ChainError> {
+            unused()
+        }
+        async fn get_state_root(&self) -> Result<StateRoot, ChainError> {
+            unused()
+        }
+        async fn get_status(&self) -> Result<ChainStatus, ChainError> {
+            Ok(ChainStatus {
+                height: 9,
+                ..Default::default()
+            })
+        }
+        async fn get_committed_status(&self) -> Result<ChainStatus, ChainError> {
+            Ok(ChainStatus {
+                height: ADMITTED_HEIGHT,
+                ..Default::default()
+            })
+        }
+        async fn get_committed_tip(&self) -> Result<Option<AdmittedTip>, ChainError> {
+            Ok(Some(AdmittedTip {
+                height: ADMITTED_HEIGHT,
+                block_hash: [0xA3; 32],
+                state_root: vec![0xA3; 32],
+            }))
+        }
+        // GREEN-4: the admitted index holds rows 1..=3; row 3's root is the admitted 0xA3, while
+        // the block stored at 3 was rewritten to 0xB4. RED-5 (M2, C5): the query for height 5 is
+        // answered with height 3's record (a misaddressed or replayed row).
+        async fn get_admitted_record(&self, height: u64) -> Result<Option<AdmittedRecord>, ChainError> {
+            let row = if height == MISADDRESSED_HEIGHT { ADMITTED_HEIGHT } else { height };
+            let root = if row == ADMITTED_HEIGHT { 0xA3 } else { row as u8 };
+            Ok((row >= 1 && row <= ADMITTED_HEIGHT).then(|| AdmittedRecord {
+                height: row,
+                block_hash: [root; 32],
+                state_root: vec![root; 32],
+                timestamp: 1_700_000_000 + row,
+            }))
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    /// RED-3 (fails at 079937616: "latest" re-reads the block stored at the committed height,
+    /// lib.rs:237-250 (query) and :332-340 (commitment_root); resolve_query_anchor keeps that at
+    /// RED-3). The IBC
+    /// host's latest query and commitment root are anchored at the admitted marker's root even
+    /// after the stored block at that height changed.
+    #[test]
+    fn the_latest_ibc_anchor_is_the_marker_root_after_the_stored_block_changes() {
+        assert_eq!(
+            block_on(resolve_query_anchor(&RewrittenStoreClient, None)).expect("latest anchor"),
+            (StateRoot(vec![0xA3; 32]), ADMITTED_HEIGHT),
+            "the committed root is the marker's, never a re-read of mutable block storage"
+        );
+    }
+
+    /// RED-3's T2 CONTROL, INVERTED at GREEN-4 (renamed from
+    /// `an_explicit_ibc_height_is_anchored_at_that_stored_block`, which asserted the stored
+    /// block's root). An explicit height is anchored at ITS ADMITTED RECORD: height 2 at its
+    /// record; height 3 at the admitted 0xA3 although the stored block now says 0xB4; height 4
+    /// (above the admitted max) REFUSED, although a block is stored there.
+    #[test]
+    fn an_explicit_ibc_height_is_anchored_at_its_admitted_record_never_the_stored_block() {
+        assert_eq!(
+            block_on(resolve_query_anchor(&RewrittenStoreClient, Some(2))).expect("explicit anchor"),
+            (StateRoot(vec![2; 32]), 2)
+        );
+        assert_eq!(
+            block_on(resolve_query_anchor(&RewrittenStoreClient, Some(3))).expect("explicit anchor"),
+            (StateRoot(vec![0xA3; 32]), 3),
+            "the admitted root, never the rewritten stored block's 0xB4"
+        );
+        assert!(
+            block_on(resolve_query_anchor(&RewrittenStoreClient, Some(4))).is_err(),
+            "a height that is not admitted is refused, although a block is stored there"
+        );
+    }
+
+    /// RED-5 M2 GUARD (C5; review round 3 MAJOR M2; passes at 9ad9cf0e4, killed by
+    /// M-c5-record-height-unchecked). The workload answers the by-height query for 5 with height
+    /// 3's record: the anchor is REFUSED, never height 5 paired with height 3's root.
+    #[test]
+    fn an_explicit_ibc_height_answered_with_another_heights_record_is_refused() {
+        let anchor = block_on(resolve_query_anchor(
+            &RewrittenStoreClient,
+            Some(MISADDRESSED_HEIGHT),
+        ));
+        assert!(
+            anchor.is_err(),
+            "height 5 must not be anchored at height 3's record: {anchor:?}"
+        );
     }
 }

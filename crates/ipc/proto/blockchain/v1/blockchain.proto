@@ -33,6 +33,28 @@ service ChainControl {
   // demoted to the latest collapse-backed height and carries no finality
   // meaning.
   rpc GetExecutionStatus (GetStatusRequest) returns (GetStatusResponse);
+
+  // FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status: the height and timestamp of the max
+  // row of the workload's admitted index. Height 0 when nothing has been admitted. Every "latest"
+  // or "trusted" read keys on this, never on GetStatus.
+  rpc GetCommittedStatus (GetStatusRequest) returns (GetStatusResponse);
+
+  // FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission publication,
+  // the admitted index's only writer. Records one admitted block (written once per height);
+  // refused without the workload's per-boot capability, or when the record's execution surface
+  // differs from the stored block. Never exposed on public.v1.
+  rpc RecordAdmittedTip (RecordAdmittedTipRequest) returns (RecordAdmittedTipResponse);
+
+  // FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED tip itself: the max row of the admitted index (never
+  // re-read from the block stored at that height). Every trusted root (the IBC host's latest
+  // anchor, the agent's trusted state root) keys on this. An empty block_hash means no block has
+  // been admitted yet.
+  rpc GetCommittedTip (GetStatusRequest) returns (GetCommittedTipResponse);
+
+  // FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index's row for one height (the IBC host's
+  // explicit-height anchor). An empty block_hash means the height is not admitted (absent, or above
+  // the max): the caller refuses; nothing is served from a stored block.
+  rpc GetAdmittedRecord (GetAdmittedRecordRequest) returns (GetAdmittedRecordResponse);
 }
 
 // Services for state queries and transaction pre-checks
@@ -199,6 +221,48 @@ message GetStatusResponse {
   uint64 latest_timestamp = 2;
   uint64 total_transactions = 3;
   bool is_running = 4;
+}
+
+// FU-N11-DURABLE-STATUS-1 D2a: one Agentgres-admitted block, recorded by the orchestration only.
+message RecordAdmittedTipRequest {
+  uint64 height = 1;
+  bytes block_hash = 2;
+  bytes state_root = 3;
+  // The workload's per-boot admission capability (32 bytes).
+  bytes capability = 4;
+  // GREEN-4: the admitted header's timestamp (seconds), from the ledger's staged block. The index
+  // records it; the workload never fills it from the block it stores.
+  uint64 timestamp = 5;
+}
+
+message RecordAdmittedTipResponse {}
+
+// FU-N11-DURABLE-STATUS-1 D2a: the Agentgres-admitted tip, the max row of the workload's admitted
+// index. Nothing admitted yet: every field is empty or 0.
+message GetCommittedTipResponse {
+  uint64 height = 1;
+  // The admitted (certified) block hash, 32 bytes; empty when nothing has been admitted.
+  bytes block_hash = 2;
+  // The admitted block's post-state root, from the record.
+  bytes state_root = 3;
+  // The admitted header's timestamp (seconds), from the record (never from a stored block).
+  uint64 latest_timestamp = 4;
+}
+
+// FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index row asked for.
+message GetAdmittedRecordRequest {
+  uint64 height = 1;
+}
+
+// One admitted index row. An empty block_hash means the height is not admitted.
+message GetAdmittedRecordResponse {
+  uint64 height = 1;
+  // The admitted (certified) block hash, 32 bytes; empty when the height is not admitted.
+  bytes block_hash = 2;
+  // The admitted block's post-state root.
+  bytes state_root = 3;
+  // The admitted header's timestamp (seconds).
+  uint64 timestamp = 4;
 }
 
 // --- StateQuery Messages ---

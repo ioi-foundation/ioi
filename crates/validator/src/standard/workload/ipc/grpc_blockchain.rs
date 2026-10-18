@@ -20,8 +20,9 @@ use ioi_ipc::blockchain::{
     GetStakedValidatorsRequest, GetStakedValidatorsResponse, GetStatusRequest, GetStatusResponse,
     KeyValuePair, PrefixScanRequest, PrefixScanResponse, ProcessBlockRequest, ProcessBlockResponse,
     QueryContractRequest, QueryContractResponse, QueryRawStateRequest, QueryRawStateResponse,
-    QueryStateAtRequest, QueryStateAtResponse, ReplaceUnfinalizedTipRequest,
-    UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
+    QueryStateAtRequest, QueryStateAtResponse, RecordAdmittedTipRequest, RecordAdmittedTipResponse,
+    ReplaceUnfinalizedTipRequest, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
+    GetAdmittedRecordRequest, GetAdmittedRecordResponse, GetCommittedTipResponse,
 };
 use ioi_types::{
     app::{Block, ChainId, ChainStatus, ChainTransaction, Membership, StateRoot},
@@ -546,6 +547,62 @@ where
             total_transactions: status.total_transactions,
             is_running: status.is_running,
         }))
+    }
+
+    async fn get_committed_status(
+        &self,
+        _request: Request<GetStatusRequest>,
+    ) -> Result<Response<GetStatusResponse>, Status> {
+        let durable = self.ctx.machine.lock().await.status().clone();
+        let store = self.ctx.workload.store.clone();
+        let status = crate::standard::workload::admitted_tip::committed_status(&*store, &durable)
+            .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(GetStatusResponse {
+            height: status.height,
+            latest_timestamp: status.latest_timestamp,
+            total_transactions: status.total_transactions,
+            is_running: status.is_running,
+        }))
+    }
+
+    async fn record_admitted_tip(
+        &self,
+        request: Request<RecordAdmittedTipRequest>,
+    ) -> Result<Response<RecordAdmittedTipResponse>, Status> {
+        // FU-N11-DURABLE-STATUS-1 D2a round 2 (M3): the handler's logic is the pure function
+        // admitted_tip::handle_record_admitted_tip (extracted unchanged at RED-3).
+        let store = self.ctx.workload.store.clone();
+        crate::standard::workload::admitted_tip::handle_record_admitted_tip(
+            &*store,
+            &self.ctx.admission_capability,
+            request.into_inner(),
+            |height| Ok(store.get_block_by_height(height)?),
+        )?;
+        Ok(Response::new(RecordAdmittedTipResponse {}))
+    }
+
+    async fn get_committed_tip(
+        &self,
+        _request: Request<GetStatusRequest>,
+    ) -> Result<Response<GetCommittedTipResponse>, Status> {
+        let store = self.ctx.workload.store.clone();
+        let response = crate::standard::workload::admitted_tip::committed_tip_response(&*store)
+            .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(response))
+    }
+
+    async fn get_admitted_record(
+        &self,
+        request: Request<GetAdmittedRecordRequest>,
+    ) -> Result<Response<GetAdmittedRecordResponse>, Status> {
+        // FU-N11-DURABLE-STATUS-1 D2a GREEN-4: one admitted index row; nothing from BLOCKS.
+        let height = request.into_inner().height;
+        let response = crate::standard::workload::admitted_tip::admitted_record_response(
+            &*self.ctx.workload.store,
+            height,
+        )
+        .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(response))
     }
 }
 

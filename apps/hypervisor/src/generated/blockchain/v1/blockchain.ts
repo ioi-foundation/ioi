@@ -56,6 +56,42 @@ export interface ProcessBlockResponse {
   /** SCALE-encoded Block<ChainTransaction> (processed) */
   blockBytes: Uint8Array;
   events: Uint8Array[];
+  /**
+   * Canonical SCALE-encoded BlockExecutionReceipt values, exactly one per
+   * included transaction and in block order.
+   */
+  executionReceipts: Uint8Array[];
+}
+
+export interface ReplaceUnfinalizedTipRequest {
+  /** SCALE-encoded replacement Block<ChainTransaction>. */
+  replacementBlockBytes: Uint8Array;
+  /**
+   * Exact workload projection being retired. All fields are revalidated under
+   * the workload machine lock before the parent snapshot is restored.
+   */
+  expectedTipHeight: number;
+  expectedParentStateRoot: Uint8Array;
+  expectedStateRoot: Uint8Array;
+  expectedTransactionsRoot: Uint8Array;
+  /**
+   * Canonical Agentgres admission floor supplied after the validator drains
+   * pending recognized effects. This is a caller fence, not an independent
+   * Agentgres observation by the workload process.
+   */
+  recognizedHeight: number;
+  /**
+   * Required canonical SCALE encoding of the complete target block. The
+   * workload rejects legacy callers that provide only the partial fields
+   * above; those fields remain reserved for wire compatibility.
+   */
+  expectedTargetBlockBytes: Uint8Array;
+  /**
+   * Required canonical SCALE encoding of the exact workload head observed by
+   * the validator. It is either the target itself or its single speculative
+   * descendant and is revalidated under the workload machine lock.
+   */
+  expectedLiveTipBlockBytes: Uint8Array;
 }
 
 export interface GetBlocksRangeRequest {
@@ -104,6 +140,53 @@ export interface GetStatusResponse {
   latestTimestamp: number;
   totalTransactions: number;
   isRunning: boolean;
+}
+
+/** FU-N11-DURABLE-STATUS-1 D2a: one Agentgres-admitted block, recorded by the orchestration only. */
+export interface RecordAdmittedTipRequest {
+  height: number;
+  blockHash: Uint8Array;
+  stateRoot: Uint8Array;
+  /** The workload's per-boot admission capability (32 bytes). */
+  capability: Uint8Array;
+  /**
+   * GREEN-4: the admitted header's timestamp (seconds), from the ledger's staged block. The index
+   * records it; the workload never fills it from the block it stores.
+   */
+  timestamp: number;
+}
+
+export interface RecordAdmittedTipResponse {
+}
+
+/**
+ * FU-N11-DURABLE-STATUS-1 D2a: the Agentgres-admitted tip, the max row of the workload's admitted
+ * index. Nothing admitted yet: every field is empty or 0.
+ */
+export interface GetCommittedTipResponse {
+  height: number;
+  /** The admitted (certified) block hash, 32 bytes; empty when nothing has been admitted. */
+  blockHash: Uint8Array;
+  /** The admitted block's post-state root, from the record. */
+  stateRoot: Uint8Array;
+  /** The admitted header's timestamp (seconds), from the record (never from a stored block). */
+  latestTimestamp: number;
+}
+
+/** FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index row asked for. */
+export interface GetAdmittedRecordRequest {
+  height: number;
+}
+
+/** One admitted index row. An empty block_hash means the height is not admitted. */
+export interface GetAdmittedRecordResponse {
+  height: number;
+  /** The admitted (certified) block hash, 32 bytes; empty when the height is not admitted. */
+  blockHash: Uint8Array;
+  /** The admitted block's post-state root. */
+  stateRoot: Uint8Array;
+  /** The admitted header's timestamp (seconds). */
+  timestamp: number;
 }
 
 export interface CheckTransactionsRequest {
@@ -539,7 +622,7 @@ export const ProcessBlockRequest: MessageFns<ProcessBlockRequest> = {
 };
 
 function createBaseProcessBlockResponse(): ProcessBlockResponse {
-  return { blockBytes: new Uint8Array(0), events: [] };
+  return { blockBytes: new Uint8Array(0), events: [], executionReceipts: [] };
 }
 
 export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
@@ -549,6 +632,9 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
     }
     for (const v of message.events) {
       writer.uint32(18).bytes(v!);
+    }
+    for (const v of message.executionReceipts) {
+      writer.uint32(26).bytes(v!);
     }
     return writer;
   },
@@ -576,6 +662,14 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
           message.events.push(reader.bytes());
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.executionReceipts.push(reader.bytes());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -593,6 +687,11 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
         ? bytesFromBase64(object.block_bytes)
         : new Uint8Array(0),
       events: globalThis.Array.isArray(object?.events) ? object.events.map((e: any) => bytesFromBase64(e)) : [],
+      executionReceipts: globalThis.Array.isArray(object?.executionReceipts)
+        ? object.executionReceipts.map((e: any) => bytesFromBase64(e))
+        : globalThis.Array.isArray(object?.execution_receipts)
+        ? object.execution_receipts.map((e: any) => bytesFromBase64(e))
+        : [],
     };
   },
 
@@ -604,6 +703,9 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
     if (message.events?.length) {
       obj.events = message.events.map((e) => base64FromBytes(e));
     }
+    if (message.executionReceipts?.length) {
+      obj.executionReceipts = message.executionReceipts.map((e) => base64FromBytes(e));
+    }
     return obj;
   },
 
@@ -614,6 +716,220 @@ export const ProcessBlockResponse: MessageFns<ProcessBlockResponse> = {
     const message = createBaseProcessBlockResponse();
     message.blockBytes = object.blockBytes ?? new Uint8Array(0);
     message.events = object.events?.map((e) => e) || [];
+    message.executionReceipts = object.executionReceipts?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseReplaceUnfinalizedTipRequest(): ReplaceUnfinalizedTipRequest {
+  return {
+    replacementBlockBytes: new Uint8Array(0),
+    expectedTipHeight: 0,
+    expectedParentStateRoot: new Uint8Array(0),
+    expectedStateRoot: new Uint8Array(0),
+    expectedTransactionsRoot: new Uint8Array(0),
+    recognizedHeight: 0,
+    expectedTargetBlockBytes: new Uint8Array(0),
+    expectedLiveTipBlockBytes: new Uint8Array(0),
+  };
+}
+
+export const ReplaceUnfinalizedTipRequest: MessageFns<ReplaceUnfinalizedTipRequest> = {
+  encode(message: ReplaceUnfinalizedTipRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.replacementBlockBytes.length !== 0) {
+      writer.uint32(10).bytes(message.replacementBlockBytes);
+    }
+    if (message.expectedTipHeight !== 0) {
+      writer.uint32(16).uint64(message.expectedTipHeight);
+    }
+    if (message.expectedParentStateRoot.length !== 0) {
+      writer.uint32(26).bytes(message.expectedParentStateRoot);
+    }
+    if (message.expectedStateRoot.length !== 0) {
+      writer.uint32(34).bytes(message.expectedStateRoot);
+    }
+    if (message.expectedTransactionsRoot.length !== 0) {
+      writer.uint32(42).bytes(message.expectedTransactionsRoot);
+    }
+    if (message.recognizedHeight !== 0) {
+      writer.uint32(48).uint64(message.recognizedHeight);
+    }
+    if (message.expectedTargetBlockBytes.length !== 0) {
+      writer.uint32(58).bytes(message.expectedTargetBlockBytes);
+    }
+    if (message.expectedLiveTipBlockBytes.length !== 0) {
+      writer.uint32(66).bytes(message.expectedLiveTipBlockBytes);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReplaceUnfinalizedTipRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReplaceUnfinalizedTipRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.replacementBlockBytes = reader.bytes();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.expectedTipHeight = longToNumber(reader.uint64());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.expectedParentStateRoot = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.expectedStateRoot = reader.bytes();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.expectedTransactionsRoot = reader.bytes();
+          continue;
+        }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.recognizedHeight = longToNumber(reader.uint64());
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.expectedTargetBlockBytes = reader.bytes();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.expectedLiveTipBlockBytes = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ReplaceUnfinalizedTipRequest {
+    return {
+      replacementBlockBytes: isSet(object.replacementBlockBytes)
+        ? bytesFromBase64(object.replacementBlockBytes)
+        : isSet(object.replacement_block_bytes)
+        ? bytesFromBase64(object.replacement_block_bytes)
+        : new Uint8Array(0),
+      expectedTipHeight: isSet(object.expectedTipHeight)
+        ? globalThis.Number(object.expectedTipHeight)
+        : isSet(object.expected_tip_height)
+        ? globalThis.Number(object.expected_tip_height)
+        : 0,
+      expectedParentStateRoot: isSet(object.expectedParentStateRoot)
+        ? bytesFromBase64(object.expectedParentStateRoot)
+        : isSet(object.expected_parent_state_root)
+        ? bytesFromBase64(object.expected_parent_state_root)
+        : new Uint8Array(0),
+      expectedStateRoot: isSet(object.expectedStateRoot)
+        ? bytesFromBase64(object.expectedStateRoot)
+        : isSet(object.expected_state_root)
+        ? bytesFromBase64(object.expected_state_root)
+        : new Uint8Array(0),
+      expectedTransactionsRoot: isSet(object.expectedTransactionsRoot)
+        ? bytesFromBase64(object.expectedTransactionsRoot)
+        : isSet(object.expected_transactions_root)
+        ? bytesFromBase64(object.expected_transactions_root)
+        : new Uint8Array(0),
+      recognizedHeight: isSet(object.recognizedHeight)
+        ? globalThis.Number(object.recognizedHeight)
+        : isSet(object.recognized_height)
+        ? globalThis.Number(object.recognized_height)
+        : 0,
+      expectedTargetBlockBytes: isSet(object.expectedTargetBlockBytes)
+        ? bytesFromBase64(object.expectedTargetBlockBytes)
+        : isSet(object.expected_target_block_bytes)
+        ? bytesFromBase64(object.expected_target_block_bytes)
+        : new Uint8Array(0),
+      expectedLiveTipBlockBytes: isSet(object.expectedLiveTipBlockBytes)
+        ? bytesFromBase64(object.expectedLiveTipBlockBytes)
+        : isSet(object.expected_live_tip_block_bytes)
+        ? bytesFromBase64(object.expected_live_tip_block_bytes)
+        : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: ReplaceUnfinalizedTipRequest): unknown {
+    const obj: any = {};
+    if (message.replacementBlockBytes.length !== 0) {
+      obj.replacementBlockBytes = base64FromBytes(message.replacementBlockBytes);
+    }
+    if (message.expectedTipHeight !== 0) {
+      obj.expectedTipHeight = Math.round(message.expectedTipHeight);
+    }
+    if (message.expectedParentStateRoot.length !== 0) {
+      obj.expectedParentStateRoot = base64FromBytes(message.expectedParentStateRoot);
+    }
+    if (message.expectedStateRoot.length !== 0) {
+      obj.expectedStateRoot = base64FromBytes(message.expectedStateRoot);
+    }
+    if (message.expectedTransactionsRoot.length !== 0) {
+      obj.expectedTransactionsRoot = base64FromBytes(message.expectedTransactionsRoot);
+    }
+    if (message.recognizedHeight !== 0) {
+      obj.recognizedHeight = Math.round(message.recognizedHeight);
+    }
+    if (message.expectedTargetBlockBytes.length !== 0) {
+      obj.expectedTargetBlockBytes = base64FromBytes(message.expectedTargetBlockBytes);
+    }
+    if (message.expectedLiveTipBlockBytes.length !== 0) {
+      obj.expectedLiveTipBlockBytes = base64FromBytes(message.expectedLiveTipBlockBytes);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReplaceUnfinalizedTipRequest>, I>>(base?: I): ReplaceUnfinalizedTipRequest {
+    return ReplaceUnfinalizedTipRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReplaceUnfinalizedTipRequest>, I>>(object: I): ReplaceUnfinalizedTipRequest {
+    const message = createBaseReplaceUnfinalizedTipRequest();
+    message.replacementBlockBytes = object.replacementBlockBytes ?? new Uint8Array(0);
+    message.expectedTipHeight = object.expectedTipHeight ?? 0;
+    message.expectedParentStateRoot = object.expectedParentStateRoot ?? new Uint8Array(0);
+    message.expectedStateRoot = object.expectedStateRoot ?? new Uint8Array(0);
+    message.expectedTransactionsRoot = object.expectedTransactionsRoot ?? new Uint8Array(0);
+    message.recognizedHeight = object.recognizedHeight ?? 0;
+    message.expectedTargetBlockBytes = object.expectedTargetBlockBytes ?? new Uint8Array(0);
+    message.expectedLiveTipBlockBytes = object.expectedLiveTipBlockBytes ?? new Uint8Array(0);
     return message;
   },
 };
@@ -1263,6 +1579,481 @@ export const GetStatusResponse: MessageFns<GetStatusResponse> = {
     message.latestTimestamp = object.latestTimestamp ?? 0;
     message.totalTransactions = object.totalTransactions ?? 0;
     message.isRunning = object.isRunning ?? false;
+    return message;
+  },
+};
+
+function createBaseRecordAdmittedTipRequest(): RecordAdmittedTipRequest {
+  return {
+    height: 0,
+    blockHash: new Uint8Array(0),
+    stateRoot: new Uint8Array(0),
+    capability: new Uint8Array(0),
+    timestamp: 0,
+  };
+}
+
+export const RecordAdmittedTipRequest: MessageFns<RecordAdmittedTipRequest> = {
+  encode(message: RecordAdmittedTipRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.height !== 0) {
+      writer.uint32(8).uint64(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      writer.uint32(18).bytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      writer.uint32(26).bytes(message.stateRoot);
+    }
+    if (message.capability.length !== 0) {
+      writer.uint32(34).bytes(message.capability);
+    }
+    if (message.timestamp !== 0) {
+      writer.uint32(40).uint64(message.timestamp);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordAdmittedTipRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRecordAdmittedTipRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.blockHash = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.stateRoot = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.capability = reader.bytes();
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.timestamp = longToNumber(reader.uint64());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RecordAdmittedTipRequest {
+    return {
+      height: isSet(object.height) ? globalThis.Number(object.height) : 0,
+      blockHash: isSet(object.blockHash)
+        ? bytesFromBase64(object.blockHash)
+        : isSet(object.block_hash)
+        ? bytesFromBase64(object.block_hash)
+        : new Uint8Array(0),
+      stateRoot: isSet(object.stateRoot)
+        ? bytesFromBase64(object.stateRoot)
+        : isSet(object.state_root)
+        ? bytesFromBase64(object.state_root)
+        : new Uint8Array(0),
+      capability: isSet(object.capability) ? bytesFromBase64(object.capability) : new Uint8Array(0),
+      timestamp: isSet(object.timestamp) ? globalThis.Number(object.timestamp) : 0,
+    };
+  },
+
+  toJSON(message: RecordAdmittedTipRequest): unknown {
+    const obj: any = {};
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      obj.blockHash = base64FromBytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      obj.stateRoot = base64FromBytes(message.stateRoot);
+    }
+    if (message.capability.length !== 0) {
+      obj.capability = base64FromBytes(message.capability);
+    }
+    if (message.timestamp !== 0) {
+      obj.timestamp = Math.round(message.timestamp);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordAdmittedTipRequest>, I>>(base?: I): RecordAdmittedTipRequest {
+    return RecordAdmittedTipRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordAdmittedTipRequest>, I>>(object: I): RecordAdmittedTipRequest {
+    const message = createBaseRecordAdmittedTipRequest();
+    message.height = object.height ?? 0;
+    message.blockHash = object.blockHash ?? new Uint8Array(0);
+    message.stateRoot = object.stateRoot ?? new Uint8Array(0);
+    message.capability = object.capability ?? new Uint8Array(0);
+    message.timestamp = object.timestamp ?? 0;
+    return message;
+  },
+};
+
+function createBaseRecordAdmittedTipResponse(): RecordAdmittedTipResponse {
+  return {};
+}
+
+export const RecordAdmittedTipResponse: MessageFns<RecordAdmittedTipResponse> = {
+  encode(_: RecordAdmittedTipResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordAdmittedTipResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRecordAdmittedTipResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): RecordAdmittedTipResponse {
+    return {};
+  },
+
+  toJSON(_: RecordAdmittedTipResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordAdmittedTipResponse>, I>>(base?: I): RecordAdmittedTipResponse {
+    return RecordAdmittedTipResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordAdmittedTipResponse>, I>>(_: I): RecordAdmittedTipResponse {
+    const message = createBaseRecordAdmittedTipResponse();
+    return message;
+  },
+};
+
+function createBaseGetCommittedTipResponse(): GetCommittedTipResponse {
+  return { height: 0, blockHash: new Uint8Array(0), stateRoot: new Uint8Array(0), latestTimestamp: 0 };
+}
+
+export const GetCommittedTipResponse: MessageFns<GetCommittedTipResponse> = {
+  encode(message: GetCommittedTipResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.height !== 0) {
+      writer.uint32(8).uint64(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      writer.uint32(18).bytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      writer.uint32(26).bytes(message.stateRoot);
+    }
+    if (message.latestTimestamp !== 0) {
+      writer.uint32(32).uint64(message.latestTimestamp);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetCommittedTipResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetCommittedTipResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.blockHash = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.stateRoot = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.latestTimestamp = longToNumber(reader.uint64());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetCommittedTipResponse {
+    return {
+      height: isSet(object.height) ? globalThis.Number(object.height) : 0,
+      blockHash: isSet(object.blockHash)
+        ? bytesFromBase64(object.blockHash)
+        : isSet(object.block_hash)
+        ? bytesFromBase64(object.block_hash)
+        : new Uint8Array(0),
+      stateRoot: isSet(object.stateRoot)
+        ? bytesFromBase64(object.stateRoot)
+        : isSet(object.state_root)
+        ? bytesFromBase64(object.state_root)
+        : new Uint8Array(0),
+      latestTimestamp: isSet(object.latestTimestamp)
+        ? globalThis.Number(object.latestTimestamp)
+        : isSet(object.latest_timestamp)
+        ? globalThis.Number(object.latest_timestamp)
+        : 0,
+    };
+  },
+
+  toJSON(message: GetCommittedTipResponse): unknown {
+    const obj: any = {};
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      obj.blockHash = base64FromBytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      obj.stateRoot = base64FromBytes(message.stateRoot);
+    }
+    if (message.latestTimestamp !== 0) {
+      obj.latestTimestamp = Math.round(message.latestTimestamp);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetCommittedTipResponse>, I>>(base?: I): GetCommittedTipResponse {
+    return GetCommittedTipResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetCommittedTipResponse>, I>>(object: I): GetCommittedTipResponse {
+    const message = createBaseGetCommittedTipResponse();
+    message.height = object.height ?? 0;
+    message.blockHash = object.blockHash ?? new Uint8Array(0);
+    message.stateRoot = object.stateRoot ?? new Uint8Array(0);
+    message.latestTimestamp = object.latestTimestamp ?? 0;
+    return message;
+  },
+};
+
+function createBaseGetAdmittedRecordRequest(): GetAdmittedRecordRequest {
+  return { height: 0 };
+}
+
+export const GetAdmittedRecordRequest: MessageFns<GetAdmittedRecordRequest> = {
+  encode(message: GetAdmittedRecordRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.height !== 0) {
+      writer.uint32(8).uint64(message.height);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetAdmittedRecordRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetAdmittedRecordRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetAdmittedRecordRequest {
+    return { height: isSet(object.height) ? globalThis.Number(object.height) : 0 };
+  },
+
+  toJSON(message: GetAdmittedRecordRequest): unknown {
+    const obj: any = {};
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetAdmittedRecordRequest>, I>>(base?: I): GetAdmittedRecordRequest {
+    return GetAdmittedRecordRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetAdmittedRecordRequest>, I>>(object: I): GetAdmittedRecordRequest {
+    const message = createBaseGetAdmittedRecordRequest();
+    message.height = object.height ?? 0;
+    return message;
+  },
+};
+
+function createBaseGetAdmittedRecordResponse(): GetAdmittedRecordResponse {
+  return { height: 0, blockHash: new Uint8Array(0), stateRoot: new Uint8Array(0), timestamp: 0 };
+}
+
+export const GetAdmittedRecordResponse: MessageFns<GetAdmittedRecordResponse> = {
+  encode(message: GetAdmittedRecordResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.height !== 0) {
+      writer.uint32(8).uint64(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      writer.uint32(18).bytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      writer.uint32(26).bytes(message.stateRoot);
+    }
+    if (message.timestamp !== 0) {
+      writer.uint32(32).uint64(message.timestamp);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetAdmittedRecordResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetAdmittedRecordResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.blockHash = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.stateRoot = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.timestamp = longToNumber(reader.uint64());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetAdmittedRecordResponse {
+    return {
+      height: isSet(object.height) ? globalThis.Number(object.height) : 0,
+      blockHash: isSet(object.blockHash)
+        ? bytesFromBase64(object.blockHash)
+        : isSet(object.block_hash)
+        ? bytesFromBase64(object.block_hash)
+        : new Uint8Array(0),
+      stateRoot: isSet(object.stateRoot)
+        ? bytesFromBase64(object.stateRoot)
+        : isSet(object.state_root)
+        ? bytesFromBase64(object.state_root)
+        : new Uint8Array(0),
+      timestamp: isSet(object.timestamp) ? globalThis.Number(object.timestamp) : 0,
+    };
+  },
+
+  toJSON(message: GetAdmittedRecordResponse): unknown {
+    const obj: any = {};
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    if (message.blockHash.length !== 0) {
+      obj.blockHash = base64FromBytes(message.blockHash);
+    }
+    if (message.stateRoot.length !== 0) {
+      obj.stateRoot = base64FromBytes(message.stateRoot);
+    }
+    if (message.timestamp !== 0) {
+      obj.timestamp = Math.round(message.timestamp);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetAdmittedRecordResponse>, I>>(base?: I): GetAdmittedRecordResponse {
+    return GetAdmittedRecordResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetAdmittedRecordResponse>, I>>(object: I): GetAdmittedRecordResponse {
+    const message = createBaseGetAdmittedRecordResponse();
+    message.height = object.height ?? 0;
+    message.blockHash = object.blockHash ?? new Uint8Array(0);
+    message.stateRoot = object.stateRoot ?? new Uint8Array(0);
+    message.timestamp = object.timestamp ?? 0;
     return message;
   },
 };
@@ -3317,6 +4108,18 @@ export const ChainControlService = {
       Buffer.from(ProcessBlockResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ProcessBlockResponse => ProcessBlockResponse.decode(value),
   },
+  /** Replaces exactly one unrecognized AFT workload tip under an execution-surface fence. */
+  replaceUnfinalizedTip: {
+    path: "/ioi.blockchain.v1.ChainControl/ReplaceUnfinalizedTip",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: ReplaceUnfinalizedTipRequest): Buffer =>
+      Buffer.from(ReplaceUnfinalizedTipRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ReplaceUnfinalizedTipRequest => ReplaceUnfinalizedTipRequest.decode(value),
+    responseSerialize: (value: ProcessBlockResponse): Buffer =>
+      Buffer.from(ProcessBlockResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ProcessBlockResponse => ProcessBlockResponse.decode(value),
+  },
   /** Fetches a range of blocks for sync. Supports Hybrid Data Plane. */
   getBlocksRange: {
     path: "/ioi.blockchain.v1.ChainControl/GetBlocksRange",
@@ -3363,11 +4166,90 @@ export const ChainControlService = {
     responseSerialize: (value: GetStatusResponse): Buffer => Buffer.from(GetStatusResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
   },
+  /**
+   * Internal raw execution status. Unlike public AFT status, this is not
+   * demoted to the latest collapse-backed height and carries no finality
+   * meaning.
+   */
+  getExecutionStatus: {
+    path: "/ioi.blockchain.v1.ChainControl/GetExecutionStatus",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetStatusRequest): Buffer => Buffer.from(GetStatusRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetStatusRequest => GetStatusRequest.decode(value),
+    responseSerialize: (value: GetStatusResponse): Buffer => Buffer.from(GetStatusResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
+  },
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status: the height and timestamp of the max
+   * row of the workload's admitted index. Height 0 when nothing has been admitted. Every "latest"
+   * or "trusted" read keys on this, never on GetStatus.
+   */
+  getCommittedStatus: {
+    path: "/ioi.blockchain.v1.ChainControl/GetCommittedStatus",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetStatusRequest): Buffer => Buffer.from(GetStatusRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetStatusRequest => GetStatusRequest.decode(value),
+    responseSerialize: (value: GetStatusResponse): Buffer => Buffer.from(GetStatusResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
+  },
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission publication,
+   * the admitted index's only writer. Records one admitted block (written once per height);
+   * refused without the workload's per-boot capability, or when the record's execution surface
+   * differs from the stored block. Never exposed on public.v1.
+   */
+  recordAdmittedTip: {
+    path: "/ioi.blockchain.v1.ChainControl/RecordAdmittedTip",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: RecordAdmittedTipRequest): Buffer =>
+      Buffer.from(RecordAdmittedTipRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RecordAdmittedTipRequest => RecordAdmittedTipRequest.decode(value),
+    responseSerialize: (value: RecordAdmittedTipResponse): Buffer =>
+      Buffer.from(RecordAdmittedTipResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RecordAdmittedTipResponse => RecordAdmittedTipResponse.decode(value),
+  },
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED tip itself: the max row of the admitted index (never
+   * re-read from the block stored at that height). Every trusted root (the IBC host's latest
+   * anchor, the agent's trusted state root) keys on this. An empty block_hash means no block has
+   * been admitted yet.
+   */
+  getCommittedTip: {
+    path: "/ioi.blockchain.v1.ChainControl/GetCommittedTip",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetStatusRequest): Buffer => Buffer.from(GetStatusRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetStatusRequest => GetStatusRequest.decode(value),
+    responseSerialize: (value: GetCommittedTipResponse): Buffer =>
+      Buffer.from(GetCommittedTipResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetCommittedTipResponse => GetCommittedTipResponse.decode(value),
+  },
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index's row for one height (the IBC host's
+   * explicit-height anchor). An empty block_hash means the height is not admitted (absent, or above
+   * the max): the caller refuses; nothing is served from a stored block.
+   */
+  getAdmittedRecord: {
+    path: "/ioi.blockchain.v1.ChainControl/GetAdmittedRecord",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetAdmittedRecordRequest): Buffer =>
+      Buffer.from(GetAdmittedRecordRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetAdmittedRecordRequest => GetAdmittedRecordRequest.decode(value),
+    responseSerialize: (value: GetAdmittedRecordResponse): Buffer =>
+      Buffer.from(GetAdmittedRecordResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetAdmittedRecordResponse => GetAdmittedRecordResponse.decode(value),
+  },
 } as const;
 
 export interface ChainControlServer extends UntypedServiceImplementation {
   /** Processes a block. Supports Hybrid Data Plane (Inline vs Shared Memory). */
   processBlock: handleUnaryCall<ProcessBlockRequest, ProcessBlockResponse>;
+  /** Replaces exactly one unrecognized AFT workload tip under an execution-surface fence. */
+  replaceUnfinalizedTip: handleUnaryCall<ReplaceUnfinalizedTipRequest, ProcessBlockResponse>;
   /** Fetches a range of blocks for sync. Supports Hybrid Data Plane. */
   getBlocksRange: handleUnaryCall<GetBlocksRangeRequest, GetBlocksRangeResponse>;
   /** Updates the header of a stored block (used for adding signatures/oracle data). */
@@ -3376,6 +4258,38 @@ export interface ChainControlServer extends UntypedServiceImplementation {
   getGenesisStatus: handleUnaryCall<GetGenesisStatusRequest, GetGenesisStatusResponse>;
   /** Gets the current chain status (height, timestamp, etc.). */
   getStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
+  /**
+   * Internal raw execution status. Unlike public AFT status, this is not
+   * demoted to the latest collapse-backed height and carries no finality
+   * meaning.
+   */
+  getExecutionStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status: the height and timestamp of the max
+   * row of the workload's admitted index. Height 0 when nothing has been admitted. Every "latest"
+   * or "trusted" read keys on this, never on GetStatus.
+   */
+  getCommittedStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission publication,
+   * the admitted index's only writer. Records one admitted block (written once per height);
+   * refused without the workload's per-boot capability, or when the record's execution surface
+   * differs from the stored block. Never exposed on public.v1.
+   */
+  recordAdmittedTip: handleUnaryCall<RecordAdmittedTipRequest, RecordAdmittedTipResponse>;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED tip itself: the max row of the admitted index (never
+   * re-read from the block stored at that height). Every trusted root (the IBC host's latest
+   * anchor, the agent's trusted state root) keys on this. An empty block_hash means no block has
+   * been admitted yet.
+   */
+  getCommittedTip: handleUnaryCall<GetStatusRequest, GetCommittedTipResponse>;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index's row for one height (the IBC host's
+   * explicit-height anchor). An empty block_hash means the height is not admitted (absent, or above
+   * the max): the caller refuses; nothing is served from a stored block.
+   */
+  getAdmittedRecord: handleUnaryCall<GetAdmittedRecordRequest, GetAdmittedRecordResponse>;
 }
 
 export interface ChainControlClient extends Client {
@@ -3395,6 +4309,22 @@ export interface ChainControlClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ProcessBlockResponse) => void,
   ): ClientUnaryCall;
+  /** Replaces exactly one unrecognized AFT workload tip under an execution-surface fence. */
+  replaceUnfinalizedTip(
+    request: ReplaceUnfinalizedTipRequest,
+    callback: (error: ServiceError | null, response: ProcessBlockResponse) => void,
+  ): ClientUnaryCall;
+  replaceUnfinalizedTip(
+    request: ReplaceUnfinalizedTipRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ProcessBlockResponse) => void,
+  ): ClientUnaryCall;
+  replaceUnfinalizedTip(
+    request: ReplaceUnfinalizedTipRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ProcessBlockResponse) => void,
+  ): ClientUnaryCall;
   /** Fetches a range of blocks for sync. Supports Hybrid Data Plane. */
   getBlocksRange(
     request: GetBlocksRangeRequest,
@@ -3458,6 +4388,108 @@ export interface ChainControlClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Internal raw execution status. Unlike public AFT status, this is not
+   * demoted to the latest collapse-backed height and carries no finality
+   * meaning.
+   */
+  getExecutionStatus(
+    request: GetStatusRequest,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  getExecutionStatus(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  getExecutionStatus(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED chain status: the height and timestamp of the max
+   * row of the workload's admitted index. Height 0 when nothing has been admitted. Every "latest"
+   * or "trusted" read keys on this, never on GetStatus.
+   */
+  getCommittedStatus(
+    request: GetStatusRequest,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  getCommittedStatus(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  getCommittedStatus(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: INTERNAL to the orchestration's Agentgres admission publication,
+   * the admitted index's only writer. Records one admitted block (written once per height);
+   * refused without the workload's per-boot capability, or when the record's execution surface
+   * differs from the stored block. Never exposed on public.v1.
+   */
+  recordAdmittedTip(
+    request: RecordAdmittedTipRequest,
+    callback: (error: ServiceError | null, response: RecordAdmittedTipResponse) => void,
+  ): ClientUnaryCall;
+  recordAdmittedTip(
+    request: RecordAdmittedTipRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RecordAdmittedTipResponse) => void,
+  ): ClientUnaryCall;
+  recordAdmittedTip(
+    request: RecordAdmittedTipRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RecordAdmittedTipResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a: the COMMITTED tip itself: the max row of the admitted index (never
+   * re-read from the block stored at that height). Every trusted root (the IBC host's latest
+   * anchor, the agent's trusted state root) keys on this. An empty block_hash means no block has
+   * been admitted yet.
+   */
+  getCommittedTip(
+    request: GetStatusRequest,
+    callback: (error: ServiceError | null, response: GetCommittedTipResponse) => void,
+  ): ClientUnaryCall;
+  getCommittedTip(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetCommittedTipResponse) => void,
+  ): ClientUnaryCall;
+  getCommittedTip(
+    request: GetStatusRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetCommittedTipResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the admitted index's row for one height (the IBC host's
+   * explicit-height anchor). An empty block_hash means the height is not admitted (absent, or above
+   * the max): the caller refuses; nothing is served from a stored block.
+   */
+  getAdmittedRecord(
+    request: GetAdmittedRecordRequest,
+    callback: (error: ServiceError | null, response: GetAdmittedRecordResponse) => void,
+  ): ClientUnaryCall;
+  getAdmittedRecord(
+    request: GetAdmittedRecordRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetAdmittedRecordResponse) => void,
+  ): ClientUnaryCall;
+  getAdmittedRecord(
+    request: GetAdmittedRecordRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetAdmittedRecordResponse) => void,
   ): ClientUnaryCall;
 }
 

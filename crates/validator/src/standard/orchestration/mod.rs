@@ -98,6 +98,8 @@ mod sync_harness;
 mod sync_p7_tests;
 #[cfg(test)]
 mod gossip_p7_tests;
+#[cfg(test)]
+mod admitted_tip_publisher_tests;
 /// Verifier selection logic.
 pub mod verifier_select;
 mod view_resolver;
@@ -106,6 +108,12 @@ mod events;
 mod finalize;
 mod lifecycle;
 pub(crate) mod runtime_finality;
+/// Where the orchestration's admitted-tip publisher takes the workload's admission capability from
+/// (FU-N11-DURABLE-STATUS-1 D2a round 3): an in-process capability or the workload's capability
+/// file. The node binaries build one and hand it to the orchestrator with
+/// [`Orchestrator::set_admitted_tip_publisher`]; the publisher itself is built only inside its
+/// module, from this source, at the runtime-finality coordinator's set-once install.
+pub use runtime_finality::AdmissionCapabilitySource;
 
 /// Transition logic
 pub mod transition;
@@ -307,6 +315,10 @@ where
     /// Shared event broadcaster.
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
     runtime_finality_root: PathBuf,
+    /// The admission-capability source the binary set (FU-N11-DURABLE-STATUS-1 D2a rounds 2-3),
+    /// until the runtime-finality coordinator takes it at startup, builds the publisher from it and
+    /// owns that privately.
+    admitted_tip_publisher: std::sync::Mutex<Option<AdmissionCapabilitySource>>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -387,7 +399,28 @@ where
             memory_runtime: deps.memory_runtime,
             event_broadcaster: deps.event_broadcaster,
             runtime_finality_root: deps.runtime_finality_root,
+            admitted_tip_publisher: std::sync::Mutex::new(None),
         })
+    }
+
+    /// Hands the orchestrator the SOURCE of the admitted-tip publisher's capability
+    /// (FU-N11-DURABLE-STATUS-1 D2a rounds 2-3): the publisher, the only holder of the workload
+    /// admission capability, is built from it inside its module when the runtime-finality
+    /// coordinator opens. Set once, before start. Without one, admitted tips are not recorded in
+    /// the workload (its committed height stays at its last record, 0 on a fresh node).
+    pub fn set_admitted_tip_publisher(&self, source: AdmissionCapabilitySource) {
+        match self.admitted_tip_publisher.lock() {
+            Ok(mut slot) if slot.is_none() => *slot = Some(source),
+            _ => log::warn!("Attempted to set the admitted-tip publisher more than once."),
+        }
+    }
+
+    /// Takes the capability source for the runtime-finality coordinator's install (startup only).
+    pub(crate) fn take_admitted_tip_publisher(&self) -> Option<AdmissionCapabilitySource> {
+        self.admitted_tip_publisher
+            .lock()
+            .ok()
+            .and_then(|mut slot| slot.take())
     }
 
     /// Execute an online-QUV effect through the sole Agentgres mutation

@@ -10,7 +10,7 @@ use crate::metrics::metrics;
 use crate::wal::{StateDiff, WalWriter};
 use async_trait::async_trait;
 use ioi_api::storage::{
-    be32, be64, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
+    be32, be64, AdmittedRecord, CommitInput, Epoch, Height, NodeHash, NodeStore, PruneStats, RootHash, StorageError,
 };
 use ioi_types::app::{Block, ChainTransaction};
 use ioi_types::codec;
@@ -27,6 +27,10 @@ const ROOT_INDEX: TableDefinition<&[u8; 32], &[u8; 16]> = TableDefinition::new("
 const HEAD: TableDefinition<&[u8; 4], &[u8; 16]> = TableDefinition::new("HEAD"); // key=b"HEAD", value=[height_be(8)][epoch_be(8)]
 const MANIFEST: TableDefinition<&[u8; 8], &[u8; 17]> = TableDefinition::new("EPOCH_MANIFEST"); // value = [first(8)][last(8)][sealed(1)]
 const BLOCKS: TableDefinition<&[u8; 8], &[u8]> = TableDefinition::new("BLOCKS");
+// FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the ADMITTED INDEX. key = height_be(8), value =
+// [block_hash(32)][timestamp_be(8)][state_root...]. Written once per height, only by the admission
+// publication; its last (max) row is the committed tip. No other path writes or removes a row.
+const ADMITTED_INDEX: TableDefinition<&[u8; 8], &[u8]> = TableDefinition::new("ADMITTED_INDEX");
 
 // Sharded (prefix-encoded) - Keys are variable-length slices
 const VERSIONS: TableDefinition<&[u8], &[u8; 32]> = TableDefinition::new("VERSIONS");
@@ -36,6 +40,31 @@ const NODES: TableDefinition<&[u8], &[u8]> = TableDefinition::new("NODES");
 
 fn key_head() -> [u8; 4] {
     *b"HEAD"
+}
+fn encode_admitted_record(record: &AdmittedRecord) -> Vec<u8> {
+    let mut out = Vec::with_capacity(40 + record.state_root.len());
+    out.extend_from_slice(&record.block_hash);
+    out.extend_from_slice(&record.timestamp.to_be_bytes());
+    out.extend_from_slice(&record.state_root);
+    out
+}
+fn decode_admitted_record(height: Height, bytes: &[u8]) -> Result<AdmittedRecord, StorageError> {
+    if bytes.len() < 40 {
+        return Err(StorageError::Decode(format!(
+            "admitted record at height {height} is {} bytes, below the 40-byte header",
+            bytes.len()
+        )));
+    }
+    let (hash, rest) = bytes.split_at(32);
+    let (timestamp, root) = rest.split_at(8);
+    let mut block_hash = [0u8; 32];
+    block_hash.copy_from_slice(hash);
+    Ok(AdmittedRecord {
+        height,
+        block_hash,
+        state_root: root.to_vec(),
+        timestamp: parse_u64(timestamp),
+    })
 }
 fn enc_epoch(e: Epoch) -> [u8; 8] {
     be64(e)
@@ -138,6 +167,8 @@ impl RedbEpochStore {
                 w.open_table(NODES)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
                 w.open_table(BLOCKS)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                w.open_table(ADMITTED_INDEX)
                     .map_err(|e| StorageError::Backend(e.to_string()))?;
             }
             w.commit()
@@ -1107,4 +1138,282 @@ impl NodeStore for RedbEpochStore {
 
         w.commit().map_err(|e| StorageError::Backend(e.to_string()))
     }
+
+    // --- FU-N11-DURABLE-STATUS-1 D2a GREEN-4: the ADMITTED INDEX ---------------------------------
+
+    fn get_admitted_record(&self, height: Height) -> Result<Option<AdmittedRecord>, StorageError> {
+        let r = self.read_txn()?;
+        let t = r
+            .open_table(ADMITTED_INDEX)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+        let bytes = t
+            .get(&height.to_be_bytes())
+            .map_err(|e| StorageError::Backend(e.to_string()))?
+            .map(|v| v.value().to_vec());
+        bytes
+            .map(|bytes| decode_admitted_record(height, &bytes))
+            .transpose()
+    }
+
+    fn get_latest_admitted_record(&self) -> Result<Option<AdmittedRecord>, StorageError> {
+        let r = self.read_txn()?;
+        let t = r
+            .open_table(ADMITTED_INDEX)
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+        let last = t
+            .last()
+            .map_err(|e| StorageError::Backend(e.to_string()))?
+            .map(|(key, value)| (parse_u64(key.value()), value.value().to_vec()));
+        last.map(|(height, bytes)| decode_admitted_record(height, &bytes))
+            .transpose()
+    }
+
+    fn put_admitted_record(&self, record: &AdmittedRecord) -> Result<(), StorageError> {
+        let key = record.height.to_be_bytes();
+        let w = self.write_txn()?;
+        {
+            let mut t = w
+                .open_table(ADMITTED_INDEX)
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+            let existing = t
+                .get(&key)
+                .map_err(|e| StorageError::Backend(e.to_string()))?
+                .map(|v| v.value().to_vec());
+            // Written once per height: the identical record is a no-op, any other is refused. An
+            // ABSENT height is written whether it is above the max or below it (a gap fill: the
+            // publisher reaches it by a parent_hash walk from its ledger head).
+            if let Some(bytes) = existing {
+                if decode_admitted_record(record.height, &bytes)? == *record {
+                    return Ok(());
+                }
+                return Err(StorageError::Backend(format!(
+                    "the admitted index already holds a different record at height {}: it is written once per height",
+                    record.height
+                )));
+            }
+            // A consistency check, failing closed: the record is indexed only over the block the
+            // workload stores at that height (same height and state root), read in this write's
+            // own transaction. It protects no committed read (the record is the authority); it
+            // detects a workload that executed something other than what was admitted.
+            let stored = {
+                let blocks = w
+                    .open_table(BLOCKS)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                let bytes = blocks
+                    .get(&key)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?
+                    .map(|v| v.value().to_vec());
+                bytes
+            };
+            let stored = stored.ok_or_else(|| {
+                StorageError::Backend(format!(
+                    "admitted record refused: no block is stored at height {}",
+                    record.height
+                ))
+            })?;
+            let stored: Block<ChainTransaction> =
+                codec::from_bytes_canonical(&stored).map_err(StorageError::Decode)?;
+            if stored.header.height != record.height || stored.header.state_root.0 != record.state_root
+            {
+                return Err(StorageError::Backend(format!(
+                    "admitted record refused: the block stored at height {} has a different execution surface",
+                    record.height
+                )));
+            }
+            t.insert(&key, encode_admitted_record(record).as_slice())
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+        }
+        w.commit().map_err(|e| StorageError::Backend(e.to_string()))
+    }
 }
+
+#[cfg(test)]
+mod admitted_tip_tests {
+    //! FU-N11-DURABLE-STATUS-1 D2a RED-W1a, as GREEN-4 changed it: the Agentgres-admitted tip is the
+    //! MAX ROW of the admitted index, persistent and never moving back; a lower ABSENT height is a
+    //! gap fill. (Write-once per height, prune and restart are pinned in admitted_index_tests.)
+    use super::RedbEpochStore;
+    use ioi_api::storage::{AdmittedRecord, AdmittedTip, NodeStore};
+
+    // The background persistence thread releases its database handle after the store drops;
+    // a bounded retry keeps the reopen deterministic.
+    fn reopen(path: &std::path::Path) -> RedbEpochStore {
+        let mut last = None;
+        for _ in 0..100 {
+            match RedbEpochStore::open(path, 1024) {
+                Ok(store) => return store,
+                Err(error) => last = Some(error),
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        panic!("reopen failed: {last:?}");
+    }
+
+    /// A canonical block at `height` whose state root is `[root; 32]` and whose consensus
+    /// identity varies with `salt`.
+    fn block(height: u64, root: u8, salt: u8) -> ioi_types::app::Block<ioi_types::app::ChainTransaction> {
+        use ioi_types::app::{
+            AccountId, Block, BlockHeader, QuorumCertificate, SignatureSuite, StateRoot,
+        };
+        Block {
+            header: BlockHeader {
+                height,
+                view: 0,
+                parent_hash: [salt; 32],
+                parent_state_root: StateRoot(vec![2; 32]),
+                state_root: StateRoot(vec![root; 32]),
+                transactions_root: vec![3; 32],
+                timestamp: 1_700_000_000 + height,
+                timestamp_ms: (1_700_000_000 + height) * 1_000,
+                gas_used: 0,
+                validator_set: vec![vec![4; 32]],
+                producer_account_id: AccountId([5; 32]),
+                producer_key_suite: SignatureSuite::ED25519,
+                producer_pubkey_hash: [6; 32],
+                producer_pubkey: vec![7; 32],
+                oracle_counter: 0,
+                oracle_trace_hash: [0; 32],
+                guardian_certificate: None,
+                sealed_finality_proof: None,
+                canonical_order_certificate: None,
+                timeout_certificate: None,
+                aft_timeout_certificate: None,
+                parent_qc: QuorumCertificate::default(),
+                previous_canonical_collapse_commitment_hash: [0; 32],
+                canonical_collapse_extension_certificate: None,
+                publication_frontier: None,
+                signature: Vec::new(),
+            },
+            transactions: Vec::new(),
+        }
+    }
+
+    fn bytes(block: &ioi_types::app::Block<ioi_types::app::ChainTransaction>) -> Vec<u8> {
+        ioi_types::codec::to_bytes_canonical(block).expect("canonical block bytes")
+    }
+
+    /// The store's async writes are acknowledged by its background thread; any runtime drives them.
+    fn run<F: std::future::Future>(future: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(future)
+    }
+
+    /// The admission record naming `block`, under the admitted hash `[hash; 32]`.
+    fn record_of(block: &ioi_types::app::Block<ioi_types::app::ChainTransaction>, hash: u8) -> AdmittedRecord {
+        AdmittedRecord {
+            height: block.header.height,
+            block_hash: [hash; 32],
+            state_root: block.header.state_root.0.clone(),
+            timestamp: block.header.timestamp,
+        }
+    }
+
+    fn tip_of(record: &AdmittedRecord) -> AdmittedTip {
+        AdmittedTip {
+            height: record.height,
+            block_hash: record.block_hash,
+            state_root: record.state_root.clone(),
+        }
+    }
+
+    /// RED-W1a, INVERTED at GREEN-4 (it asserted that a lower height is refused; under the admitted
+    /// index a lower ABSENT height is a gap fill). The committed tip is the index's max row: none
+    /// before the first record; a re-record of the same row is accepted; another hash or root at a
+    /// recorded height is refused and leaves the row; a lower absent height is accepted WITHOUT
+    /// moving the max; a higher height advances it; the max survives a restart.
+    #[test]
+    fn admitted_tip_marker_is_persistent_and_monotone() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("store.redb");
+        let (b2, b3, b5) = (block(2, 0xB2, 1), block(3, 0xB3, 1), block(5, 0xB5, 1));
+        {
+            let store = RedbEpochStore::open(&path, 1024).expect("open");
+            assert_eq!(store.get_admitted_tip().expect("read empty"), None);
+            run(async {
+                for b in [&b2, &b3, &b5] {
+                    store
+                        .put_block(b.header.height, &bytes(b))
+                        .await
+                        .expect("store the block");
+                }
+            });
+            store
+                .put_admitted_record(&record_of(&b3, 0xA3))
+                .expect("record height 3");
+            store
+                .put_admitted_record(&record_of(&b3, 0xA3))
+                .expect("the same record again (a restart redrive) is accepted");
+            assert!(
+                store.put_admitted_record(&record_of(&b3, 0xEE)).is_err(),
+                "the same height with a different block hash is refused"
+            );
+            assert!(
+                store
+                    .put_admitted_record(&AdmittedRecord {
+                        state_root: vec![0xEE; 32],
+                        ..record_of(&b3, 0xA3)
+                    })
+                    .is_err(),
+                "the same height with a different state root is refused"
+            );
+            assert_eq!(
+                store.get_admitted_tip().expect("read"),
+                Some(tip_of(&record_of(&b3, 0xA3))),
+                "a refused record leaves the max unchanged"
+            );
+            store
+                .put_admitted_record(&record_of(&b2, 0xA2))
+                .expect("a lower ABSENT height is a gap fill");
+            assert_eq!(
+                store.get_admitted_tip().expect("read"),
+                Some(tip_of(&record_of(&b3, 0xA3))),
+                "a gap fill below the max never moves the max back"
+            );
+            store
+                .put_admitted_record(&record_of(&b5, 0xA5))
+                .expect("advance to height 5");
+        }
+        let reopened = reopen(&path);
+        assert_eq!(
+            reopened.get_admitted_tip().expect("read after reopen"),
+            Some(tip_of(&record_of(&b5, 0xA5))),
+            "the max survives a restart"
+        );
+    }
+
+    /// RED-3, B1 (iii), ADAPTED at GREEN-4 to the index's writer (same assertions): a record is
+    /// indexed only over the block the store holds at its height (same height and state root),
+    /// checked in the index write's own transaction. A consistency check that fails closed: no
+    /// stored block, or another root, is refused and the index stays empty.
+    #[test]
+    fn the_marker_is_recorded_only_over_the_stored_block_it_names() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = RedbEpochStore::open(dir.path().join("store.redb"), 1024).expect("open");
+        let a3 = block(3, 0xA3, 1);
+        assert!(
+            store.put_admitted_record(&record_of(&a3, 0xAD)).is_err(),
+            "no stored block at the record's height: refused"
+        );
+        run(store.put_block(3, &bytes(&a3))).expect("store block 3");
+        assert!(
+            store
+                .put_admitted_record(&record_of(&block(3, 0xB4, 1), 0xAD))
+                .is_err(),
+            "a record whose root differs from the stored block's: refused"
+        );
+        assert_eq!(store.get_admitted_tip().expect("read"), None, "the index is unchanged");
+        store
+            .put_admitted_record(&record_of(&a3, 0xAD))
+            .expect("the record over the stored block it names");
+        assert_eq!(store.get_admitted_record(3).expect("read"), Some(record_of(&a3, 0xAD)));
+    }
+}
+
+// FU-N11-DURABLE-STATUS-1 D2a RED-4: the ADMITTED INDEX that replaces the fence: write-once per
+// height (T5), durable across a reopen (T6), and never read from a write in flight (T1 vi/vii)
+// (redb_epoch_store/admitted_index_tests.rs).
+#[cfg(test)]
+mod admitted_index_tests;
