@@ -495,3 +495,245 @@ fn a_receipt_body_hash_must_be_the_envelope_digest() {
     let refused = verify_bundle(&whole_body).expect_err("a whole-body hash is refused");
     assert_eq!(refusal(&refused), "body_hash_mismatch", "{refused}");
 }
+// ---------------------------------------------------------------------------
+// The root function itself. These tests name functions that exist only with
+// the implementation, so they could not run RED; the mutation battery pins them.
+// ---------------------------------------------------------------------------
+
+// RFC 6962 / RFC 9162 known answers (transparency-dev/merkle testonly/constants.go:
+// leaf inputs, and roots for sizes 0..=8), extracted by script from
+// gen_receipt_root_v2.py, sha256 7c43d0c12cef49febebf2e008bc9a2eeb8d0264a6a2036307f02e666cd4d63e3.
+const RFC6962_LEAF_INPUTS_HEX: [&str; 8] = [
+    "",
+    "00",
+    "10",
+    "2021",
+    "3031",
+    "40414243",
+    "5051525354555657",
+    "606162636465666768696a6b6c6d6e6f",
+];
+const RFC6962_ROOT_HASHES_HEX: [&str; 9] = [
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+    "fac54203e7cc696cf0dfcb42c92a1d9dbaf70ad9e621f4bd8d98662f00e3c125",
+    "aeb6bcfe274b70a14fb067a5e5578264db0fa9b51af5e0ba159158f329e06e77",
+    "d37ee418976dd95753c1c73862b9398fa2a2cf9b4ff0fdfe8b30cd95209614b7",
+    "4e3bbb1f7b478dcfe71fb631631519a3bca12c9aefca1612bfce4c13a86264d4",
+    "76e67dadbcdf1e10e1b74ddc608abd2f98dfb16fbce75277b5232a127f2087ef",
+    "ddb89be403809e325750d3d263cd78929c2942b7942a34b77e122c9594a74c8c",
+    "5dc9da79a70659a9ad559cb701ded9a2ab9d823aad2f4960cfe370eff4604328",
+];
+
+/// The vectors' reference verifier on the production functions: the root of
+/// the receipts as carried, compared with the claimed root.
+fn root_result(vector: &Vector) -> Result<String, String> {
+    let receipts = vector.raw["receipts"].as_array().expect("receipts");
+    match receipt_merkle_root(vector.range(), receipts) {
+        Ok((root, rows)) => {
+            for ((sequence, digest), receipt) in rows.iter().zip(receipts) {
+                assert_eq!(
+                    json!(sequence),
+                    receipt["sequence"],
+                    "{}: row order",
+                    vector.id
+                );
+                assert_eq!(
+                    json!(digest),
+                    receipt["body_hash"],
+                    "{}: row digest",
+                    vector.id
+                );
+            }
+            if json!(root) == *vector.claimed() {
+                Ok(root)
+            } else {
+                Err("root_mismatch".into())
+            }
+        }
+        Err(error) => Err(refusal(&error)),
+    }
+}
+
+#[test]
+fn receipt_merkle_root_gives_every_vector_its_exact_result() {
+    for id in REPRODUCED {
+        let vector = Vector::load(id);
+        let expected = vector.expected();
+        match root_result(&vector) {
+            Ok(root) => {
+                assert_eq!(expected["result"], json!("verified"), "{id}: verified");
+                assert_eq!(json!(root), expected["receipt_root"], "{id}: root");
+            }
+            Err(reason) => {
+                assert_eq!(
+                    expected["result"],
+                    json!("refused"),
+                    "{id}: refused ({reason})"
+                );
+                assert_eq!(json!(reason), expected["error"], "{id}: refusal");
+            }
+        }
+    }
+}
+
+#[test]
+fn every_published_intermediate_is_reproduced() {
+    let mut checked = 0;
+    for id in REPRODUCED {
+        let vector = Vector::load(id);
+        let intermediate = &vector.raw["intermediate"];
+        let receipts = vector.raw["receipts"].as_array().expect("receipts");
+        let leaves = receipts
+            .iter()
+            .map(|receipt| {
+                let digest = envelope_digest(&receipt["body"]).expect("D(E)");
+                receipt_leaf_input(&digest, receipt["sequence"].as_u64().expect("sequence"))
+                    .expect("leaf input")
+            })
+            .collect::<Vec<_>>();
+        if let Some(digests) = intermediate
+            .get("envelope_digests")
+            .and_then(Value::as_array)
+        {
+            let inputs = intermediate["leaf_inputs_hex"]
+                .as_array()
+                .expect("leaf inputs");
+            let hashes = intermediate["leaf_hashes_hex"]
+                .as_array()
+                .expect("leaf hashes");
+            assert_eq!(digests.len(), receipts.len(), "{id}");
+            assert_eq!(inputs.len(), receipts.len(), "{id}");
+            assert_eq!(hashes.len(), receipts.len(), "{id}");
+            for (index, receipt) in receipts.iter().enumerate() {
+                let digest = envelope_digest(&receipt["body"]).expect("D(E)");
+                assert_eq!(json!(digest), digests[index], "{id}[{index}]: D(E)");
+                assert_eq!(
+                    json!(hex::encode(&leaves[index])),
+                    inputs[index],
+                    "{id}[{index}]: leaf input"
+                );
+                assert_eq!(
+                    json!(hex::encode(rfc9162_tree_hash(std::slice::from_ref(
+                        &leaves[index]
+                    )))),
+                    hashes[index],
+                    "{id}[{index}]: leaf hash"
+                );
+            }
+            checked += 1;
+        }
+        if let Some(order) = intermediate
+            .get("claimed_root_leaf_order")
+            .and_then(Value::as_array)
+        {
+            let permuted = order
+                .iter()
+                .map(|position| leaves[position.as_u64().expect("position") as usize].clone())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                json!(hash_prefixed(&rfc9162_tree_hash(&permuted))),
+                *vector.claimed(),
+                "{id}: the claimed root is the tree over the swapped leaves"
+            );
+            checked += 1;
+        }
+    }
+    assert!(checked > 0, "no vector published intermediates");
+}
+
+#[test]
+fn every_envelope_digest_check_is_reproduced() {
+    let mut checked = 0;
+    for id in REPRODUCED {
+        let vector = Vector::load(id);
+        let Some(check) = vector.raw.get("envelope_digest_check") else {
+            continue;
+        };
+        let mutated = vector.raw["receipts"]
+            .as_array()
+            .expect("receipts")
+            .iter()
+            .find(|receipt| receipt["body_hash"] == check["mutated_digest"])
+            .expect("the mutated receipt");
+        assert_eq!(
+            json!(envelope_digest(&mutated["body"]).expect("D(mutated)")),
+            check["mutated_digest"],
+            "{id}: D(E) of the mutated envelope"
+        );
+        let base = vector
+            .derived_from()
+            .expect("a digest check names its base");
+        let original = base.raw["receipts"]
+            .as_array()
+            .expect("base receipts")
+            .iter()
+            .find(|receipt| receipt["sequence"] == mutated["sequence"])
+            .expect("the base receipt at the same sequence");
+        assert_eq!(
+            json!(envelope_digest(&original["body"]).expect("D(original)")),
+            check["reference_digest"],
+            "{id}: D(E) of the base envelope"
+        );
+        match check["must"].as_str() {
+            Some("equal") => assert_eq!(check["mutated_digest"], check["reference_digest"], "{id}"),
+            Some("differ") => {
+                assert_ne!(check["mutated_digest"], check["reference_digest"], "{id}")
+            }
+            other => panic!("{id}: unknown digest check {other:?}"),
+        }
+        checked += 1;
+    }
+    assert!(checked > 0, "no vector carries a digest check");
+}
+
+#[test]
+fn the_tree_hash_reproduces_the_rfc6962_known_answers() {
+    let leaves = RFC6962_LEAF_INPUTS_HEX
+        .iter()
+        .map(|leaf| hex::decode(leaf).expect("hex leaf"))
+        .collect::<Vec<_>>();
+    for (size, root) in RFC6962_ROOT_HASHES_HEX.iter().enumerate() {
+        assert_eq!(
+            hex::encode(rfc9162_tree_hash(&leaves[..size])),
+            *root,
+            "size {size}"
+        );
+    }
+}
+
+#[test]
+fn an_empty_range_is_never_a_receipt_root() {
+    let one = Vector::load("POS-N1").receipts();
+    for (range, receipts) in [((0, 0), json!([])), ((5, 4), json!([])), ((1, 0), one)] {
+        let refused = receipt_merkle_root(range, receipts.as_array().expect("receipts"))
+            .expect_err("an empty range has no receipt_root");
+        assert_eq!(refusal(&refused), "empty_range", "{range:?}: {refused}");
+    }
+}
+
+#[test]
+fn the_receipt_root_algorithm_is_the_vectors_algorithm() {
+    assert_eq!(index()["algorithm"], json!(RECEIPT_ROOT_ALGORITHM));
+    for id in REPRODUCED {
+        assert_eq!(
+            Vector::load(id).raw["algorithm"],
+            json!(RECEIPT_ROOT_ALGORITHM),
+            "{id}"
+        );
+    }
+}
+
+/// No vector carries a sequence outside its range; narrow POS-N3's range by one
+/// so its first receipt falls outside it.
+#[test]
+fn a_sequence_outside_the_range_is_refused() {
+    let vector = Vector::load("POS-N3");
+    let (first, last) = vector.range();
+    let refused = receipt_merkle_root(
+        (first + 1, last),
+        vector.raw["receipts"].as_array().expect("receipts"),
+    )
+    .expect_err("a receipt outside the range");
+    assert_eq!(refusal(&refused), "sequence_outside_range", "{refused}");
+}
