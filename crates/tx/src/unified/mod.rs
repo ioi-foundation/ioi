@@ -11,7 +11,7 @@ use ioi_api::state::{
 use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
 use ioi_api::vm::ExecutionContext;
-use ioi_services::agentic::firewall::SemanticFirewall;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_telemetry::sinks::{error_metrics, service_metrics};
 use ioi_types::app::{
     ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload, SystemTransaction,
@@ -337,9 +337,7 @@ where
                 proof,
                 header: _,
             } => {
-                let computed_hash = SemanticFirewall::compute_intent_hash(result).map_err(|e| {
-                    TransactionError::Invalid(format!("Semantic hash mismatch: {}", e))
-                })?;
+                let computed_hash = semantic_intent_hash(result)?;
 
                 if computed_hash != proof.intent_hash {
                     return Err(TransactionError::Invalid(format!(
@@ -362,6 +360,13 @@ where
         codec::from_bytes_canonical(data)
             .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
+}
+
+/// The intent hash of a semantic transaction's canonical result: the L0 SHA-256 of its bytes. It is
+/// the same digest the agentic firewall computes, called here directly so that the transaction
+/// model does not depend on the services crate.
+fn semantic_intent_hash(result: &[u8]) -> Result<[u8; 32], TransactionError> {
+    sha256(result).map_err(|e| TransactionError::Invalid(format!("Semantic hash mismatch: {}", e)))
 }
 
 #[cfg(test)]

@@ -10,7 +10,6 @@ repository = "https://github.com/ioi-foundation/ioi"
 [dependencies]
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
-ioi-services = { path = "../services", default-features = false }
 # REMOVED: ioi-consensus = { path = "../consensus" }
 ioi-crypto = { path = "../crypto" }
 ioi-telemetry = { path = "../telemetry" }
@@ -27,6 +26,11 @@ bs58 = "0.4"
 prost = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 toml = { workspace = true }
+
+[dev-dependencies]
+# Tests only: the settlement tests use IdentityHub, and a unified test pins the intent hash
+# against the firewall's. The transaction model itself no longer depends on ioi-services.
+ioi-services = { path = "../services", default-features = false }
 
 [features]
 default = []
