@@ -215,3 +215,23 @@ fn default_wallet_policy_effect_consumption_transaction_reaches_dispatch() {
         }]
     );
 }
+
+/// E10 (the monorepo seam plan): the transaction model hashes a semantic result with the L0
+/// SHA-256 directly. This pins that digest to the agentic firewall's compute_intent_hash, so the
+/// two can never drift apart.
+#[test]
+fn semantic_intent_hash_equals_the_firewall_intent_hash() {
+    use ioi_services::agentic::firewall::SemanticFirewall;
+    for result in [
+        &b""[..],
+        b"{}",
+        b"{\"a\":1,\"b\":[true,null]}",
+        &[0u8, 255, 7, 42][..],
+    ] {
+        assert_eq!(
+            super::semantic_intent_hash(result).unwrap(),
+            SemanticFirewall::compute_intent_hash(result).unwrap(),
+            "the intent hash of {result:?} differs from the firewall's"
+        );
+    }
+}
